@@ -2,7 +2,7 @@
 
 ## Phase 1: Workflow Setup
 - [x] Task: Create a basic GitHub Actions workflow file (`.github/workflows/build.yml`). c172e8c
-- [ ] Task: Configure the environment to install Java 25+ and GraalVM.
+- [x] Task: Configure the environment to install Java 25+ and GraalVM. 418078a
 - [ ] Task: Add steps to build the project using Gradle (`./gradlew build`).
 - [ ] Task: Add steps to run tests (`./gradlew test`).
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Workflow Setup' (Protocol in workflow.md)
