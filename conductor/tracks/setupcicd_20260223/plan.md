@@ -5,7 +5,7 @@
 - [x] Task: Configure the environment to install Java 25+ and GraalVM. 418078a
 - [x] Task: Add steps to build the project using Gradle (`./gradlew build`). 5504d13
 - [x] Task: Add steps to run tests (`./gradlew test`). d8dc9f4
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Workflow Setup' (Protocol in workflow.md)
+- [~] Task: Conductor - User Manual Verification 'Phase 1: Workflow Setup' (Protocol in workflow.md)
 
 ## Phase 2: Cross-Platform Native Compilation
 - [ ] Task: Configure matrix strategy to build on `macos-latest`, `windows-latest`, and `ubuntu-latest`.

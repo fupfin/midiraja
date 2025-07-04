@@ -1,0 +1,37 @@
+plugins {
+    id 'application'
+    id 'org.graalvm.buildtools.native' version '0.10.1'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'info.picocli:picocli:4.7.5'
+    annotationProcessor 'info.picocli:picocli-codegen:4.7.5'
+    implementation 'net.java.dev.jna:jna:5.14.0'
+}
+
+application {
+    mainClass = 'com.midraja.MidrajaCommand'
+}
+
+run {
+    if (project.hasProperty('jvmArgs')) {
+        jvmArgs = project.getProperty('jvmArgs').split(',')
+    }
+}
+
+graalvmNative {
+    binaries {
+        main {
+            imageName = 'midraja'
+            buildArgs.add('--no-fallback')
+            buildArgs.add('--enable-native-access=ALL-UNNAMED')
+            buildArgs.add('-H:+UnlockExperimentalVMOptions')
+            // JNA와 CoreMIDI 동적 로딩을 위해 런타임 초기화 설정
+            buildArgs.add('--initialize-at-run-time=com.sun.jna.Native,com.sun.jna.Pointer')
+        }
+    }
+}
