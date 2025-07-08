@@ -16,6 +16,6 @@
 
 ## Phase 3: Release Automation
 - [x] Task: Create a new workflow for release automation (`.github/workflows/release.yml`) triggered on tag pushes. ed76b8e
-- [ ] Task: Add steps to build the cross-platform native executables.
+- [x] Task: Add steps to build the cross-platform native executables. 4ddb3f7
 - [ ] Task: Configure the workflow to create a GitHub Release and upload the generated binaries as artifacts.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Release Automation' (Protocol in workflow.md)
