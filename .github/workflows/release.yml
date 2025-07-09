@@ -12,7 +12,17 @@ jobs:
   build-and-release:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: midraja
+            asset_name: midraja-linux-amd64
+          - os: macos-latest
+            artifact_name: midraja
+            asset_name: midraja-darwin-arm64
+          - os: windows-latest
+            artifact_name: midraja.exe
+            asset_name: midraja-windows-amd64.exe
+
     runs-on: ${{ matrix.os }}
     
     steps:
@@ -38,3 +48,17 @@ jobs:
         
       - name: Build Native Image
         run: ./gradlew nativeCompile
+
+      - name: Rename Artifact
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            mv build/native/nativeCompile/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+          else
+            mv build/native/nativeCompile/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+          fi
+        shell: bash
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset_name }}
