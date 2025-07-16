@@ -1,7 +1,7 @@
 # Implementation Plan: Advanced MIDI Controls (Volume & Transpose)
 
 ## Phase 1: CLI Arguments & Parameter Validation
-- [ ] Task: Define new CLI options in `MidrajaCommand.java`.
+- [x] Task: Define new CLI options in `MidrajaCommand.java`. bae1e4c
     - [ ] Write Tests: Create `MidrajaCommandTest` to verify that `--volume` and `--transpose` arguments are correctly parsed.
     - [ ] Implement: Add `@Option` for volume and transpose in `MidrajaCommand.java`.
     - [ ] Code Review: Submit changes for review to improve design and naming.
