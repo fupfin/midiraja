@@ -24,6 +24,18 @@ public interface MidiOutProvider {
     void closePort();
 
     /**
+     * 모든 채널(0-15)에 마스터 볼륨(CC 7) 값을 전송
+     */
+    default void setVolume(int volume) {
+        if (volume < 0 || volume > 127) return;
+        for (int ch = 0; ch < 16; ch++) {
+            try {
+                sendMessage(new byte[]{(byte) (0xB0 | ch), 7, (byte) volume});
+            } catch (Exception ignored) {}
+        }
+    }
+
+    /**
      * 모든 채널의 소리를 즉시 차단 (All Notes Off)
      */
     default void panic() {
