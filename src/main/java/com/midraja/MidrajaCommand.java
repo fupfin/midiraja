@@ -79,7 +79,10 @@ public class MidrajaCommand implements Callable<Integer> {
         return 0;
     }
 
-    private void playMidiWithProvider(File file, int targetPortIndex, MidiOutProvider provider) throws Exception {
+    // 테스트용 플래그
+    boolean isTestMode = false;
+
+    void playMidiWithProvider(File file, int targetPortIndex, MidiOutProvider provider) throws Exception {
         List<MidiPort> ports = provider.getOutputPorts();
         
         if (targetPortIndex < 0 || targetPortIndex >= ports.size()) {
@@ -91,6 +94,11 @@ public class MidrajaCommand implements Callable<Integer> {
         
         // 1. 포트 열기 및 셧다운 훅 등록
         provider.openPort(targetPortIndex);
+
+        if (volume != null) {
+            provider.setVolume(volume);
+        }
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("\n[Midraja] Stopping playback and clearing MIDI notes...");
             provider.panic();
@@ -128,7 +136,7 @@ public class MidrajaCommand implements Callable<Integer> {
             int status = raw[0] & 0xFF;
             if (status < 0xF0) {
                 long tickDiff = event.getTick() - lastTick;
-                if (tickDiff > 0) {
+                if (tickDiff > 0 && !isTestMode) {
                     long sleepMs = (long) (tickDiff * (60000.0 / (tempoBPM * resolution)));
                     if (sleepMs > 0) Thread.sleep(sleepMs);
                 }
