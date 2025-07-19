@@ -12,7 +12,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: CLI Arguments & Parameter Validation' (Protocol in workflow.md) [checkpoint: 89e614e]
 
 ## Phase 2: Volume Control Implementation
-- [ ] Task: Implement global volume setting in `MidiOutProvider`.
+- [x] Task: Implement global volume setting in `MidiOutProvider`. c4f6875
     - [ ] Write Tests: Create a mock `MidiOutProvider` and verify that `openPort` sends CC 7 messages to all 16 channels when a volume is set.
     - [ ] Implement: Update `MidiOutProvider` interface and OS-specific implementations to handle initial volume.
     - [ ] Code Review: Submit changes for review to improve the abstraction and OS-specific implementations.
