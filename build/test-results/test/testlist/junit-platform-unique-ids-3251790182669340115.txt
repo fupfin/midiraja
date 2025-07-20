@@ -1,4 +1,0 @@
-[engine:junit-jupiter]/[class:com.midraja.MidrajaCommandTest]/[method:testParseTransposeOption()]
-[engine:junit-jupiter]/[class:com.midraja.MidrajaCommandTest]/[method:testInvalidVolumeNegative()]
-[engine:junit-jupiter]/[class:com.midraja.MidrajaCommandTest]/[method:testInvalidVolumeOutOfRange()]
-[engine:junit-jupiter]/[class:com.midraja.MidrajaCommandTest]/[method:testParseVolumeOption()]
