@@ -20,7 +20,7 @@
     - [ ] Write Tests: Verify that the playback loop initializes volume before sending the first note.
     - [ ] Implement: Update `MidrajaCommand.playMidiWithProvider` to call volume initialization.
     - [ ] Code Review: Submit changes for review to ensure clean integration into the playback loop.
-- [~] Task: Conductor - User Manual Verification 'Phase 2: Volume Control Implementation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Volume Control Implementation' (Protocol in workflow.md) [checkpoint: 7508a3b]
 
 ## Phase 3: Transposition Implementation
 - [ ] Task: Implement note transposition logic in the playback loop.
