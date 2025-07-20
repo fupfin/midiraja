@@ -135,6 +135,15 @@ public class MidrajaCommand implements Callable<Integer> {
             // 일반 메시지 전송 (Meta 및 SysEx 제외한 짧은 메시지들)
             int status = raw[0] & 0xFF;
             if (status < 0xF0) {
+                // CC 7 (Main Volume) 가로채기 및 스케일링
+                if ((status & 0xF0) == 0xB0 && raw.length >= 3 && raw[1] == 7) {
+                    if (volume != null) {
+                        int originalVol = raw[2] & 0xFF;
+                        int scaledVol = (int) (originalVol * (volume / 127.0));
+                        raw[2] = (byte) Math.max(0, Math.min(127, scaledVol));
+                    }
+                }
+
                 long tickDiff = event.getTick() - lastTick;
                 if (tickDiff > 0 && !isTestMode) {
                     long sleepMs = (long) (tickDiff * (60000.0 / (tempoBPM * resolution)));
