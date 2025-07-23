@@ -155,6 +155,68 @@ class MidirajaCommandTest {
     }
 
     @Test
+    void testFindPortIndex_ExactMatch() throws Exception {
+        MidirajaCommand app = new MidirajaCommand();
+        List<MidiPort> ports = new ArrayList<>();
+        ports.add(new MidiPort(0, "IAC Driver Bus 1"));
+        ports.add(new MidiPort(1, "FluidSynth virtual port"));
+        ports.add(new MidiPort(2, "Real Time Sequencer"));
+
+        int index = app.findPortIndex("1", ports);
+        assertEquals(1, index);
+    }
+
+    @Test
+    void testFindPortIndex_PartialMatch() throws Exception {
+        MidirajaCommand app = new MidirajaCommand();
+        List<MidiPort> ports = new ArrayList<>();
+        ports.add(new MidiPort(0, "IAC Driver Bus 1"));
+        ports.add(new MidiPort(1, "FluidSynth virtual port"));
+
+        int index = app.findPortIndex("fluid", ports);
+        assertEquals(1, index);
+    }
+
+    @Test
+    void testFindPortIndex_CaseInsensitive() throws Exception {
+        MidirajaCommand app = new MidirajaCommand();
+        List<MidiPort> ports = new ArrayList<>();
+        ports.add(new MidiPort(0, "FluidSynth virtual port"));
+
+        int index = app.findPortIndex("FLUIDSYNTH", ports);
+        assertEquals(0, index);
+    }
+
+    @Test
+    void testFindPortIndex_AmbiguousMatch() {
+        MidirajaCommand app = new MidirajaCommand();
+        List<MidiPort> ports = new ArrayList<>();
+        ports.add(new MidiPort(0, "IAC Driver Bus 1"));
+        ports.add(new MidiPort(1, "IAC Driver Bus 2"));
+
+        try {
+            app.findPortIndex("IAC", ports);
+            assertFalse(true, "Should have thrown an exception");
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("Ambiguous"));
+        }
+    }
+
+    @Test
+    void testFindPortIndex_NoMatch() {
+        MidirajaCommand app = new MidirajaCommand();
+        List<MidiPort> ports = new ArrayList<>();
+        ports.add(new MidiPort(0, "IAC Driver Bus 1"));
+
+        try {
+            app.findPortIndex("fluid", ports);
+            assertFalse(true, "Should have thrown an exception");
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("No matching"));
+        }
+    }
+
+    @Test
     void testParsePortStringOption() {
         MidirajaCommand app = new MidirajaCommand();
         CommandLine cmd = new CommandLine(app);

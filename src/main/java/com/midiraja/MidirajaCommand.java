@@ -75,12 +75,11 @@ public class MidirajaCommand implements Callable<Integer> {
             return 1;
         }
 
-        // 임시로 숫자 파싱 (다음 Task에서 Smart Matching으로 교체 예정)
         int portIndex;
         try {
-            portIndex = Integer.parseInt(portSpec);
-        } catch (NumberFormatException e) {
-            System.err.println("Error: Port must be an integer index for now.");
+            portIndex = findPortIndex(portSpec, midiProvider.getOutputPorts());
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
             return 1;
         }
 
@@ -90,6 +89,44 @@ public class MidirajaCommand implements Callable<Integer> {
 
     // 테스트용 플래그
     boolean isTestMode = false;
+
+    int findPortIndex(String portSpec, List<MidiPort> ports) throws Exception {
+        if (portSpec == null || ports.isEmpty()) {
+            throw new Exception("No matching MIDI port found.");
+        }
+
+        // 1. Try exact integer match
+        try {
+            int index = Integer.parseInt(portSpec);
+            for (MidiPort port : ports) {
+                if (port.index() == index) {
+                    return index;
+                }
+            }
+        } catch (NumberFormatException ignored) {}
+
+        // 2. Try partial case-insensitive match
+        List<MidiPort> matches = new ArrayList<>();
+        String lowerSpec = portSpec.toLowerCase();
+        
+        for (MidiPort port : ports) {
+            if (port.name() != null && port.name().toLowerCase().contains(lowerSpec)) {
+                matches.add(port);
+            }
+        }
+
+        if (matches.size() == 1) {
+            return matches.get(0).index();
+        } else if (matches.size() > 1) {
+            StringBuilder error = new StringBuilder("Ambiguous port name. Multiple matches found:\n");
+            for (MidiPort port : matches) {
+                error.append(String.format("  [%d] %s\n", port.index(), port.name()));
+            }
+            throw new Exception(error.toString());
+        }
+
+        throw new Exception("No matching MIDI port found for: " + portSpec);
+    }
 
     void playMidiWithProvider(File file, int targetPortIndex, MidiOutProvider provider) throws Exception {
         List<MidiPort> ports = provider.getOutputPorts();
