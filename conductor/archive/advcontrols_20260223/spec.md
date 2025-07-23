@@ -1,7 +1,7 @@
 # Specification: Advanced MIDI Controls (Volume & Transpose)
 
 ## Overview
-This track adds advanced MIDI playback controls to the Midraja CLI tool. Specifically, it introduces the ability to control global playback volume and transpose note pitches in real-time or via initial CLI arguments.
+This track adds advanced MIDI playback controls to the Midiraja CLI tool. Specifically, it introduces the ability to control global playback volume and transpose note pitches in real-time or via initial CLI arguments.
 
 ## Functional Requirements
 - **Volume Control (`--volume`):**
@@ -12,12 +12,12 @@ This track adds advanced MIDI playback controls to the Midraja CLI tool. Specifi
     - During playback, the pitch value of all Note On and Note Off messages should be shifted by the specified offset.
     - **Smart Transposition:** MIDI Channel 10 (percussion) MUST NOT be transposed.
 - **CLI Integration:**
-    - Add `--volume` (or `-v`) option to the `midraja` command.
-    - Add `--transpose` (or `-t`) option to the `midraja` command.
+    - Add `--volume` (or `-v`) option to the `midra` command.
+    - Add `--transpose` (or `-t`) option to the `midra` command.
 
 ## Acceptance Criteria
-- Running `midraja song.mid --port 3 --volume 64` starts playback with half-volume across all channels.
-- Running `midraja song.mid --port 3 --transpose 12` plays the song one octave higher.
+- Running `midra song.mid --port 3 --volume 64` starts playback with half-volume across all channels.
+- Running `midra song.mid --port 3 --transpose 12` plays the song one octave higher.
 - Transposition does not affect drum sounds on Channel 10.
 - Invalid inputs (e.g., volume 200 or transpose "abc") result in a clear error message.
 

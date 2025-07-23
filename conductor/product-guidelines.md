@@ -1,4 +1,4 @@
-# Product Guidelines: Midraja
+# Product Guidelines: Midiraja
 
 ## UX Principles
 1.  **Visual Feedback:** During playback, the CLI should provide a clear, non-intrusive progress bar or status indicator to keep the user informed.

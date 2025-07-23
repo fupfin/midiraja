@@ -1,7 +1,7 @@
 # Specification: Setup CI/CD Pipeline
 
 ## Overview
-This track involves setting up an automated Continuous Integration and Continuous Deployment (CI/CD) pipeline for the Midraja project. The pipeline will automate the build, test, and release processes for the cross-platform native executables (macOS, Windows, Linux) built with GraalVM Native Image.
+This track involves setting up an automated Continuous Integration and Continuous Deployment (CI/CD) pipeline for the Midiraja project. The pipeline will automate the build, test, and release processes for the cross-platform native executables (macOS, Windows, Linux) built with GraalVM Native Image.
 
 ## Functional Requirements
 - **Automated Builds:** Trigger Gradle builds automatically on every push or pull request to the `main` branch.

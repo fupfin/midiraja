@@ -1,4 +1,4 @@
-# Technology Stack: Midraja
+# Technology Stack: Midiraja
 
 ## Core Technologies
 -   **Language:** Java 25+
