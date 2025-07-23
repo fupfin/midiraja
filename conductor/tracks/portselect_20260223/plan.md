@@ -1,7 +1,7 @@
 # Implementation Plan: Interactive Port Selection & Smart Matching
 
 ## Phase 1: Smart Port Selection Logic
-- [ ] Task: Modify `MidirajaCommand` to accept `--port` as a `String` instead of an `Integer`.
+- [x] Task: Modify `MidirajaCommand` to accept `--port` as a `String` instead of an `Integer`. 0ead0ba
     - [ ] Update field type.
     - [ ] Add `findPortIndex` method that accepts the input string and a list of `MidiPort`s, and returns the matching index.
 - [ ] Task: Implement partial matching (Smart Matching) logic in `findPortIndex`.
