@@ -1,21 +1,21 @@
 [
   {
-    "name": "com.midraja.midi.os.MacProvider$CoreMIDI",
+    "name": "com.midiraja.midi.os.MacProvider$CoreMIDI",
     "allDeclaredMethods": true,
     "allPublicMethods": true
   },
   {
-    "name": "com.midraja.midi.os.MacProvider$CoreFoundation",
+    "name": "com.midiraja.midi.os.MacProvider$CoreFoundation",
     "allDeclaredMethods": true,
     "allPublicMethods": true
   },
   {
-    "name": "com.midraja.midi.os.WindowsProvider$WinMM",
+    "name": "com.midiraja.midi.os.WindowsProvider$WinMM",
     "allDeclaredMethods": true,
     "allPublicMethods": true
   },
   {
-    "name": "com.midraja.midi.os.WindowsProvider$MIDIOUTCAPS",
+    "name": "com.midiraja.midi.os.WindowsProvider$MIDIOUTCAPS",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,
     "allDeclaredFields": true,

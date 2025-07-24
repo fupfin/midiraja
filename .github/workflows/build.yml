@@ -46,8 +46,8 @@ jobs:
       - name: Verify Executable exists
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
-            if [ -f build/native/nativeCompile/midraja.exe ]; then echo "midraja.exe exists"; else exit 1; fi
+            if [ -f build/native/nativeCompile/midra.exe ]; then echo "midra.exe exists"; else exit 1; fi
           else
-            if [ -f build/native/nativeCompile/midraja ]; then echo "midraja exists"; else exit 1; fi
+            if [ -f build/native/nativeCompile/midra ]; then echo "midra exists"; else exit 1; fi
           fi
         shell: bash

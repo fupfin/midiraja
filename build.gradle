@@ -20,7 +20,7 @@ test {
 }
 
 application {
-    mainClass = 'com.midraja.MidrajaCommand'
+    mainClass = 'com.midiraja.MidirajaCommand'
 }
 
 run {
@@ -32,7 +32,7 @@ run {
 graalvmNative {
     binaries {
         main {
-            imageName = 'midraja'
+            imageName = 'midra'
             buildArgs.add('--no-fallback')
             buildArgs.add('--enable-native-access=ALL-UNNAMED')
             buildArgs.add('-H:+UnlockExperimentalVMOptions')

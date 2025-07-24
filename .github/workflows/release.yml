@@ -14,14 +14,14 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: midraja
-            asset_name: midraja-linux-amd64
+            artifact_name: midra
+            asset_name: midra-linux-amd64
           - os: macos-latest
-            artifact_name: midraja
-            asset_name: midraja-darwin-arm64
+            artifact_name: midra
+            asset_name: midra-darwin-arm64
           - os: windows-latest
-            artifact_name: midraja.exe
-            asset_name: midraja-windows-amd64.exe
+            artifact_name: midra.exe
+            asset_name: midra-windows-amd64.exe
 
     runs-on: ${{ matrix.os }}
     

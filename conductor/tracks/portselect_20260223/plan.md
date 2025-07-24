@@ -8,7 +8,7 @@
     - [ ] Handle exact integer matching.
     - [ ] Handle partial case-insensitive string matching.
     - [ ] Add validation to fail on ambiguous matches (multiple matches found).
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Smart Port Selection Logic' (Protocol in workflow.md)
+- [~] Task: Conductor - User Manual Verification 'Phase 1: Smart Port Selection Logic' (Protocol in workflow.md)
 
 ## Phase 2: Interactive CLI Prompts
 - [ ] Task: Implement interactive port selection fallback.
