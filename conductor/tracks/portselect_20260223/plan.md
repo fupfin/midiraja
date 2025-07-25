@@ -11,7 +11,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Smart Port Selection Logic' (Protocol in workflow.md) [checkpoint: e2994dd]
 
 ## Phase 2: Interactive CLI Prompts
-- [ ] Task: Implement interactive port selection fallback.
+- [x] Task: Implement interactive port selection fallback. 53f48ed
     - [ ] If `portSpec` is null, list available ports to `System.out`.
     - [ ] Prompt the user using `System.console().readLine()` or `Scanner(System.in)`.
     - [ ] Read the user's input, parse it as an integer, and attempt to open the corresponding port.
