@@ -10,6 +10,7 @@ import picocli.CommandLine.Parameters;
 
 import javax.sound.midi.MidiEvent;
 import javax.sound.midi.MidiMessage;
+import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiSystem;
 import javax.sound.midi.Sequence;
 import javax.sound.midi.Track;
@@ -183,6 +184,10 @@ public class MidirajaCommand implements Callable<Integer> {
 
         // 2. MIDI 파일 분석
         Sequence sequence = MidiSystem.getSequence(file);
+        
+        // 메타데이터(제목, 저작권 등) 추출 및 출력
+        extractAndPrintMetadata(sequence);
+
         int resolution = sequence.getResolution();
         long totalTicks = sequence.getTickLength();
         float tempoBPM = 120.0f;
@@ -284,16 +289,61 @@ public class MidirajaCommand implements Callable<Integer> {
 
                 provider.sendMessage(raw);
                 lastTick = event.getTick();
-                currentTickRef[0] = lastTick;
-            }
-        }
-
-        isFinished[0] = true;
-        isPlaying[0] = false;
-        try { uiThread.join(200); } catch (InterruptedException ignored) {}
-        System.out.println("\nPlayback finished.");
-        provider.panic();
-        provider.closePort();
-    }
-
-}
+                                currentTickRef[0] = lastTick;
+                            }
+                        }
+                
+                        isFinished[0] = true;
+                        isPlaying[0] = false;
+                        try { uiThread.join(200); } catch (InterruptedException ignored) {}
+                        System.out.println("\nPlayback finished.");
+                        provider.panic();
+                        provider.closePort();
+                    }
+                
+                    private void extractAndPrintMetadata(Sequence sequence) {
+                        String title = null;
+                        String copyright = null;
+                        List<String> texts = new ArrayList<>();
+                
+                        for (Track track : sequence.getTracks()) {
+                            for (int i = 0; i < track.size(); i++) {
+                                MidiMessage msg = track.get(i).getMessage();
+                                if (msg instanceof MetaMessage) {
+                                    MetaMessage meta = (MetaMessage) msg;
+                                    int type = meta.getType();
+                                    byte[] data = meta.getData();
+                                    
+                                    if (data != null && data.length > 0) {
+                                        // MIDI Text events are often ASCII or CP1252/SJIS depending on origin. 
+                                        // Using ISO-8859-1 or standard String constructor usually works for generic English text.
+                                        String text = new String(data).trim();
+                                        // Ignore garbage or empty strings
+                                        if (text.isEmpty() || text.matches("^[\\s\\p{C}]+$")) continue;
+                
+                                        if (type == 0x03 && title == null) {
+                                            title = text;
+                                        } else if (type == 0x02 && copyright == null) {
+                                            copyright = text;
+                                        } else if (type == 0x01 && texts.size() < 3) {
+                                            // Collect up to 3 info texts to avoid flooding the screen
+                                            if (!texts.contains(text)) {
+                                                texts.add(text);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                
+                        if (title != null) {
+                            System.out.println("  Title: " + title);
+                        }
+                        if (copyright != null) {
+                            System.out.println("  Copyright: " + copyright);
+                        }
+                        for (String info : texts) {
+                            System.out.println("  Info: " + info);
+                        }
+                    }
+                }
