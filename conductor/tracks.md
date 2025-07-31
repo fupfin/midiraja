@@ -10,5 +10,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 - [x] **Track: SC-55 Style Real-Time Part Level Meter**
 *Link: [./archive/sc55_display_20260223/](./archive/sc55_display_20260223/)*
 
-- [~] **Track: MIDI Metadata Extraction & Display**
+- [x] **Track: MIDI Metadata Extraction & Display**
 *Link: [./tracks/metadata_display_20260223/](./tracks/metadata_display_20260223/)*
