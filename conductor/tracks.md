@@ -11,4 +11,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 *Link: [./archive/sc55_display_20260223/](./archive/sc55_display_20260223/)*
 
 - [x] **Track: MIDI Metadata Extraction & Display**
-*Link: [./tracks/metadata_display_20260223/](./tracks/metadata_display_20260223/)*
+*Link: [./archive/metadata_display_20260223/](./archive/metadata_display_20260223/)*
+
+- [~] **Track: Interactive Playback Architecture (IoC & DIP)**
+*Link: [./tracks/interactive_playback_20260223/](./tracks/interactive_playback_20260223/)*

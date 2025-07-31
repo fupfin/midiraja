@@ -1,0 +1,8 @@
+{
+  "track_id": "interactive_playback_20260223",
+  "type": "architectural_refactoring",
+  "status": "in_progress",
+  "created_at": "2026-02-23T12:30:00Z",
+  "updated_at": "2026-02-23T12:30:00Z",
+  "description": "Interactive Playback Architecture (IoC & DIP)"
+}
