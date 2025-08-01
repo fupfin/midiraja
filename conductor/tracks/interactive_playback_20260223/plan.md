@@ -13,18 +13,18 @@
 - [x] Task: Implement Volume Adjust (`UP`/`DOWN`). Modify the internal `volume` scale dynamically and instantly send CC 7 (Volume) updates across all 16 channels.
 
 ## Phase 3: MIDI Chasing (Seek Implementation)
-- [ ] Task: Implement `seek(long targetTick)` in `PlaybackEngine`.
-- [ ] Task: The `seek` method must perform a "Panic" (All Notes Off).
-- [ ] Task: Instantly process all non-note events (Program Change `0xC0`, Control Change `0xB0`, Pitch Bend `0xE0`) from tick 0 to `targetTick` to restore the MIDI state.
-- [ ] Task: Resume playback from `targetTick`.
-- [ ] Task: Ensure GraalVM Native Image builds successfully with the JLine dependency (may need `--initialize-at-build-time=org.jline...` config).
+- [x] Task: Implement `seek(long targetTick)` in `PlaybackEngine`.
+- [x] Task: The `seek` method must perform a "Panic" (All Notes Off).
+- [x] Task: Instantly process all non-note events (Program Change `0xC0`, Control Change `0xB0`, Pitch Bend `0xE0`) from tick 0 to `targetTick` to restore the MIDI state.
+- [x] Task: Resume playback from `targetTick`.
+- [x] Task: Ensure GraalVM Native Image builds successfully with the JLine dependency (may need `--initialize-at-build-time=org.jline...` config).
 
 ## Phase 4: Quality & Verification (TDD & Review)
 - [x] Task: Write comprehensive test cases for `PlaybackEngine` using `MockTerminalIO`.
-- [ ] Task: Include edge cases (e.g., seeking beyond file end, volume at 0% or 100%, malformed MIDI events) and boundary conditions.
-- [ ] Task: Measure test coverage and supplement missing areas to ensure logic completeness (not just for the numbers).
-- [ ] Task: Perform a thorough code review focused on:
+- [x] Task: Include edge cases (e.g., seeking beyond file end, volume at 0% or 100%, malformed MIDI events) and boundary conditions.
+- [x] Task: Measure test coverage and supplement missing areas to ensure logic completeness (not just for the numbers).
+- [x] Task: Perform a thorough code review focused on:
     - **Design:** Proper IoC/DIP implementation.
     - **Readability:** Clean naming and clear event flow.
     - **Security:** Safe handling of external file inputs and terminal raw mode cleanup.
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Quality & Verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Quality & Verification' (Protocol in workflow.md)
