@@ -1,0 +1,5 @@
+[engine:junit-jupiter]/[class:com.midiraja.MidirajaCommandTest]/[method:testPlayMidiWithVolumeScaling(java.nio.file.Path)]
+[engine:junit-jupiter]/[class:com.midiraja.MidirajaCommandTest]/[method:testFindPortIndex()]
+[engine:junit-jupiter]/[class:com.midiraja.engine.PlaybackEngineTest]/[method:testVolumeControl()]
+[engine:junit-jupiter]/[class:com.midiraja.engine.PlaybackEngineTest]/[method:testSeekBeyondBoundary()]
+[engine:junit-jupiter]/[class:com.midiraja.midi.MidiOutProviderTest]/[method:testSetVolumeSendsCC7ToAllChannels()]

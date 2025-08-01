@@ -6,9 +6,9 @@
     "allDeclaredMethods" : true,
     "allPublicMethods" : true,
     "fields" : [
+      { "name" : "file" },
       { "name" : "listDevices" },
-      { "name" : "midiFile" },
-      { "name" : "portSpec" },
+      { "name" : "port" },
       { "name" : "transpose" },
       { "name" : "volume" }
     ]

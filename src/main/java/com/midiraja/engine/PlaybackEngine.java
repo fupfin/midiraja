@@ -13,6 +13,7 @@ public class PlaybackEngine {
     private final TerminalIO terminalIO;
     
     private volatile long currentTick = 0;
+    private volatile long seekTarget = -1;
     private volatile float currentBpm = 120.0f;
     private volatile double volumeScale = 1.0;
     private volatile boolean isPlaying = false;
@@ -49,9 +50,14 @@ public class PlaybackEngine {
         inputThread.setDaemon(true);
         inputThread.start();
 
-        playLoop();
+        try {
+            playLoop();
+        } finally {
+            // Ensure all notes are silenced when playLoop exits (e.g., 'q' pressed or song finished)
+            provider.panic();
+            isPlaying = false;
+        }
         
-        isPlaying = false;
         uiThread.join(500);
     }
 
@@ -60,17 +66,36 @@ public class PlaybackEngine {
         int eventIndex = 0;
 
         while (isPlaying && eventIndex < sortedEvents.size()) {
-            MidiEvent event = sortedEvents.get(eventIndex);
-            long tick = event.getTick();
-            
-            // Seeking check: If currentTick was jumped externally
-            if (Math.abs(currentTick - lastTick) > 10) { // Allow small jitter, but detect large jumps
-                eventIndex = findEventIndexAt(currentTick);
-                lastTick = currentTick;
-                // Note: Chasing logic will be added in Phase 3
+            // Check if an external seek was requested
+            if (seekTarget != -1) {
+                long target = seekTarget;
+                seekTarget = -1; // Reset flag
+                
+                // 1. Panic: Stop all currently ringing notes
+                provider.panic();
+                
+                // 2. Reset UI levels and tempo
+                currentBpm = 120.0f;
+                Arrays.fill(channelLevels, 0.0);
+                
+                // 3. Fast-forward & Chase state from tick 0 to target
+                int newIndex = 0;
+                for (MidiEvent ev : sortedEvents) {
+                    if (ev.getTick() >= target) break;
+                    processChaseEvent(ev);
+                    newIndex++;
+                }
+                
+                // 4. Resume playback from the new position
+                currentTick = target;
+                lastTick = target;
+                eventIndex = newIndex;
                 continue;
             }
 
+            MidiEvent event = sortedEvents.get(eventIndex);
+            long tick = event.getTick();
+            
             if (tick > lastTick) {
                 long sleepMs = (long) ((tick - lastTick) * (60000.0 / (currentBpm * resolution)));
                 if (sleepMs > 0) Thread.sleep(sleepMs);
@@ -83,11 +108,32 @@ public class PlaybackEngine {
         }
     }
 
-    private int findEventIndexAt(long tick) {
-        for (int i = 0; i < sortedEvents.size(); i++) {
-            if (sortedEvents.get(i).getTick() >= tick) return i;
+    private void processChaseEvent(MidiEvent event) {
+        MidiMessage msg = event.getMessage();
+        byte[] raw = msg.getMessage();
+        int status = raw[0] & 0xFF;
+
+        // Meta Tempo
+        if (status == 0xFF && raw.length >= 6 && (raw[1] & 0xFF) == 0x51) {
+            int mspqn = ((raw[3] & 0xFF) << 16) | ((raw[4] & 0xFF) << 8) | (raw[5] & 0xFF);
+            currentBpm = 60000000.0f / mspqn;
+            return;
         }
-        return sortedEvents.size();
+
+        if (status < 0xF0) {
+            int cmd = status & 0xF0;
+            // CHASE ONLY: Program Change(0xC0), Control Change(0xB0), Pitch Bend(0xE0)
+            if (cmd == 0xC0 || cmd == 0xB0 || cmd == 0xE0) {
+                // Apply volume scaling if it's CC 7
+                if (cmd == 0xB0 && raw.length >= 3 && raw[1] == 7) {
+                    int vol = (int) ((raw[2] & 0xFF) * volumeScale);
+                    raw[2] = (byte) Math.max(0, Math.min(127, vol));
+                }
+                try {
+                    provider.sendMessage(raw);
+                } catch (Exception ignored) {}
+            }
+        }
     }
 
     private void processEvent(MidiEvent event) {
@@ -127,15 +173,22 @@ public class PlaybackEngine {
                 switch (key) {
                     case VOLUME_UP:
                         volumeScale = Math.min(1.0, volumeScale + 0.05);
+                        applyVolumeInstantly();
                         break;
                     case VOLUME_DOWN:
                         volumeScale = Math.max(0.0, volumeScale - 0.05);
+                        applyVolumeInstantly();
                         break;
                     case SEEK_FORWARD:
-                        currentTick += (long)resolution * 4;
+                        // Seek roughly +10 seconds based on current BPM
+                        long ticksToSeekFwd = (long) ((10000.0 * currentBpm * resolution) / 60000.0);
+                        long targetF = currentTick + ticksToSeekFwd;
+                        seekTarget = Math.min(targetF, sequence.getTickLength());
                         break;
                     case SEEK_BACKWARD:
-                        currentTick = Math.max(0, currentTick - (long)resolution * 4);
+                        // Seek roughly -10 seconds based on current BPM
+                        long ticksToSeekBwd = (long) ((10000.0 * currentBpm * resolution) / 60000.0);
+                        seekTarget = Math.max(0, currentTick - ticksToSeekBwd);
                         break;
                     case QUIT:
                         isPlaying = false;
@@ -143,6 +196,17 @@ public class PlaybackEngine {
                 }
             }
         } catch (IOException ignored) {}
+    }
+
+    private void applyVolumeInstantly() {
+        for (int ch = 0; ch < 16; ch++) {
+            // Send default volume 100 scaled by our volumeScale
+            int vol = (int) (100 * volumeScale); 
+            byte[] msg = new byte[]{(byte) (0xB0 | ch), 7, (byte) Math.max(0, Math.min(127, vol))};
+            try {
+                provider.sendMessage(msg);
+            } catch (Exception ignored) {}
+        }
     }
 
     private void uiLoop() {

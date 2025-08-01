@@ -35,14 +35,14 @@ public class JLineTerminalIO implements TerminalIO {
         int ch = reader.read(10); // small timeout to avoid tight loop
         if (ch <= 0) return TerminalKey.NONE;
 
-        if (ch == 'q' || ch == 'Q' || ch == 27) { // 27 is ESC
+        if (ch == 'q' || ch == 'Q') {
             return TerminalKey.QUIT;
         }
 
-        // Handle Arrow Keys (typically ESC [ A, B, C, D)
-        if (ch == 27) { // Possible escape sequence
+        // Handle ESC and Arrow Keys (typically ESC [ A, B, C, D)
+        if (ch == 27) { // 27 is ESC
             int next1 = reader.read(10);
-            if (next1 == '[') {
+            if (next1 == '[') { // It's an escape sequence!
                 int next2 = reader.read(10);
                 switch (next2) {
                     case 'A': return TerminalKey.VOLUME_UP;
@@ -50,6 +50,9 @@ public class JLineTerminalIO implements TerminalIO {
                     case 'C': return TerminalKey.SEEK_FORWARD;
                     case 'D': return TerminalKey.SEEK_BACKWARD;
                 }
+            } else if (next1 <= 0) {
+                // It was just a pure ESC key press (no sequence followed)
+                return TerminalKey.QUIT;
             }
         }
 
