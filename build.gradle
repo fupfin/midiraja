@@ -36,12 +36,14 @@ jacocoTestReport {
 
 test {
     useJUnitPlatform()
+    jvmArgs('--enable-native-access=ALL-UNNAMED')
     // Coverage report generation is enabled but might fail on Java 25.
     finalizedBy jacocoTestReport
 }
 
 application {
     mainClass = 'com.midiraja.MidirajaCommand'
+    applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
 }
 
 run {

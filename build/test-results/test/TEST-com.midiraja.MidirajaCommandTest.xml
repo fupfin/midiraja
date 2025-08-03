@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.midiraja.MidirajaCommandTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-02-23T10:14:31.707Z" hostname="Sungchului-MacBookPro.local" time="0.637">
+<testsuite name="com.midiraja.MidirajaCommandTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-02-23T10:33:01.126Z" hostname="Sungchului-MacBookPro.local" time="0.625">
   <properties/>
-  <testcase name="testPlayMidiWithVolumeScaling(Path)" classname="com.midiraja.MidirajaCommandTest" time="0.623"/>
+  <testcase name="testPlayMidiWithVolumeScaling(Path)" classname="com.midiraja.MidirajaCommandTest" time="0.611"/>
   <testcase name="testFindPortIndex()" classname="com.midiraja.MidirajaCommandTest" time="0.001"/>
   <system-out><![CDATA[Started playing: test.mid to Mock Port
 ]]></system-out>
