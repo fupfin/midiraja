@@ -6,6 +6,8 @@ import org.jline.utils.NonBlockingReader;
 
 import java.io.IOException;
 
+import static java.lang.System.out;
+
 public class JLineTerminalIO implements TerminalIO {
     private Terminal terminal;
     private NonBlockingReader reader;
@@ -25,7 +27,7 @@ public class JLineTerminalIO implements TerminalIO {
         if (terminal != null) {
             try {
                 terminal.close();
-            } catch (IOException ignored) {
+            } catch (IOException _) {
                 // Ignore errors during terminal cleanup to prevent masking main exceptions
             }
         }
@@ -48,12 +50,13 @@ public class JLineTerminalIO implements TerminalIO {
             int next1 = reader.read(10);
             if (next1 == '[') { // It's an escape sequence!
                 int next2 = reader.read(10);
-                switch (next2) {
-                    case 'A': return TerminalKey.VOLUME_UP;
-                    case 'B': return TerminalKey.VOLUME_DOWN;
-                    case 'C': return TerminalKey.SEEK_FORWARD;
-                    case 'D': return TerminalKey.SEEK_BACKWARD;
-                }
+                return switch (next2) {
+                    case 'A' -> TerminalKey.VOLUME_UP;
+                    case 'B' -> TerminalKey.VOLUME_DOWN;
+                    case 'C' -> TerminalKey.SEEK_FORWARD;
+                    case 'D' -> TerminalKey.SEEK_BACKWARD;
+                    default  -> TerminalKey.NONE;
+                };
             } else if (next1 <= 0) {
                 // It was just a pure ESC key press (no sequence followed)
                 return TerminalKey.QUIT;
@@ -69,7 +72,7 @@ public class JLineTerminalIO implements TerminalIO {
             terminal.writer().print(str);
             terminal.writer().flush();
         } else {
-            System.out.print(str);
+            out.print(str);
         }
     }
 
@@ -79,7 +82,7 @@ public class JLineTerminalIO implements TerminalIO {
             terminal.writer().println(str);
             terminal.writer().flush();
         } else {
-            System.out.println(str);
+            out.println(str);
         }
     }
 }

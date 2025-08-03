@@ -16,6 +16,10 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.Callable;
 
+import static java.lang.System.out;
+import static java.lang.System.err;
+import static java.lang.System.in;
+
 @Command(name = "midra", mixinStandardHelpOptions = true, version = "midra 1.1",
         description = "Midiraja: A high-performance MIDI player for CLI.")
 public class MidirajaCommand implements Callable<Integer> {
@@ -64,18 +68,18 @@ public class MidirajaCommand implements Callable<Integer> {
         var ports = provider.getOutputPorts();
 
         if (listDevices) {
-            System.out.println("Available MIDI Output Devices:");
+            out.println("Available MIDI Output Devices:");
             if (ports.isEmpty()) {
-                System.out.println("No MIDI output devices found.");
+                out.println("No MIDI output devices found.");
             } else {
-                ports.forEach(System.out::println);
+                ports.forEach(out::println);
             }
             return 0;
         }
 
         if (file == null || !file.exists()) {
-            System.err.println("Error: Missing or invalid MIDI file.");
-            new CommandLine(this).usage(System.err);
+            err.println("Error: Missing or invalid MIDI file.");
+            new CommandLine(this).usage(err);
             return 1;
         }
 
@@ -83,7 +87,7 @@ public class MidirajaCommand implements Callable<Integer> {
         if (port != null) {
             portIndex = findPortIndex(ports, port);
             if (portIndex == -1) {
-                System.err.println("Error: Could not find MIDI port matching: " + port);
+                err.println("Error: Could not find MIDI port matching: " + port);
                 return 1;
             }
         } else if (!isTestMode) {
@@ -97,7 +101,7 @@ public class MidirajaCommand implements Callable<Integer> {
             provider.openPort(portIndex);
             playMidiWithProvider(file, provider, ports.get(portIndex));
         } catch (Exception e) {
-            System.err.println("Error during playback: " + e.getMessage());
+            err.println("Error during playback: " + e.getMessage());
             return 1;
         } finally {
             provider.closePort();
@@ -121,19 +125,19 @@ public class MidirajaCommand implements Callable<Integer> {
 
         if (matches.size() == 1) return matches.get(0).index();
         if (matches.size() > 1) {
-            System.err.println("Ambiguous port name. Matches:");
-            matches.forEach(m -> System.err.println("  [" + m.index() + "] " + m.name()));
+            err.println("Ambiguous port name. Matches:");
+            matches.forEach(m -> err.println("  [" + m.index() + "] " + m.name()));
         }
         return -1;
     }
 
     private int interactivePortSelection(List<MidiPort> ports) {
-        System.out.println("Available MIDI Output Devices:");
-        ports.forEach(System.out::println);
+        out.println("Available MIDI Output Devices:");
+        ports.forEach(out::println);
 
-        var scanner = new Scanner(System.in);
+        var scanner = new Scanner(in);
         while (true) {
-            System.out.print("Select a port by number or name (or type 'q' to quit): ");
+            out.print("Select a port by number or name (or type 'q' to quit): ");
             if (!scanner.hasNextLine()) return -1;
             String input = scanner.nextLine().trim();
             if (input.equalsIgnoreCase("q")) return -1;
@@ -147,7 +151,7 @@ public class MidirajaCommand implements Callable<Integer> {
     private void playMidiWithProvider(File file, MidiOutProvider provider, MidiPort targetPort) throws Exception {
         var sequence = MidiSystem.getSequence(file);
         
-        System.out.println("Started playing: " + file.getName() + " to " + targetPort.name());
+        out.println("Started playing: " + file.getName() + " to " + targetPort.name());
         extractAndPrintMetadata(sequence);
 
         var activeIO = this.terminalIO != null ? this.terminalIO : new JLineTerminalIO();
@@ -185,8 +189,8 @@ public class MidirajaCommand implements Callable<Integer> {
             }
         }
 
-        if (title != null) System.out.println("  Title: " + title);
-        if (copyright != null) System.out.println("  Copyright: " + copyright);
-        texts.forEach(info -> System.out.println("  Info: " + info));
+        if (title != null) out.println("  Title: " + title);
+        if (copyright != null) out.println("  Copyright: " + copyright);
+        texts.forEach(info -> out.println("  Info: " + info));
     }
 }

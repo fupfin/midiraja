@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.midiraja.MidirajaCommandTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-02-23T09:55:29.443Z" hostname="Sungchului-MacBookPro.local" time="0.639">
+<testsuite name="com.midiraja.MidirajaCommandTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-02-23T10:14:31.707Z" hostname="Sungchului-MacBookPro.local" time="0.637">
   <properties/>
-  <testcase name="testPlayMidiWithVolumeScaling(Path)" classname="com.midiraja.MidirajaCommandTest" time="0.625"/>
-  <testcase name="testFindPortIndex()" classname="com.midiraja.MidirajaCommandTest" time="0.002"/>
+  <testcase name="testPlayMidiWithVolumeScaling(Path)" classname="com.midiraja.MidirajaCommandTest" time="0.623"/>
+  <testcase name="testFindPortIndex()" classname="com.midiraja.MidirajaCommandTest" time="0.001"/>
   <system-out><![CDATA[Started playing: test.mid to Mock Port
 ]]></system-out>
   <system-err><![CDATA[java.lang.instrument.IllegalClassFormatException: Error while instrumenting java/sql/Time with JaCoCo 0.8.11.202310140853/f33756c.
@@ -1351,7 +1351,7 @@ java.lang.instrument.IllegalClassFormatException: Error while instrumenting com/
 	at java.base/jdk.internal.loader.BuiltinClassLoader.loadClassOrNull(BuiltinClassLoader.java:620)
 	at java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:578)
 	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:490)
-	at com.midiraja.engine.PlaybackEngine.inputLoop(PlaybackEngine.java:197)
+	at com.midiraja.engine.PlaybackEngine.inputLoop(PlaybackEngine.java:196)
 	at java.base/java.lang.Thread.run(Thread.java:1474)
 Caused by: java.io.IOException: Error while instrumenting com/midiraja/engine/PlaybackEngine$1 with JaCoCo 0.8.11.202310140853/f33756c.
 	at org.jacoco.agent.rt.internal_4742761.core.instr.Instrumenter.instrumentError(Instrumenter.java:161)

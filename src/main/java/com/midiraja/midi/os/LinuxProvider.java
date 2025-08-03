@@ -6,6 +6,8 @@ import com.midiraja.midi.MidiPort;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.lang.System.err;
+
 public class LinuxProvider implements MidiOutProvider {
 
     // TODO: Linux ALSA 라이브러리(libasound.so) 매핑을 위한 JNA 인터페이스 구현 예정
@@ -13,7 +15,7 @@ public class LinuxProvider implements MidiOutProvider {
     
     @Override
     public List<MidiPort> getOutputPorts() {
-        System.err.println("[Midiraja] Linux ALSA MIDI provider is currently a stub.");
+        err.println("[Midiraja] Linux ALSA MIDI provider is currently a stub.");
         return new ArrayList<>();
     }
 
