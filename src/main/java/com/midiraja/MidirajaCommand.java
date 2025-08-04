@@ -102,6 +102,15 @@ public class MidirajaCommand implements Callable<Integer> {
 
         try {
             provider.openPort(portIndex);
+            
+            // Add a shutdown hook to handle Ctrl+C (SIGINT) gracefully
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    provider.panic();
+                    provider.closePort();
+                } catch (Exception _) {}
+            }));
+
             playMidiWithProvider(file, provider, ports.get(portIndex));
         } catch (Exception e) {
             err.println("Error during playback: " + e.getMessage());
