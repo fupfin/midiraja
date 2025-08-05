@@ -1,5 +1,0 @@
-[
-  ["com.midiraja.midi.os.MacProvider$CoreMIDI"],
-  ["com.midiraja.midi.os.MacProvider$CoreFoundation"],
-  ["com.midiraja.midi.os.WindowsProvider$WinMM"]
-]

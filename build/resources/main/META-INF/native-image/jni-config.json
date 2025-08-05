@@ -1,9 +1,0 @@
-[
-  {
-    "name":"com.sun.media.sound.MacMidiDeviceProvider",
-    "methods":[{"name":"<init>","parameterTypes":[] }]
-  },
-  {
-    "name": "com.sun.media.sound.MidiDeviceProvider"
-  }
-]

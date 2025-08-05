@@ -1,28 +1,16 @@
-# Dockerfile for Linux Build & Test (ALSA)
+# Dockerfile for Linux Native Build (ALSA + JNA)
 FROM ubuntu:24.04
 
-# Install dependencies: JDK 21, build-essential, ALSA headers
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-21-jdk \
-    curl \
-    ca-certificates \
-    build-essential \
-    libasound2-dev \
-    zlib1g-dev \
-    libz-dev \
+    curl ca-certificates build-essential libasound2-dev zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
+# Install GraalVM 21
+ENV JAVA_HOME=/opt/graalvm
+RUN curl -L https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-21.0.2/graalvm-community-jdk-21.0.2_linux-aarch64_bin.tar.gz | tar -xz -C /opt && \
+    mv /opt/graalvm-community-jdk-* /opt/graalvm
 ENV PATH=$JAVA_HOME/bin:$PATH
 
 WORKDIR /app
-
-# Copy gradle wrapper first
-COPY gradlew /app/
-COPY gradle /app/gradle
-COPY build.gradle settings.gradle /app/
-
-# Fetch dependencies
-RUN ./gradlew --no-daemon classes
-
-CMD ["./gradlew", "run", "--args='--list'"]
+CMD ["./gradlew", "nativeCompile", "--no-daemon"]
