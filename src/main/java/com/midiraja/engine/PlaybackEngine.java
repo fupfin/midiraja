@@ -14,8 +14,10 @@ public class PlaybackEngine {
     private final TerminalIO terminalIO;
     
     private volatile long currentTick = 0;
+    private volatile long currentMicroseconds = 0;
     private volatile long seekTarget = -1;
     private volatile float currentBpm = 120.0f;
+    private volatile double currentSpeed = 1.0;
     private volatile double volumeScale = 1.0;
     private volatile boolean isPlaying = false;
     
@@ -23,11 +25,12 @@ public class PlaybackEngine {
     private final List<MidiEvent> sortedEvents;
     private final int resolution;
 
-    public PlaybackEngine(Sequence sequence, MidiOutProvider provider, TerminalIO terminalIO, int initialVolumePercent) {
+    public PlaybackEngine(Sequence sequence, MidiOutProvider provider, TerminalIO terminalIO, int initialVolumePercent, double initialSpeed) {
         this.sequence = sequence;
         this.provider = provider;
         this.terminalIO = terminalIO;
         this.volumeScale = initialVolumePercent / 100.0;
+        this.currentSpeed = initialSpeed;
         this.resolution = sequence.getResolution();
         
         this.sortedEvents = Arrays.stream(sequence.getTracks())
@@ -63,8 +66,9 @@ public class PlaybackEngine {
     private void playLoop() throws Exception {
         long lastTick = 0;
         int eventIndex = 0;
+        long elapsedNanos = 0;
         long startTimeNanos = System.nanoTime();
-        double ticksToNanos = (60000000000.0 / (currentBpm * resolution));
+        double ticksToNanos = (60000000000.0 / (currentBpm * currentSpeed * resolution));
 
         while (isPlaying && eventIndex < sortedEvents.size()) {
             // Check if an external seek was requested
@@ -81,20 +85,34 @@ public class PlaybackEngine {
                 
                 // 3. Fast-forward & Chase state from tick 0 to target
                 int newIndex = 0;
+                long chaseNanos = 0;
+                long chaseLastTick = 0;
+                double chaseTicksToNanos = (60000000000.0 / (currentBpm * currentSpeed * resolution));
+                
                 for (MidiEvent ev : sortedEvents) {
                     if (ev.getTick() >= target) break;
+                    long t = ev.getTick();
+                    chaseNanos += (long) ((t - chaseLastTick) * chaseTicksToNanos);
+                    chaseLastTick = t;
+                    
                     processChaseEvent(ev);
+                    
+                    chaseTicksToNanos = (60000000000.0 / (currentBpm * currentSpeed * resolution));
                     newIndex++;
                 }
+                
+                chaseNanos += (long) ((target - chaseLastTick) * chaseTicksToNanos);
                 
                 // 4. Resume playback from the new position
                 currentTick = target;
                 lastTick = target;
                 eventIndex = newIndex;
+                elapsedNanos = chaseNanos;
+                currentMicroseconds = elapsedNanos / 1000;
                 
                 // Reset timing reference after seek
-                ticksToNanos = (60000000000.0 / (currentBpm * resolution));
-                startTimeNanos = System.nanoTime() - (long) (currentTick * ticksToNanos);
+                ticksToNanos = (60000000000.0 / (currentBpm * currentSpeed * resolution));
+                startTimeNanos = System.nanoTime() - elapsedNanos;
                 continue;
             }
 
@@ -102,7 +120,8 @@ public class PlaybackEngine {
             long tick = event.getTick();
             
             if (tick > lastTick) {
-                long targetNanos = startTimeNanos + (long) (tick * ticksToNanos);
+                elapsedNanos += (long) ((tick - lastTick) * ticksToNanos);
+                long targetNanos = startTimeNanos + elapsedNanos;
                 
                 // High-resolution delay
                 long currentNanos = System.nanoTime();
@@ -120,10 +139,11 @@ public class PlaybackEngine {
             processEvent(event);
             lastTick = tick;
             currentTick = tick;
+            currentMicroseconds = elapsedNanos / 1000;
             eventIndex++;
             
             // Recalculate timing ratio if BPM changed during processEvent
-            ticksToNanos = (60000000000.0 / (currentBpm * resolution));
+            ticksToNanos = (60000000000.0 / (currentBpm * currentSpeed * resolution));
         }
     }
 
@@ -202,6 +222,12 @@ public class PlaybackEngine {
                         volumeScale = Math.max(0.0, volumeScale - 0.05);
                         applyVolumeInstantly();
                     }
+                    case SPEED_UP -> {
+                        currentSpeed = Math.min(5.0, currentSpeed + 0.1);
+                    }
+                    case SPEED_DOWN -> {
+                        currentSpeed = Math.max(0.1, currentSpeed - 0.1);
+                    }
                     case SEEK_FORWARD -> {
                         // Seek roughly +10 seconds based on current BPM
                         long ticksToSeekFwd = (long) ((10000.0 * currentBpm * resolution) / 60000.0);
@@ -237,21 +263,43 @@ public class PlaybackEngine {
             return; // UI 루프 종료, 시스템 자원 절약
         }
 
+        long totalMicroseconds = sequence.getMicrosecondLength();
+        boolean includeHours = (totalMicroseconds / 1000000) >= 3600;
+        String totalTimeStr = formatTime(totalMicroseconds, includeHours);
+
         String[] blocks = {" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"};
-        while (isPlaying) {
-            var sb = new StringBuilder("\rVol:[");
-            for (int i = 0; i < 16; i++) {
-                int lv = (int) Math.round(channelLevels[i] * 8);
-                sb.append(blocks[Math.max(0, Math.min(8, lv))]);
-                channelLevels[i] = Math.max(0, channelLevels[i] - 0.1);
+        terminalIO.print("\033[?25l"); // 커서 숨기기
+
+        try {
+            while (isPlaying) {
+                var sb = new StringBuilder("\r[");
+                for (int i = 0; i < 16; i++) {
+                    int lv = (int) Math.round(channelLevels[i] * 8);
+                    sb.append(blocks[Math.max(0, Math.min(8, lv))]);
+                    channelLevels[i] = Math.max(0, channelLevels[i] - 0.1);
+                }
+                sb.append("] ");
+                
+                String currentTimeStr = formatTime(currentMicroseconds, includeHours);
+                sb.append(String.format("%s/%s (BPM: %5.1f x%.1f, Vol: %3d%%) ", 
+                    currentTimeStr, totalTimeStr, currentBpm, currentSpeed, (int)(volumeScale*100)));
+                terminalIO.print(sb.toString());
+                try { Thread.sleep(50); } catch (InterruptedException _) {}
             }
-            sb.append("] ");
-            double pct = sequence.getTickLength() > 0 ? (double) currentTick / sequence.getTickLength() : 0;
-            sb.append(String.format("%3d%% (BPM: %5.1f, Vol: %3d%%) ", 
-                (int)(pct*100), currentBpm, (int)(volumeScale*100)));
-            terminalIO.print(sb.toString());
-            try { Thread.sleep(50); } catch (InterruptedException _) {}
+        } finally {
+            terminalIO.print("\033[?25h\n"); // 커서 보이기 및 줄바꿈
         }
-        terminalIO.println("");
+    }
+
+    private String formatTime(long microseconds, boolean includeHours) {
+        long seconds = microseconds / 1000000;
+        long h = seconds / 3600;
+        long m = (seconds % 3600) / 60;
+        long s = seconds % 60;
+        if (includeHours) {
+            return String.format("%02d:%02d:%02d", h, m, s);
+        } else {
+            return String.format("%02d:%02d", m, s);
+        }
     }
 }

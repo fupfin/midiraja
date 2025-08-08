@@ -4,6 +4,29 @@ plugins {
     id 'jacoco'
 }
 
+version = '0.1'
+
+def generatedVersionDir = layout.buildDirectory.dir("generated/sources/version/java")
+
+task generateVersionClass {
+    def outputDir = generatedVersionDir.get().asFile
+    outputs.dir(outputDir)
+    doLast {
+        def pkgDir = new File(outputDir, "com/midiraja")
+        pkgDir.mkdirs()
+        new File(pkgDir, "Version.java").text = """package com.midiraja;
+
+public final class Version {
+    public static final String VERSION = "${project.version}";
+    private Version() {}
+}
+"""
+    }
+}
+
+sourceSets.main.java.srcDir(generatedVersionDir)
+compileJava.dependsOn(generateVersionClass)
+
 repositories {
     mavenCentral()
 }

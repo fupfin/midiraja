@@ -18,6 +18,8 @@ public interface TerminalIO {
         SEEK_BACKWARD,
         VOLUME_UP,
         VOLUME_DOWN,
+        SPEED_UP,
+        SPEED_DOWN,
         QUIT
     }
 

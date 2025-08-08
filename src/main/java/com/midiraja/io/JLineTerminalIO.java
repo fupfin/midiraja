@@ -52,6 +52,13 @@ public class JLineTerminalIO implements TerminalIO {
             return TerminalKey.QUIT;
         }
 
+        if (ch == '+' || ch == '=' || ch == ']') {
+            return TerminalKey.SPEED_UP;
+        }
+        if (ch == '-' || ch == '_' || ch == '[') {
+            return TerminalKey.SPEED_DOWN;
+        }
+
         // Handle ESC and Arrow Keys (typically ESC [ A, B, C, D)
         if (ch == 27) { // 27 is ESC
             int next1 = reader.read(10);

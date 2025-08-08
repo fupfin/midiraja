@@ -26,8 +26,13 @@ import static java.lang.System.in;
 
 
 
-@Command(name = "midra", mixinStandardHelpOptions = true, version = "midra 1.1",
-        description = "Midiraja: A high-performance MIDI player for CLI.")
+@Command(name = "midra", mixinStandardHelpOptions = true, version = "midiraja " + Version.VERSION,
+        description = "Midiraja: A high-performance MIDI player for CLI.",
+        footer = {
+            "",
+            "Interactive Controls (during playback):",
+            "  [↑/↓] Volume  [←/→] Seek  [+/-] Speed  [q] Quit"
+        })
 public class MidirajaCommand implements Callable<Integer> {
 
     @Parameters(index = "0", description = "The MIDI file to play.", arity = "0..1")
@@ -38,6 +43,9 @@ public class MidirajaCommand implements Callable<Integer> {
 
     @Option(names = {"-v", "--volume"}, description = "Initial volume percentage (0-100).", defaultValue = "100")
     private Integer volume;
+
+    @Option(names = {"-s", "--speed"}, description = "Playback speed multiplier (e.g. 1.0, 1.2).", defaultValue = "1.0")
+    private Double speed;
 
     @Option(names = {"-t", "--transpose"}, description = "Transpose semitones (+/-).")
     private Integer transpose;
@@ -83,7 +91,12 @@ public class MidirajaCommand implements Callable<Integer> {
             return 0;
         }
 
-        if (file == null || !file.exists()) {
+        if (file == null) {
+            new CommandLine(this).usage(out);
+            return 0;
+        }
+
+        if (!file.exists()) {
             err.println("Error: Missing or invalid MIDI file.");
             new CommandLine(this).usage(err);
             return 1;
@@ -108,6 +121,8 @@ public class MidirajaCommand implements Callable<Integer> {
             
             // Add a shutdown hook to handle Ctrl+C (SIGINT) gracefully
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                System.out.print("\033[?25h"); // 커서 복구
+                System.out.flush();
                 try {
                     provider.panic();
                     provider.closePort();
@@ -241,12 +256,13 @@ public class MidirajaCommand implements Callable<Integer> {
         
         out.println("Started playing: " + file.getName() + " to " + targetPort.name());
         extractAndPrintMetadata(sequence);
+        out.println("Controls: [↑/↓] Volume  [←/→] Seek  [+/-] Speed  [q] Quit");
 
         var activeIO = this.terminalIO != null ? this.terminalIO : new JLineTerminalIO();
         activeIO.init();
         
         try {
-            var engine = new PlaybackEngine(sequence, provider, activeIO, volume);
+            var engine = new PlaybackEngine(sequence, provider, activeIO, volume, speed);
             engine.start();
         } finally {
             activeIO.close();
