@@ -50,7 +50,7 @@ public class MidirajaCommand implements Callable<Integer> {
     @Option(names = {"-s", "--start"}, description = "Playback start time (e.g. 01:10:12, 05:30, or 90 for seconds).")
     private String startTime;
 
-    @Option(names = {"-t", "--transpose"}, description = "Transpose semitones (+/-).")
+    @Option(names = {"-t", "--transpose"}, description = "Transpose by semitones (e.g. 12 for one octave up, -5 for down).")
     private Integer transpose;
 
     @Option(names = {"-l", "--list"}, description = "List available MIDI output devices.")
