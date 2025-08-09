@@ -44,10 +44,10 @@ public class MidirajaCommand implements Callable<Integer> {
     @Option(names = {"-v", "--volume"}, description = "Initial volume percentage (0-100).", defaultValue = "100")
     private Integer volume;
 
-    @Option(names = {"-s", "--speed"}, description = "Playback speed multiplier (e.g. 1.0, 1.2).", defaultValue = "1.0")
+    @Option(names = {"-x", "--speed"}, description = "Playback speed multiplier (e.g. 1.0, 1.2).", defaultValue = "1.0")
     private Double speed;
 
-    @Option(names = {"-st", "--start"}, description = "Playback start time (e.g. 01:30 or 90).")
+    @Option(names = {"-s", "--start"}, description = "Playback start time (e.g. 01:10:12, 05:30, or 90 for seconds).")
     private String startTime;
 
     @Option(names = {"-t", "--transpose"}, description = "Transpose semitones (+/-).")
