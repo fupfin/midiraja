@@ -57,6 +57,9 @@ public class MidirajaCommand implements Callable<Integer> {
     @Option(names = {"-z", "--shuffle"}, description = "Shuffle the playlist before playing.")
     private boolean shuffle;
 
+    @Option(names = {"-r", "--loop"}, description = "Loop the playlist indefinitely.")
+    private boolean loop;
+
     @Option(names = {"-l", "--list"}, description = "List available MIDI output devices.")
     private boolean listDevices;
 
@@ -174,10 +177,19 @@ public class MidirajaCommand implements Callable<Integer> {
                 if (status == PlaybackEngine.PlaybackStatus.QUIT_ALL) {
                     break;
                 } else if (status == PlaybackEngine.PlaybackStatus.PREVIOUS) {
-                    currentTrackIdx = Math.max(0, currentTrackIdx - 1);
+                    currentTrackIdx--;
+                    if (loop && currentTrackIdx < 0) {
+                        currentTrackIdx = playlist.size() - 1;
+                    } else {
+                        currentTrackIdx = Math.max(0, currentTrackIdx);
+                    }
                 } else {
                     // FINISHED or NEXT
                     currentTrackIdx++;
+                    if (loop && currentTrackIdx >= playlist.size()) {
+                        currentTrackIdx = 0;
+                        if (shuffle) Collections.shuffle(playlist); // Reshuffle for next iteration
+                    }
                 }
             }
         } catch (Exception e) {
