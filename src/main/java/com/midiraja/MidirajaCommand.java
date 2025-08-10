@@ -31,12 +31,13 @@ import static java.lang.System.in;
         footer = {
             "",
             "Interactive Controls (during playback):",
-            "  [↑/↓] Volume  [←/→] Seek  [+/-] Speed  [q] Quit"
+            "  [↑/↓] Volume  [←/→] Skip 10s  [+/-] Speed  [,/.] Transpose",
+            "  [n] Next  [p] Previous  [q] Quit All"
         })
 public class MidirajaCommand implements Callable<Integer> {
 
-    @Parameters(index = "0", description = "The MIDI file to play.", arity = "0..1")
-    private File file;
+    @Parameters(index = "0..*", description = "The MIDI file(s) to play.", arity = "0..*")
+    private List<File> files;
 
     @Option(names = {"-p", "--port"}, description = "MIDI output port index or partial name.")
     private String port;
@@ -52,6 +53,9 @@ public class MidirajaCommand implements Callable<Integer> {
 
     @Option(names = {"-t", "--transpose"}, description = "Transpose by semitones (e.g. 12 for one octave up, -5 for down).")
     private Integer transpose;
+
+    @Option(names = {"-z", "--shuffle"}, description = "Shuffle the playlist before playing.")
+    private boolean shuffle;
 
     @Option(names = {"-l", "--list"}, description = "List available MIDI output devices.")
     private boolean listDevices;
@@ -94,15 +98,28 @@ public class MidirajaCommand implements Callable<Integer> {
             return 0;
         }
 
-        if (file == null) {
+        if (files == null || files.isEmpty()) {
             new CommandLine(this).usage(out);
             return 0;
         }
 
-        if (!file.exists()) {
-            err.println("Error: Missing or invalid MIDI file.");
-            new CommandLine(this).usage(err);
+        // Filter and validate files
+        List<File> playlist = new ArrayList<>();
+        for (File f : files) {
+            if (f.exists()) {
+                playlist.add(f);
+            } else {
+                err.println("Warning: File not found: " + f.getPath());
+            }
+        }
+
+        if (playlist.isEmpty()) {
+            err.println("Error: No valid MIDI files to play.");
             return 1;
+        }
+
+        if (shuffle) {
+            Collections.shuffle(playlist);
         }
 
         int portIndex = -1;
@@ -132,7 +149,25 @@ public class MidirajaCommand implements Callable<Integer> {
                 } catch (Exception _) {}
             }));
 
-            playMidiWithProvider(file, provider, ports.get(portIndex));
+            int currentTrackIdx = 0;
+            String currentStartTime = startTime;
+
+            while (currentTrackIdx >= 0 && currentTrackIdx < playlist.size()) {
+                var file = playlist.get(currentTrackIdx);
+                var status = playMidiWithProvider(file, provider, ports.get(portIndex), currentStartTime);
+                
+                // After the first track, clear start time
+                currentStartTime = null;
+
+                if (status == PlaybackEngine.PlaybackStatus.QUIT_ALL) {
+                    break;
+                } else if (status == PlaybackEngine.PlaybackStatus.PREVIOUS) {
+                    currentTrackIdx = Math.max(0, currentTrackIdx - 1);
+                } else {
+                    // FINISHED or NEXT
+                    currentTrackIdx++;
+                }
+            }
         } catch (Exception e) {
             err.println("Error during playback: " + e.getMessage());
             return 1;
@@ -254,19 +289,19 @@ public class MidirajaCommand implements Callable<Integer> {
         }
     }
 
-    private void playMidiWithProvider(File file, MidiOutProvider provider, MidiPort targetPort) throws Exception {
+    private PlaybackEngine.PlaybackStatus playMidiWithProvider(File file, MidiOutProvider provider, MidiPort targetPort, String currentStartTime) throws Exception {
         var sequence = MidiSystem.getSequence(file);
         
-        out.println("Started playing: " + file.getName() + " to " + targetPort.name());
+        out.println("Playing: " + file.getName() + " [" + targetPort.name() + "]");
         extractAndPrintMetadata(sequence);
-        out.println("Controls: [↑/↓] Volume  [←/→] Seek  [+/-] Speed  [q] Quit");
+        out.println("Controls: [↑/↓] Vol  [←/→] Skip 10s  [p/n] Track  [q] Quit ('midra -h' for more)");
 
         var activeIO = this.terminalIO != null ? this.terminalIO : new JLineTerminalIO();
         activeIO.init();
         
         try {
-            var engine = new PlaybackEngine(sequence, provider, activeIO, volume, speed, startTime);
-            engine.start();
+            var engine = new PlaybackEngine(sequence, provider, activeIO, volume, speed, currentStartTime, transpose);
+            return engine.start();
         } finally {
             activeIO.close();
         }
