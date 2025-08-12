@@ -1,0 +1,79 @@
+.TH MIDRA 1 "February 2026" "midra" "User Commands"
+.SH NAME
+midra \- A high-performance, interactive MIDI player for the command line.
+.SH SYNOPSIS
+.B midra
+[\fIOPTIONS\fR] [\fIFILE\fR...]
+.SH DESCRIPTION
+\fBmidra\fR (Midiraja) is a lightweight, cross-platform CLI tool for playing MIDI files directly to native OS MIDI synthesizers. It features an interactive UI for port selection, a robust playlist system, and live playback controls.
+.SH OPTIONS
+.TP
+\fB\-p\fR, \fB\-\-port\fR=\fIPORT\fR
+MIDI output port index or partial name. If omitted, an interactive menu will be shown.
+.TP
+\fB\-v\fR, \fB\-\-volume\fR=\fIVOLUME\fR
+Initial volume percentage (0-100). Default is 100.
+.TP
+\fB\-x\fR, \fB\-\-speed\fR=\fISPEED\fR
+Playback speed multiplier (e.g., 1.0, 1.2, 0.5). Default is 1.0.
+.TP
+\fB\-s\fR, \fB\-\-start\fR=\fITIME\fR
+Playback start time for the first track. Format can be HH:MM:SS, MM:SS, or seconds (e.g., 01:10:12, 05:30, or 90).
+.TP
+\fB\-t\fR, \fB\-\-transpose\fR=\fISEMITONES\fR
+Transpose by semitones (e.g., 12 for one octave up, -5 for down).
+.TP
+\fB\-z\fR, \fB\-\-shuffle\fR
+Shuffle the playlist before playing.
+.TP
+\fB\-r\fR, \fB\-\-loop\fR
+Loop the playlist indefinitely. If combined with \fB\-\-shuffle\fR, the playlist is reshuffled on each new loop.
+.TP
+\fB\-l\fR, \fB\-\-list\fR
+List available MIDI output devices and exit.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Show this help message and exit.
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version information and exit.
+.SH INTERACTIVE CONTROLS
+During playback, the following keystrokes are supported to control the engine in real-time:
+.TP
+\fBUp / Down Arrow\fR
+Increase or decrease the master volume by 5%.
+.TP
+\fBLeft / Right Arrow\fR
+Skip backward or forward by approximately 10 seconds.
+.TP
+\fB+ / \-\fR (or \fB= / _\fR)
+Increase or decrease playback speed by 0.1x.
+.TP
+\fB> / <\fR (or \fB. / ,\fR)
+Transpose the key up or down by one semitone.
+.TP
+\fBn\fR (or \fB]\fR)
+Skip to the next track in the playlist.
+.TP
+\fBp\fR (or \fB[\fR)
+Return to the previous track in the playlist.
+.TP
+\fBq\fR (or \fBESC\fR)
+Stop playback and exit the application entirely.
+.SH EXAMPLES
+Play a single file with an interactive port selection menu:
+.RS 4
+midra PASSPORT.MID
+.RE
+
+Play all MIDI files in a directory continuously in random order:
+.RS 4
+midra --loop --shuffle *.mid
+.RE
+
+Start playback at 1 minute and 30 seconds with 1.5x speed:
+.RS 4
+midra --start 01:30 --speed 1.5 PASSPORT.MID
+.RE
+.SH AUTHORS
+Midiraja was created to bring high-performance, interactive MIDI playback to the terminal.
