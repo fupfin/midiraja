@@ -77,3 +77,9 @@ While a song is playing, you don't need to restart the app to make changes. Just
 * **`>` / `<`** : Transpose Key Up / Down (You can also use `.` / `,`)
 * **`n` / `p`** : Next / Previous Track (You can also use `]` / `[`)
 * **`q`** : Stop playback and Quit
+
+---
+
+## ⚖️ License & Credits
+* **Midiraja** is licensed under the [BSD 3-Clause License](LICENSE).
+* This project uses several open-source libraries. Please see [NOTICES.md](NOTICES.md) for full third-party license information and attributions.
