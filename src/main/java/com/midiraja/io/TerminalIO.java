@@ -18,6 +18,10 @@ import java.lang.ScopedValue;
  */
 public interface TerminalIO {
     
+    /**
+     * Context propagation for the active terminal session, preventing the need
+     * to pass TerminalIO instances down the call stack or across virtual threads.
+     */
     ScopedValue<TerminalIO> CONTEXT = ScopedValue.newInstance();
     
     /**

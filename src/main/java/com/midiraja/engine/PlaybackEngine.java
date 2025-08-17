@@ -17,6 +17,10 @@ import java.util.*;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.stream.IntStream;
 
+/**
+ * Orchestrates real-time MIDI playback, managing timing, user input, and UI updates.
+ * Utilizes Java's Structured Concurrency to safely isolate asynchronous tasks.
+ */
 public class PlaybackEngine {
     public enum PlaybackStatus {
         FINISHED, NEXT, PREVIOUS, QUIT_ALL
@@ -57,25 +61,27 @@ public class PlaybackEngine {
         }
     }
 
+    /**
+     * Commences playback. The method blocks until the track finishes or is interrupted.
+     * Guaranteed to tear down virtual threads and silence notes upon exit.
+     * 
+     * @return the terminal state indicating what the user requested next (e.g., NEXT, QUIT_ALL)
+     */
     public PlaybackStatus start() throws Exception {
         isPlaying = true;
         endStatus = PlaybackStatus.FINISHED;
         
         try (var scope = StructuredTaskScope.open()) {
-            // Start UI and Input as concurrent subtasks
             scope.fork(() -> { uiLoop(); return null; });
             scope.fork(() -> { inputLoop(); return null; });
             
-            // Run the main playback loop in the current thread (or fork it too)
             try {
                 playLoop();
             } finally {
-                // Ensure all notes are silenced and stop signal is sent
                 isPlaying = false;
-                provider.panic();
+                provider.panic(); // Prevent dangling notes
             }
             
-            // Wait for UI and Input threads to notice isPlaying = false and exit cleanly
             scope.join();
         }
 
@@ -138,16 +144,14 @@ public class PlaybackEngine {
             // Check if an external seek was requested
             if (seekTarget != -1) {
                 long target = seekTarget;
-                seekTarget = -1; // Reset flag
+                seekTarget = -1;
                 
-                // 1. Panic: Stop all currently ringing notes
-                provider.panic();
+                provider.panic(); // Silence lingering notes
                 
-                // 2. Reset UI levels and tempo
                 currentBpm = 120.0f;
                 Arrays.fill(channelLevels, 0.0);
                 
-                // 3. Fast-forward & Chase state from tick 0 to target
+                // Fast-forward silently to accumulate correct program/control state up to the target
                 int newIndex = 0;
                 long chaseNanos = 0;
                 long chaseLastTick = 0;

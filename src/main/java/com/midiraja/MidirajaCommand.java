@@ -33,8 +33,10 @@ import static java.lang.System.out;
 import static java.lang.System.err;
 import static java.lang.System.in;
 
-
-
+/**
+ * The main CLI entry point for Midiraja. Handles argument parsing via Picocli,
+ * orchestrates port selection, and manages the continuous playlist playback loop.
+ */
 @Command(name = "midra", mixinStandardHelpOptions = true, version = "midiraja " + Version.VERSION,
         description = "Midiraja: A high-performance MIDI player for CLI.",
         footer = {
@@ -213,6 +215,10 @@ public class MidirajaCommand implements Callable<Integer> {
         return 0;
     }
 
+    /**
+     * Resolves user input to an exact port index or attempts a case-insensitive partial match.
+     * Fails predictably if the match is ambiguous (multiple ports match the query).
+     */
     int findPortIndex(List<MidiPort> ports, String query) {
         try {
             int idx = Integer.parseInt(query);
@@ -240,7 +246,7 @@ public class MidirajaCommand implements Callable<Integer> {
         var activeIO = this.terminalIO != null ? this.terminalIO : new JLineTerminalIO();
         activeIO.init();
         boolean isInteractive = activeIO.isInteractive();
-        activeIO.close(); // JLine Terminal 객체 상태만 확인하고 다시 닫음.
+        activeIO.close(); // Probe terminal capabilities and release immediately
 
         if (isInteractive) {
             return dynamicPortSelection(ports);
@@ -326,6 +332,10 @@ public class MidirajaCommand implements Callable<Integer> {
 
     private record PlaybackResult(PlaybackEngine.PlaybackStatus status, int linesPrinted) {}
 
+    /**
+     * Executes the playback of a single MIDI file.
+     * Records the number of lines printed to stdout to facilitate clean terminal refreshes for subsequent tracks.
+     */
     private PlaybackResult playMidiWithProvider(File file, MidiOutProvider provider, MidiPort targetPort, String currentStartTime) throws Exception {
         var sequence = MidiSystem.getSequence(file);
         
@@ -354,6 +364,10 @@ public class MidirajaCommand implements Callable<Integer> {
         }
     }
 
+    /**
+     * Extracts title, copyright, and general text events from MIDI meta-messages.
+     * Limits general text (0x01) to the first 3 unique occurrences to avoid spamming the console.
+     */
     private int extractAndPrintMetadata(Sequence sequence) {
         String title = null;
         String copyright = null;
