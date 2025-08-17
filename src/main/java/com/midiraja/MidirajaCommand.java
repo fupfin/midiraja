@@ -155,7 +155,7 @@ public class MidirajaCommand implements Callable<Integer> {
             
             // Add a shutdown hook to handle Ctrl+C (SIGINT) gracefully
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                System.out.print("\033[?25h"); // 커서 복구
+                System.out.print("\033[?25h"); // Restore cursor
                 System.out.flush();
                 try {
                     provider.panic();
@@ -263,12 +263,12 @@ public class MidirajaCommand implements Callable<Integer> {
             terminal.enterRawMode();
             var reader = terminal.reader();
             
-            terminal.writer().print("\033[?25l"); // 커서 숨김
+            terminal.writer().print("\033[?25l"); // Hide cursor
             boolean firstDraw = true;
 
             while (true) {
                 if (!firstDraw) {
-                    terminal.writer().print("\033[" + (numPorts + 1) + "A"); // 메뉴 위로 커서 이동
+                    terminal.writer().print("\033[" + (numPorts + 1) + "A"); // Move cursor above menu
                 }
                 firstDraw = false;
 
@@ -285,7 +285,7 @@ public class MidirajaCommand implements Callable<Integer> {
                 if (ch == 'q' || ch == 'Q') {
                     clearMenu(terminal, numPorts);
                     return -1;
-                } else if (ch == 27) { // ESC 또는 방향키
+                } else if (ch == 27) { // ESC or arrow keys
                     int next1 = reader.read(10);
                     if (next1 == '[') {
                         int next2 = reader.read(10);
@@ -294,7 +294,7 @@ public class MidirajaCommand implements Callable<Integer> {
                         } else if (next2 == 'B') { // DOWN
                             selectedIndex = (selectedIndex + 1) % numPorts;
                         }
-                    } else if (next1 <= 0) { // 단순 ESC
+                    } else if (next1 <= 0) { // Pure ESC
                         clearMenu(terminal, numPorts);
                         return -1;
                     }
@@ -307,9 +307,9 @@ public class MidirajaCommand implements Callable<Integer> {
     }
 
     private void clearMenu(org.jline.terminal.Terminal terminal, int numPorts) {
-        terminal.writer().print("\033[" + (numPorts + 1) + "A"); // 메뉴 시작점
-        terminal.writer().print("\033[J"); // 커서 아래로 화면 모두 지우기
-        terminal.writer().print("\033[?25h"); // 커서 다시 표시
+        terminal.writer().print("\033[" + (numPorts + 1) + "A"); // Menu start point
+        terminal.writer().print("\033[J"); // Clear everything below cursor
+        terminal.writer().print("\033[?25h"); // Restore cursor
         terminal.writer().flush();
     }
 

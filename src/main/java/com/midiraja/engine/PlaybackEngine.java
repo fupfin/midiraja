@@ -355,7 +355,7 @@ public class PlaybackEngine {
         var terminalIO = TerminalIO.CONTEXT.get();
         if (!terminalIO.isInteractive()) {
             terminalIO.println("Playing (Interactive UI disabled)...");
-            return; // UI 루프 종료, 시스템 자원 절약
+            return; // Exit UI loop to save resources
         }
 
         long totalMicroseconds = sequence.getMicrosecondLength();
@@ -363,7 +363,7 @@ public class PlaybackEngine {
         String totalTimeStr = formatTime(totalMicroseconds, includeHours);
 
         String[] blocks = {" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"};
-        terminalIO.print("\033[?25l"); // 커서 숨기기
+        terminalIO.print("\033[?25l"); // Hide cursor
 
         try {
             while (isPlaying) {
@@ -375,15 +375,15 @@ public class PlaybackEngine {
                 }
                 sb.append("] ");
                 
-                                        String currentTimeStr = formatTime(currentMicroseconds, includeHours);
-                                        String transStr = currentTranspose == 0 ? "" : String.format(" %+d", currentTranspose);
-                                        sb.append(String.format("%s/%s (BPM: %5.1f x%.1f, Vol: %3d%%%s) \033[K", 
-                                            currentTimeStr, totalTimeStr, currentBpm, currentSpeed, (int)(volumeScale*100), transStr));
-                                        terminalIO.print(sb.toString());
-                                        try { Thread.sleep(50); } catch (InterruptedException _) {}
+                String currentTimeStr = formatTime(currentMicroseconds, includeHours);
+                String transStr = currentTranspose == 0 ? "" : String.format(" %+d", currentTranspose);
+                sb.append(String.format("%s/%s (BPM: %5.1f x%.1f, Vol: %3d%%%s) \033[K", 
+                    currentTimeStr, totalTimeStr, currentBpm, currentSpeed, (int)(volumeScale*100), transStr));
+                terminalIO.print(sb.toString());
+                try { Thread.sleep(50); } catch (InterruptedException _) {}
             }
         } finally {
-            terminalIO.print("\033[?25h\n"); // 커서 보이기 및 줄바꿈
+            terminalIO.print("\033[?25h\n"); // Restore cursor and finish line
         }
     }
 

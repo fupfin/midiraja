@@ -36,7 +36,7 @@ public class WindowsProvider implements MidiOutProvider {
         public short wMid;
         public short wPid;
         public int vDriverVersion;
-        public byte[] szPname = new byte[32]; // 기기 이름
+        public byte[] szPname = new byte[32]; // Device name
         public short wTechnology;
         public short wVoices;
         public short wNotes;
@@ -78,7 +78,7 @@ public class WindowsProvider implements MidiOutProvider {
     public void sendMessage(byte[] data) throws Exception {
         if (handle == null || data == null || data.length == 0) return;
         
-        // Windows WinMM은 1~3바이트 짧은 메시지를 32비트(int)로 패킹해서 보냅니다.
+        // Windows WinMM packs 1-3 byte short messages into a 32-bit integer.
         if (data.length <= 3) {
             int msg = 0;
             for (int i = 0; i < data.length; i++) {
@@ -86,8 +86,8 @@ public class WindowsProvider implements MidiOutProvider {
             }
             WinMM.INSTANCE.midiOutShortMsg(handle, msg);
         } else {
-            // TODO: System Exclusive(길이가 긴 메시지) 처리 로직 (midiOutLongMsg 필요)
-            // 현재 구조에서는 무시하거나 나중에 구현합니다.
+            // TODO: SysEx (long message) handling logic (requires midiOutLongMsg)
+            // Ignored for now or implemented later.
         }
     }
 

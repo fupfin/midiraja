@@ -88,9 +88,9 @@ graalvmNative {
             buildArgs.add('--enable-native-access=ALL-UNNAMED')
             buildArgs.add('--enable-preview')
             buildArgs.add('-H:+UnlockExperimentalVMOptions')
-            // JNA 동적 로딩을 위해 런타임 초기화 설정
+            // Required for dynamic loading of JNA
             buildArgs.add('--initialize-at-run-time=com.sun.jna.Native,com.sun.jna.Pointer')
-            // 바이너리 크기 최적화 옵션 추가
+            // Optimize binary size
             buildArgs.add('-Os') 
             buildArgs.add('--install-exit-handlers')
         }

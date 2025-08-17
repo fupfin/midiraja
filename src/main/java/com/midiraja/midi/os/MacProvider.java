@@ -89,7 +89,7 @@ public class MacProvider implements MidiOutProvider {
 
         client = clientRef.getValue();
         outPort = portRef.getValue();
-        pktListMem = new Memory(512); // 메시지를 담을 공간
+        pktListMem = new Memory(512); // Buffer for MIDI packets
     }
 
     @Override
