@@ -9,138 +9,215 @@ package com.midiraja.midi.os;
 
 import com.midiraja.midi.MidiOutProvider;
 import com.midiraja.midi.MidiPort;
-import com.sun.jna.Library;
-import com.sun.jna.Memory;
-import com.sun.jna.Native;
-import com.sun.jna.Pointer;
-import com.sun.jna.ptr.PointerByReference;
+import org.jspecify.annotations.Nullable;
 
+import java.lang.foreign.*;
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * FFM API (Project Panama) based CoreMIDI provider for macOS.
+ * Replaces the legacy JNA implementation for zero-dependency native calls.
+ */
 public class MacProvider implements MidiOutProvider
 {
+    private static final Linker LINKER = Linker.nativeLinker();
+    private static final SymbolLookup CF_LOOKUP = SymbolLookup.libraryLookup("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", Arena.global());
+    private static final SymbolLookup MIDI_LOOKUP = SymbolLookup.libraryLookup("/System/Library/Frameworks/CoreMIDI.framework/CoreMIDI", Arena.global());
 
-    public interface CoreFoundation extends Library
+    // --- CoreFoundation MethodHandles ---
+    private static final MethodHandle CFStringCreateWithCString = LINKER.downcallHandle(
+            CF_LOOKUP.find("CFStringCreateWithCString").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT)
+    );
+    private static final MethodHandle CFStringGetCString = LINKER.downcallHandle(
+            CF_LOOKUP.find("CFStringGetCString").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT)
+    );
+    private static final MethodHandle CFRelease = LINKER.downcallHandle(
+            CF_LOOKUP.find("CFRelease").orElseThrow(),
+            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS)
+    );
+
+    // --- CoreMIDI MethodHandles ---
+    private static final MethodHandle MIDIGetNumberOfDestinations = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIGetNumberOfDestinations").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT) // ItemCount
+    );
+    private static final MethodHandle MIDIGetDestination = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIGetDestination").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG) // ItemCount passed as long to be safe (uint32/unsigned long)
+    );
+    private static final MethodHandle MIDIObjectGetStringProperty = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIObjectGetStringProperty").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+    );
+    private static final MethodHandle MIDIClientCreate = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIClientCreate").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+    );
+    private static final MethodHandle MIDIOutputPortCreate = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIOutputPortCreate").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+    );
+    private static final MethodHandle MIDISend = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDISend").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+    );
+    private static final MethodHandle MIDIPacketListInit = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIPacketListInit").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+    );
+    private static final MethodHandle MIDIPacketListAdd = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIPacketListAdd").orElseThrow(),
+            // pktlist, listSize, curPacket, time (UInt64), nData, data
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)
+    );
+
+    private static final int kCFStringEncodingUTF8 = 0x08000100;
+
+    @Nullable private MemorySegment clientName = null;
+    @Nullable private MemorySegment portName = null;
+    @SuppressWarnings("UnusedVariable")
+    @Nullable private MemorySegment client = null;
+    @Nullable private MemorySegment outPort = null;
+    @Nullable private MemorySegment destination = null;
+    @Nullable private Arena sessionArena = null;
+    @Nullable private MemorySegment pktListMem = null;
+
+    private MemorySegment createCFString(Arena arena, String str) throws Throwable
     {
-        CoreFoundation INSTANCE = Native.load("CoreFoundation", CoreFoundation.class);
-
-        Pointer CFStringCreateWithCString(Pointer alloc, String cStr, int encoding);
-
-        int CFStringGetCString(Pointer theString, byte[] buffer, int bufferSize, int encoding);
-
-        void CFRelease(Pointer cf);
+        MemorySegment cStr = arena.allocateFrom(str);
+        return (MemorySegment) CFStringCreateWithCString.invokeExact(MemorySegment.NULL, cStr, kCFStringEncodingUTF8);
     }
-
-    public interface CoreMIDI extends Library
-    {
-        CoreMIDI INSTANCE = Native.load("CoreMIDI", CoreMIDI.class);
-
-        int MIDIGetNumberOfDestinations();
-
-        Pointer MIDIGetDestination(int itemIndex);
-
-        int MIDIObjectGetStringProperty(Pointer obj, Pointer propertyID, PointerByReference str);
-
-        int MIDIClientCreate(Pointer name, Pointer notifyProc, Pointer notifyRefCon,
-                PointerByReference outClient);
-
-        int MIDIOutputPortCreate(Pointer client, Pointer portName, PointerByReference outPort);
-
-        int MIDISend(Pointer port, Pointer dest, Pointer pktlist);
-
-        Pointer MIDIPacketListInit(Pointer pktlist);
-
-        Pointer MIDIPacketListAdd(Pointer pktlist, int listSize, Pointer curPacket, long time,
-                int nData, byte[] data);
-    }
-
-    private Pointer clientName;
-    private Pointer portName;
-    private Pointer client;
-    private Pointer outPort;
-    private Pointer destination;
-    private Memory pktListMem;
 
     @Override
     public List<MidiPort> getOutputPorts()
     {
         List<MidiPort> ports = new ArrayList<>();
-        int destCount = CoreMIDI.INSTANCE.MIDIGetNumberOfDestinations();
-        Pointer kMIDIPropertyName =
-                CoreFoundation.INSTANCE.CFStringCreateWithCString(null, "name", 0x08000100);
-
-        for (int i = 0; i < destCount; i++)
+        try (Arena arena = Arena.ofConfined())
         {
-            Pointer dest = CoreMIDI.INSTANCE.MIDIGetDestination(i);
-            PointerByReference strRef = new PointerByReference();
-            int status =
-                    CoreMIDI.INSTANCE.MIDIObjectGetStringProperty(dest, kMIDIPropertyName, strRef);
-            if (status == 0)
+            int destCount = (int) MIDIGetNumberOfDestinations.invokeExact();
+            MemorySegment kMIDIPropertyName = createCFString(arena, "name");
+
+            for (int i = 0; i < destCount; i++)
             {
-                Pointer cfString = strRef.getValue();
-                byte[] buffer = new byte[256];
-                if (CoreFoundation.INSTANCE.CFStringGetCString(cfString, buffer, buffer.length,
-                        0x08000100) != 0)
+                MemorySegment dest = (MemorySegment) MIDIGetDestination.invokeExact((long) i);
+                MemorySegment strRef = arena.allocate(ValueLayout.ADDRESS);
+                
+                int status = (int) MIDIObjectGetStringProperty.invokeExact(dest, kMIDIPropertyName, strRef);
+                if (status == 0)
                 {
-                    ports.add(new MidiPort(i, new String(buffer).trim()));
+                    MemorySegment cfString = strRef.get(ValueLayout.ADDRESS, 0);
+                    MemorySegment buffer = arena.allocate(256, 1);
+                    
+                    int getResult = (int) CFStringGetCString.invokeExact(cfString, buffer, 256, kCFStringEncodingUTF8);
+                    if (getResult != 0)
+                    {
+                        String name = buffer.getString(0, java.nio.charset.StandardCharsets.UTF_8).trim();
+                        ports.add(new MidiPort(i, name));
+                    }
+                    CFRelease.invokeExact(cfString);
                 }
-                CoreFoundation.INSTANCE.CFRelease(cfString);
             }
+            CFRelease.invokeExact(kMIDIPropertyName);
         }
-        CoreFoundation.INSTANCE.CFRelease(kMIDIPropertyName);
+        catch (Throwable e)
+        {
+            // FFM API throws Throwable, handle gracefully
+            System.err.println("Error enumerating Mac MIDI ports: " + e.getMessage());
+        }
         return ports;
     }
 
     @Override
     public void openPort(int portIndex) throws Exception
     {
-        int destCount = CoreMIDI.INSTANCE.MIDIGetNumberOfDestinations();
-        if (portIndex < 0 || portIndex >= destCount)
+        try
         {
-            throw new IllegalArgumentException("Invalid Mac port index.");
+            int destCount = (int) MIDIGetNumberOfDestinations.invokeExact();
+            if (portIndex < 0 || portIndex >= destCount)
+            {
+                throw new IllegalArgumentException("Invalid Mac port index.");
+            }
+
+            sessionArena = Arena.ofShared();
+            destination = (MemorySegment) MIDIGetDestination.invokeExact((long) portIndex);
+            
+            clientName = createCFString(sessionArena, "MidrajaClient");
+            portName = createCFString(sessionArena, "MidrajaOutPort");
+
+            MemorySegment clientRef = sessionArena.allocate(ValueLayout.ADDRESS);
+            MemorySegment portRef = sessionArena.allocate(ValueLayout.ADDRESS);
+
+            MIDIClientCreate.invokeExact(clientName, MemorySegment.NULL, MemorySegment.NULL, clientRef);
+            client = clientRef.get(ValueLayout.ADDRESS, 0);
+            
+            MIDIOutputPortCreate.invokeExact(client, portName, portRef);
+            outPort = portRef.get(ValueLayout.ADDRESS, 0);
+            
+            pktListMem = sessionArena.allocate(512, 1); // Buffer for MIDI packets
         }
-
-        destination = CoreMIDI.INSTANCE.MIDIGetDestination(portIndex);
-        clientName = CoreFoundation.INSTANCE.CFStringCreateWithCString(null, "MidrajaClient",
-                0x08000100);
-        portName = CoreFoundation.INSTANCE.CFStringCreateWithCString(null, "MidrajaOutPort",
-                0x08000100);
-
-        PointerByReference clientRef = new PointerByReference();
-        PointerByReference portRef = new PointerByReference();
-
-        CoreMIDI.INSTANCE.MIDIClientCreate(clientName, null, null, clientRef);
-        CoreMIDI.INSTANCE.MIDIOutputPortCreate(clientRef.getValue(), portName, portRef);
-
-        client = clientRef.getValue();
-        outPort = portRef.getValue();
-        pktListMem = new Memory(512); // Buffer for MIDI packets
+        catch (Throwable t)
+        {
+            throw new Exception("Failed to open Mac MIDI port via FFM", t);
+        }
     }
 
     @Override
     public void sendMessage(byte[] data) throws Exception
     {
-        if (outPort == null || destination == null) return;
-        Pointer curPkt = CoreMIDI.INSTANCE.MIDIPacketListInit(pktListMem);
-        CoreMIDI.INSTANCE.MIDIPacketListAdd(pktListMem, 512, curPkt, 0, data.length, data);
-        CoreMIDI.INSTANCE.MIDISend(outPort, destination, pktListMem);
+        var localOutPort = outPort;
+        var localDest = destination;
+        var localPktListMem = pktListMem;
+        var arena = sessionArena;
+        
+        if (localOutPort == null || localDest == null || localPktListMem == null || arena == null) return;
+        
+        try
+        {
+            MemorySegment curPkt = (MemorySegment) MIDIPacketListInit.invokeExact(localPktListMem);
+            MemorySegment dataSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, data);
+            
+            CoreMIDI_MIDIPacketListAdd(localPktListMem, 512, curPkt, 0, data.length, dataSeg);
+            MIDISend.invokeExact(localOutPort, localDest, localPktListMem);
+        }
+        catch (Throwable t)
+        {
+            throw new Exception("Error sending MIDI message", t);
+        }
+    }
+    
+    private void CoreMIDI_MIDIPacketListAdd(MemorySegment pktList, long listSize, MemorySegment curPkt, long time, long nData, MemorySegment data) throws Throwable {
+        MIDIPacketListAdd.invokeExact(pktList, listSize, curPkt, time, nData, data);
     }
 
     @Override
     public void closePort()
     {
-        if (clientName != null)
+        try
         {
-            CoreFoundation.INSTANCE.CFRelease(clientName);
+            if (clientName != null) CFRelease.invokeExact(clientName);
+            if (portName != null) CFRelease.invokeExact(portName);
+        }
+        catch (Throwable _)
+        {
+            // ignored
+        }
+        finally
+        {
             clientName = null;
-        }
-        if (portName != null)
-        {
-            CoreFoundation.INSTANCE.CFRelease(portName);
             portName = null;
+            outPort = null;
+            destination = null;
+            client = null;
+            pktListMem = null;
+            if (sessionArena != null)
+            {
+                sessionArena.close();
+                sessionArena = null;
+            }
         }
-        outPort = null;
-        destination = null;
     }
 }
