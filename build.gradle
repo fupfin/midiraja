@@ -2,7 +2,7 @@ plugins {
     id 'application'
     id 'org.graalvm.buildtools.native' version '0.10.1'
     id 'jacoco'
-    
+    id 'net.ltgt.errorprone' version '4.1.0'
 }
 
 version = '0.1'
@@ -33,10 +33,14 @@ repositories {
 }
 
 dependencies {
+    implementation 'org.jspecify:jspecify:1.0.0'
     implementation 'info.picocli:picocli:4.7.5'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.5'
-    implementation 'net.java.dev.jna:jna:5.14.0'
-    implementation 'org.jline:jline:3.24.1'
+        implementation 'org.jline:jline:3.24.1'
+    
+    errorprone 'com.google.errorprone:error_prone_core:2.36.0'
+    annotationProcessor 'com.uber.nullaway:nullaway:0.12.3'
+    
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
     testImplementation 'org.mockito:mockito-core:5.5.0'
@@ -58,8 +62,15 @@ jacocoTestReport {
     }
 }
 
+import net.ltgt.gradle.errorprone.CheckSeverity
+
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs.add('--enable-preview')
+    options.errorprone {
+        check("NullAway", CheckSeverity.ERROR)
+        option("NullAway:AnnotatedPackages", "com.midiraja")
+        option("NullAway:JSpecifyMode", "true")
+    }
 }
 
 test {
@@ -98,4 +109,3 @@ graalvmNative {
     }
 }
 
-}
