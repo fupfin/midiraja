@@ -9,70 +9,90 @@ package com.midiraja.midi.os;
 
 import com.midiraja.midi.MidiOutProvider;
 import com.midiraja.midi.MidiPort;
-import com.sun.jna.Library;
-import com.sun.jna.Native;
-import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
-import com.sun.jna.ptr.PointerByReference;
+import org.jspecify.annotations.Nullable;
 
+import java.lang.foreign.*;
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
+/**
+ * FFM API (Project Panama) based WinMM provider for Windows.
+ * Replaces the legacy JNA implementation for zero-dependency native calls.
+ */
 public class WindowsProvider implements MidiOutProvider
 {
+    private static final Linker LINKER = Linker.nativeLinker();
+    // In Windows, WinMM is usually globally available or found via standard lookup.
+    private static final SymbolLookup WINMM_LOOKUP = SymbolLookup.libraryLookup("winmm", Arena.global());
 
-    public interface WinMM extends Library
-    {
-        WinMM INSTANCE = Native.load("winmm", WinMM.class);
+    private static final MethodHandle midiOutGetNumDevs = LINKER.downcallHandle(
+            WINMM_LOOKUP.find("midiOutGetNumDevs").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT)
+    );
 
-        int midiOutGetNumDevs();
+    private static final MethodHandle midiOutGetDevCapsA = LINKER.downcallHandle(
+            WINMM_LOOKUP.find("midiOutGetDevCapsA").orElseThrow(),
+            // uDeviceID (UINT_PTR), lpMidiOutCaps (ADDRESS), cbMidiOutCaps (UINT)
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_INT)
+    );
 
-        int midiOutGetDevCapsA(Pointer uDeviceID, MIDIOUTCAPS caps, int cbMidiOutCaps);
+    private static final MethodHandle midiOutOpen = LINKER.downcallHandle(
+            WINMM_LOOKUP.find("midiOutOpen").orElseThrow(),
+            // lphmo (ADDRESS), uDeviceID (UINT), dwCallback (ADDRESS), dwInstance (ADDRESS), fdwOpen (DWORD)
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT)
+    );
 
-        int midiOutOpen(PointerByReference lphmo, int uDeviceID, Pointer dwCallback,
-                Pointer dwCallbackInstance, int dwFlags);
+    private static final MethodHandle midiOutShortMsg = LINKER.downcallHandle(
+            WINMM_LOOKUP.find("midiOutShortMsg").orElseThrow(),
+            // hmo (HANDLE), dwMsg (DWORD)
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT)
+    );
 
-        int midiOutShortMsg(Pointer hmo, int dwMsg);
+    private static final MethodHandle midiOutClose = LINKER.downcallHandle(
+            WINMM_LOOKUP.find("midiOutClose").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS)
+    );
 
-        int midiOutClose(Pointer hmo);
-    }
+    // MIDIOUTCAPS structure layout (Total 52 bytes)
+    private static final StructLayout MIDIOUTCAPS_LAYOUT = MemoryLayout.structLayout(
+            ValueLayout.JAVA_SHORT.withName("wMid"),
+            ValueLayout.JAVA_SHORT.withName("wPid"),
+            ValueLayout.JAVA_INT.withName("vDriverVersion"),
+            MemoryLayout.sequenceLayout(32, ValueLayout.JAVA_BYTE).withName("szPname"),
+            ValueLayout.JAVA_SHORT.withName("wTechnology"),
+            ValueLayout.JAVA_SHORT.withName("wVoices"),
+            ValueLayout.JAVA_SHORT.withName("wNotes"),
+            ValueLayout.JAVA_SHORT.withName("wChannelMask"),
+            ValueLayout.JAVA_INT.withName("dwSupport")
+    );
 
-    public static class MIDIOUTCAPS extends Structure
-    {
-        public short wMid;
-        public short wPid;
-        public int vDriverVersion;
-        public byte[] szPname = new byte[32]; // Device name
-        public short wTechnology;
-        public short wVoices;
-        public short wNotes;
-        public short wChannelMask;
-        public int dwSupport;
-
-        @Override
-        protected List<String> getFieldOrder()
-        {
-            return Arrays.asList("wMid", "wPid", "vDriverVersion", "szPname", "wTechnology",
-                    "wVoices", "wNotes", "wChannelMask", "dwSupport");
-        }
-    }
-
-    private Pointer handle;
+    @Nullable private MemorySegment handle = null;
+    @Nullable private Arena sessionArena = null;
 
     @Override
     public List<MidiPort> getOutputPorts()
     {
         List<MidiPort> ports = new ArrayList<>();
-        int devs = WinMM.INSTANCE.midiOutGetNumDevs();
-        for (int i = 0; i < devs; i++)
+        try (Arena arena = Arena.ofConfined())
         {
-            MIDIOUTCAPS caps = new MIDIOUTCAPS();
-            if (WinMM.INSTANCE.midiOutGetDevCapsA(new Pointer(i), caps, caps.size()) == 0)
+            int devs = (int) midiOutGetNumDevs.invokeExact();
+            for (int i = 0; i < devs; i++)
             {
-                String name = Native.toString(caps.szPname);
-                ports.add(new MidiPort(i, name));
+                MemorySegment caps = arena.allocate(MIDIOUTCAPS_LAYOUT);
+                int status = (int) midiOutGetDevCapsA.invokeExact((long) i, caps, (int) MIDIOUTCAPS_LAYOUT.byteSize());
+                if (status == 0)
+                {
+                    // szPname is at offset 8 (short 2 + short 2 + int 4)
+                    MemorySegment nameSegment = caps.asSlice(8, 32);
+                    String name = nameSegment.getString(0).trim();
+                    ports.add(new MidiPort(i, name));
+                }
             }
+        }
+        catch (Throwable e)
+        {
+            System.err.println("Error enumerating Windows MIDI ports: " + e.getMessage());
         }
         return ports;
     }
@@ -80,20 +100,30 @@ public class WindowsProvider implements MidiOutProvider
     @Override
     public void openPort(int portIndex) throws Exception
     {
-        PointerByReference ref = new PointerByReference();
-        if (WinMM.INSTANCE.midiOutOpen(ref, portIndex, null, null, 0) != 0)
+        try
         {
-            throw new Exception("Failed to open Windows MIDI port " + portIndex);
+            sessionArena = Arena.ofShared();
+            MemorySegment hRef = sessionArena.allocate(ValueLayout.ADDRESS);
+            int status = (int) midiOutOpen.invokeExact(hRef, portIndex, MemorySegment.NULL, MemorySegment.NULL, 0);
+            if (status != 0)
+            {
+                throw new Exception("Failed to open Windows MIDI port " + portIndex + " (Status: " + status + ")");
+            }
+            handle = hRef.get(ValueLayout.ADDRESS, 0);
         }
-        handle = ref.getValue();
+        catch (Throwable t)
+        {
+            if (sessionArena != null) sessionArena.close();
+            throw new Exception("Failed to open Windows MIDI port via FFM", t);
+        }
     }
 
     @Override
     public void sendMessage(byte[] data) throws Exception
     {
-        if (handle == null || data == null || data.length == 0) return;
+        var localHandle = handle;
+        if (localHandle == null || data == null || data.length == 0) return;
 
-        // Windows WinMM packs 1-3 byte short messages into a 32-bit integer.
         if (data.length <= 3)
         {
             int msg = 0;
@@ -101,22 +131,39 @@ public class WindowsProvider implements MidiOutProvider
             {
                 msg |= ((data[i] & 0xFF) << (8 * i));
             }
-            WinMM.INSTANCE.midiOutShortMsg(handle, msg);
-        }
-        else
-        {
-            // TODO: SysEx (long message) handling logic (requires midiOutLongMsg)
-            // Ignored for now or implemented later.
+            try
+            {
+                midiOutShortMsg.invokeExact(localHandle, msg);
+            }
+            catch (Throwable t)
+            {
+                throw new Exception("Error sending MIDI message to WinMM", t);
+            }
         }
     }
 
     @Override
     public void closePort()
     {
-        if (handle != null)
+        try
         {
-            WinMM.INSTANCE.midiOutClose(handle);
+            if (handle != null)
+            {
+                midiOutClose.invokeExact(handle);
+            }
+        }
+        catch (Throwable _)
+        {
+            // ignored
+        }
+        finally
+        {
             handle = null;
+            if (sessionArena != null)
+            {
+                sessionArena.close();
+                sessionArena = null;
+            }
         }
     }
 }
