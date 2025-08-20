@@ -7,6 +7,8 @@
 
 package com.midiraja.engine;
 
+import java.util.Optional;
+
 import com.midiraja.io.TerminalIO;
 import com.midiraja.midi.MidiOutProvider;
 
@@ -43,24 +45,27 @@ public class PlaybackEngine
     private final double[] channelLevels = new double[16];
     private final List<MidiEvent> sortedEvents;
     private final int resolution;
+    private final PlaylistContext context;
+    private final int[] channelPrograms = new int[16];
 
-    public PlaybackEngine(Sequence sequence, MidiOutProvider provider, int initialVolumePercent,
-            double initialSpeed, String startTimeStr, Integer initialTranspose)
+    public PlaybackEngine(Sequence sequence, MidiOutProvider provider, PlaylistContext context, int initialVolumePercent,
+            double initialSpeed, Optional<String> startTimeStr, Optional<Integer> initialTranspose)
     {
         this.sequence = sequence;
         this.provider = provider;
         this.volumeScale = initialVolumePercent / 100.0;
         this.currentSpeed = initialSpeed;
-        this.currentTranspose = initialTranspose != null ? initialTranspose : 0;
+        this.currentTranspose = initialTranspose.orElse(0);
         this.resolution = sequence.getResolution();
+        this.context = context;
 
         this.sortedEvents = Arrays.stream(sequence.getTracks())
                 .flatMap(track -> IntStream.range(0, track.size()).mapToObj(track::get))
                 .sorted(Comparator.comparingLong(MidiEvent::getTick)).toList();
 
-        if (startTimeStr != null && !startTimeStr.isBlank())
+        if (startTimeStr.isPresent() && !startTimeStr.get().isBlank())
         {
-            this.seekTarget = getTickForTime(parseTimeToMicroseconds(startTimeStr));
+            this.seekTarget = getTickForTime(parseTimeToMicroseconds(startTimeStr.get()));
         }
     }
 
@@ -70,6 +75,7 @@ public class PlaybackEngine
      *
      * @return the terminal state indicating what the user requested next (e.g., NEXT, QUIT_ALL)
      */
+    @SuppressWarnings({"ThreadPriorityCheck", "NonAtomicVolatileUpdate"})
     public PlaybackStatus start() throws Exception
     {
         isPlaying = true;
@@ -79,11 +85,11 @@ public class PlaybackEngine
         {
             scope.fork(() -> {
                 uiLoop();
-                return null;
+                return Boolean.TRUE;
             });
             scope.fork(() -> {
                 inputLoop();
-                return null;
+                return Boolean.TRUE;
             });
 
             try
@@ -145,6 +151,7 @@ public class PlaybackEngine
 
             var msg = ev.getMessage().getMessage();
             int status = msg[0] & 0xFF;
+
             if (status == 0xFF && msg.length >= 6 && (msg[1] & 0xFF) == 0x51)
             {
                 int mspqn = ((msg[3] & 0xFF) << 16) | ((msg[4] & 0xFF) << 8) | (msg[5] & 0xFF);
@@ -312,6 +319,11 @@ public class PlaybackEngine
             int cmd = status & 0xF0;
             int ch = status & 0x0F;
 
+            if (cmd == 0xC0 && raw.length >= 2)
+            {
+                channelPrograms[ch] = raw[1] & 0xFF;
+            }
+
             // Transpose Note On (0x90) and Note Off (0x80), but skip channel 10 (drums, index 9)
             if (ch != 9 && (cmd == 0x90 || cmd == 0x80))
             {
@@ -360,145 +372,204 @@ public class PlaybackEngine
                         volumeScale = Math.max(0.0, volumeScale - 0.05);
                         applyVolumeInstantly();
                     }
-                    case SPEED_UP ->
-                    {
-                        currentSpeed = Math.min(5.0, currentSpeed + 0.1);
-                    }
-                    case SPEED_DOWN ->
-                    {
-                        currentSpeed = Math.max(0.1, currentSpeed - 0.1);
-                    }
+                    case SPEED_UP -> currentSpeed = Math.min(2.0, currentSpeed + 0.1);
+                    case SPEED_DOWN -> currentSpeed = Math.max(0.5, currentSpeed - 0.1);
                     case TRANSPOSE_UP ->
                     {
-                        provider.panic();
                         currentTranspose++;
+                        provider.panic();
                     }
                     case TRANSPOSE_DOWN ->
                     {
-                        provider.panic();
                         currentTranspose--;
+                        provider.panic();
                     }
                     case SEEK_FORWARD ->
                     {
-                        // Seek roughly +10 seconds based on current BPM
-                        long ticksToSeekFwd =
-                                (long) ((10000.0 * currentBpm * resolution) / 60000.0);
-                        long targetF = currentTick + ticksToSeekFwd;
-                        seekTarget = Math.min(targetF, sequence.getTickLength());
+                        if (seekTarget == -1)
+                        { // Avoid overlapping seeks
+                            seekTarget = getTickForTime(currentMicroseconds + 10000000L); // +10 sec
+                        }
                     }
                     case SEEK_BACKWARD ->
                     {
-                        // Seek roughly -10 seconds based on current BPM
-                        long ticksToSeekBwd =
-                                (long) ((10000.0 * currentBpm * resolution) / 60000.0);
-                        seekTarget = Math.max(0, currentTick - ticksToSeekBwd);
-                    }
-                    case NEXT_TRACK ->
-                    {
-                        endStatus = PlaybackStatus.NEXT;
-                        isPlaying = false;
-                    }
-                    case PREV_TRACK ->
-                    {
-                        endStatus = PlaybackStatus.PREVIOUS;
-                        isPlaying = false;
+                        if (seekTarget == -1)
+                        {
+                            seekTarget =
+                                    getTickForTime(Math.max(0, currentMicroseconds - 10000000L)); // -10 sec
+                        }
                     }
                     case QUIT ->
                     {
-                        endStatus = PlaybackStatus.QUIT_ALL;
                         isPlaying = false;
+                        endStatus = PlaybackStatus.QUIT_ALL;
                     }
-                    default ->
-                        {
-                        }
+                    case NEXT_TRACK ->
+                    {
+                        isPlaying = false;
+                        endStatus = PlaybackStatus.NEXT;
+                    }
+                    case PREV_TRACK ->
+                    {
+                        isPlaying = false;
+                        endStatus = PlaybackStatus.PREVIOUS;
+                    }
+                    case NONE ->
+                    {
+                        // non-blocking
+                        Thread.sleep(50);
+                    }
                 }
             }
         }
-        catch (IOException _)
+        catch (IOException | InterruptedException _)
         {
+            isPlaying = false;
         }
     }
 
     private void applyVolumeInstantly()
     {
-        int vol = (int) (100 * volumeScale);
-        byte volByte = (byte) Math.max(0, Math.min(127, vol));
-
-        IntStream.range(0, 16).forEach(ch -> {
+        for (int ch = 0; ch < 16; ch++)
+        {
+            byte[] msg = new byte[] {(byte) (0xB0 | ch), 7, (byte) (100 * volumeScale)};
             try
             {
-                provider.sendMessage(new byte[] {(byte) (0xB0 | ch), 7, volByte});
+                provider.sendMessage(msg);
             }
             catch (Exception _)
             {
             }
-        });
+        }
+    }
+
+    private static final String[] GM_FAMILIES = {
+            "Piano", "Chrom Perc", "Organ", "Guitar", "Bass", "Strings", "Ensemble", "Brass",
+            "Reed", "Pipe", "Synth Lead", "Synth Pad", "Synth FX", "Ethnic", "Percussive", "SFX"
+    };
+
+    private String getChannelName(int ch)
+    {
+        if (ch == 9) return "Drums";
+        int family = channelPrograms[ch] / 8;
+        if (family >= 0 && family < GM_FAMILIES.length) return GM_FAMILIES[family];
+        return "Unknown";
     }
 
     private void uiLoop()
     {
-        var terminalIO = TerminalIO.CONTEXT.get();
-        if (!terminalIO.isInteractive())
+        var term = TerminalIO.CONTEXT.get();
+        if (!term.isInteractive())
         {
-            terminalIO.println("Playing (Interactive UI disabled)...");
-            return; // Exit UI loop to save resources
+            term.println("Playing (Interactive UI disabled)...");
+            return;
         }
 
         long totalMicroseconds = sequence.getMicrosecondLength();
         boolean includeHours = (totalMicroseconds / 1000000) >= 3600;
         String totalTimeStr = formatTime(totalMicroseconds, includeHours);
 
-        String[] blocks = {" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"};
-        terminalIO.print("\033[?25l"); // Hide cursor
-
         try
         {
             while (isPlaying)
             {
-                var sb = new StringBuilder("\r[");
-                for (int i = 0; i < 16; i++)
-                {
-                    int lv = (int) Math.round(channelLevels[i] * 8);
-                    sb.append(blocks[Math.max(0, Math.min(8, lv))]);
-                    channelLevels[i] = Math.max(0, channelLevels[i] - 0.1);
+                // Decay channel levels
+                for (int i = 0; i < 16; i++) {
+                    channelLevels[i] = Math.max(0, channelLevels[i] - 0.05); // decay
                 }
-                sb.append("] ");
 
-                String currentTimeStr = formatTime(currentMicroseconds, includeHours);
-                String transStr =
-                        currentTranspose == 0 ? "" : String.format(" %+d", currentTranspose);
-                sb.append(String.format("%s/%s (BPM: %5.1f x%.1f, Vol: %3d%%%s) \033[K",
-                        currentTimeStr, totalTimeStr, currentBpm, currentSpeed,
-                        (int) (volumeScale * 100), transStr));
-                terminalIO.print(sb.toString());
-                try
-                {
-                    Thread.sleep(50);
+                long currentMicros = currentMicroseconds;
+                String currentTimeStr = formatTime(currentMicros, includeHours);
+                int percent = (int) (totalMicroseconds > 0 ? (currentMicros * 100 / totalMicroseconds) : 0);
+                percent = Math.min(100, Math.max(0, percent));
+                
+                int barWidth = 30;
+                int filled = (int) ((percent / 100.0) * barWidth);
+                StringBuilder bar = new StringBuilder("[");
+                for (int i = 0; i < barWidth; i++) {
+                    if (i < filled) bar.append("=");
+                    else if (i == filled) bar.append(">");
+                    else bar.append("-");
                 }
-                catch (InterruptedException _)
-                {
+                bar.append("]");
+
+                StringBuilder sb = new StringBuilder();
+                sb.append("\033[H"); // Cursor Home
+                
+                sb.append("================================================================================\n");
+                sb.append("  Midiraja v").append(com.midiraja.Version.VERSION).append(" - Java 25 Native MIDI Player\n");
+                sb.append("================================================================================\n\n");
+                
+                sb.append(" [NOW PLAYING]\n");
+                String title = context.sequenceTitle() != null ? context.sequenceTitle() : context.files().get(context.currentIndex()).getName();
+                if (title.length() > 60) title = title.substring(0, 57) + "...";
+                sb.append(String.format("  Title:     %s\n", title));
+                sb.append(String.format("  Tempo:     %3.0f BPM  (Speed: %3.1fx)\n", currentBpm, currentSpeed));
+                sb.append(String.format("  Time:      %s / %s  %s  %3d%%\n", currentTimeStr, totalTimeStr, bar, percent));
+                sb.append(String.format("  Transpose: %d\n", currentTranspose));
+                sb.append(String.format("  Volume:    %d%%\n", (int)(volumeScale * 100)));
+                sb.append(String.format("  Port:      [%d] %s\n\n", context.targetPort().index(), context.targetPort().name()));
+                
+                sb.append("--------------------------------------------------------------------------------\n");
+                sb.append(" [MIDI CHANNELS ACTIVITY] (Real-time)\n\n");
+
+                for (int i = 0; i < 16; i++) {
+                    int meterLength = (int)(channelLevels[i] * 20); // max 20
+                    String meter = "█".repeat(meterLength) + " ".repeat(20 - meterLength);
+                    String chName = getChannelName(i);
+                    sb.append(String.format("  CH %02d %-13s : %s\n", i + 1, "(" + chName + ")", meter));
                 }
+                sb.append("\n");
+                
+                sb.append("--------------------------------------------------------------------------------\n");
+                sb.append(" [PLAYLIST]\n\n");
+                
+                int listSize = context.files().size();
+                int idx = context.currentIndex();
+                int startIdx = Math.max(0, idx - 2);
+                int endIdx = Math.min(listSize - 1, startIdx + 4);
+                startIdx = Math.max(0, endIdx - 4);
+                
+                for (int i = startIdx; i <= endIdx; i++) {
+                    String marker = (i == idx) ? " >" : "  ";
+                    String name = context.files().get(i).getName();
+                    if (name.length() > 50) name = name.substring(0, 47) + "...";
+                    String status = (i == idx) ? "  (Playing)" : "";
+                    sb.append(String.format("%s %d. %-50s%s\n", marker, i + 1, name, status));
+                }
+                sb.append("\n");
+                
+                sb.append("--------------------------------------------------------------------------------\n");
+                sb.append(" [CONTROLS]\n");
+                sb.append("  [Space] Pause/Resume  |  [<] [>] Prev/Next Track  |  [+] [-] Transpose\n");
+                sb.append("  [Up] [Down] Volume    |  [Q] Quit                 |\n");
+                sb.append("================================================================================\n");
+                sb.append("\033[J"); // clear remainder
+
+                term.print(sb.toString());
+                Thread.sleep(50); // 20 FPS
             }
         }
-        finally
+        catch (InterruptedException _)
         {
-            terminalIO.print("\033[?25h\n"); // Restore cursor and finish line
+            // normal exit
         }
     }
 
     private String formatTime(long microseconds, boolean includeHours)
     {
-        long seconds = microseconds / 1000000;
-        long h = seconds / 3600;
-        long m = (seconds % 3600) / 60;
-        long s = seconds % 60;
+        long totalSeconds = microseconds / 1000000;
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+
         if (includeHours)
         {
-            return String.format("%02d:%02d:%02d", h, m, s);
+            return String.format("%02d:%02d:%02d", hours, minutes, seconds);
         }
         else
         {
-            return String.format("%02d:%02d", m, s);
+            return String.format("%02d:%02d", minutes, seconds);
         }
     }
 }

@@ -18,8 +18,8 @@ import static java.lang.System.out;
 
 public class JLineTerminalIO implements TerminalIO
 {
-    private Terminal terminal;
-    private NonBlockingReader reader;
+    @org.jspecify.annotations.Nullable private Terminal terminal;
+    @org.jspecify.annotations.Nullable private NonBlockingReader reader;
 
     @Override
     public boolean isInteractive()
