@@ -346,8 +346,9 @@ public class PlaybackEngine
             {
                 provider.sendMessage(raw);
             }
-            catch (Exception _)
+            catch (Exception e)
             {
+                // System.err.println("MIDI Error: " + e.getMessage());
             }
         }
     }

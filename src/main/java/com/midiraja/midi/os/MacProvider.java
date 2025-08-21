@@ -171,26 +171,26 @@ public class MacProvider implements MidiOutProvider
         var localOutPort = outPort;
         var localDest = destination;
         var localPktListMem = pktListMem;
-        var arena = sessionArena;
         
-        if (localOutPort == null || localDest == null || localPktListMem == null || arena == null) return;
+        if (localOutPort == null || localDest == null || localPktListMem == null) return;
         
-        try
+        try (Arena tempArena = Arena.ofConfined())
         {
             MemorySegment curPkt = (MemorySegment) MIDIPacketListInit.invokeExact(localPktListMem);
-            MemorySegment dataSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, data);
+            MemorySegment dataSeg = tempArena.allocateFrom(ValueLayout.JAVA_BYTE, data);
             
-            CoreMIDI_MIDIPacketListAdd(localPktListMem, 512, curPkt, 0, data.length, dataSeg);
-            MIDISend.invokeExact(localOutPort, localDest, localPktListMem);
+            // FFM invokeExact requires exact return type matching
+            MemorySegment nextPkt = (MemorySegment) MIDIPacketListAdd.invokeExact(localPktListMem, 512L, curPkt, 0L, (long) data.length, dataSeg);
+            
+            if (nextPkt != null && !nextPkt.equals(MemorySegment.NULL))
+            {
+                int status = (int) MIDISend.invokeExact(localOutPort, localDest, localPktListMem);
+            }
         }
         catch (Throwable t)
         {
-            throw new Exception("Error sending MIDI message", t);
+            throw new Exception("Error sending MIDI message: " + t.getMessage(), t);
         }
-    }
-    
-    private void CoreMIDI_MIDIPacketListAdd(MemorySegment pktList, long listSize, MemorySegment curPkt, long time, long nData, MemorySegment data) throws Throwable {
-        MIDIPacketListAdd.invokeExact(pktList, listSize, curPkt, time, nData, data);
     }
 
     @Override
