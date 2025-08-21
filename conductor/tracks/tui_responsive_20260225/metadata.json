@@ -1,0 +1,8 @@
+{
+  "track_id": "tui_responsive_20260225",
+  "type": "bug",
+  "status": "new",
+  "created_at": "2026-02-25T11:00:00Z",
+  "updated_at": "2026-02-25T11:00:00Z",
+  "description": "Fix TUI layout issues: make it responsive, enforce a minimum size, and handle dynamic terminal resizing."
+}

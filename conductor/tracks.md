@@ -17,4 +17,4 @@ This file tracks all major tracks for the project. Each track has its own detail
 *Link: [./archive/interactive_playback_20260223/](./archive/interactive_playback_20260223/)*
 
 - [~] **Track: Linux ALSA Support & Docker Build**
-*Link: [./tracks/linux_alsa_support_20260223/](./tracks/linux_alsa_support_20260223/)*
+*Link: [./tracks/linux_alsa_support_20260223/](./tracks/linux_alsa_support_20260223/)*\n---\n\n- [ ] **Track: Fix TUI layout issues: make it responsive, enforce a minimum size, and handle dynamic terminal resizing.**\n*Link: [./tracks/tui_responsive_20260225/](./tracks/tui_responsive_20260225/)*\n
