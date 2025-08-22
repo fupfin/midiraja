@@ -61,4 +61,16 @@ public class MockTerminalIO implements TerminalIO
     {
         return outputBuffer.toString();
     }
+
+    @Override
+    public int getWidth()
+    {
+        return 80;
+    }
+
+    @Override
+    public int getHeight()
+    {
+        return 24;
+    }
 }

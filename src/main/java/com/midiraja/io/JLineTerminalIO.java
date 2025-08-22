@@ -151,4 +151,16 @@ public class JLineTerminalIO implements TerminalIO
             System.out.println(str);
         }
     }
+
+    @Override
+    public int getWidth()
+    {
+        return terminal != null && terminal.getWidth() > 0 ? terminal.getWidth() : 80;
+    }
+
+    @Override
+    public int getHeight()
+    {
+        return terminal != null && terminal.getHeight() > 0 ? terminal.getHeight() : 24;
+    }
 }

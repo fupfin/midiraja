@@ -63,4 +63,14 @@ public interface TerminalIO
      * Prints a string to the console with a newline.
      */
     void println(String str);
+
+    /**
+     * @return the current width of the terminal (number of columns). Returns a default (e.g. 80) if not interactive or unknown.
+     */
+    int getWidth();
+
+    /**
+     * @return the current height of the terminal (number of rows). Returns a default (e.g. 24) if not interactive or unknown.
+     */
+    int getHeight();
 }
