@@ -3,14 +3,14 @@
 This plan outlines the steps to make the `midra` Full-Screen TUI responsive to terminal size changes, enforcing minimum dimensions and dynamically scaling UI components.
 
 ## Phase 1: Terminal Abstraction & Dimension Querying
-- [ ] Task: Update `TerminalIO` Interface
+- [x] Task: Update `TerminalIO` Interface
     - [ ] Add `int getWidth()` and `int getHeight()` methods.
-- [ ] Task: Implement JLine Terminal querying
+- [x] Task: Implement JLine Terminal querying
     - [ ] Update `JLineTerminalIO` to return actual `terminal.getWidth()` and `terminal.getHeight()`.
-- [ ] Task: Update `MockTerminalIO` (Test Double)
+- [x] Task: Update `MockTerminalIO` (Test Double)
     - [ ] Implement dummy methods for `getWidth` and `getHeight` returning fixed sizes (e.g., 80x24).
-- [ ] Task: Write basic unit tests to ensure `JLineTerminalIO` correctly reports dimensions.
-- [ ] Task: Conductor - User Manual Verification 'Terminal Abstraction & Dimension Querying' (Protocol in workflow.md)
+- [x] Task: Write basic unit tests to ensure `JLineTerminalIO` correctly reports dimensions.
+- [x] Task: Conductor - User Manual Verification 'Terminal Abstraction & Dimension Querying' (Protocol in workflow.md)
 
 ## Phase 2: PlaybackEngine TUI Layout Refactoring
 - [ ] Task: Define Minimum TUI Dimensions
