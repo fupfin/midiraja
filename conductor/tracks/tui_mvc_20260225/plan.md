@@ -16,22 +16,22 @@ This plan executes the refactoring of `midra`'s TUI from procedural code into a 
 - [x] Task: Conductor - User Manual Verification 'Engine and UI Decoupling (MVC Foundation)' (Protocol in workflow.md)
 
 ## Phase 2: Component Architecture & Responsive Panels
-- [ ] Task: Define a `Panel` interface in the `ui` package:
+- [x] Task: Define a `Panel` interface in the `ui` package:
     - [ ] Method `int calculateHeight(int availableHeight)`: Determines the desired height based on current constraints.
     - [ ] Method `void render(StringBuilder sb, int allocatedWidth, int allocatedHeight, PlaybackEngine engine)`: Renders the component's content into the provided string builder.
-- [ ] Task: Implement `MetadataPanel`:
+- [x] Task: Implement `MetadataPanel`:
     - [ ] Render 1 to N lines of text depending on allocated height.
-- [ ] Task: Implement `StatusPanel` (Responsive):
+- [x] Task: Implement `StatusPanel` (Responsive):
     - [ ] Implement 5-line "Max" layout (Current design).
     - [ ] Implement 2-3 line "Medium" layout (Consolidated info).
     - [ ] Implement 1-line "Min" layout (Classic CLI style).
-- [ ] Task: Implement `ChannelActivityPanel` (Responsive):
+- [x] Task: Implement `ChannelActivityPanel` (Responsive):
     - [ ] Implement "Primary" 16-line vertical layout.
     - [ ] Implement "Fallback" 3-4 line horizontal grid layout for small terminals.
-- [ ] Task: Implement `ControlsPanel` (Responsive):
+- [x] Task: Implement `ControlsPanel` (Responsive):
     - [ ] Implement 3-line "Primary" layout.
     - [ ] Implement 1-line "Min" condensed layout.
-- [ ] Task: Conductor - User Manual Verification 'Component Architecture & Responsive Panels' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Component Architecture & Responsive Panels' (Protocol in workflow.md)
 
 ## Phase 3: Dynamic Layout Manager Integration
 - [ ] Task: Refactor `DashboardUI.java` to use the new Panels.
