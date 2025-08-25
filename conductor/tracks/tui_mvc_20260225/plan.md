@@ -34,13 +34,13 @@ This plan executes the refactoring of `midra`'s TUI from procedural code into a 
 - [x] Task: Conductor - User Manual Verification 'Component Architecture & Responsive Panels' (Protocol in workflow.md)
 
 ## Phase 3: Dynamic Layout Manager Integration
-- [ ] Task: Refactor `DashboardUI.java` to use the new Panels.
-- [ ] Task: Implement the "Layout Negotiation Priority Algorithm" in `DashboardUI`:
+- [x] Task: Refactor `DashboardUI.java` to use the new Panels.
+- [x] Task: Implement the "Layout Negotiation Priority Algorithm" in `DashboardUI`:
     - [ ] Step 1: Calculate heights assuming 16-line vertical channels.
     - [ ] Step 2: If remaining space is insufficient for Status/Controls (e.g., < 1 line), recalculate assuming horizontal 4-line channels.
     - [ ] Step 3: Clamp all panel heights to absolute minimums (1 line) if space is still critically constrained.
-- [ ] Task: Ensure the `uiLoop` in `DashboardUI` renders the layout smoothly at 20 FPS without flickering (using `\033[K` and `\033[J`).
-- [ ] Task: Ensure `LineUI.java` renders only a simple 1-line status.
-- [ ] Task: Ensure `DumbUI.java` renders only a static startup message and sleeps.
-- [ ] Task: Add integration tests for the layout calculation and rendering engine.
-- [ ] Task: Conductor - User Manual Verification 'Dynamic Layout Manager Integration' (Protocol in workflow.md)
+- [x] Task: Ensure the `uiLoop` in `DashboardUI` renders the layout smoothly at 20 FPS without flickering (using `\033[K` and `\033[J`).
+- [x] Task: Ensure `LineUI.java` renders only a simple 1-line status.
+- [x] Task: Ensure `DumbUI.java` renders only a static startup message and sleeps.
+- [x] Task: Add integration tests for the layout calculation and rendering engine.
+- [x] Task: Conductor - User Manual Verification 'Dynamic Layout Manager Integration' (Protocol in workflow.md)
