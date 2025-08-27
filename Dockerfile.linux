@@ -1,4 +1,4 @@
-# Dockerfile for Linux Native Build (ALSA + JNA)
+# Dockerfile for Linux Native Build (ALSA + FFM)
 FROM ubuntu:24.04
 
 # Install build dependencies
@@ -6,10 +6,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates build-essential libasound2-dev zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install GraalVM 21
+# Install GraalVM 25 (Arch-aware)
 ENV JAVA_HOME=/opt/graalvm
-RUN curl -L https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-21.0.2/graalvm-community-jdk-21.0.2_linux-aarch64_bin.tar.gz | tar -xz -C /opt && \
-    mv /opt/graalvm-community-jdk-* /opt/graalvm
+RUN mkdir -p /opt/graalvm && \
+    ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        GRAAL_ARCH="x64"; \
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+        GRAAL_ARCH="aarch64"; \
+    else \
+        echo "Unsupported architecture: $ARCH"; exit 1; \
+    fi && \
+    URL="https://download.oracle.com/graalvm/25/latest/graalvm-jdk-25_linux-${GRAAL_ARCH}_bin.tar.gz" && \
+    echo "Downloading GraalVM from $URL" && \
+    curl -fsSL "$URL" | tar -xz -C /opt/graalvm --strip-components=1
+
 ENV PATH=$JAVA_HOME/bin:$PATH
 
 WORKDIR /app
