@@ -17,3 +17,4 @@ This file tracks all major tracks for the project. Each track has its own detail
 *Link: [./archive/interactive_playback_20260223/](./archive/interactive_playback_20260223/)*
 
 - [~] **Track: Linux ALSA Support & Docker Build**
+\n---\n\n- [ ] **Track: Refactor the UI into an Event-Driven Inversion of Control (IoC) architecture, delegating layout calculations to a LayoutManager and making Panels passive state receivers.**\n*Link: [./tracks/ui_ioc_events_20260225/](./tracks/ui_ioc_events_20260225/)*\n
