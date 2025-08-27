@@ -40,63 +40,53 @@ public class DashboardUI implements PlaybackUI
                 String doubleLine = "=".repeat(termWidth) + "\n";
                 String singleLine = "-".repeat(termWidth) + "\n";
 
-                // Minimum Playlist requirements based on list size
-                int listSize = engine.getContext().files().size();
-                boolean showPlaylist = listSize > 1;
-                int minPlaylistHeight = showPlaylist ? Math.min(listSize, 4) : 0;
-
                 int contentHeight = termHeight - 4; // Subtract 4 for the horizontal separator lines
-                boolean showHeaders = true;
-                int headerOverhead = 2; // Extra height used by string headers like "[MIDI CHANNELS]"
-
-                int hMetadata = 3;
-                int hStatus = 5;
-                int hControls = 3;
+                boolean showPlaylist = engine.getContext().files().size() > 1;
+                
+                int hMetadata = 1;
+                int hStatus = 1;
+                int hControls = 1;
                 int hChannels = 16;
+                int hPlaylist = 0;
                 boolean useHorizontalChannels = false;
+                boolean showHeaders = false;
 
-                // Priority 1: Primary Layout
-                int usedHeight = hMetadata + hStatus + hControls + hChannels + headerOverhead;
-                int hPlaylist = showPlaylist ? Math.max(minPlaylistHeight, contentHeight - usedHeight) : 0;
-
-                if (usedHeight + (showPlaylist ? minPlaylistHeight : 0) > contentHeight) {
-                    // Priority 2: Horizontal Channels
-                    hChannels = 4;
+                // 19 lines is the absolute minimum required to hold Two-Column Layout 
+                // with other panels compressed to their 1-line minimums.
+                if (contentHeight >= 19) {
+                    // Two-Column Mode
+                    useHorizontalChannels = false;
+                    hChannels = 16;
+                    hPlaylist = 16; // Shares height with channels
+                    
+                    showHeaders = contentHeight >= 21;
+                    int baseRequired = showHeaders ? 21 : 19;
+                    int surplus = contentHeight - baseRequired;
+                    
+                    // Distribute surplus up to max bounds
+                    int addStatus = Math.min(surplus, 4); // Max 5
+                    hStatus += addStatus;
+                    surplus -= addStatus;
+                    
+                    int addMeta = Math.min(surplus, 2); // Max 3
+                    hMetadata += addMeta;
+                    surplus -= addMeta;
+                    
+                    int addControls = Math.min(surplus, 2); // Max 3
+                    hControls += addControls;
+                    surplus -= addControls;
+                } else {
+                    // Stacked Mode (Terminal too short, contentHeight <= 18)
                     useHorizontalChannels = true;
-                    headerOverhead = showPlaylist ? 4 : 2; // [CHANNELS] + [PLAYLIST]
-                    usedHeight = hMetadata + hStatus + hControls + hChannels + headerOverhead;
-                    hPlaylist = showPlaylist ? Math.max(minPlaylistHeight, contentHeight - usedHeight) : 0;
-
-                    if (usedHeight + (showPlaylist ? minPlaylistHeight : 0) > contentHeight) {
-                        // Priority 3: Squeeze Status and Controls
-                        hStatus = statusPanel.calculateHeight(Math.max(1, contentHeight - hMetadata - hChannels - minPlaylistHeight - headerOverhead - 1));
-                        hControls = controlsPanel.calculateHeight(Math.max(1, contentHeight - hMetadata - hChannels - hStatus - minPlaylistHeight - headerOverhead));
-                        usedHeight = hMetadata + hStatus + hControls + hChannels + headerOverhead;
-                        hPlaylist = showPlaylist ? Math.max(minPlaylistHeight, contentHeight - usedHeight) : 0;
-
-                        if (usedHeight + (showPlaylist ? minPlaylistHeight : 0) > contentHeight) {
-                            // Priority 4: Drop Headers completely to save space
-                            showHeaders = false;
-                            headerOverhead = 0;
-                            hMetadata = 1;
-                            hControls = 1;
-                            hStatus = statusPanel.calculateHeight(Math.max(1, contentHeight - hMetadata - hChannels - minPlaylistHeight));
-                            usedHeight = hMetadata + hStatus + hControls + hChannels;
-                            hPlaylist = showPlaylist ? Math.max(minPlaylistHeight, contentHeight - usedHeight) : 0;
-
-                            if (usedHeight + (showPlaylist ? minPlaylistHeight : 0) > contentHeight) {
-                                // Priority 5: Absolute Minimum Clamp (Force display even if it overflows)
-                                hMetadata = 1;
-                                hStatus = 1;
-                                hControls = 1;
-                                hChannels = 4;
-                                hPlaylist = minPlaylistHeight;
-                            }
-                        }
+                    showHeaders = false;
+                    hChannels = 4;
+                    
+                    if (showPlaylist) {
+                        hPlaylist = contentHeight - 3 - 4 - 1; // Content - Mins - Channels - Separator
+                        if (hPlaylist < 0) hPlaylist = 0;
                     }
                 }
 
-                // Render Phase
                 sb.append(doubleLine);
                 sb.append("  Midiraja v").append(com.midiraja.Version.VERSION).append(" - Java 25 Native MIDI Player\n");
                 sb.append(doubleLine);
@@ -108,6 +98,7 @@ public class DashboardUI implements PlaybackUI
                 if (useHorizontalChannels) {
                     if (showHeaders) sb.append(" [MIDI CHANNELS ACTIVITY]\n");
                     channelPanel.render(sb, termWidth, hChannels, showHeaders, engine);
+                    
                     if (showPlaylist && hPlaylist > 0) {
                         sb.append(singleLine);
                         if (showHeaders) sb.append(" [PLAYLIST]\n\n");
