@@ -38,4 +38,4 @@ This plan outlines the refactoring to an event-driven Inversion of Control archi
     - [ ] Simplify the 20fps `runRenderLoop` to solely poll terminal size, trigger layout recalculations if changed, and call `panel.render(sb)` for each panel.
 - [x] Task: Update `LineUI` and `DumbUI` to use the new event-driven `StatusPanel` correctly.
 - [x] Task: Run the test suite and ensure no regressions.
-- [x] Task: Conductor - User Manual Verification 'UI Assembly & Testing' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'UI Assembly & Testing' (Protocol in workflow.md)\n## Phase: Review Fixes\n- [x] Task: Apply review suggestions 0ebab18\n
