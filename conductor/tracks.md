@@ -15,5 +15,3 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [x] **Track: Refactor the UI into an Event-Driven Inversion of Control (IoC) architecture, delegating layout calculations to a LayoutManager and making Panels passive state receivers.**
-*Link: [./tracks/ui_ioc_events_20260225/](./tracks/ui_ioc_events_20260225/)*
