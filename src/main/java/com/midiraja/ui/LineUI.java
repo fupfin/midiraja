@@ -15,31 +15,41 @@ import java.io.IOException;
 
 public class LineUI implements PlaybackUI
 {
-    private final StatusPanel statusPanel = new StatusPanel();
-
     @Override
     public void runRenderLoop(PlaybackEngine engine)
     {
         var term = TerminalIO.CONTEXT.get();
+        String[] blocks = {" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"};
         
-        // Setup initial constraints for 1-line mode
-        statusPanel.onLayoutUpdated(new LayoutConstraints(term.getWidth(), 1, false, false));
-        engine.addPlaybackEventListener(statusPanel);
-
         try {
             while (engine.isPlaying()) {
-                int width = term.getWidth();
-                statusPanel.onLayoutUpdated(new LayoutConstraints(width, 1, false, false));
-                statusPanel.updateState(engine.getCurrentMicroseconds(), engine.getTotalMicroseconds(), 
-                    engine.getCurrentBpm(), engine.getCurrentSpeed(), engine.getVolumeScale(), 
-                    engine.getCurrentTranspose(), engine.getContext());
+                // Apply classic decay
+                engine.decayChannelLevels(0.15);
+                double[] levels = engine.getChannelLevels();
 
                 StringBuilder sb = new StringBuilder();
-                sb.append("\r");
-                statusPanel.render(sb);
-                term.print(sb.toString().replace("\n", ""));
-                Thread.sleep(100);
+                sb.append("\rVol:[");
+                for (int i = 0; i < 16; i++) {
+                    int levelIndex = (int) Math.round(levels[i] * 8);
+                    levelIndex = Math.max(0, Math.min(8, levelIndex));
+                    sb.append(blocks[levelIndex]);
+                }
+                sb.append("] ");
+                
+                long totalMicros = engine.getTotalMicroseconds();
+                long currentMicros = engine.getCurrentMicroseconds();
+                double pct = totalMicros > 0 ? (double) currentMicros / totalMicros : 0;
+                
+                sb.append(String.format("%3d%% (BPM: %5.1f, Vol: %3d%%) ", 
+                    (int)(pct * 100), engine.getCurrentBpm(), (int)(engine.getVolumeScale() * 100)));
+                
+                // Clear to end of line to prevent ghosting
+                sb.append("\033[K");
+                
+                term.print(sb.toString());
+                Thread.sleep(33); // ~30 FPS as in the original
             }
+            term.println(""); // Move to next line when done
         } catch (InterruptedException _) {}
     }
 
