@@ -15,16 +15,42 @@ import java.io.IOException;
 
 public class LineUI implements PlaybackUI
 {
+    private String formatTime(long microseconds, boolean includeHours) {
+        long totalSeconds = microseconds / 1000000;
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+        if (includeHours) return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+        return String.format("%02d:%02d", minutes, seconds);
+    }
+
     @Override
     public void runRenderLoop(PlaybackEngine engine)
     {
         var term = TerminalIO.CONTEXT.get();
+        if (term.isInteractive()) {
+            term.print("\033[?25l"); // Hide cursor
+        }
         
-        // Print static information and controls header before the dynamic line
         com.midiraja.engine.PlaylistContext context = engine.getContext();
-        String title = context.sequenceTitle() != null ? context.sequenceTitle() : context.files().get(context.currentIndex()).getName();
-        term.println("Playing: " + title + "  [Port: " + context.targetPort().name() + "]");
-        term.println("Controls: [Spc]Pause [< >]Skip [+-]Trans [^ v]Vol [Q]Quit");
+        String fileName = context.files().get(context.currentIndex()).getName();
+        String title = context.sequenceTitle() != null ? context.sequenceTitle() : "";
+        
+        // Count how many lines we print so we know how much to jump up to clear on next track
+        int staticLinesPrinted = 0;
+        
+        term.println("\033[1;36mPlaying:\033[0m " + fileName + "  [Port: " + context.targetPort().name() + "]");
+        staticLinesPrinted++;
+        
+        if (!title.isEmpty()) {
+            term.println("  Title: " + title);
+            staticLinesPrinted++;
+        }
+        
+        term.println("\033[38;5;244m  Controls: [Spc]Pause [◀ ▶]Skip [+-]Trans [▲ ▼]Vol [Q]Quit\033[0m");
+        staticLinesPrinted++;
+        term.println(""); // Blank line
+        staticLinesPrinted++;
         
         String[] blocks = {" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"};
         
@@ -35,20 +61,23 @@ public class LineUI implements PlaybackUI
                 double[] levels = engine.getChannelLevels();
 
                 StringBuilder sb = new StringBuilder();
-                sb.append("\rVol:[");
+                sb.append("\r\033[1;36mVol:[\033[0m");
                 for (int i = 0; i < 16; i++) {
                     int levelIndex = (int) Math.round(levels[i] * 8);
                     levelIndex = Math.max(0, Math.min(8, levelIndex));
-                    sb.append(blocks[levelIndex]);
+                    // Solid Cyan bars
+                    sb.append("\033[36m").append(blocks[levelIndex]).append("\033[0m");
                 }
-                sb.append("] ");
+                sb.append("\033[1;36m]\033[0m ");
                 
                 long totalMicros = engine.getTotalMicroseconds();
                 long currentMicros = engine.getCurrentMicroseconds();
-                double pct = totalMicros > 0 ? (double) currentMicros / totalMicros : 0;
+                boolean incHrs = (totalMicros / 1000000) >= 3600;
                 
-                sb.append(String.format("%3d%% (BPM: %5.1f, Vol: %3d%%) ", 
-                    (int)(pct * 100), engine.getCurrentBpm(), (int)(engine.getVolumeScale() * 100)));
+                String timeStr = formatTime(currentMicros, incHrs) + " / " + formatTime(totalMicros, incHrs);
+                
+                sb.append(String.format(" %s (BPM: %5.1f, Vol: %3d%%) ", 
+                    timeStr, engine.getCurrentBpm(), (int)(engine.getVolumeScale() * 100)));
                 
                 // Clear to end of line to prevent ghosting
                 sb.append("\033[K");
@@ -56,8 +85,23 @@ public class LineUI implements PlaybackUI
                 term.print(sb.toString());
                 Thread.sleep(33); // ~30 FPS as in the original
             }
-            term.println(""); // Move to next line when done
-        } catch (InterruptedException _) {}
+            
+            // Playback loop finished (either natural next track or user quit)
+            if (term.isInteractive()) {
+                // Erase the line UI completely by moving cursor up and clearing
+                // Move up 'staticLinesPrinted' times, then clear to end of screen
+                term.print("\r");
+                for (int i = 0; i < staticLinesPrinted; i++) {
+                    term.print("\033[A");
+                }
+                term.print("\033[J"); // Clear from cursor to end of screen
+                term.print("\033[?25h"); // Show cursor
+            } else {
+                term.println("");
+            }
+        } catch (InterruptedException _) {
+            if (term.isInteractive()) term.print("\033[?25h");
+        }
     }
 
     @Override
