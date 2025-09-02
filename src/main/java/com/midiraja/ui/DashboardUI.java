@@ -68,7 +68,7 @@ public class DashboardUI implements PlaybackUI
                 String singleLine = "-".repeat(termWidth) + "\n";
 
                 sb.append(doubleLine);
-                sb.append("  Midiraja v").append(com.midiraja.Version.VERSION).append(" - Java 25 Native MIDI Player\n");
+                sb.append("  Midiraja v").append(com.midiraja.Version.VERSION).append(" - Terminal MIDI Player\n");
                 sb.append(doubleLine);
 
                 metadataPanel.render(sb);
