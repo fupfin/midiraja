@@ -40,7 +40,7 @@ public class DumbUI implements PlaybackUI
         
         // 1. 첫 줄 프로그램 소개 (한 번만 출력)
         if (!headerPrinted) {
-            term.println(String.format("Midiraja v%s - Terminal lover's MIDI Player", com.midiraja.Version.VERSION));
+            term.println(String.format("Midiraja v%s - Terminal Lover's MIDI Player", com.midiraja.Version.VERSION));
             
             // 2. 재생 목록 요약
             if (listSize == 1) {
