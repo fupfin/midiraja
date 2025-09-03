@@ -38,6 +38,7 @@ public class PlaybackEngine
     private volatile int currentTranspose = 0;
     private volatile double volumeScale = 1.0;
     private volatile boolean isPlaying = false;
+    private volatile boolean isPaused = false;
     private volatile PlaybackStatus endStatus = PlaybackStatus.FINISHED;
 
     private final double[] channelLevels = new double[16];
@@ -405,6 +406,18 @@ public class PlaybackEngine
     public void adjustSpeed(double delta) {
         currentSpeed = Math.max(0.5, Math.min(2.0, currentSpeed + delta));
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
+    }
+
+    public void togglePause() {
+        isPaused = !isPaused;
+        if (isPaused) {
+            try { provider.panic(); } catch (Exception _) {}
+        }
+        listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
+    }
+    
+    public boolean isPaused() {
+        return isPaused;
     }
 
     public void adjustTranspose(int delta) {

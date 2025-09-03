@@ -66,6 +66,16 @@ public class JLineTerminalIO implements TerminalIO
         int ch = reader.read(10); // small timeout to avoid tight loop
         if (ch <= 0) return TerminalKey.NONE;
 
+        if (ch == ' ' || ch == 'p' || ch == 'P') {
+            // Need to separate 'P' (previous) from space (pause). Wait, 'p' was mapped to PREV_TRACK!
+            // Let's just use Space (' ') for PAUSE.
+        }
+        
+        if (ch == ' ')
+        {
+            return TerminalKey.PAUSE;
+        }
+
         if (ch == 'q' || ch == 'Q')
         {
             return TerminalKey.QUIT;

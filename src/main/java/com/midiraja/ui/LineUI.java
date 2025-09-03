@@ -82,6 +82,9 @@ public class LineUI implements PlaybackUI
                 boolean incHrs = (totalMicros / 1000000) >= 3600;
                 
                 String timeStr = formatTime(currentMicros, incHrs) + " / " + formatTime(totalMicros, incHrs);
+                if (engine.isPaused()) {
+                    timeStr = "\033[1;33m[PAUSED]\033[0m " + timeStr;
+                }
                 
                 sb.append(String.format(" %s (BPM: %5.1f, Vol: %3d%%) ", 
                     timeStr, engine.getCurrentBpm(), (int)(engine.getVolumeScale() * 100)));
@@ -139,6 +142,7 @@ public class LineUI implements PlaybackUI
             case SPEED_DOWN -> engine.adjustSpeed(-0.1);
             case SEEK_FORWARD -> engine.seekRelative(10_000_000);  // +10 seconds
             case SEEK_BACKWARD -> engine.seekRelative(-10_000_000); // -10 seconds
+            case PAUSE -> engine.togglePause();
             case QUIT -> engine.requestStop(PlaybackStatus.QUIT_ALL);
             default -> {}
         }

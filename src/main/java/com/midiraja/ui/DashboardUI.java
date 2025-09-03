@@ -59,7 +59,7 @@ public class DashboardUI implements PlaybackUI
                 // Push latest state that might change externally (non-event polled values)
                 statusPanel.updateState(engine.getCurrentMicroseconds(), engine.getTotalMicroseconds(), 
                     engine.getCurrentBpm(), engine.getCurrentSpeed(), engine.getVolumeScale(), 
-                    engine.getCurrentTranspose(), engine.getContext());
+                    engine.getCurrentTranspose(), engine.isPaused(), engine.getContext());
 
                 StringBuilder sb = new StringBuilder();
                 sb.append("\033[H");

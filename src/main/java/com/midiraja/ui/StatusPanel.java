@@ -22,6 +22,7 @@ public class StatusPanel implements Panel
     private double speed = 1.0;
     private double volumeScale = 1.0;
     private int transpose = 0;
+    private boolean isPaused = false;
     @Nullable private PlaylistContext context;
 
     @Override
@@ -33,7 +34,8 @@ public class StatusPanel implements Panel
     @Override
     public void onPlaybackStateChanged() {} // Handled by polling properties for now, or we can add specific setters
 
-    public void updateState(long currentMicros, long totalMicros, float bpm, double speed, double volumeScale, int transpose, PlaylistContext context) {
+    public void updateState(long currentMicros, long totalMicros, float bpm, double speed, double volumeScale, int transpose, boolean isPaused, PlaylistContext context) {
+        this.isPaused = isPaused;
         this.currentMicros = currentMicros;
         this.totalMicros = totalMicros;
         this.bpm = bpm;
@@ -89,8 +91,9 @@ public class StatusPanel implements Panel
         }
         bar.append("]");
 
+        String pauseIndicator = isPaused ? "[PAUSED] " : "";
         if (constraints.height() == 1) {
-            String s = String.format("    %s / %s %s %3d%%  Vol:%d%% Spd:%.1fx Tr:%+d", curStr, totStr, bar, percent, (int) (volumeScale * 100), speed, transpose);
+            String s = String.format("    %s%s / %s %s %3d%%  Vol:%d%% Spd:%.1fx Tr:%+d", pauseIndicator, curStr, totStr, bar, percent, (int) (volumeScale * 100), speed, transpose);
             sb.append(truncate(s, constraints.width())).append("\n");
         } else if (constraints.height() >= 2 && constraints.height() <= 4) {
             String line1 = String.format("    Time: %s / %s  %s  %3d%%", curStr, totStr, bar, percent);
