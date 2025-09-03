@@ -42,7 +42,11 @@ public class LineUI implements PlaybackUI
         term.println(String.format("Midiraja v%s - Terminal Lover's MIDI Player", com.midiraja.Version.VERSION));
         staticLinesPrinted++;
         
-        term.println("\033[1;36mPlaying:\033[0m " + fileName + "  [Port: " + context.targetPort().name() + "]");
+        int listSize = context.files().size();
+        int idx = context.currentIndex();
+        String indexStr = listSize > 1 ? String.format(" [%d/%d]", idx + 1, listSize) : "";
+        
+        term.println("\033[1;36mPlaying" + indexStr + ":\033[0m " + fileName + "  [Port: " + context.targetPort().name() + "]");
         staticLinesPrinted++;
         
         if (!title.isEmpty()) {
