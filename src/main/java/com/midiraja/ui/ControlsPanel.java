@@ -40,12 +40,13 @@ public class ControlsPanel implements Panel
         if (constraints.height() >= 3)
         {
             if (constraints.showHeaders()) sb.append(" [CONTROLS]\n");
-            sb.append("  [Space] Pause/Resume  |  [<] [>] Prev/Next Track  |  [+] [-] Transpose\n");
-            sb.append("  [Up] [Down] Volume    |  [Q] Quit                 |\n");
+            sb.append("  [Spc] Pause/Resume  |  [n] [p] Skip Track    |  [◀] [▶] Seek 10s\n");
+            sb.append("  [▲] [▼] Volume      |  [+] [-] Speed         |  [<] [>] Transpose\n");
+            sb.append("  [Q] Quit            |\n");
         }
         else
         {
-            String minLine = "  [Spc]Pause [<>]Skip [+-]Trans [^v]Vol [Q]Quit";
+            String minLine = "  [Spc]Pause [n p]Skip [◀ ▶]Seek [+-]Speed [<>]Trans [▲ ▼]Vol [Q]Quit";
             if (constraints.showHeaders() && constraints.height() >= 2)
             {
                 sb.append(" [CONTROLS]\n");
