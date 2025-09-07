@@ -90,6 +90,10 @@ public class DashboardUI implements PlaybackUI
                         channelPanel.render(sb);
                     }
                     if (playC.height() > 0) {
+                        if (chanC.height() > 0) {
+                            // Add separator between Channels and Playlist in stacked mode
+                            sb.append("-".repeat(termWidth)).append("\n");
+                        }
                         String hPlay = " ≡≡[ PLAYLIST ]";
                         sb.append(hPlay).append("≡".repeat(Math.max(0, playC.width() - hPlay.length() - 1))).append(" \n");
                         renderPlaylist(sb, engine, playC);
