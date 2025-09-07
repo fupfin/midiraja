@@ -50,17 +50,14 @@ public class MetadataPanel implements Panel
 
         if (constraints.height() == 1)
         {
-            String prefix = constraints.showHeaders() ? "  [NOW] " : "  ";
-            sb.append(truncate(prefix + rawTitle, constraints.width())).append("\n");
-        }
-        else if (constraints.height() == 2)
-        {
-            if (constraints.showHeaders()) sb.append("  [NOW PLAYING]\n");
-            sb.append(String.format("    Title:     %s\n", truncate(rawTitle, constraints.width() - 16)));
+            sb.append(truncate("  " + rawTitle, constraints.width())).append("\n");
         }
         else
         {
-            if (constraints.showHeaders()) sb.append("  [NOW PLAYING]\n\n");
+            // Always show headers if height > 1, no blank line below it.
+            String header = "≡≡≡[ NOW PLAYING ]";
+            int padding = Math.max(0, constraints.width() - header.length());
+            sb.append(header).append("≡".repeat(padding)).append("\n");
             sb.append(String.format("    Title:     %s\n", truncate(rawTitle, constraints.width() - 16)));
         }
     }

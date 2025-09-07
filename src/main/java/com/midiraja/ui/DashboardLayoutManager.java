@@ -40,11 +40,10 @@ public class DashboardLayoutManager
 
         // Total static structural overhead lines in DashboardUI:
         // Top banner: 1 line (inverted solid bar)
-        // Separator below status: 1 line
-        // Separator above controls: 1 line
         // Separator below controls: 1 line
-        // Total static overhead = 4 lines
-        int staticOverhead = 4;
+        // (We removed the simple singleLine '-' separators in favor of the '≡≡≡[ TITLE ]≡≡' headers, 
+        //  which are embedded within the panel height calculations)
+        int staticOverhead = 2;
         int contentHeight = termHeight - staticOverhead;
         
         boolean showPlaylist = listSize > 1;
@@ -88,24 +87,21 @@ public class DashboardLayoutManager
         }
         else
         {
-            // Stacked Mode (Terminal too short, contentHeight <= 18)
             useHorizontalChannels = true;
-            showHeaders = false;
+            hMetadata = 2; // Header + Title
             
-            // If the terminal is extremely short, we must completely hide the channel meters
-            // to prevent the total lines from exceeding termHeight.
-            if (contentHeight >= 7) {
+            // Require: Meta(2) + Status(1) + ChanHeader(1) + Chan(4) + Controls(1) = 9
+            if (contentHeight >= 9) {
                 hChannels = 4;
             } else {
-                hChannels = 0;
+                hChannels = 0; // Extremely short terminal
             }
 
             if (showPlaylist)
             {
-                // Required height: Meta(1) + Status(1) + Channels(hChannels) + Controls(1)
-                // Plus 1 line for the playlist separator
-                int requiredBeforePlaylist = 1 + 1 + hChannels + 1 + 1; 
-                hPlaylist = contentHeight - requiredBeforePlaylist; 
+                // Playlist requires 1 line for header, plus items
+                int requiredBeforePlaylist = 2 + hStatus + (hChannels > 0 ? 1 + hChannels : 0) + hControls; 
+                hPlaylist = contentHeight - requiredBeforePlaylist - 1; // -1 for Playlist Header
                 if (hPlaylist < 0) hPlaylist = 0;
             }
         }

@@ -75,7 +75,7 @@ public class DashboardUI implements PlaybackUI
 
                 metadataPanel.render(sb);
                 statusPanel.render(sb);
-                sb.append(singleLine);
+                
 
                 // For the center content (Channels and Playlist), we still need to coordinate the 2-column or stacked view
                 Map<DashboardLayoutManager.PanelId, LayoutConstraints> layout = 
@@ -85,19 +85,24 @@ public class DashboardUI implements PlaybackUI
                 LayoutConstraints playC = Objects.requireNonNull(layout.get(DashboardLayoutManager.PanelId.PLAYLIST));
 
                 if (chanC.isHorizontal()) {
-                    if (chanC.showHeaders()) sb.append(" [MIDI CHANNELS ACTIVITY]\n");
+                    String hChan = "≡≡≡[ MIDI CHANNELS ]";
+                    sb.append(hChan).append("≡".repeat(Math.max(0, chanC.width() - hChan.length()))).append("\n");
                     channelPanel.render(sb);
                     if (playC.height() > 0) {
-                        sb.append(singleLine);
-                        if (playC.showHeaders()) sb.append(" [PLAYLIST]\n\n");
+                        String hPlay = "≡≡≡[ PLAYLIST ]";
+                        sb.append(hPlay).append("≡".repeat(Math.max(0, playC.width() - hPlay.length()))).append("\n");
                         renderPlaylist(sb, engine, playC);
                     }
                 } else {
-                    if (chanC.showHeaders()) {
-                        String leftHeader = " [MIDI CHANNELS ACTIVITY]";
-                        String rightHeader = engine.getContext().files().size() > 1 ? " [PLAYLIST]" : "";
-                        sb.append(String.format("%-" + chanC.width() + "s%s\n\n", leftHeader, rightHeader));
+                    String leftHeader = "≡≡≡[ MIDI CHANNELS ]";
+                    leftHeader = leftHeader + "≡".repeat(Math.max(0, chanC.width() - leftHeader.length()));
+                    
+                    String rightHeader = "";
+                    if (engine.getContext().files().size() > 1) {
+                        rightHeader = "≡≡≡[ PLAYLIST ]";
+                        rightHeader = rightHeader + "≡".repeat(Math.max(0, playC.width() - rightHeader.length()));
                     }
+                    sb.append(leftHeader).append(rightHeader).append("\n");
 
                     StringBuilder chanSb = new StringBuilder();
                     channelPanel.render(chanSb);
@@ -119,7 +124,7 @@ public class DashboardUI implements PlaybackUI
                     }
                 }
 
-                sb.append(singleLine);
+                
                 controlsPanel.render(sb);
                 // CRITICAL: Do not append \n to the very last line to prevent the terminal from scrolling down!
                 sb.append("=".repeat(termWidth));
