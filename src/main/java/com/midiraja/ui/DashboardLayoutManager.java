@@ -70,14 +70,15 @@ public class DashboardLayoutManager
         layout.put(PanelId.METADATA, new LayoutConstraints(termWidth, hNowPlaying, true, false));
         layout.put(PanelId.CONTROLS, new LayoutConstraints(termWidth, hControls, false, false));
         
-        if (isHorizontal) {
-            int leftColWidth = Math.max(35, termWidth / 2);
-            int rightColWidth = termWidth - leftColWidth;
-            layout.put(PanelId.CHANNELS, new LayoutConstraints(leftColWidth, hChannels, true, false));
-            layout.put(PanelId.PLAYLIST, new LayoutConstraints(rightColWidth, hPlaylist, true, false));
-        } else {
+        if (isHorizontal) { // Stacked Mode
             layout.put(PanelId.CHANNELS, new LayoutConstraints(termWidth, hChannels, true, true));
             layout.put(PanelId.PLAYLIST, new LayoutConstraints(termWidth, hPlaylist, true, false));
+        } else { // Two-Column Mode
+            int leftColWidth = Math.max(35, termWidth / 2);
+            int rightColWidth = termWidth - leftColWidth;
+            // False for the 4th parameter because channels are NOT lying horizontally
+            layout.put(PanelId.CHANNELS, new LayoutConstraints(leftColWidth, hChannels, true, false));
+            layout.put(PanelId.PLAYLIST, new LayoutConstraints(rightColWidth, hPlaylist, true, false));
         }
         return layout;
     }
