@@ -13,79 +13,72 @@ public class DashboardLayoutManager
         boolean showPlaylist = listSize > 1;
 
         // Static lines: Top Banner(1) + Bottom Border(1) = 2
-        int hMetadata = 1; // Pure title line
-        int hStatus = 1;   // Base status line
-        int hControls = 1; // Base controls line
+        int hNowPlaying = 3; // Minimum 3 lines for NowPlaying content
+        int hControls = 1;   // Minimum 1 line for Controls
+        int staticOverhead = 2 + 2; // 2 for Top/Bottom + 2 for NowPlaying wrapper (TitledPanel)
         
         int hChannels = 0;
         int hPlaylist = 0;
         boolean isHorizontal = false;
 
-        // Base structural overhead:
-        // TopBanner(1) + NowPlaying[Header(1) + Bottom(1)] + Controls(hControls) + VeryBottom(1)
-        // Overhead = 4 + hMetadata + hStatus + hControls
-        
-        // Target Two-Column: Channels needs Header(1) + 16 + BottomBorder(1) = 18 lines.
-        // Total required for Two-Column = 4 + 1(Meta) + 1(Status) + 1(Control) + 18(Channels block) = 25 lines.
-        
-        if (termHeight >= 25) {
+        // Target Two-Column requires:
+        // Struct(4) + NowPlayingMin(3) + Center(18: 16+TitledOverhead2) + Controls(1) = 26
+        if (termHeight >= 26) {
             isHorizontal = false;
-            hChannels = 18;  // 18 lines so the inner panel gets 18 - 2 = 16
-            hPlaylist = 18;  
+            hChannels = 18;
+            hPlaylist = 18;
             
-            int surplus = termHeight - 25;
+            int surplus = termHeight - 26;
             
-            // Distribute surplus
-            // StatusPanel needs at least 5 lines (so hStatus = 5) to show full details.
-            // It starts at 1, so we need to add up to 4. Wait, if we add 4, it becomes 5!
-            // Why isn't it showing? Let's check TitledPanel overhead.
-            // hNowPlaying = hMetadata(1) + hStatus(1+addStatus) + Overhead(2).
-            // So if addStatus is 4, hStatus is 5.
-            // Let's allow addStatus up to 6 so it's very clear.
-            int addStatus = Math.min(surplus, 6);
-            hStatus += addStatus;
-            surplus -= addStatus;
+            // 1. Give NowPlaying up to 6 lines (+3)
+            int addNow = Math.min(surplus, 3);
+            hNowPlaying += addNow;
+            surplus -= addNow;
             
+            // 2. Give Controls up to 3 lines (+2)
             int addControls = Math.min(surplus, 2);
             hControls += addControls;
             surplus -= addControls;
             
-            // If there's still surplus, give it to Channels and Playlist!
-            hChannels += surplus;
-            hPlaylist += surplus;
+            // 3. Give remaining to extra metadata or channels? Extra metadata!
+            hNowPlaying += surplus; // Any remaining huge terminal space goes to metadata text
+            
         } else {
             isHorizontal = true; // Stacked Mode
             // Calculate available lines for center blocks
-            // Center = termHeight - 4 (struct) - hMetadata(1) - hStatus(1) - hControls(1) = termHeight - 7
-            int centerSpace = termHeight - 7;
+            // Center = termHeight - 4 (struct) - hNowPlaying(3) - hControls(1) = termHeight - 8
+            int centerSpace = termHeight - 8;
             
-            // Stacked needs TitledChannels(Header+4+Bottom = 6) and TitledPlaylist(Header+M+Bottom = 3+).
-            if (centerSpace >= 6) {
-                hChannels = 6; // 6 lines so the inner panel gets 6 - 2 = 4
+            if (centerSpace >= 6) { // Enough for Channels block (Header+4+Bottom=6)
+                hChannels = 6;
                 if (showPlaylist) {
                     hPlaylist = Math.max(0, centerSpace - 6); 
                 }
             } else {
                 hChannels = 0;
                 if (showPlaylist) {
-                    hPlaylist = Math.max(0, centerSpace - 2);
+                    hPlaylist = Math.max(0, centerSpace);
                 }
             }
+            
+            // If we have extra space inside center, distribute to NowPlaying or Controls?
+            // Wait, we just gave all to hPlaylist. If hPlaylist > 6, maybe steal some for NowPlaying?
+            if (hPlaylist > 8) {
+                int steal = Math.min(3, hPlaylist - 8);
+                hPlaylist -= steal;
+                hNowPlaying += steal;
+            }
         }
-        
-        // Composite Panel height is Metadata + Status
-        int hNowPlaying = hMetadata + hStatus;
 
         layout.put(PanelId.METADATA, new LayoutConstraints(termWidth, hNowPlaying, true, false));
         layout.put(PanelId.CONTROLS, new LayoutConstraints(termWidth, hControls, false, false));
         
-        if (isHorizontal) { // Stacked Mode
+        if (isHorizontal) {
             layout.put(PanelId.CHANNELS, new LayoutConstraints(termWidth, hChannels, true, true));
             layout.put(PanelId.PLAYLIST, new LayoutConstraints(termWidth, hPlaylist, true, false));
-        } else { // Two-Column Mode
+        } else {
             int leftColWidth = Math.max(35, termWidth / 2);
             int rightColWidth = termWidth - leftColWidth;
-            // False for the 4th parameter because channels are NOT lying horizontally
             layout.put(PanelId.CHANNELS, new LayoutConstraints(leftColWidth, hChannels, true, false));
             layout.put(PanelId.PLAYLIST, new LayoutConstraints(rightColWidth, hPlaylist, true, false));
         }

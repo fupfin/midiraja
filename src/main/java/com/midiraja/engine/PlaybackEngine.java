@@ -378,6 +378,7 @@ public class PlaybackEngine
     // --- Engine API (For UI and External Control) ---
 
     public PlaylistContext getContext() { return context; }
+    public Sequence getSequence() { return sequence; }
     
     public long getCurrentMicroseconds() { return currentMicroseconds; }
     
