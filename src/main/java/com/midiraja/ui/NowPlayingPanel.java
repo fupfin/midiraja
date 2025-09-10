@@ -94,10 +94,17 @@ public class NowPlayingPanel implements Panel {
         String timeStr = curStr + " / " + totStr;
         int timeLen = timeStr.length();
         
-        // "    " (4) + "Time:     " (10) + "[PAUSED] " (visiblePauseLen) + timeStr + "  " (2) + "  " (2) + "100%" (4)
-        // Total fixed visible = 22 + visiblePauseLen + timeLen
-        // But wait, what if constraints.width() is small? We enforce a minimum of 10.
-        int barWidth = Math.max(10, constraints.width() - 24 - visiblePauseLen - timeLen);
+        // Fixed visual length without bar:
+        // "    " (4)
+        // "Time:     " (10)
+        // " " (1)
+        // "[PAUSED] " (visiblePauseLen)
+        // "00:00 / 00:00" (timeLen)
+        // "  " (2)
+        // "  " (2)
+        // "100%" (4)
+        // Total = 23 + visiblePauseLen + timeLen
+        int barWidth = Math.max(10, constraints.width() - 23 - visiblePauseLen - timeLen);
         String bar = buildProgressBar(percent, barWidth);
         String portInfo = String.format("[%d] %s", context.targetPort().index(), context.targetPort().name());
         
@@ -107,12 +114,12 @@ public class NowPlayingPanel implements Panel {
         String p1 = "    ";
         
         // Consistent Alignment Formats (10 chars padding for label)
-        String fmtTitle = "    %-10s %s\n";
-        String fmtTime  = "    %-10s %s%s / %s  %s  %3d%%\n";
-        String fmtVol   = "    %-10s %d%%\n";
-        String fmtPort  = "    %-10s %s\n";
-        String fmtTempo = "    %-10s %3.0f BPM (%.1fx)\n";
-        String fmtTrans = "    %-10s %+d\n";
+        String fmtTitle = "    %-10s %s";
+        String fmtTime  = "    %-10s %s%s / %s  %s  %3d%%";
+        String fmtVol   = "    %-10s %d%%";
+        String fmtPort  = "    %-10s %s";
+        String fmtTempo = "    %-10s %3.0f BPM (%.1fx)";
+        String fmtTrans = "    %-10s %+d";
         
         if (h <= 2) {
             // Extreme minimum: Just Title and Time

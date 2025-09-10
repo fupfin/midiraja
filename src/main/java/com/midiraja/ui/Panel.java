@@ -27,7 +27,11 @@ public interface Panel extends LayoutListener, PlaybackEventListener
     default String truncate(String text, int maxLength)
     {
         if (text == null) return "";
-        if (text.length() <= maxLength) return text;
-        return text.substring(0, Math.max(0, maxLength - 3)) + "...";
+        // Strip ANSI codes to calculate visible length
+        String stripped = text.replaceAll("\\033\\[[;\\d]*m", "");
+        if (stripped.length() <= maxLength) return text;
+        
+        // If we must truncate, it's safer to truncate the stripped version to avoid breaking ANSI codes
+        return stripped.substring(0, Math.max(0, maxLength - 3)) + "...";
     }
 }
