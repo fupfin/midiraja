@@ -89,24 +89,58 @@ public class PlaylistPanel implements Panel {
 
         for (int i = startIdx; i <= endIdx; i++) {
             File file = context.files().get(i);
-            String marker = (i == idx) ? " >" : "  ";
             String fileName = file.getName();
             
-            // Augment with fetched title
             String fetchedTitle = titleCache.get(file);
-            String displayName;
-            if (fetchedTitle != null && !fetchedTitle.isEmpty()) {
-                displayName = fileName + " (" + fetchedTitle + ")";
-            } else {
-                displayName = fileName;
-            }
+            String displayName = (fetchedTitle != null && !fetchedTitle.isEmpty()) 
+                ? fileName + " (" + fetchedTitle + ")" 
+                : fileName;
 
             String status = (i == idx) ? "  (Playing)" : "";
             
-            if (displayName.length() > constraints.width() - status.length() - 8) {
-                displayName = displayName.substring(0, Math.max(0, constraints.width() - status.length() - 11)) + "...";
+            // Format the number or the active marker
+            String numStr;
+            if (i == idx) {
+                // If it's the active track, replace the number with '>' characters matching the number's length.
+                int numLen = String.valueOf(i + 1).length();
+                numStr = ">".repeat(numLen);
+                
+                // Color the active track Cyan!
+                displayName = "\033[1;36m" + displayName + "\033[0m";
+                status = "\033[1;36m" + status + "\033[0m";
+                numStr = "\033[1;36m" + numStr + "\033[0m";
+            } else {
+                numStr = String.valueOf(i + 1);
             }
-            sb.append(String.format(" %s %d. %s%s\n", marker, i + 1, displayName, status));
+
+            // The format string without the prefix marker " %s "
+            // We use "%s." to represent either "1." or ">."
+            // Max padding needed depends on the largest number in the visible list, 
+            // but for simplicity, we just use a fixed 3-char padding or let it float.
+            // A common approach is to right-align the number: "%3s. %s%s"
+            
+            // Calculate visible length for truncation
+            int visibleDisplayNameLen = displayName.replaceAll("\\033\\[[;\\d]*m", "").length();
+            int visibleStatusLen = status.replaceAll("\\033\\[[;\\d]*m", "").length();
+            int baseLen = 6; // "  " + "99. " (approx 6 chars)
+            
+            if (visibleDisplayNameLen > constraints.width() - visibleStatusLen - baseLen) {
+                int maxLen = Math.max(0, constraints.width() - visibleStatusLen - baseLen - 3);
+                // Truncate safely ignoring ANSI
+                String stripped = displayName.replaceAll("\\033\\[[;\\d]*m", "");
+                if (stripped.length() > maxLen) {
+                     // We just substring the raw name because applying ANSI to a truncated string is complex.
+                     // Fortunately, the color is applied to the WHOLE displayName.
+                     // So we can strip, truncate, and re-apply color!
+                     if (i == idx) {
+                         displayName = "\033[1;36m" + stripped.substring(0, maxLen) + "...\033[0m";
+                     } else {
+                         displayName = stripped.substring(0, maxLen) + "...";
+                     }
+                }
+            }
+            
+            sb.append(String.format("  %s. %s%s\n", numStr, displayName, status));
         }
         
         int printed = (endIdx - startIdx + 1);
