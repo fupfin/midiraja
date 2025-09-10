@@ -104,7 +104,8 @@ public class NowPlayingPanel implements Panel {
         // "  " (2)
         // "100%" (4)
         // Total = 23 + visiblePauseLen + timeLen
-        int barWidth = Math.max(10, constraints.width() - 23 - visiblePauseLen - timeLen);
+        // Increase safety margin by 2 to completely avoid any edge-case string overflow truncations.
+        int barWidth = Math.max(10, constraints.width() - 25 - visiblePauseLen - timeLen);
         String bar = buildProgressBar(percent, barWidth);
         String portInfo = String.format("[%d] %s", context.targetPort().index(), context.targetPort().name());
         

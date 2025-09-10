@@ -14,7 +14,7 @@ public class DashboardLayoutManager
 
         // Safety Margin: Some terminals scroll if we print to the very last character of the last line.
         // We subtract 1 from the total height to be safe.
-        int safeHeight = termHeight - 1;
+        int safeHeight = termHeight;
 
         // Static lines: Top Banner(1) + Bottom Border(1) = 2
         int hNowPlaying = 3; 
@@ -71,7 +71,7 @@ public class DashboardLayoutManager
                 int surplus = safeHeight - 25;
                 
                 // Distribute surplus logically
-                int addNow = Math.min(surplus, 4); // Up to 6 content lines
+                int addNow = Math.min(surplus, 2); // Up to 6 content lines
                 hNowPlaying += addNow;
                 surplus -= addNow;
                 
@@ -79,7 +79,7 @@ public class DashboardLayoutManager
                 hControls += addCtrl;
                 surplus -= addCtrl;
                 
-                int addMeta = Math.min(surplus, 4); // Extra metadata lines
+                int addMeta = 0; // Extra metadata lines
                 hNowPlaying += addMeta;
                 surplus -= addMeta;
                 
@@ -93,8 +93,8 @@ public class DashboardLayoutManager
                 // We start from minimums. How much surplus do we have to distribute?
                 int surplus = safeHeight - absoluteMinRequiredHeight;
                 
-                // 1. Give NowPlaying up to 2 more lines (Content 4 max in stacked)
-                int addNow = Math.min(surplus, 2);
+                // 1. Give NowPlaying up to 4 more lines (Content 6 max in stacked)
+                int addNow = Math.min(surplus, 4);
                 hNowPlaying += addNow;
                 surplus -= addNow;
                 
