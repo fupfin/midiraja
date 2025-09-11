@@ -17,16 +17,11 @@ public class DashboardLayoutManager
         int safeHeight = termHeight;
 
         // Static lines: Top Banner(1) + Bottom Border(1) = 2
-        int hNowPlaying = 3; 
-        int hControls = 1;   
-        int staticOverhead = 2 + 2; // Banner/Bottom + NowPlaying wrapper
-        
-        int hChannels = 0;
-        int hPlaylist = 0;
-        boolean isHorizontal = false;
-
-        // Absolute Minimum Constraints Requested by User:
+                                
+                        // Absolute Minimum Constraints Requested by User:
         // 1. NowPlaying: Header(1) + MinContent(2) + Bottom(1) = 4
+        boolean isHorizontal;
+        int hNowPlaying, hChannels, hPlaylist, hControls;
         int hNowPlayingMin = 4;
         
         // 2. Channels: Header(1) + MinContent(4) + Bottom(1) = 6 (NEVER disappear)

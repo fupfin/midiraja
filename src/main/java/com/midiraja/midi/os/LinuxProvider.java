@@ -238,7 +238,9 @@ public class LinuxProvider implements MidiOutProvider
                 ev.set(ValueLayout.JAVA_BYTE, 6, (byte) 253); // SND_SEQ_ADDRESS_SUBSCRIBERS offset
 
                 int s1 = (int) snd_seq_event_output_direct.invokeExact(handle, ev);
+                if (s1 < 0) { /* ignore */ }
                 int s2 = (int) snd_seq_drain_output.invokeExact(handle);
+                if (s2 < 0) { /* ignore */ }
             }
         }
         catch (Throwable t)

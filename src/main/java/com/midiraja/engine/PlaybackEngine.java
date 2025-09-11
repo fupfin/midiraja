@@ -118,7 +118,7 @@ public class PlaybackEngine
     {
         try
         {
-            String[] parts = timeStr.trim().split(":");
+            String[] parts = timeStr.trim().split(":", -1);
             long seconds = 0;
             for (String part : parts)
             {
@@ -255,7 +255,7 @@ public class PlaybackEngine
                     }
                     else
                     {
-                        Thread.yield(); // Spin-wait for the last millisecond for accuracy
+                        Thread.onSpinWait(); // Spin-wait for the last millisecond for accuracy
                     }
                     currentNanos = System.nanoTime();
                 }
@@ -310,8 +310,9 @@ public class PlaybackEngine
                 {
                     provider.sendMessage(raw);
                 }
-                catch (Exception _)
+                catch (Exception ignored)
                 {
+                    /* Ignore */
                 }
             }
         }
@@ -407,7 +408,7 @@ public class PlaybackEngine
         volumeScale = Math.max(0.0, Math.min(1.0, volumeScale + delta));
         for (int ch = 0; ch < 16; ch++) {
             byte[] msg = new byte[] {(byte) (0xB0 | ch), 7, (byte) (100 * volumeScale)};
-            try { provider.sendMessage(msg); } catch (Exception _) {}
+            try { provider.sendMessage(msg); } catch (Exception ignored) { /* Ignore */ }
         }
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
@@ -420,7 +421,7 @@ public class PlaybackEngine
     public void togglePause() {
         isPaused = !isPaused;
         if (isPaused) {
-            try { provider.panic(); } catch (Exception _) {}
+            try { provider.panic(); } catch (Exception ignored) { /* Ignore */ }
         }
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
@@ -429,9 +430,9 @@ public class PlaybackEngine
         return isPaused;
     }
 
-    public void adjustTranspose(int delta) {
+    public synchronized void adjustTranspose(int delta) {
         currentTranspose += delta;
-        try { provider.panic(); } catch (Exception _) {}
+        try { provider.panic(); } catch (Exception ignored) { /* Ignore */ }
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
 

@@ -36,7 +36,7 @@ public class PlaylistPanel implements Panel {
             // Asynchronously fetch titles for all files in the playlist to avoid blocking startup
             for (File file : context.files()) {
                 if (!titleCache.containsKey(file)) {
-                    executor.submit(() -> {
+                    var unused = executor.submit(() -> {
                         try {
                             Sequence seq = MidiSystem.getSequence(file);
                             String title = extractSequenceTitle(seq);

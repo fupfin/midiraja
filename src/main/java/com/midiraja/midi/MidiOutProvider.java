@@ -16,7 +16,7 @@ import java.util.List;
 public interface MidiOutProvider
 {
     /**
-     * @return an immutable list of available MIDI output devices on the host OS.
+     * Returns an immutable list of available MIDI output devices on the host OS.
      */
     List<MidiPort> getOutputPorts();
 
@@ -47,9 +47,7 @@ public interface MidiOutProvider
             {
                 sendMessage(new byte[] {(byte) (0xB0 | ch), 7, (byte) volume});
             }
-            catch (Exception ignored)
-            {
-            }
+            catch (Exception ignored) { /* Ignore during panic */ }
         }
     }
 
@@ -67,9 +65,7 @@ public interface MidiOutProvider
                 sendMessage(new byte[] {(byte) (0xB0 | ch), 123, 0});
                 sendMessage(new byte[] {(byte) (0xB0 | ch), 120, 0});
             }
-            catch (Exception ignored)
-            {
-            }
+            catch (Exception ignored) { /* Ignore during panic */ }
         }
     }
 }

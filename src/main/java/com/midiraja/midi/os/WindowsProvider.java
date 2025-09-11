@@ -134,6 +134,7 @@ public class WindowsProvider implements MidiOutProvider
             try
             {
                 int status = (int) midiOutShortMsg.invokeExact(localHandle, msg);
+                if (status != 0) { /* ignore */ }
             }
             catch (Throwable t)
             {

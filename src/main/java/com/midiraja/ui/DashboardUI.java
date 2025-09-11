@@ -137,7 +137,7 @@ public class DashboardUI implements PlaybackUI
 
                 Thread.sleep(50);
             }
-        } catch (InterruptedException _) {}
+        } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
     }
 
     private void recalculateLayout(int width, int height, int listSize) {

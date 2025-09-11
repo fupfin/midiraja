@@ -20,7 +20,7 @@ public class MidiProviderFactory
 
     public static MidiOutProvider createProvider()
     {
-        String osName = System.getProperty("os.name").toLowerCase();
+        String osName = System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT);
 
         OS os = osName.contains("mac") ? OS.MAC
                 : osName.contains("win") ? OS.WINDOWS

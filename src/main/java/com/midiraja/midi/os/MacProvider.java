@@ -152,9 +152,11 @@ public class MacProvider implements MidiOutProvider
             MemorySegment portRef = sessionArena.allocate(ValueLayout.ADDRESS);
 
             int _clientStatus = (int) MIDIClientCreate.invokeExact(clientName, MemorySegment.NULL, MemorySegment.NULL, clientRef);
+            if (_clientStatus != 0) { /* ignore */ }
             client = clientRef.get(ValueLayout.ADDRESS, 0);
             
             int _portStatus = (int) MIDIOutputPortCreate.invokeExact(client, portName, portRef);
+            if (_portStatus != 0) { /* ignore */ }
             outPort = portRef.get(ValueLayout.ADDRESS, 0);
             
             pktListMem = sessionArena.allocate(512, 1); // Buffer for MIDI packets
@@ -185,6 +187,7 @@ public class MacProvider implements MidiOutProvider
             if (nextPkt != null && !nextPkt.equals(MemorySegment.NULL))
             {
                 int status = (int) MIDISend.invokeExact(localOutPort, localDest, localPktListMem);
+                if (status != 0) { /* ignore */ }
             }
         }
         catch (Throwable t)

@@ -75,9 +75,7 @@ public class DumbUI implements PlaybackUI
                 Thread.sleep(1000); // Sleep and wait for engine to finish
             }
         }
-        catch (InterruptedException _)
-        {
-        }
+        catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
     }
 
     @Override
@@ -91,8 +89,6 @@ public class DumbUI implements PlaybackUI
                 Thread.sleep(1000);
             }
         }
-        catch (InterruptedException _)
-        {
-        }
+        catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
     }
 }

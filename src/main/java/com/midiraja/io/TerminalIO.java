@@ -34,7 +34,7 @@ public interface TerminalIO
     }
 
     /**
-     * @return true if the terminal supports advanced interactions like cursor movement and raw
+     * Returns true if the terminal supports advanced interactions like cursor movement and raw
      *         mode.
      */
     boolean isInteractive();
@@ -66,12 +66,12 @@ public interface TerminalIO
     void println(String str);
 
     /**
-     * @return the current width of the terminal (number of columns). Returns a default (e.g. 80) if not interactive or unknown.
+     * Returns the current width of the terminal (number of columns). Returns a default (e.g. 80) if not interactive or unknown.
      */
     int getWidth();
 
     /**
-     * @return the current height of the terminal (number of rows). Returns a default (e.g. 24) if not interactive or unknown.
+     * Returns the current height of the terminal (number of rows). Returns a default (e.g. 24) if not interactive or unknown.
      */
     int getHeight();
 }
