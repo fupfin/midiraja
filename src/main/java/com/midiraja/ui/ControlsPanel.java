@@ -43,8 +43,9 @@ public class ControlsPanel implements Panel
         // As a result, the max needed height is now 2 lines instead of 3.
         if (constraints.height() >= 2)
         {
-            sb.append("  [Spc] Pause/Resume   [n p] Skip Track   [◀ ▶] Seek 10s   [Q] Quit\n");
-            sb.append("  [▲ ▼] Volume         [+-]  Speed        [< >] Transpose\n");
+            sb.append("[Spc]Pause [n p]Skip [◀ ▶]Seek [+-]Speed [<>]Trans [▲ ▼]Vol [Q]Quit\n");
+            sb.append("[Spc] Pause/Resume  [n p] Skip Track  [◀ ▶] Seek 10s  [Q] Quit\n");
+            sb.append("[▲ ▼] Volume        [+-]  Speed       [< >] Transpose\n");
         }
         else
         {

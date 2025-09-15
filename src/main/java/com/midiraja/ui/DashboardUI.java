@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import com.midiraja.ui.LayoutListener.LayoutConstraints;
 
 public class DashboardUI implements PlaybackUI
 {
@@ -132,7 +133,8 @@ public class DashboardUI implements PlaybackUI
                 sb.append("=".repeat(termWidth));
 
                 String finalStr = sb.toString().replace("\n", "\033[K\n");
-                // Do not append \n to the very end to prevent terminal scrolling/blank lines
+                // [J clears from the current cursor position to the end of the screen.
+                // Since we are using termHeight - 1, this will cleanly erase any previous artifacts at the bottom.
                 term.print(finalStr + "\033[J");
 
                 Thread.sleep(50);

@@ -132,7 +132,7 @@ public class PlaylistPanel implements Panel {
                 }
             }
             
-            sb.append(String.format("  %s%s %s%s\n", numStr, dotStr, displayName, status));
+            sb.append(String.format("%s%s %s%s\n", numStr, dotStr, displayName, status));
         }
         
         int printed = (endIdx - startIdx + 1);
