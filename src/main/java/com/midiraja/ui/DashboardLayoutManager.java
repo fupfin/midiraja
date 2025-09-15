@@ -11,105 +11,75 @@ public class DashboardLayoutManager
     private static final int TITLED_PANEL_OVERHEAD = 2; // Header (1) + Bottom Border (1)
     private static final int APP_STATIC_OVERHEAD = 2;   // Top Banner (1) + Bottom Margin (1)
     
-    private static final int NOW_PLAYING_MIN_CONTENT = 2; // Title, Time
-    private static final int NOW_PLAYING_MAX_CONTENT = 6; // Title, Time, Vol, Port, Tempo, Trans
+    private static final int NOW_PLAYING_MIN_CONTENT = 2; 
+    private static final int NOW_PLAYING_MAX_CONTENT = 6; 
     
-    private static final int CHANNELS_MIN_CONTENT = 4;    // 4 rows of 4 channels
-    private static final int CHANNELS_MAX_CONTENT = 16;   // 16 rows of 1 channel
+    private static final int CHANNELS_MIN_CONTENT = 4;    
+    private static final int CHANNELS_MAX_CONTENT = 16;   
     
-    private static final int PLAYLIST_MIN_CONTENT = 3;    // Minimum items to show if active
+    private static final int PLAYLIST_MIN_CONTENT = 3;    
     
-    private static final int CONTROLS_MIN_CONTENT = 1;    // 1 line condensed
-    private static final int CONTROLS_MAX_CONTENT = 3;    // 3 lines full
+    private static final int CONTROLS_MIN_CONTENT = 1;    
+    private static final int CONTROLS_MAX_CONTENT = 3;    
     // ------------------------
+
+    private int wrapTitled(int contentHeight) {
+        return contentHeight + TITLED_PANEL_OVERHEAD;
+    }
 
     public Map<PanelId, LayoutConstraints> calculateLayout(int termWidth, int termHeight, int listSize)
     {
         Map<PanelId, LayoutConstraints> layout = new HashMap<>();
         boolean showPlaylist = listSize > 1;
 
-        // Safety Margin: Some terminals scroll if we print to the very last character of the last line.
-        // We subtract 1 from the total height to be safe.
-        int safeHeight = termHeight;
+        int safeHeight = termHeight - 1; // 1 line margin to prevent auto-scroll
 
-        // Static lines: Top Banner(1) + Bottom Border(1) = 2
-                                
-                        // Absolute Minimum Constraints Requested by User:
-        // 1. NowPlaying: Header(1) + MinContent(2) + Bottom(1) = 4
-        boolean isHorizontal;
-        int hNowPlaying, hChannels, hPlaylist, hControls;
-        int hNowPlayingMin = 4;
+        // 1. Calculate Absolute Minimums Required
+        int hNowPlaying = wrapTitled(NOW_PLAYING_MIN_CONTENT);
+        int hChannels = wrapTitled(CHANNELS_MIN_CONTENT);
+        int hPlaylist = showPlaylist ? wrapTitled(Math.min(PLAYLIST_MIN_CONTENT, listSize)) : 0;
+        int hControls = CONTROLS_MIN_CONTENT;
         
-        // 2. Channels: Header(1) + MinContent(4) + Bottom(1) = 6 (NEVER disappear)
-        int hChannelsMin = 6;
-        
-        // 3. Playlist: Header(1) + MinItems(Math.min(3, listSize)) + Bottom(1)
-        int playListContentMin = Math.min(3, listSize);
-        int hPlaylistMin = showPlaylist ? (2 + playListContentMin) : 0;
-        
-        // 4. Controls: 1
-        int hControlsMin = 1;
-        
-        // 5. Static: TopBanner(1) + BottomBorder(1) = 2
-        
-        // Base starting point is Stacked Mode at Absolute Minimums
-        isHorizontal = true;
-        hNowPlaying = hNowPlayingMin;
-        hChannels = hChannelsMin;
-        hPlaylist = hPlaylistMin;
-        hControls = hControlsMin;
-        
-        // Calculate the physical height required just to draw the minimums
-        int absoluteMinRequiredHeight = 2 + hNowPlayingMin + hChannelsMin + hPlaylistMin + hControlsMin;
+        int absoluteMinHeight = APP_STATIC_OVERHEAD + hNowPlaying + hChannels + hPlaylist + hControls;
 
-        if (safeHeight < absoluteMinRequiredHeight) {
-            // EXTREME SQUEEZE: The terminal is too small.
-            // Do NOT hide any panels or shrink them below their minimums!
-            // Let the UI render at the absolute minimums and overflow the terminal bounds at the bottom.
-            // (The terminal will naturally scroll or clip, which is expected behavior).
-            // No height calculation changes needed, just use the minimums initialized above.
-        } else {
-            // We have enough space. Let's see if we can trigger Two-Column mode.
-            // Target Two-Column:
-            // Static(2) + NowPlaying(4) + Center(18: Header+16+Bottom) + Controls(1) = 25
-            if (safeHeight >= 25) {
+        boolean isHorizontal = true; // Default to Stacked
+
+        if (safeHeight >= absoluteMinHeight) {
+            // 2. Determine Layout Mode based on Two-Column Threshold
+            int twoColumnReqHeight = APP_STATIC_OVERHEAD 
+                                   + wrapTitled(NOW_PLAYING_MIN_CONTENT) 
+                                   + wrapTitled(CHANNELS_MAX_CONTENT) 
+                                   + CONTROLS_MIN_CONTENT;
+                                   
+            if (safeHeight >= twoColumnReqHeight) {
+                // --- Two-Column Mode ---
                 isHorizontal = false;
-                hNowPlaying = 4; // 2 content lines
-                hChannels = 18;  // 16 content lines
-                hPlaylist = showPlaylist ? 18 : 0;
-                hControls = 1;
+                hChannels = wrapTitled(CHANNELS_MAX_CONTENT);
+                hPlaylist = showPlaylist ? wrapTitled(CHANNELS_MAX_CONTENT) : 0;
                 
-                int surplus = safeHeight - 25;
+                int surplus = safeHeight - twoColumnReqHeight;
                 
-                // Distribute surplus logically
-                int addNow = Math.min(surplus, 4); // 4 + 4 = 8 total lines (6 content lines)
+                // Distribute surplus
+                int addNow = Math.min(surplus, NOW_PLAYING_MAX_CONTENT - NOW_PLAYING_MIN_CONTENT);
                 hNowPlaying += addNow;
                 surplus -= addNow;
                 
-                int addCtrl = Math.min(surplus, 2); // Up to 3 lines for controls
+                int addCtrl = Math.min(surplus, CONTROLS_MAX_CONTENT - CONTROLS_MIN_CONTENT);
                 hControls += addCtrl;
                 surplus -= addCtrl;
                 
-                int addMeta = 0; // Extra metadata lines
-                hNowPlaying += addMeta;
-                surplus -= addMeta;
-                
-                // Infinite remaining to Center
+                // Remaining to Center
                 hChannels += surplus;
                 if (showPlaylist) hPlaylist += surplus;
+                
             } else {
-                // Comfortable Stacked Mode
-                isHorizontal = true;
+                // --- Stacked Mode ---
+                int surplus = safeHeight - absoluteMinHeight;
                 
-                // We start from minimums. How much surplus do we have to distribute?
-                int surplus = safeHeight - absoluteMinRequiredHeight;
-                
-                // 1. Give NowPlaying up to 4 more lines (Content 6 max in stacked)
-                int addNow = Math.min(surplus, 4);
+                int addNow = Math.min(surplus, NOW_PLAYING_MAX_CONTENT - NOW_PLAYING_MIN_CONTENT);
                 hNowPlaying += addNow;
                 surplus -= addNow;
                 
-                // 2. Give Playlist the rest! It's better to show more songs.
                 if (showPlaylist) {
                     hPlaylist += surplus;
                 } else {
@@ -118,6 +88,7 @@ public class DashboardLayoutManager
             }
         }
 
+        // 3. Output Final Constraints
         layout.put(PanelId.METADATA, new LayoutConstraints(termWidth, hNowPlaying, true, false));
         layout.put(PanelId.CONTROLS, new LayoutConstraints(termWidth, hControls, false, false));
         
