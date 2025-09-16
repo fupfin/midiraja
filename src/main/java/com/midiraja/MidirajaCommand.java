@@ -11,6 +11,7 @@ import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Parameters;
 
 import com.midiraja.engine.PlaybackEngine;
