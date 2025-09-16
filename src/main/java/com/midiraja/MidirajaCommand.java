@@ -70,8 +70,19 @@ public class MidirajaCommand implements Callable<Integer>
     @Option(names = {"-l", "--list-ports"}, description = "List all available MIDI output ports.")
     private boolean listPorts;
 
-    @Option(names = {"--ui"}, description = "UI mode: auto, tui, line, dumb", defaultValue = "auto")
-    private String uiMode = "auto";
+    @ArgGroup(exclusive = true, multiplicity = "0..1")
+    private UiModeOptions uiOptions = new UiModeOptions();
+
+    static class UiModeOptions {
+        @Option(names = {"-1", "--classic"}, description = "Basic CLI mode (static logging, pipe-friendly).")
+        boolean classicMode;
+
+        @Option(names = {"-2", "--mini"}, description = "Minimal TUI mode (single-line status).")
+        boolean miniMode;
+
+        @Option(names = {"-3", "--full"}, description = "Rich TUI mode (full-screen dashboard).")
+        boolean fullMode;
+    }
 
     // Optional overrides for testing
     @Nullable private MidiOutProvider provider;
@@ -194,13 +205,23 @@ public class MidirajaCommand implements Callable<Integer>
             com.midiraja.ui.PlaybackUI ui;
             boolean useAltScreen = false;
 
-            if ("dumb".equalsIgnoreCase(uiMode) || (!isInteractive && "auto".equalsIgnoreCase(uiMode))) {
+            if (uiOptions.classicMode) {
                 ui = new com.midiraja.ui.DumbUI();
-            } else if ("line".equalsIgnoreCase(uiMode)) {
+            } else if (uiOptions.miniMode) {
                 ui = new com.midiraja.ui.LineUI();
-            } else {
+            } else if (uiOptions.fullMode) {
                 ui = new com.midiraja.ui.DashboardUI();
                 useAltScreen = true;
+            } else {
+                // Auto mode logic fallback
+                if (!isInteractive) {
+                    ui = new com.midiraja.ui.DumbUI();
+                } else if (activeIO.getHeight() < 10) {
+                    ui = new com.midiraja.ui.LineUI();
+                } else {
+                    ui = new com.midiraja.ui.DashboardUI();
+                    useAltScreen = true;
+                }
             }
 
             if (useAltScreen && isInteractive) {
@@ -219,6 +240,11 @@ public class MidirajaCommand implements Callable<Integer>
                     var result = playMidiWithProvider(context, provider, currentStartTime, activeIO, ui);
                     var status = result.status();
                     currentStartTime = Optional.empty();
+                    
+                    // Preserve user-adjusted playback state for the next track
+                    this.volume = (int) (result.engine().getVolumeScale() * 100);
+                    this.speed = result.engine().getCurrentSpeed();
+                    this.transpose = java.util.Optional.of(result.engine().getCurrentTranspose());
 
                     switch (status)
                     {
@@ -417,7 +443,7 @@ public class MidirajaCommand implements Callable<Integer>
             var engine = new PlaybackEngine(sequence, provider, context, volume, speed, currentStartTime,
                     transpose);
             return ScopedValue.where(TerminalIO.CONTEXT, activeIO)
-                    .call(() -> new PlaybackResult(engine.start(ui), 0));
+                    .call(() -> new PlaybackResult(engine.start(ui), 0, engine));
         }
         finally
         {
@@ -446,7 +472,7 @@ public class MidirajaCommand implements Callable<Integer>
         return null;
     }
 
-    private record PlaybackResult(PlaybackStatus status, int linesPrinted)
+    private record PlaybackResult(PlaybackStatus status, int linesPrinted, com.midiraja.engine.PlaybackEngine engine)
     {
     }
 }

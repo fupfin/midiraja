@@ -18,4 +18,6 @@ public interface LayoutListener
      * @param bounds The new layout constraints.
      */
     void onLayoutUpdated(LayoutConstraints bounds);
+
+    static record LayoutConstraints(int width, int height, boolean showHeaders, boolean isHorizontal) { }
 }

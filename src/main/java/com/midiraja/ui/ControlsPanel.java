@@ -37,7 +37,7 @@ public class ControlsPanel implements Panel
     {
         if (constraints.height() <= 0) return;
 
-        String minLine = "  [Spc]Pause [n p]Skip [◀ ▶]Seek [+-]Speed [<>]Trans [▲ ▼]Vol [Q]Quit";
+        String minLine = "[Spc]Pause [n p]Skip [◀ ▶]Seek [+-]Speed [<>]Trans [▲ ▼]Vol [Q]Quit";
         
         // We removed the "[CONTROLS]" header to save space per user request.
         // As a result, the max needed height is now 2 lines instead of 3.
@@ -49,7 +49,7 @@ public class ControlsPanel implements Panel
         }
         else
         {
-            sb.append("  ").append(truncate(minLine.trim(), constraints.width() - 2)).append("\n");
+            sb.append(truncate(minLine.trim(), constraints.width())).append("\n");
         }
     }
 }
