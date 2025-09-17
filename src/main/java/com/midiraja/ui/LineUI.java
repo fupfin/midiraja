@@ -72,8 +72,8 @@ public class LineUI implements PlaybackUI
                 for (int i = 0; i < 16; i++) {
                     int levelIndex = (int) Math.round(levels[i] * 8);
                     levelIndex = Math.max(0, Math.min(8, levelIndex));
-                    // Solid Cyan bars
-                    buffer.append("\033[36m").append(blocks[levelIndex]).append("\033[0m");
+                    // Amber bars
+                    buffer.append("\033[38;5;215m").append(blocks[levelIndex]).append("\033[0m");
                 }
                 buffer.append("\033[38;5;215m]\033[0m ");
                 
@@ -86,8 +86,9 @@ public class LineUI implements PlaybackUI
                     timeStr = "\033[1;33m[PAUSED]\033[0m " + timeStr;
                 }
                 
-                buffer.append(String.format(" %s (BPM: %5.1f, Vol: %3d%%) ", 
-                    timeStr, engine.getCurrentBpm(), (int)(engine.getVolumeScale() * 100)));
+                double effectiveBpm = engine.getCurrentBpm() * engine.getCurrentSpeed();
+                buffer.append(String.format(" %s (Spd: %.1fx, BPM: %5.1f, Tr: %+d, Vol: %3d%%) ", 
+                    timeStr, engine.getCurrentSpeed(), effectiveBpm, engine.getCurrentTranspose(), (int)(engine.getVolumeScale() * 100)));
                 
                 // Clear to end of line to prevent ghosting
                 buffer.append("\033[K");
