@@ -29,7 +29,7 @@ public class LineUI implements PlaybackUI
     {
         var term = TerminalIO.CONTEXT.get();
         if (term.isInteractive()) {
-            term.print("\033[?25l"); // Hide cursor
+            term.print(Theme.TERM_HIDE_CURSOR); // Hide cursor
         }
         
         com.midiraja.engine.PlaylistContext context = engine.getContext();
@@ -59,7 +59,7 @@ public class LineUI implements PlaybackUI
         term.println(""); // Blank line
         staticLinesPrinted++;
         
-        String[] blocks = {" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"};
+        String[] blocks = {" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", Theme.CHAR_BLOCK_FULL};
         
         try {
             while (engine.isPlaying()) {
@@ -73,7 +73,7 @@ public class LineUI implements PlaybackUI
                     int levelIndex = (int) Math.round(levels[i] * 8);
                     levelIndex = Math.max(0, Math.min(8, levelIndex));
                     // Amber bars
-                    buffer.append("\033[38;5;215m").append(blocks[levelIndex]).append("\033[0m");
+                    buffer.append(Theme.COLOR_AMBER).append(blocks[levelIndex]).append(Theme.COLOR_RESET);
                 }
                 buffer.append("\033[38;5;215m]\033[0m ");
                 
@@ -91,7 +91,7 @@ public class LineUI implements PlaybackUI
                     timeStr, engine.getCurrentSpeed(), effectiveBpm, engine.getCurrentTranspose(), (int)(engine.getVolumeScale() * 100)));
                 
                 // Clear to end of line to prevent ghosting
-                buffer.append("\033[K");
+                buffer.append(Theme.TERM_CLEAR_TO_EOL);
                 
                 term.print(buffer.toString());
                 Thread.sleep(33); // ~30 FPS as in the original
@@ -103,15 +103,15 @@ public class LineUI implements PlaybackUI
                 // Move up 'staticLinesPrinted' times, then clear to end of screen
                 term.print("\r");
                 for (int i = 0; i < staticLinesPrinted; i++) {
-                    term.print("\033[A");
+                    term.print(Theme.TERM_CURSOR_UP);
                 }
-                term.print("\033[J"); // Clear from cursor to end of screen
-                term.print("\033[?25h"); // Show cursor
+                term.print(Theme.TERM_CLEAR_TO_END); // Clear from cursor to end of screen
+                term.print(Theme.TERM_SHOW_CURSOR); // Show cursor
             } else {
                 term.println("");
             }
         } catch (InterruptedException _) {
-            if (term.isInteractive()) term.print("\033[?25h");
+            if (term.isInteractive()) term.print(Theme.TERM_SHOW_CURSOR);
         }
     }
 

@@ -73,7 +73,7 @@ public class ChannelActivityPanel implements Panel
             for (int i = 0; i < 16; i++)
             {
                 int meterLength = (int) (channelLevels[i] * maxMeterLength);
-                String meter = "\033[38;5;215m" + "█".repeat(meterLength) + "\033[0m" + " ".repeat(maxMeterLength - meterLength);
+                String meter = Theme.COLOR_AMBER + Theme.CHAR_BLOCK_FULL.repeat(meterLength) + Theme.COLOR_RESET + " ".repeat(maxMeterLength - meterLength);
                 String line = String.format("CH %02d %-11s : %s", i + 1, "(" + getChannelName(i) + ")", meter);
                 buffer.append(truncate(line, constraints.width())).append("\n");
             }
@@ -89,7 +89,7 @@ public class ChannelActivityPanel implements Panel
                 {
                     int ch = row + (col * 4);
                     int meterLength = (int) (channelLevels[ch] * maxMeterLength);
-                    String meter = "\033[38;5;215m" + "█".repeat(meterLength) + "\033[0m" + " ".repeat(maxMeterLength - meterLength);
+                    String meter = Theme.COLOR_AMBER + Theme.CHAR_BLOCK_FULL.repeat(meterLength) + Theme.COLOR_RESET + " ".repeat(maxMeterLength - meterLength);
                     String cell = String.format("C%02d:%s", ch + 1, meter);
                     if (cell.length() > colWidth) cell = cell.substring(0, colWidth);
                     else cell += " ".repeat(colWidth - cell.length());

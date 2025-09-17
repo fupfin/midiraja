@@ -64,13 +64,13 @@ public class NowPlayingPanel implements Panel {
     private String buildProgressBar(int percent, int barWidth) {
         int filled = (int) ((percent / 100.0) * barWidth);
         StringBuilder bar = new StringBuilder("[");
-        bar.append("\033[38;5;215m"); // Start Cyan
+        bar.append(Theme.COLOR_AMBER); // Start Cyan
         for (int i = 0; i < barWidth; i++) {
-            if (i == filled) bar.append("\033[0m"); // End Cyan, start plain
-            if (i < filled) bar.append("█");
-            else bar.append("░");
+            if (i == filled) bar.append(Theme.COLOR_RESET); // End Cyan, start plain
+            if (i < filled) bar.append(Theme.CHAR_BLOCK_FULL);
+            else bar.append(Theme.CHAR_BLOCK_EMPTY);
         }
-        if (filled >= barWidth) bar.append("\033[0m"); // Ensure reset
+        if (filled >= barWidth) bar.append(Theme.COLOR_RESET); // Ensure reset
         bar.append("]");
         return bar.toString();
     }

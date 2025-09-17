@@ -90,11 +90,11 @@ public class DashboardUI implements PlaybackUI
                     engine.getCurrentTranspose(), engine.isPaused(), engine.getContext());
 
                 ScreenBuffer buffer = new ScreenBuffer(4096);
-                buffer.append("\033[H");
+                buffer.append(Theme.TERM_CURSOR_HOME);
 
                 String banner = String.format(" Midiraja v%s - Terminal Lover's MIDI Player", com.midiraja.Version.VERSION);
                 int bannerPadding = Math.max(0, termWidth - banner.length());
-                buffer.append("\033[7m").append(banner).append(" ".repeat(bannerPadding)).append("\033[0m\n");
+                buffer.append(Theme.FORMAT_INVERT).append(banner).append(" ".repeat(bannerPadding)).append("\033[0m\n");
 
                 titledNowPlayingPanel.render(buffer);
 
@@ -135,7 +135,7 @@ public class DashboardUI implements PlaybackUI
                 String finalStr = buffer.toString().replace("\n", "\033[K\n");
                 // [J clears from the current cursor position to the end of the screen.
                 // Since we are using termHeight - 1, this will cleanly erase any previous artifacts at the bottom.
-                term.print(finalStr + "\033[J");
+                term.print(finalStr + Theme.TERM_CLEAR_TO_END);
 
                 Thread.sleep(50);
             }

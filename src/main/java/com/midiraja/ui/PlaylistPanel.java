@@ -108,10 +108,10 @@ public class PlaylistPanel implements Panel {
                 dotStr = ">"; // Replace the dot with another >
                 
                 // Color the active track Cyan!
-                displayName = "\033[1;36m" + displayName + "\033[0m";
-                status = "\033[1;36m" + status + "\033[0m";
-                numStr = "\033[1;36m" + numStr;
-                dotStr = dotStr + "\033[0m";
+                displayName = Theme.COLOR_CYAN + displayName + Theme.COLOR_RESET;
+                status = Theme.COLOR_CYAN + status + Theme.COLOR_RESET;
+                numStr = Theme.COLOR_CYAN + numStr;
+                dotStr = dotStr + Theme.COLOR_RESET;
             } else {
                 numStr = String.valueOf(i + 1);
             }
@@ -125,7 +125,7 @@ public class PlaylistPanel implements Panel {
                 String stripped = displayName.replaceAll("\\033\\[[;\\d]*m", "");
                 if (stripped.length() > maxLen) {
                      if (i == idx) {
-                         displayName = "\033[1;36m" + stripped.substring(0, maxLen) + "...\033[0m";
+                         displayName = Theme.COLOR_CYAN + stripped.substring(0, maxLen) + "...\033[0m";
                      } else {
                          displayName = stripped.substring(0, maxLen) + "...";
                      }

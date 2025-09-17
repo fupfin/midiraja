@@ -22,6 +22,7 @@ import com.midiraja.io.TerminalIO;
 import com.midiraja.midi.MidiOutProvider;
 import com.midiraja.midi.MidiPort;
 import com.midiraja.midi.MidiProviderFactory;
+import com.midiraja.ui.Theme;
 
 import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiMessage;
@@ -189,7 +190,7 @@ public class MidirajaCommand implements Callable<Integer>
 
             // Add a shutdown hook to handle Ctrl+C (SIGINT) gracefully
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                System.out.print("\033[?25h\033[?1049l"); // Restore cursor, exit alt screen
+                System.out.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_ALT_SCREEN_DISABLE); // Restore cursor, exit alt screen
                 System.out.flush();
                 try
                 {
@@ -270,7 +271,7 @@ public class MidirajaCommand implements Callable<Integer>
                 }
             } finally {
                 if (useAltScreen && isInteractive) {
-                    out.print("\033[?25h\033[?1049l"); // Show cursor, exit alt screen
+                    out.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_ALT_SCREEN_DISABLE); // Show cursor, exit alt screen
                     out.flush();
                 }
                 activeIO.close();
@@ -346,7 +347,7 @@ public class MidirajaCommand implements Callable<Integer>
             terminal.enterRawMode();
             var reader = terminal.reader();
 
-            terminal.writer().print("\033[?25l"); // Hide cursor
+            terminal.writer().print(Theme.TERM_HIDE_CURSOR); // Hide cursor
             boolean firstDraw = true;
 
             while (true)
@@ -372,14 +373,14 @@ public class MidirajaCommand implements Callable<Integer>
                 if (ch == 'q' || ch == 'Q')
                 {
                     clearMenu(terminal, numPorts);
-                    terminal.writer().print("\033[?25h"); // Restore cursor
+                    terminal.writer().print(Theme.TERM_SHOW_CURSOR); // Restore cursor
                     terminal.writer().flush();
                     return -1;
                 }
                 if (ch == 13 || ch == 10)
                 { // Enter
                     clearMenu(terminal, numPorts);
-                    terminal.writer().print("\033[?25h"); // Restore cursor
+                    terminal.writer().print(Theme.TERM_SHOW_CURSOR); // Restore cursor
                     terminal.writer().flush();
                     return ports.get(selectedIndex).index();
                 }
@@ -409,7 +410,7 @@ public class MidirajaCommand implements Callable<Integer>
         terminal.writer().print("\033[" + (numPorts + 1) + "A");
         for (int i = 0; i <= numPorts; i++)
         {
-            terminal.writer().println("\033[K"); // Clear line
+            terminal.writer().println(Theme.TERM_CLEAR_TO_EOL); // Clear line
         }
         terminal.writer().print("\033[" + (numPorts + 1) + "A");
     }
