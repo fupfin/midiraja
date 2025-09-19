@@ -175,7 +175,7 @@ public class MidirajaCommand implements Callable<Integer>
                 // In classic/batch mode, skip the fancy TUI menu and just use standard text prompt
                 portIndex = fallbackPortSelection(ports);
             } else {
-                portIndex = interactivePortSelection(ports);
+                portIndex = interactivePortSelection(ports, uiOptions.fullMode);
             }
             if (portIndex == -1) return 0; // User quit
         }
@@ -320,7 +320,7 @@ public class MidirajaCommand implements Callable<Integer>
         return -1;
     }
 
-    private int interactivePortSelection(List<MidiPort> ports) throws Exception
+    private int interactivePortSelection(List<MidiPort> ports, boolean isFullMode) throws Exception
     {
         if (ports.isEmpty()) return -1;
 
@@ -331,7 +331,11 @@ public class MidirajaCommand implements Callable<Integer>
 
         if (isInteractive)
         {
-            return dynamicPortSelection(ports);
+            if (isFullMode) {
+                return fullScreenPortSelection(ports);
+            } else {
+                return dynamicPortSelection(ports);
+            }
         }
         else
         {
@@ -408,7 +412,122 @@ public class MidirajaCommand implements Callable<Integer>
         }
     }
 
-    private void clearMenu(org.jline.terminal.Terminal terminal, int numPorts)
+    
+    private int fullScreenPortSelection(List<MidiPort> ports) throws Exception
+    {
+        int selectedIndex = 0;
+        int numPorts = ports.size();
+
+        try (org.jline.terminal.Terminal terminal =
+                org.jline.terminal.TerminalBuilder.builder().system(true).build())
+        {
+            terminal.enterRawMode();
+            var reader = terminal.reader();
+
+            // Enable Alt Screen and Hide Cursor
+            terminal.writer().print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
+            terminal.writer().flush();
+
+            while (true)
+            {
+                int width = terminal.getWidth();
+                int height = terminal.getHeight();
+                
+                // Calculate box dimensions
+                int boxWidth = 50;
+                int boxHeight = numPorts + 4; // Title + ports + divider + footer
+                
+                int padLeft = Math.max(0, (width - boxWidth) / 2);
+                int padTop = Math.max(0, (height - boxHeight) / 2);
+
+                com.midiraja.ui.ScreenBuffer buffer = new com.midiraja.ui.ScreenBuffer(4096);
+                buffer.append(Theme.TERM_CURSOR_HOME).append(Theme.TERM_CLEAR_TO_END);
+                
+                // Top padding
+                buffer.repeat("\n", padTop);
+                
+                // Title
+                String title = " SELECT MIDI TARGET ";
+                int titlePad = (boxWidth - title.length() - 2) / 2; // -2 for the border lines
+                buffer.repeat(" ", padLeft)
+                      .append(Theme.COLOR_HIGHLIGHT)
+                      .repeat(Theme.DECORATOR_LINE, titlePad)
+                      .append(Theme.COLOR_RESET)
+                      .append(Theme.FORMAT_INVERT).append(title).append(Theme.COLOR_RESET)
+                      .append(Theme.COLOR_HIGHLIGHT)
+                      .repeat(Theme.DECORATOR_LINE, boxWidth - titlePad - title.length())
+                      .append(Theme.COLOR_RESET)
+                      .appendLine();
+                
+                // Ports
+                for (int i = 0; i < numPorts; i++)
+                {
+                    buffer.repeat(" ", padLeft);
+                    String portName = ports.get(i).name();
+                    if (portName.length() > boxWidth - 8) {
+                        portName = portName.substring(0, boxWidth - 11) + "...";
+                    }
+                    
+                    if (i == selectedIndex) {
+                        buffer.append("  ").append(Theme.COLOR_HIGHLIGHT).append(Theme.CHAR_ARROW_RIGHT).append(" [").append(String.valueOf(i)).append("] ")
+                              .append(portName).append(Theme.COLOR_RESET).appendLine();
+                    } else {
+                        buffer.append("    [").append(String.valueOf(i)).append("] ").append(portName).appendLine();
+                    }
+                }
+                
+                // Footer
+                buffer.repeat(" ", padLeft)
+                      .append(Theme.COLOR_HIGHLIGHT)
+                      .repeat(Theme.BORDER_HORIZONTAL, boxWidth)
+                      .append(Theme.COLOR_RESET)
+                      .appendLine();
+                
+                String footer = "[▲/▼] Move   [Enter] Select   [Q] Quit";
+                int footerPad = (boxWidth - footer.length()) / 2;
+                buffer.repeat(" ", padLeft + footerPad)
+                      .append(Theme.COLOR_HIGHLIGHT).append(footer).append(Theme.COLOR_RESET)
+                      .appendLine();
+                
+                terminal.writer().print(buffer.toString());
+                terminal.writer().flush();
+
+                int ch = reader.read(50);
+                if (ch <= 0) continue; // Timeout, redraw (handles resize)
+
+                if (ch == 'q' || ch == 'Q')
+                {
+                    terminal.writer().print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
+                    terminal.writer().flush();
+                    return -1;
+                }
+                if (ch == 13 || ch == 10)
+                { // Enter
+                    terminal.writer().print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
+                    terminal.writer().flush();
+                    return ports.get(selectedIndex).index();
+                }
+
+                if (ch == 27)
+                { // ANSI Escape Sequence
+                    int next1 = reader.read(2);
+                    if (next1 == '[')
+                    {
+                        int next2 = reader.read(2);
+                        if (next2 == 'A')
+                        { // Up arrow
+                            selectedIndex = (selectedIndex - 1 + numPorts) % numPorts;
+                        }
+                        else if (next2 == 'B')
+                        { // Down arrow
+                            selectedIndex = (selectedIndex + 1) % numPorts;
+                        }
+                    }
+                }
+            }
+        }
+    }
+private void clearMenu(org.jline.terminal.Terminal terminal, int numPorts)
     {
         terminal.writer().print("\033[" + (numPorts + 1) + "A");
         for (int i = 0; i <= numPorts; i++)
