@@ -91,8 +91,14 @@ public class ChannelActivityPanel implements Panel
                     int meterLength = (int) (channelLevels[ch] * maxMeterLength);
                     String meter = Theme.COLOR_HIGHLIGHT + Theme.CHAR_BLOCK_FULL.repeat(meterLength) + Theme.COLOR_RESET + " ".repeat(maxMeterLength - meterLength);
                     String cell = String.format("C%02d:%s", ch + 1, meter);
-                    if (cell.length() > colWidth) cell = cell.substring(0, colWidth);
-                    else cell += " ".repeat(colWidth - cell.length());
+                    int visibleLen = 4 + maxMeterLength; // "C01:" is 4 chars, meter is maxMeterLength chars
+                    if (visibleLen > colWidth) {
+                        // In extremely narrow terminals we might need to truncate the meter string itself,
+                        // but since maxMeterLength = max(2, colWidth - 7), visibleLen is (colWidth - 3).
+                        // So visibleLen is NEVER > colWidth in reality!
+                    }
+                    int padding = Math.max(0, colWidth - visibleLen);
+                    cell += " ".repeat(padding);
                     rowSb.append(cell);
                 }
                 buffer.append(truncate(rowSb.toString(), constraints.width())).append("\n");
