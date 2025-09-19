@@ -195,6 +195,9 @@ public class MidirajaCommand implements Callable<Integer>
                 try
                 {
                     if (provider != null) provider.panic();
+                    // Additional safety buffer to ensure panic messages are flushed 
+                    // before tearing down the FFM arena and OS port.
+                    try { Thread.sleep(100); } catch (InterruptedException _) { Thread.currentThread().interrupt(); }
                     if (provider != null) provider.closePort();
                 }
                 catch (Exception _) { // ignored

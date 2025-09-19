@@ -61,11 +61,15 @@ public interface MidiOutProvider
         {
             try
             {
-                // All Notes Off (123) and All Sound Off (120)
+                // Sustain Pedal Off (64), All Notes Off (123), All Sound Off (120), Reset All Controllers (121)
+                sendMessage(new byte[] {(byte) (0xB0 | ch), 64, 0});
                 sendMessage(new byte[] {(byte) (0xB0 | ch), 123, 0});
                 sendMessage(new byte[] {(byte) (0xB0 | ch), 120, 0});
+                sendMessage(new byte[] {(byte) (0xB0 | ch), 121, 0});
             }
             catch (Exception ignored) { /* Ignore during panic */ }
         }
+        // Give the native MIDI driver a tiny window to flush these messages before the port closes
+        try { Thread.sleep(50); } catch (Exception ignored) { Thread.currentThread().interrupt(); }
     }
 }
