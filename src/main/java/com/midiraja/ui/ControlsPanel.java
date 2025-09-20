@@ -37,7 +37,7 @@ public class ControlsPanel implements Panel
     {
         if (constraints.height() <= 0) return;
 
-        String minLine = "[Spc]Pause [▲ ▼]Track [◀ ▶]Seek [+-]Vol [ [ ] ]Speed [<>]Trans [Q]Quit";
+        String minLine = "[Spc]Pause [▲ ▼]Track [◀ ▶]Seek [+-]Vol [[ ]]Speed [<>]Trans [Q]Quit";
         
         // We removed the "[CONTROLS]" header to save space per user request.
         // As a result, the max needed height is now 2 lines instead of 3.
