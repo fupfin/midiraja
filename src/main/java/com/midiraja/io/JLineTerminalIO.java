@@ -79,16 +79,18 @@ public class JLineTerminalIO implements TerminalIO
             case '-', '_', 'd', 'D' -> TerminalKey.VOLUME_DOWN;
             
             // Speed (Main: [ / ])
-            case ']' -> TerminalKey.SPEED_UP;
-            case '[' -> TerminalKey.SPEED_DOWN;
+            
+            
             
             // Seek (Main: Left/Right Arrows, Aux: f/b)
             case 'f', 'F' -> TerminalKey.SEEK_FORWARD;
+            case '\'' -> TerminalKey.TRANSPOSE_UP;
+            case '/' -> TerminalKey.TRANSPOSE_DOWN;
             case 'b', 'B' -> TerminalKey.SEEK_BACKWARD;
             
             // Transpose (Main: < / >)
-            case '.', '>' -> TerminalKey.TRANSPOSE_UP;
-            case ',', '<' -> TerminalKey.TRANSPOSE_DOWN;
+            case '.', '>' -> TerminalKey.SPEED_UP;
+            case ',', '<' -> TerminalKey.SPEED_DOWN;
 
             // Handle ESC and Arrow Keys (typically ESC [ A, B, C, D)
             case 27 -> {

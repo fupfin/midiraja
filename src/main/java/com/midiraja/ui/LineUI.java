@@ -54,7 +54,7 @@ public class LineUI implements PlaybackUI
             staticLinesPrinted++;
         }
         
-        term.println("\033[38;5;244m  Controls: [Spc]Pause [▲ ▼]Track [◀ ▶]Seek [+-]Vol [[ ]]Speed [<>]Trans [Q]Quit\033[0m");
+        term.println("\033[38;5;244m  Controls: [Spc]Pause [▲ ▼]Track [◀ ▶]Seek [+-]Vol [<>]Speed [/\']Trans [Q]Quit\033[0m");
         staticLinesPrinted++;
         term.println(""); // Blank line
         staticLinesPrinted++;
