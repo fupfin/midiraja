@@ -194,11 +194,13 @@ public class MidirajaCommand implements Callable<Integer>
                 System.out.flush();
                 try
                 {
-                    if (provider != null) provider.panic();
-                    // Additional safety buffer to ensure panic messages are flushed 
-                    // before tearing down the FFM arena and OS port.
-                    try { Thread.sleep(100); } catch (InterruptedException _) { Thread.currentThread().interrupt(); }
-                    if (provider != null) provider.closePort();
+                    if (provider != null) {
+                        provider.panic();
+                        // Additional safety buffer to ensure panic messages are flushed 
+                        // before tearing down the FFM arena and OS port.
+                        try { Thread.sleep(150); } catch (InterruptedException _) { Thread.currentThread().interrupt(); }
+                        provider.closePort();
+                    }
                 }
                 catch (Exception _) { // ignored
                 }
@@ -288,7 +290,11 @@ public class MidirajaCommand implements Callable<Integer>
         }
         finally
         {
-            if (provider != null) provider.closePort();
+            if (provider != null) {
+                // Ensure panic is sent even if closing normally or due to main-thread exception
+                provider.panic();
+                provider.closePort();
+            }
         }
 
         return 0;
