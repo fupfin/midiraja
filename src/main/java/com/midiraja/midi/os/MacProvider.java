@@ -168,7 +168,7 @@ public class MacProvider implements MidiOutProvider
     }
 
     @Override
-    public void sendMessage(byte[] data) throws Exception
+    public synchronized void sendMessage(byte[] data) throws Exception
     {
         var localOutPort = outPort;
         var localDest = destination;

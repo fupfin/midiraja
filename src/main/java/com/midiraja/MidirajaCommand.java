@@ -111,6 +111,7 @@ public class MidirajaCommand implements Callable<Integer>
     @Override
     public Integer call() throws Exception
     {
+        java.util.concurrent.atomic.AtomicBoolean portClosed = new java.util.concurrent.atomic.AtomicBoolean(false);
         if (provider == null)
         {
             provider = MidiProviderFactory.createProvider();
@@ -175,7 +176,7 @@ public class MidirajaCommand implements Callable<Integer>
                 // In classic/batch mode, skip the fancy TUI menu and just use standard text prompt
                 portIndex = fallbackPortSelection(ports);
             } else {
-                portIndex = interactivePortSelection(ports, uiOptions.fullMode);
+                portIndex = interactivePortSelection(ports, uiOptions.fullMode, uiOptions.miniMode);
             }
             if (portIndex == -1) return 0; // User quit
         }
@@ -194,11 +195,9 @@ public class MidirajaCommand implements Callable<Integer>
                 System.out.flush();
                 try
                 {
-                    if (provider != null) {
+                    if (provider != null && portClosed.compareAndSet(false, true)) {
                         provider.panic();
-                        // Additional safety buffer to ensure panic messages are flushed 
-                        // before tearing down the FFM arena and OS port.
-                        try { Thread.sleep(150); } catch (InterruptedException _) { Thread.currentThread().interrupt(); }
+                        try { Thread.sleep(200); } catch (InterruptedException _) { Thread.currentThread().interrupt(); }
                         provider.closePort();
                     }
                 }
@@ -290,9 +289,9 @@ public class MidirajaCommand implements Callable<Integer>
         }
         finally
         {
-            if (provider != null) {
-                // Ensure panic is sent even if closing normally or due to main-thread exception
+            if (provider != null && portClosed.compareAndSet(false, true)) {
                 provider.panic();
+                try { Thread.sleep(200); } catch (InterruptedException _) { Thread.currentThread().interrupt(); }
                 provider.closePort();
             }
         }
@@ -326,18 +325,21 @@ public class MidirajaCommand implements Callable<Integer>
         return -1;
     }
 
-    private int interactivePortSelection(List<MidiPort> ports, boolean isFullMode) throws Exception
+    private int interactivePortSelection(List<MidiPort> ports, boolean isExplicitFullMode, boolean isExplicitMiniMode) throws Exception
     {
         if (ports.isEmpty()) return -1;
 
         var activeIO = this.terminalIO != null ? this.terminalIO : new JLineTerminalIO();
         activeIO.init();
         boolean isInteractive = activeIO.isInteractive();
+        int termHeight = activeIO.getHeight();
         activeIO.close(); // Probe terminal capabilities and release immediately
 
         if (isInteractive)
         {
-            if (isFullMode) {
+            boolean willBeFullMode = isExplicitFullMode || (!isExplicitMiniMode && termHeight >= 10);
+            
+            if (willBeFullMode) {
                 return fullScreenPortSelection(ports);
             } else {
                 return dynamicPortSelection(ports);
