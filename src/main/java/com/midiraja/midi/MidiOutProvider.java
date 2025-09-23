@@ -76,6 +76,9 @@ public interface MidiOutProvider
             catch (Exception ignored) { /* Ignore during panic */ }
         }
         // Increase flush window for the heavy Note Off barrage
-        try { Thread.sleep(200); } catch (Exception ignored) { Thread.currentThread().interrupt(); }
+        long endWait = System.currentTimeMillis() + 200;
+        while (System.currentTimeMillis() < endWait) {
+            try { Thread.sleep(Math.max(1, endWait - System.currentTimeMillis())); } catch (Exception ignored) { /* force wait */ }
+        }
     }
 }

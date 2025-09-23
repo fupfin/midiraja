@@ -197,7 +197,10 @@ public class MidirajaCommand implements Callable<Integer>
                 {
                     if (provider != null && portClosed.compareAndSet(false, true)) {
                         provider.panic();
-                        try { Thread.sleep(200); } catch (InterruptedException _) { Thread.currentThread().interrupt(); }
+                        long endWait = System.currentTimeMillis() + 200;
+                        while (System.currentTimeMillis() < endWait) {
+                            try { Thread.sleep(Math.max(1, endWait - System.currentTimeMillis())); } catch (Exception ignored) { /* force wait */ }
+                        }
                         provider.closePort();
                     }
                 }
@@ -291,7 +294,10 @@ public class MidirajaCommand implements Callable<Integer>
         {
             if (provider != null && portClosed.compareAndSet(false, true)) {
                 provider.panic();
-                try { Thread.sleep(200); } catch (InterruptedException _) { Thread.currentThread().interrupt(); }
+                long endWait = System.currentTimeMillis() + 200;
+                        while (System.currentTimeMillis() < endWait) {
+                            try { Thread.sleep(Math.max(1, endWait - System.currentTimeMillis())); } catch (Exception ignored) { /* force wait */ }
+                        }
                 provider.closePort();
             }
         }
