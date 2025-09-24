@@ -40,6 +40,7 @@ import java.util.concurrent.Callable;
 public class MidirajaCommand implements Callable<Integer>
 {
     public static volatile boolean SHUTTING_DOWN = false;
+    public static volatile boolean ALT_SCREEN_ACTIVE = false;
 
     @Parameters(index = "0..*", description = "The MIDI file(s) to play.", arity = "0..*")
     private List<File> files = new ArrayList<>();
@@ -193,7 +194,11 @@ public class MidirajaCommand implements Callable<Integer>
             // Add a shutdown hook to handle Ctrl+C (SIGINT) gracefully
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 SHUTTING_DOWN = true;
-                System.out.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_ALT_SCREEN_DISABLE); // Restore cursor, exit alt screen
+                if (ALT_SCREEN_ACTIVE) {
+                    System.out.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_ALT_SCREEN_DISABLE); // Restore cursor, exit alt screen
+                } else {
+                    System.out.print(Theme.TERM_SHOW_CURSOR); // Just restore cursor
+                }
                 System.out.flush();
                 try
                 {
