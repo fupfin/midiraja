@@ -24,6 +24,36 @@ public class LineUI implements PlaybackUI
         return String.format("%02d:%02d", minutes, seconds);
     }
 
+
+    private String truncateAnsi(String str, int maxWidth) {
+        StringBuilder result = new StringBuilder();
+        int visibleCount = 0;
+        boolean inAnsi = false;
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            if (c == '\033') {
+                inAnsi = true;
+            }
+            
+            result.append(c);
+            
+            if (inAnsi) {
+                if (c == 'm' || c == 'K' || c == 'J' || c == 'H' || c == 'A' || c == 'l' || c == 'h') {
+                    // Primitive check to end ANSI sequences, 'm' is color, others are cursor/screen
+                    inAnsi = false; 
+                }
+            } else if (c != '\r' && c != '\n') {
+                visibleCount++;
+            }
+            
+            if (visibleCount >= maxWidth) {
+                result.append(Theme.COLOR_RESET);
+                break;
+            }
+        }
+        return result.toString();
+    }
+
     @Override
     public void runRenderLoop(PlaybackEngine engine)
     {
@@ -93,7 +123,13 @@ public class LineUI implements PlaybackUI
                 // Clear to end of line to prevent ghosting
                 buffer.append(Theme.TERM_CLEAR_TO_EOL);
                 
-                term.print(buffer.toString());
+                String rawLine = buffer.toString();
+                int termWidth = term.getWidth();
+                if (termWidth > 0) {
+                    rawLine = truncateAnsi(rawLine, termWidth - 1);
+                }
+                
+                term.print(rawLine);
                 Thread.sleep(33); // ~30 FPS as in the original
             }
             
