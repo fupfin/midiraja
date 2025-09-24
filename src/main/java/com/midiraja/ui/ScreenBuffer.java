@@ -44,7 +44,7 @@ public class ScreenBuffer {
     /**
      * Appends a formatted string to the buffer, similar to String.format.
      */
-    @SuppressWarnings("FormatStringAnnotation")
+    @com.google.errorprone.annotations.FormatMethod
     public ScreenBuffer format(String format, Object... args) {
         sb.append(String.format(format, args));
         return this;
