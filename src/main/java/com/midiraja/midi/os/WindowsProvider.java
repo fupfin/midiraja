@@ -119,6 +119,7 @@ public class WindowsProvider implements MidiOutProvider
     }
 
     @Override
+    @SuppressWarnings("UnusedVariable")
     public void sendMessage(byte[] data) throws Exception
     {
         var localHandle = handle;

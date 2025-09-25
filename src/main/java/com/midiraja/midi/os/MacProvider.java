@@ -132,6 +132,7 @@ public class MacProvider implements MidiOutProvider
     }
 
     @Override
+    @SuppressWarnings("UnusedVariable")
     public void openPort(int portIndex) throws Exception
     {
         try
@@ -168,6 +169,7 @@ public class MacProvider implements MidiOutProvider
     }
 
     @Override
+    @SuppressWarnings("UnusedVariable")
     public synchronized void sendMessage(byte[] data) throws Exception
     {
         var localOutPort = outPort;
