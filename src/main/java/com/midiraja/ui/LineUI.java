@@ -120,16 +120,15 @@ public class LineUI implements PlaybackUI
                 buffer.append(String.format(" %s | Spd: %.1fx(BPM: %5.1f) | Tr: %+d | Vol: %3d%% ", 
                     timeStr, engine.getCurrentSpeed(), effectiveBpm, engine.getCurrentTranspose(), (int)(engine.getVolumeScale() * 100)));
                 
-                // Clear to end of line to prevent ghosting
-                buffer.append(Theme.TERM_CLEAR_TO_EOL);
-                
                 String rawLine = buffer.toString();
                 int termWidth = term.getWidth();
                 if (termWidth > 0) {
-                    rawLine = truncateAnsi(rawLine, termWidth - 1);
+                    // Safe truncation that leaves room for the cursor
+                    rawLine = truncateAnsi(rawLine, Math.max(10, termWidth - 2));
                 }
                 
-                term.print(rawLine);
+                // Always clear to EOL *after* truncation so the clear command isn't chopped off!
+                term.print(rawLine + Theme.TERM_CLEAR_TO_EOL);
                 Thread.sleep(33); // ~30 FPS as in the original
             }
             
