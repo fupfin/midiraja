@@ -13,6 +13,12 @@ As a high-performance CLI tool built with Java and compiled natively using Graal
 
 ## 2. Java Language & Style
 *   **Language Level:** Java 25.
+*   **Declarative Style:** Prefer declarative and functional expressions over imperative logic.
+*   **Lightweight Representation:** Favor lightweight abstractions. Use Algebraic Data Types (Records, sealed interfaces) and higher-order functions over complex Object-Oriented hierarchies.
+*   **Core Values (in order of priority):**
+    1.  **Expressing Intent:** Code must clearly communicate *what* it is doing and *why*.
+    2.  **Simplicity:** Prefer the most straightforward implementation that fulfills the intent.
+    3.  **Flexibility:** Build for change, but do not sacrifice simplicity for speculative generality.
 *   **Naming Conventions:**
     *   Classes and Interfaces: `PascalCase` (e.g., `PlaybackEngine`)
     *   Methods and Variables: `camelCase` (e.g., `playLoop`, `currentTick`)
@@ -41,6 +47,7 @@ As a high-performance CLI tool built with Java and compiled natively using Graal
 *   **Clean Output:** When updating interactive UI elements (like progress bars), use carriage returns (`\r`) and ANSI "Erase in Line" (`\033[K`) to prevent trailing garbage characters, rather than clearing the entire screen unnecessarily.
 
 ## 6. Testing
+*   **Executable Documentation:** Treat test code as comprehensive, executable documentation that defines the expected behavior of the system.
 *   **Unit Tests:** All core logic (`PlaybackEngine`, `TerminalIO` mapping, etc.) must have corresponding unit tests using JUnit 5.
 *   **Mocking:** Use standard mocking frameworks or manual mocks (like `MockMidiProvider`) to isolate the code under test from external side effects (like actual audio output).
 *   **Test Naming:** Use clear, descriptive names for test methods (e.g., `testSeekBackwardToZero`, `testVolumeBoundaries`).
