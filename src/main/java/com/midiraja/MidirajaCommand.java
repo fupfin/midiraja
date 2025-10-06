@@ -42,7 +42,7 @@ public class MidirajaCommand implements Callable<Integer>
     public static volatile boolean SHUTTING_DOWN = false;
     public static volatile boolean ALT_SCREEN_ACTIVE = false;
 
-    @Parameters(index = "0..*", description = "The MIDI file(s) to play.", arity = "0..*")
+    @Parameters(index = "0..*", description = "The MIDI file(s), directories, or .m3u playlists to play.", arity = "0..*")
     private List<File> files = new ArrayList<>();
 
     @Option(names = {"-p", "--port"}, description = "MIDI output port index or partial name.")
@@ -116,6 +116,35 @@ public class MidirajaCommand implements Callable<Integer>
         }
     }
 
+    private void parsePlaylistFile(File playlistFile, List<File> playlist) {
+        try {
+            List<String> lines = java.nio.file.Files.readAllLines(playlistFile.toPath());
+            File parentDir = playlistFile.getParentFile();
+            
+            for (String line : lines) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue; // Skip comments and empty lines
+                }
+                
+                File track = new File(line);
+                if (!track.isAbsolute() && parentDir != null) {
+                    track = new File(parentDir, line);
+                }
+                
+                if (track.exists() && !track.isDirectory()) {
+                    playlist.add(track);
+                } else {
+                    logVerbose("Playlist track not found: " + track.getAbsolutePath());
+                }
+            }
+            logVerbose("Loaded playlist: " + playlistFile.getName() + " (" + lines.size() + " lines parsed)");
+        } catch (Exception e) {
+            err.println("Error reading playlist file '" + playlistFile.getName() + "': " + e.getMessage());
+            if (verbose) e.printStackTrace(err);
+        }
+    }
+
     public static void main(String[] args)
     {
         int exitCode = new CommandLine(new MidirajaCommand()).execute(args);
@@ -152,6 +181,7 @@ public class MidirajaCommand implements Callable<Integer>
         List<File> playlist = new ArrayList<>();
         for (File f : files)
         {
+            String nameLower = f.getName().toLowerCase(Locale.ROOT);
             if (f.isDirectory())
             {
                 var dirFiles = f.listFiles((_, name) -> name.toLowerCase(Locale.ROOT).endsWith(".mid")
@@ -160,6 +190,10 @@ public class MidirajaCommand implements Callable<Integer>
                 {
                     playlist.addAll(Arrays.asList(dirFiles));
                 }
+            }
+            else if (nameLower.endsWith(".m3u") || nameLower.endsWith(".m3u8") || nameLower.endsWith(".txt"))
+            {
+                parsePlaylistFile(f, playlist);
             }
             else
             {
