@@ -1,0 +1,22 @@
+{
+  "version": "0.1.0",
+  "description": "A blazing fast, cross-platform CLI MIDI player built with GraalVM.",
+  "homepage": "https://github.com/sungchulpark/midiraja",
+  "license": "BSD-3-Clause",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/sungchulpark/midiraja/releases/download/v0.1.0/midra-windows-x64.zip",
+      "hash": "REPLACE_ME_WINDOWS_X64_SHA"
+    }
+  },
+  "extract_dir": "",
+  "bin": "midra.exe",
+  "checkver": "github",
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/sungchulpark/midiraja/releases/download/v$version/midra-windows-x64.zip"
+      }
+    }
+  }
+}
