@@ -86,6 +86,9 @@ public class MidirajaCommand implements Callable<Integer>
     @Option(names = {"--verbose"}, description = "Show verbose error messages and stack traces.")
     private boolean verbose;
 
+    @Option(names = {"--ignore-sysex"}, description = "Filter out hardware-specific System Exclusive (SysEx) messages.")
+    private boolean ignoreSysex;
+
     @Option(names = {"--synth"}, description = "(Experimental) Use Java's built-in software synthesizer instead of OS native MIDI.")
     private boolean useSynth;
 
@@ -148,6 +151,33 @@ public class MidirajaCommand implements Callable<Integer>
                     if (directive.contains("--recursive") || directive.contains("-R")) {
                         this.recursive = true;
                         logVerbose("Applied directive from playlist: --recursive");
+                    }
+                    
+                    // Parse key-value directives using simple regex or split
+                    for (String token : directive.split("\\s+")) {
+                        if (token.startsWith("--volume=")) {
+                            try {
+                                this.volume = Integer.parseInt(token.substring(9));
+                                logVerbose("Applied directive from playlist: " + token);
+                            } catch (NumberFormatException ignored) {}
+                        } else if (token.startsWith("-v=")) {
+                            try {
+                                this.volume = Integer.parseInt(token.substring(3));
+                                logVerbose("Applied directive from playlist: " + token);
+                            } catch (NumberFormatException ignored) {}
+                        }
+                        
+                        if (token.startsWith("--speed=")) {
+                            try {
+                                this.speed = Double.parseDouble(token.substring(8));
+                                logVerbose("Applied directive from playlist: " + token);
+                            } catch (NumberFormatException ignored) {}
+                        } else if (token.startsWith("-x=")) {
+                            try {
+                                this.speed = Double.parseDouble(token.substring(3));
+                                logVerbose("Applied directive from playlist: " + token);
+                            } catch (NumberFormatException ignored) {}
+                        }
                     }
                     continue;
                 }
@@ -706,6 +736,9 @@ private void clearMenu(org.jline.terminal.Terminal terminal, int numPorts)
         {
             var engine = new PlaybackEngine(sequence, provider, context, volume, speed, currentStartTime,
                     transpose);
+            if (this.ignoreSysex) {
+                engine.setIgnoreSysex(true);
+            }
             return ScopedValue.where(TerminalIO.CONTEXT, activeIO)
                     .call(() -> new PlaybackResult(engine.start(ui), 0, engine));
         }

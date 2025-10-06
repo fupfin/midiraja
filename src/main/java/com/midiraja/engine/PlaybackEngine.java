@@ -39,7 +39,12 @@ public class PlaybackEngine
     private volatile double volumeScale = 1.0;
     private volatile boolean isPlaying = false;
     private volatile boolean isPaused = false;
+    private volatile boolean ignoreSysex = false;
     private volatile PlaybackStatus endStatus = PlaybackStatus.FINISHED;
+
+    public void setIgnoreSysex(boolean ignoreSysex) {
+        this.ignoreSysex = ignoreSysex;
+    }
 
     private final double[] channelLevels = new double[16];
     private final List<MidiEvent> sortedEvents;
@@ -330,6 +335,11 @@ public class PlaybackEngine
     {
         if (com.midiraja.MidirajaCommand.SHUTTING_DOWN) return;
         var msg = event.getMessage();
+        
+        if (ignoreSysex && msg instanceof javax.sound.midi.SysexMessage) {
+            return;
+        }
+
         var raw = msg.getMessage();
         int status = raw[0] & 0xFF;
 
