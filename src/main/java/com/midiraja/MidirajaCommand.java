@@ -123,8 +123,23 @@ public class MidirajaCommand implements Callable<Integer>
             
             for (String line : lines) {
                 line = line.trim();
+                
+                // Parse Custom M3U Directives: #MIDRA: --option
+                if (line.toUpperCase(Locale.ROOT).startsWith("#MIDRA:")) {
+                    String directive = line.substring(7).trim();
+                    if (directive.contains("--shuffle") || directive.contains("-s")) {
+                        this.shuffle = true;
+                        logVerbose("Applied directive from playlist: --shuffle");
+                    }
+                    if (directive.contains("--loop") || directive.contains("-z")) {
+                        this.loop = true;
+                        logVerbose("Applied directive from playlist: --loop");
+                    }
+                    continue;
+                }
+
                 if (line.isEmpty() || line.startsWith("#")) {
-                    continue; // Skip comments and empty lines
+                    continue; // Skip standard comments and empty lines
                 }
                 
                 File track = new File(line);
