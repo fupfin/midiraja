@@ -30,7 +30,8 @@ public class SoftSynthProvider implements MidiOutProvider {
     @Override
     public List<MidiPort> getOutputPorts() {
         // Extract just the executable name (e.g. "fluidsynth") for the UI
-        String exeName = command.split("\\s+")[0];
+        int spaceIndex = command.indexOf(' ');
+        String exeName = spaceIndex > 0 ? command.substring(0, spaceIndex) : command;
         return List.of(new MidiPort(0, "SoftSynth: " + exeName));
     }
 
