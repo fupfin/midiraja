@@ -181,6 +181,7 @@ public class PlaybackEngine
         return sequence.getTickLength();
     }
 
+    @SuppressWarnings("EmptyCatch")
     private void sendInitialReset() {
         if (initialResetType.isEmpty()) return;
         String type = initialResetType.get().trim().toLowerCase(java.util.Locale.ROOT);

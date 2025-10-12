@@ -36,6 +36,7 @@ public class SoftSynthProvider implements MidiOutProvider {
     }
 
     @Override
+    @SuppressWarnings("EmptyCatch")
     public void openPort(int portIndex) throws Exception {
         ProcessBuilder pb;
         if (System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) {
@@ -78,6 +79,7 @@ public class SoftSynthProvider implements MidiOutProvider {
     }
 
     @Override
+    @SuppressWarnings("EmptyCatch")
     public void closePort() {
         if (synthInput != null) {
             try { synthInput.close(); } catch (Exception ignored) {}

@@ -145,6 +145,7 @@ public class WinMmProvider implements MidiOutProvider
     }
 
     @Override
+    @SuppressWarnings("UnusedVariable")
     public void closePort()
     {
         try

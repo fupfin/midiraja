@@ -98,7 +98,7 @@ public class AlsaProvider implements MidiOutProvider
     @Nullable private Arena sessionArena = null;
 
     @Override
-    @SuppressWarnings("NullAway")
+    @SuppressWarnings({"NullAway", "UnusedVariable"})
     public List<MidiPort> getOutputPorts()
     {
         var ports = new ArrayList<MidiPort>();
@@ -173,7 +173,7 @@ public class AlsaProvider implements MidiOutProvider
     }
 
     @Override
-    @SuppressWarnings("NullAway")
+    @SuppressWarnings({"NullAway", "UnusedVariable"})
     public void openPort(int portIndex) throws Exception
     {
         if (!ALSA_AVAILABLE) throw new Exception("ALSA is not available on this system.");
@@ -218,7 +218,7 @@ public class AlsaProvider implements MidiOutProvider
     }
 
     @Override
-    @SuppressWarnings("NullAway")
+    @SuppressWarnings({"NullAway", "UnusedVariable"})
     public void sendMessage(byte[] data) throws Exception
     {
         var handle = seqHandle;
@@ -256,7 +256,7 @@ public class AlsaProvider implements MidiOutProvider
     }
 
     @Override
-    @SuppressWarnings("NullAway")
+    @SuppressWarnings({"NullAway", "UnusedVariable"})
     public void closePort()
     {
         try

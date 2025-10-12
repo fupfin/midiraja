@@ -135,6 +135,7 @@ public class MidirajaCommand implements Callable<Integer>
         }
     }
 
+    @SuppressWarnings({"StringSplitter", "EmptyCatch"})
     private void parsePlaylistFile(File playlistFile, List<File> playlist) {
         try {
             List<String> lines = java.nio.file.Files.readAllLines(playlistFile.toPath());
