@@ -13,3 +13,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 - [x] **Track: MIDI Metadata Extraction & Display**
 *Link: [./archive/metadata_display_20260223/](./archive/metadata_display_20260223/)*
 
+---
+
+- [ ] **Track: fluid를 통합해줘.**
+*Link: [./tracks/fluid_integration_20260301/](./tracks/fluid_integration_20260301/)*
+
