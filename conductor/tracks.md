@@ -15,6 +15,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: fluid를 통합해줘.**
+- [x] **Track: fluid를 통합해줘.**
 *Link: [./tracks/fluid_integration_20260301/](./tracks/fluid_integration_20260301/)*
 
