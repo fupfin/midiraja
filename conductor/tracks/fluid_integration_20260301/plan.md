@@ -17,8 +17,8 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: FFM Bindings and Provider Implementation' (Protocol in workflow.md) [checkpoint: manual]
 
 ## Phase 3: CLI Integration
-- [ ] Task: Update `MidirajaCommand.java` to replace the old `--soft-synth` option with `--fluid <soundfont_path>` and `--fluid-driver <driver_name>`.
-- [ ] Task: Wire the CLI options to instantiate `FluidSynthProvider`, set the driver (if provided), load the soundfont, and set it as the active provider.
-- [ ] Task: Update the CLI help text (`@Option` descriptions) to clearly explain the new FluidSynth integration.
-- [ ] Task: Run integration tests (JVM mode and Native mode) to verify successful audio output using a local `.sf2` file.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: CLI Integration' (Protocol in workflow.md)
+- [x] Task: Update `MidirajaCommand.java` to replace the old `--soft-synth` option with `--fluid <soundfont_path>` and `--fluid-driver <driver_name>`. [checkpoint: 2a8567f]
+- [x] Task: Wire the CLI options to instantiate `FluidSynthProvider`, set the driver (if provided), load the soundfont, and set it as the active provider. [checkpoint: 2a8567f]
+- [x] Task: Update the CLI help text (`@Option` descriptions) to clearly explain the new FluidSynth integration. [checkpoint: 2a8567f]
+- [x] Task: Run integration tests (JVM mode and Native mode) to verify successful audio output using a local `.sf2` file. [checkpoint: f22dcfb]
+- [x] Task: Conductor - User Manual Verification 'Phase 3: CLI Integration' (Protocol in workflow.md) [checkpoint: manual]
