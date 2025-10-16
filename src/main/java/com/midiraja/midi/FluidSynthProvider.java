@@ -71,14 +71,14 @@ public class FluidSynthProvider implements SoftSynthProvider {
         SymbolLookup lib;
         
         try {
-            // FluidSynth is usually libfluidsynth.dylib (Mac), libfluidsynth.so (Linux), libfluidsynth.dll (Win)
+            // Try default system lookup first
             String os = System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT);
             if (os.contains("mac")) {
-                lib = SymbolLookup.libraryLookup("libfluidsynth.dylib", arena);
+                lib = tryLoadLibrary(arena, "libfluidsynth.dylib", "/opt/homebrew/lib/libfluidsynth.dylib", "/usr/local/lib/libfluidsynth.dylib");
             } else if (os.contains("win")) {
-                lib = SymbolLookup.libraryLookup("libfluidsynth.dll", arena);
+                lib = tryLoadLibrary(arena, "libfluidsynth.dll");
             } else {
-                lib = SymbolLookup.libraryLookup("libfluidsynth.so", arena);
+                lib = tryLoadLibrary(arena, "libfluidsynth.so", "libfluidsynth.so.3", "/usr/lib/x86_64-linux-gnu/libfluidsynth.so.3");
             }
         } catch (IllegalArgumentException e) {
             throw new Exception("FluidSynth native library not found! Please install it (e.g., 'brew install fluidsynth' on Mac). " + e.getMessage(), e);
@@ -169,6 +169,28 @@ public class FluidSynthProvider implements SoftSynthProvider {
             lib.find("delete_fluid_settings").orElseThrow(() -> new Exception("delete_fluid_settings not found")),
             FunctionDescriptor.ofVoid(ValueLayout.ADDRESS)
         );
+    }
+
+    private SymbolLookup tryLoadLibrary(Arena arena, String... paths) {
+        IllegalArgumentException lastException = null;
+        for (String path : paths) {
+            try {
+                if (path.startsWith("/")) {
+                    java.io.File f = new java.io.File(path);
+                    if (f.exists()) {
+                        return SymbolLookup.libraryLookup(f.toPath(), arena);
+                    }
+                } else {
+                    return SymbolLookup.libraryLookup(path, arena);
+                }
+            } catch (IllegalArgumentException e) {
+                lastException = e;
+            }
+        }
+        if (lastException != null) {
+            throw lastException;
+        }
+        throw new IllegalArgumentException("Library not found in specified paths.");
     }
 
     @Override
