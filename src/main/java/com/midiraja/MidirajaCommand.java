@@ -163,29 +163,34 @@ public class MidirajaCommand implements Callable<Integer>
                         logVerbose("Applied directive from playlist: --recursive");
                     }
                     
-                    // Parse key-value directives using simple regex or split
-                    for (String token : directive.split("\\s+")) {
-                        if (token.startsWith("--volume=")) {
+                    // Parse key-value directives
+                    String[] tokens = directive.split("\\s+");
+                    for (int i = 0; i < tokens.length; i++) {
+                        String token = tokens[i];
+                        
+                        // Parse Volume
+                        if (token.startsWith("--volume=") || token.startsWith("-v=")) {
                             try {
-                                this.volume = Integer.parseInt(token.substring(9));
+                                this.volume = Integer.parseInt(token.substring(token.indexOf('=') + 1));
                                 logVerbose("Applied directive from playlist: " + token);
                             } catch (NumberFormatException ignored) {}
-                        } else if (token.startsWith("-v=")) {
+                        } else if ((token.equals("--volume") || token.equals("-v")) && i + 1 < tokens.length) {
                             try {
-                                this.volume = Integer.parseInt(token.substring(3));
-                                logVerbose("Applied directive from playlist: " + token);
+                                this.volume = Integer.parseInt(tokens[++i]);
+                                logVerbose("Applied directive from playlist: " + token + " " + this.volume);
                             } catch (NumberFormatException ignored) {}
                         }
                         
-                        if (token.startsWith("--speed=")) {
+                        // Parse Speed
+                        if (token.startsWith("--speed=") || token.startsWith("-x=")) {
                             try {
-                                this.speed = Double.parseDouble(token.substring(8));
+                                this.speed = Double.parseDouble(token.substring(token.indexOf('=') + 1));
                                 logVerbose("Applied directive from playlist: " + token);
                             } catch (NumberFormatException ignored) {}
-                        } else if (token.startsWith("-x=")) {
+                        } else if ((token.equals("--speed") || token.equals("-x")) && i + 1 < tokens.length) {
                             try {
-                                this.speed = Double.parseDouble(token.substring(3));
-                                logVerbose("Applied directive from playlist: " + token);
+                                this.speed = Double.parseDouble(tokens[++i]);
+                                logVerbose("Applied directive from playlist: " + token + " " + this.speed);
                             } catch (NumberFormatException ignored) {}
                         }
                     }
