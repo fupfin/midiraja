@@ -35,6 +35,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
     private final @Nullable MethodHandle fluid_synth_program_change_mh;
     private final @Nullable MethodHandle fluid_synth_pitch_bend_mh;
     private final @Nullable MethodHandle fluid_synth_sysex_mh;
+    private final @Nullable MethodHandle fluid_set_log_function;
     private final @Nullable MethodHandle delete_fluid_audio_driver;
     private final @Nullable MethodHandle delete_fluid_synth;
     private final @Nullable MethodHandle delete_fluid_settings;
@@ -61,6 +62,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
             fluid_synth_program_change_mh = null;
             fluid_synth_pitch_bend_mh = null;
             fluid_synth_sysex_mh = null;
+            fluid_set_log_function = null;
             delete_fluid_audio_driver = null;
             delete_fluid_synth = null;
             delete_fluid_settings = null;
@@ -152,6 +154,12 @@ public class FluidSynthProvider implements SoftSynthProvider {
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT)
         );
 
+        // void fluid_set_log_function(int level, fluid_log_function_t fun, void* data)
+        fluid_set_log_function = linker.downcallHandle(
+            lib.find("fluid_set_log_function").orElseThrow(() -> new Exception("fluid_set_log_function not found")),
+            FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+        );
+
         // void delete_fluid_audio_driver(fluid_audio_driver_t* driver)
         delete_fluid_audio_driver = linker.downcallHandle(
             lib.find("delete_fluid_audio_driver").orElseThrow(() -> new Exception("delete_fluid_audio_driver not found")),
@@ -201,6 +209,13 @@ public class FluidSynthProvider implements SoftSynthProvider {
         if ("MOCK_LIBRARY".equals(explicitDriver)) return;
         
         try {
+            // Disable terminal spam from FluidSynth's internal logging
+            if (fluid_set_log_function != null) {
+                for (int level = 0; level <= 4; level++) {
+                    fluid_set_log_function.invokeExact(level, MemorySegment.NULL, MemorySegment.NULL);
+                }
+            }
+
             if (new_fluid_settings != null) {
                 settings = (MemorySegment) new_fluid_settings.invokeExact();
             }
