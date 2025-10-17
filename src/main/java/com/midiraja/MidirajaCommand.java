@@ -360,11 +360,17 @@ public class MidirajaCommand implements Callable<Integer>
             // Add a shutdown hook to handle Ctrl+C (SIGINT) gracefully
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 SHUTTING_DOWN = true;
+                
+                // Bulletproof terminal restore sequence
+                String SAFE_RESTORE = Theme.COLOR_RESET      // 1. Reset all colors and styles (bold, invert, etc.)
+                                    + "\033[?7h"             // 2. Re-enable Auto-Wrap (DECAWM)
+                                    + Theme.TERM_SHOW_CURSOR // 3. Show cursor
+                                    + "\r\033[K\n";          // 4. Clear current line and add newline for clean shell prompt
+
                 if (ALT_SCREEN_ACTIVE) {
-                    System.out.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_ALT_SCREEN_DISABLE); // Restore cursor, exit alt screen
+                    System.out.print(SAFE_RESTORE + Theme.TERM_ALT_SCREEN_DISABLE); // Exit alt screen too
                 } else {
-                    // Wipe the current line cleanly, show cursor, and CRITICAL: Re-enable Auto-Wrap (\033[?7h)
-                    System.out.print("\r\033[K" + Theme.TERM_SHOW_CURSOR + "\033[?7h\n");
+                    System.out.print(SAFE_RESTORE);
                 }
                 System.out.flush();
                 try
