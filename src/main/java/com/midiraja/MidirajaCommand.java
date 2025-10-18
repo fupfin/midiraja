@@ -362,16 +362,14 @@ public class MidirajaCommand implements Callable<Integer>
                 SHUTTING_DOWN = true;
                 
                 // Bulletproof terminal restore sequence
-                String SAFE_RESTORE = Theme.COLOR_RESET      // 1. Reset all colors and styles (bold, invert, etc.)
-                                    + "\033[?7h"             // 2. Re-enable Auto-Wrap (DECAWM)
-                                    + Theme.TERM_SHOW_CURSOR // 3. Show cursor
-                                    + "\r\033[K\n";          // 4. Clear current line and add newline for clean shell prompt
+                // If using alt screen, disable it FIRST, then reset properties on the main screen buffer.
+                String safeRestore = (ALT_SCREEN_ACTIVE ? Theme.TERM_ALT_SCREEN_DISABLE : "")
+                                   + Theme.COLOR_RESET      // 1. Reset all colors and styles (bold, invert, etc.)
+                                   + "\033[?7h"             // 2. Re-enable Auto-Wrap (DECAWM)
+                                   + Theme.TERM_SHOW_CURSOR // 3. Show cursor
+                                   + "\r\033[K\n";          // 4. Clear current line and add newline for clean shell prompt
 
-                if (ALT_SCREEN_ACTIVE) {
-                    System.out.print(SAFE_RESTORE + Theme.TERM_ALT_SCREEN_DISABLE); // Exit alt screen too
-                } else {
-                    System.out.print(SAFE_RESTORE);
-                }
+                System.out.print(safeRestore);
                 System.out.flush();
                 try
                 {
@@ -465,8 +463,13 @@ public class MidirajaCommand implements Callable<Integer>
                     }
                 }
             } finally {
-                if (useAltScreen && isInteractive) {
-                    out.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_ALT_SCREEN_DISABLE); // Show cursor, exit alt screen
+                if (isInteractive) {
+                    String safeRestore = (useAltScreen ? Theme.TERM_ALT_SCREEN_DISABLE : "")
+                                       + Theme.COLOR_RESET
+                                       + "\033[?7h"
+                                       + Theme.TERM_SHOW_CURSOR
+                                       + "\r\033[K\n";
+                    out.print(safeRestore);
                     out.flush();
                 }
                 activeIO.close();
