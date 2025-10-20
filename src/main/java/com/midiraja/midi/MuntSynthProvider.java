@@ -12,9 +12,11 @@ import java.util.List;
 public class MuntSynthProvider implements SoftSynthProvider {
 
     private final MuntNativeBridge bridge;
-    private final NativeAudioEngine audio;
+    private final @org.jspecify.annotations.Nullable NativeAudioEngine audio;
+    private @org.jspecify.annotations.Nullable Thread renderThread;
+    private volatile boolean running = false;
 
-    public MuntSynthProvider(MuntNativeBridge bridge, NativeAudioEngine audio) {
+    public MuntSynthProvider(MuntNativeBridge bridge, @org.jspecify.annotations.Nullable NativeAudioEngine audio) {
         this.bridge = bridge;
         this.audio = audio;
     }
@@ -27,6 +29,41 @@ public class MuntSynthProvider implements SoftSynthProvider {
     @Override
     public void openPort(int portIndex) throws Exception {
         bridge.openSynth();
+        
+        if (audio != null) {
+            audio.init(32000, 2, 4096); // Munt renders at 32000Hz natively
+            startRenderThread();
+        }
+    }
+    
+    private void startRenderThread() {
+        running = true;
+        renderThread = new Thread(() -> {
+            // Buffer size: 512 frames = 1024 shorts (stereo)
+            // 512 frames at 32kHz is 16ms of audio.
+            final int framesToRender = 512;
+            short[] pcmBuffer = new short[framesToRender * 2];
+            
+            while (running) {
+                // Pull rendered PCM data from Munt
+                bridge.renderAudio(pcmBuffer, framesToRender);
+                // Push it to the miniaudio ring buffer
+                if (audio != null) {
+                    audio.push(pcmBuffer);
+                }
+                
+                // Sleep briefly to prevent pinning the CPU at 100%.
+                // 16ms of audio takes ~16ms to play, so we sleep for ~10ms.
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+        renderThread.setDaemon(true);
+        renderThread.start();
     }
 
     @Override
@@ -74,7 +111,16 @@ public class MuntSynthProvider implements SoftSynthProvider {
     }
 
     @Override
+    @SuppressWarnings("EmptyCatch")
     public void closePort() {
+        running = false;
+        if (renderThread != null) {
+            renderThread.interrupt();
+            try {
+                renderThread.join(500);
+            } catch (InterruptedException ignored) {}
+        }
+        
         bridge.close();
         if (audio != null) {
             audio.close();
