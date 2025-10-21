@@ -306,6 +306,22 @@
                 ],
                 "returnType": "jint"
             }
+            {
+                "parameterTypes": [
+                    "jint",
+                    "jint",
+                    "jint"
+                ],
+                "returnType": "void*"
+            },
+            {
+                "parameterTypes": [
+                    "void*",
+                    "void*",
+                    "jint"
+                ],
+                "returnType": "void"
+            }
         ]
     }
 }
