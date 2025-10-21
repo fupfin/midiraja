@@ -18,6 +18,8 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Setup GraalVM (Java 25)
       uses: graalvm/setup-graalvm@v1
@@ -34,6 +36,10 @@ jobs:
         sudo apt-get install -y libasound2-dev
         # Attempt to load the virtual ALSA sequencer module (requires sudo)
         sudo modprobe snd-virmidi || sudo modprobe snd-dummy || echo "Kernel module load failed, relying on user-space ALSA."
+
+    - name: Build C/C++ Native Libraries
+      if: runner.os != 'Windows' # Skip automated windows C++ build for now, focus on Unix
+      run: ./scripts/build-native-libs.sh
 
     - name: Build JVM Classes
       run: ./gradlew classes
