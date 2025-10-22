@@ -20,6 +20,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: munt를 통합해줘.**
+- [x] **Track: munt를 통합해줘.**
 *Link: [./tracks/munt_integration_20260301/](./tracks/munt_integration_20260301/)*
 
