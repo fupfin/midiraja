@@ -27,3 +27,6 @@
 - [x] Task: Wire the `--munt` option to instantiate the `MuntSynthProvider`. [checkpoint: 3e5581b]
 - [x] Task: Update the main `build.gradle` or shell scripts to automatically compile both `libmt32emu` and `libmidiraja_audio` before the Java build. [checkpoint: 4c5f6e9]
 - [x] Task: Conductor - User Manual Verification 'Phase 4: CLI Integration and Build Automation' (Protocol in workflow.md) [checkpoint: manual]
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions [checkpoint: fa9e944]
