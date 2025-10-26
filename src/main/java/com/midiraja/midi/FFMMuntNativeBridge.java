@@ -39,6 +39,57 @@ public class FFMMuntNativeBridge implements MuntNativeBridge {
     private volatile int  lastRenderedSampleCount = 0;
     private volatile long lastRenderCompletedNanos = System.nanoTime();
 
+    /**
+     * Returns all {@link FunctionDescriptor}s used for FFM downcall handles in this class.
+     *
+     * <p>Used by {@code NativeMetadataConsistencyTest} to verify that every descriptor is
+     * registered in {@code reachability-metadata.json} before a native image build.
+     * Keeping this list in sync with the constructor's {@code linker.downcallHandle()} calls
+     * is a compile-time enforced "reminder" — if you add a new handle, add it here too,
+     * then add the corresponding JSON entry in the metadata file.
+     *
+     * <p><b>Note on JAVA_BYTE → jint widening:</b> In the C ABI, sub-int types (byte, short)
+     * are widened to {@code int} when passed in registers. GraalVM's native image represents
+     * them as {@code "jint"} in the leaf type.  So {@code JAVA_BYTE} parameters map to
+     * {@code "jint"} in the metadata, and a {@code (void*, jbyte, void*, void*) → jint}
+     * descriptor registers as {@code (void*, jint, void*, void*) → jint}.
+     *
+     * <p><b>Note on GraalVM scalarisation:</b> GraalVM sometimes expands a {@code MemorySegment}
+     * context field into two {@code void*} leaf params (base + offset).  When this happens, the
+     * 4-param entry {@code (void*, jint, void*, void*)} becomes the 5-param entry
+     * {@code (void*, void*, jint, void*, void*)}.  Both forms must be registered; the test only
+     * checks for the 4-param "standard" form — the 5-param expanded form is added manually and
+     * documented with a comment in the JSON.
+     */
+    static List<FunctionDescriptor> allDowncallDescriptors() {
+        return List.of(
+            // create_context
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
+            // free_context, close_synth
+            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS),
+            // add_rom_file
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
+            // set_stereo_output_samplerate
+            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_DOUBLE),
+            // set_master_volume_override  (JAVA_BYTE param → "jint" in metadata after ABI widening)
+            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE),
+            // open_synth, get_internal_rendered_sample_count, get_part_states
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
+            // set_midi_event_queue_size
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT),
+            // play_msg_at
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT),
+            // play_sysex_at
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT),
+            // render_bit16s
+            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT),
+            // has_active_partials  (JAVA_BYTE return → same leaf type as JAVA_INT → covered by (void*)→jint above)
+            FunctionDescriptor.of(ValueLayout.JAVA_BYTE, ValueLayout.ADDRESS),
+            // get_playing_notes  (JAVA_BYTE param → "jint" in metadata after ABI widening)
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+        );
+    }
+
     // FFM Method Handles
     private final MethodHandle mt32emu_create_context;
     private final MethodHandle mt32emu_free_context;
@@ -47,6 +98,11 @@ public class FFMMuntNativeBridge implements MuntNativeBridge {
     private final MethodHandle mt32emu_set_master_volume_override;
     private final MethodHandle mt32emu_open_synth;
     private final MethodHandle mt32emu_close_synth;
+    // Resize Munt's internal MIDI event queue. Must be called after create_context,
+    // before open_synth. Queue size must be a power of 2. Default is 1024, which
+    // is too small for our panic() (2112 messages) — channels 8–15 note-offs are
+    // silently dropped (MT32EMU_RC_QUEUE_FULL = -6) leaving stuck voices.
+    private final MethodHandle mt32emu_set_midi_event_queue_size;
     // Thread-safe timestamped API (mt32emu_play_msg_at / mt32emu_play_sysex_at).
     // These enqueue into Munt's internal MidiEventQueue. The render thread's
     // mt32emu_render_bit16s drains that queue at the correct sample positions.
@@ -54,6 +110,11 @@ public class FFMMuntNativeBridge implements MuntNativeBridge {
     private final MethodHandle mt32emu_play_sysex_at;
     private final MethodHandle mt32emu_get_internal_rendered_sample_count;
     private final MethodHandle mt32emu_render_bit16s;
+
+    // --- Diagnostic / State Polling ---
+    private final MethodHandle mt32emu_has_active_partials;
+    private final MethodHandle mt32emu_get_part_states;
+    private final MethodHandle mt32emu_get_playing_notes;
 
     public FFMMuntNativeBridge() throws Exception {
         this.arena = Arena.ofShared();
@@ -104,6 +165,12 @@ public class FFMMuntNativeBridge implements MuntNativeBridge {
             FunctionDescriptor.ofVoid(ValueLayout.ADDRESS)
         );
 
+        // mt32emu_return_code mt32emu_set_midi_event_queue_size(context, queue_size)
+        mt32emu_set_midi_event_queue_size = linker.downcallHandle(
+            lib.find("mt32emu_set_midi_event_queue_size").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT)
+        );
+
         // mt32emu_return_code mt32emu_play_msg_at(context, msg, timestamp) — thread-safe
         mt32emu_play_msg_at = linker.downcallHandle(
             lib.find("mt32emu_play_msg_at").orElseThrow(),
@@ -126,6 +193,25 @@ public class FFMMuntNativeBridge implements MuntNativeBridge {
         mt32emu_render_bit16s = linker.downcallHandle(
             lib.find("mt32emu_render_bit16s").orElseThrow(),
             FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT)
+        );
+
+        // mt32emu_boolean mt32emu_has_active_partials(context) — 0=inactive, non-zero=active
+        mt32emu_has_active_partials = linker.downcallHandle(
+            lib.find("mt32emu_has_active_partials").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_BYTE, ValueLayout.ADDRESS)
+        );
+
+        // mt32emu_bit32u mt32emu_get_part_states(context) — bitmask: bit N = Part N+1 active
+        mt32emu_get_part_states = linker.downcallHandle(
+            lib.find("mt32emu_get_part_states").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS)
+        );
+
+        // mt32emu_bit32u mt32emu_get_playing_notes(context, partNumber, keys*, velocities*)
+        mt32emu_get_playing_notes = linker.downcallHandle(
+            lib.find("mt32emu_get_playing_notes").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+                ValueLayout.JAVA_BYTE, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
         );
     }
 
@@ -165,6 +251,12 @@ public class FFMMuntNativeBridge implements MuntNativeBridge {
             if (context.equals(MemorySegment.NULL)) {
                 throw new Exception("Failed to create Munt context");
             }
+            // Increase the MIDI event queue from the default 1024 to 4096.
+            // Our panic() sends (4 CC + 128 note-offs) × 16 channels = 2112 messages.
+            // With the 1024 default, messages for channels 8–15 overflow silently
+            // (MT32EMU_RC_QUEUE_FULL), leaving stuck voices that block new-song notes.
+            // Must be called before open_synth. Queue size must be a power of 2.
+            int ignored = (int) mt32emu_set_midi_event_queue_size.invokeExact(context, 4096);
         } catch (Throwable t) {
             throw new Exception("Error creating Munt context", t);
         }
@@ -222,9 +314,22 @@ public class FFMMuntNativeBridge implements MuntNativeBridge {
 
             int rc = (int) mt32emu_open_synth.invokeExact(context);
             if (rc != 0) throw new Exception("Failed to open Munt synth (Check if ROMs are valid)");
+
+            // Reset timing reference so computeTimestamp() uses a fresh base.
+            // Without this, the reference was set at construction time; any time spent
+            // loading ROMs and opening the synth would make the first events appear far
+            // in the future, causing seconds of initial silence.
+            lastRenderedSampleCount = 0;
+            lastRenderCompletedNanos = System.nanoTime();
         } catch (Throwable t) {
             throw new Exception("Error opening Munt synth", t);
         }
+    }
+
+    @Override
+    public void resetRenderTiming() {
+        lastRenderedSampleCount = 0;
+        lastRenderCompletedNanos = System.nanoTime();
     }
 
     // Compute the Munt sample-count timestamp for a MIDI event queued now.
@@ -241,6 +346,10 @@ public class FFMMuntNativeBridge implements MuntNativeBridge {
     private int computeTimestamp() {
         long elapsedNanos = System.nanoTime() - lastRenderCompletedNanos;
         int elapsedSamples = (int)(elapsedNanos * 32000L / 1_000_000_000L);
+        // Cap to ring buffer capacity (4096 frames = 128ms at 32 kHz).
+        // Prevents a stale timing reference from scheduling events arbitrarily far
+        // in the future (e.g. before resetRenderTiming() has been called).
+        elapsedSamples = Math.min(elapsedSamples, 4096);
         return lastRenderedSampleCount + elapsedSamples;
     }
 
@@ -289,6 +398,32 @@ public class FFMMuntNativeBridge implements MuntNativeBridge {
         } catch (Throwable ignored) {}
     }
 
+    @Override
+    public void reopenSynth() throws Exception {
+        if (context.equals(MemorySegment.NULL)) return;
+        // Close the synth — immediately terminates all active voices without emulating
+        // the MT-32's ~2-second hardware ROM initialization sequence.
+        try { mt32emu_close_synth.invokeExact(context); }
+        catch (Throwable t) { throw new Exception("Error closing Munt synth", t); }
+        // Re-open exactly as in openSynth(): disable the masterVolumeOverride (which
+        // defaults to 0 and would silence all output), then open.
+        try {
+            mt32emu_set_master_volume_override.invokeExact(context, (byte) 0xFF);
+            int rc = (int) mt32emu_open_synth.invokeExact(context);
+            if (rc != 0) throw new Exception("Failed to reopen Munt synth (rc=" + rc + ")");
+        } catch (Exception e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new Exception("Error reopening Munt synth", t);
+        }
+        // After open_synth the internal rendered-sample counter restarts at 0.
+        // Reset our timing reference so computeTimestamp() produces near-zero values
+        // that match the fresh counter, preventing new-song events from being scheduled
+        // far in the future.
+        lastRenderedSampleCount = 0;
+        lastRenderCompletedNanos = System.nanoTime();
+    }
+
     // Cached buffer for audio rendering to avoid GC spikes
     private MemorySegment renderBuffer = MemorySegment.NULL;
     private int currentRenderBufferSize = 0;
@@ -323,6 +458,40 @@ public class FFMMuntNativeBridge implements MuntNativeBridge {
             lastRenderedSampleCount = (int) mt32emu_get_internal_rendered_sample_count.invokeExact(context);
         } catch (Throwable ignored) {}
         lastRenderCompletedNanos = System.nanoTime();
+    }
+
+    @Override
+    public boolean hasActivePartials() {
+        if (context.equals(MemorySegment.NULL)) return false;
+        try { return (byte) mt32emu_has_active_partials.invokeExact(context) != 0; }
+        catch (Throwable ignored) { return false; }
+    }
+
+    @Override
+    public int getPartStates() {
+        if (context.equals(MemorySegment.NULL)) return 0;
+        try { return (int) mt32emu_get_part_states.invokeExact(context); }
+        catch (Throwable ignored) { return 0; }
+    }
+
+    @Override
+    public int getPlayingNotes(int partNumber, byte[] keys, byte[] velocities) {
+        if (context.equals(MemorySegment.NULL)) return 0;
+        int capacity = (keys != null ? keys.length : 4);
+        try (Arena temp = Arena.ofConfined()) {
+            MemorySegment keySeg = temp.allocate(capacity);
+            MemorySegment velSeg = temp.allocate(capacity);
+            int count = (int) mt32emu_get_playing_notes.invokeExact(
+                context, (byte) partNumber, keySeg, velSeg);
+            int toCopy = Math.min(count, capacity);
+            if (keys != null) {
+                for (int i = 0; i < toCopy; i++) keys[i] = keySeg.get(ValueLayout.JAVA_BYTE, i);
+            }
+            if (velocities != null) {
+                for (int i = 0; i < toCopy; i++) velocities[i] = velSeg.get(ValueLayout.JAVA_BYTE, i);
+            }
+            return count;
+        } catch (Throwable ignored) { return 0; }
     }
 
     @Override
