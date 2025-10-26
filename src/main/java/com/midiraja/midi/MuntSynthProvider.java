@@ -9,6 +9,7 @@ package com.midiraja.midi;
 
 import java.util.List;
 
+@SuppressWarnings("ThreadPriorityCheck")
 public class MuntSynthProvider implements SoftSynthProvider {
 
     private final MuntNativeBridge bridge;
@@ -28,12 +29,7 @@ public class MuntSynthProvider implements SoftSynthProvider {
 
     @Override
     public void openPort(int portIndex) throws Exception {
-        bridge.openSynth();
-        
-        if (audio != null) {
-            audio.init(32000, 2, 4096); // Munt renders at 32000Hz natively
-            startRenderThread();
-        }
+        bridge.createSynth();
     }
     
     private void startRenderThread() {
@@ -45,31 +41,40 @@ public class MuntSynthProvider implements SoftSynthProvider {
             short[] pcmBuffer = new short[framesToRender * 2];
             
             while (running) {
-                // Pull rendered PCM data from Munt
+                // Pull rendered PCM data from Munt (it fills the pcmBuffer)
                 bridge.renderAudio(pcmBuffer, framesToRender);
-                // Push it to the miniaudio ring buffer
+
+                // Push it to the miniaudio ring buffer. 
+                // This call will safely block if the buffer is full, pacing the thread.
                 if (audio != null) {
                     audio.push(pcmBuffer);
-                }
-                
-                // Sleep briefly to prevent pinning the CPU at 100%.
-                // 16ms of audio takes ~16ms to play, so we sleep for ~10ms.
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
+                } else {
+                    // If no audio engine, just sleep to simulate time passing
+                    try {
+                        Thread.sleep(16);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
         });
+        // AUDIO PRIORITY: We need high priority to prevent dropouts, 
+        // even if the thread scheduler is not guaranteed to honor it.
+        renderThread.setPriority(Thread.MAX_PRIORITY); 
         renderThread.setDaemon(true);
         renderThread.start();
     }
 
     @Override
     public void loadSoundbank(String path) throws Exception {
-        bridge.createSynth();
         bridge.loadRoms(path);
+        bridge.openSynth();
+
+        if (audio != null) {
+            audio.init(32000, 2, 4096); // Munt renders at 32000Hz natively
+            startRenderThread();
+        }
     }
 
     @Override
@@ -118,7 +123,9 @@ public class MuntSynthProvider implements SoftSynthProvider {
             renderThread.interrupt();
             try {
                 renderThread.join(500);
-            } catch (InterruptedException ignored) {}
+            } catch (InterruptedException ignored) {
+                // Expected during shutdown
+            }
         }
         
         bridge.close();

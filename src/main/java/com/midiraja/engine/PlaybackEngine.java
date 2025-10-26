@@ -202,7 +202,7 @@ public class PlaybackEngine
                 break;
             case "mt32":
             case "mt-32":
-                payload = new byte[]{(byte) 0xF0, 0x41, 0x10, 0x16, 0x12, 0x7F, 0x00, 0x00, 0x00, (byte) 0xF7}; // Basic Roland SysEx reset (approx)
+                payload = new byte[]{(byte) 0xF0, 0x41, 0x10, 0x16, 0x12, 0x7F, 0x00, 0x00, 0x00, 0x01, (byte) 0xF7}; // Correct 11-byte Roland SysEx reset
                 break;
             default:
                 if (type.matches("^[0-9a-fA-F]+$") && type.length() % 2 == 0) {
@@ -356,6 +356,20 @@ public class PlaybackEngine
             return;
         }
 
+        // Forward SysEx during chase (e.g. MT-32 initialization at song start)
+        if (status == 0xF0 && !ignoreSysex)
+        {
+            try
+            {
+                provider.sendMessage(raw);
+            }
+            catch (Exception ignored)
+            {
+                /* Ignore */
+            }
+            return;
+        }
+
         if (status < 0xF0)
         {
             int cmd = status & 0xF0;
@@ -384,7 +398,7 @@ public class PlaybackEngine
     {
         if (com.midiraja.MidirajaCommand.SHUTTING_DOWN) return;
         var msg = event.getMessage();
-        
+
         if (ignoreSysex && msg instanceof javax.sound.midi.SysexMessage) {
             return;
         }
@@ -399,6 +413,20 @@ public class PlaybackEngine
             {
                 currentBpm = 60000000.0f / mspqn;
                 listeners.forEach(l -> l.onTempoChanged(currentBpm));
+            }
+            return;
+        }
+
+        // Forward SysEx to the synthesizer (e.g. MT-32 patch/channel setup messages)
+        if (status == 0xF0)
+        {
+            try
+            {
+                provider.sendMessage(raw);
+            }
+            catch (Exception e)
+            {
+                // ignore
             }
             return;
         }

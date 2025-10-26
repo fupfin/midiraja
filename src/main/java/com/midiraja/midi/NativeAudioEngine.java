@@ -19,6 +19,7 @@ public class NativeAudioEngine implements AutoCloseable {
     
     private final MethodHandle midiraja_audio_init;
     private final MethodHandle midiraja_audio_push;
+    private final MethodHandle midiraja_audio_get_queued_frames;
     private final MethodHandle midiraja_audio_close;
 
     public NativeAudioEngine(String libPath) throws Exception {
@@ -38,6 +39,11 @@ public class NativeAudioEngine implements AutoCloseable {
             FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT)
         );
 
+        midiraja_audio_get_queued_frames = linker.downcallHandle(
+            lib.find("midiraja_audio_get_queued_frames").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS)
+        );
+
         midiraja_audio_close = linker.downcallHandle(
             lib.find("midiraja_audio_close").orElseThrow(),
             FunctionDescriptor.ofVoid(ValueLayout.ADDRESS)
@@ -55,12 +61,29 @@ public class NativeAudioEngine implements AutoCloseable {
         }
     }
 
+    private MemorySegment pushBuffer = MemorySegment.NULL;
+    private int currentPushBufferSize = 0;
+
+    public int getQueuedFrames() {
+        if (ctx.equals(MemorySegment.NULL)) return 0;
+        try {
+            return (int) midiraja_audio_get_queued_frames.invokeExact(ctx);
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
     public void push(short[] pcmData) {
         if (ctx.equals(MemorySegment.NULL) || pcmData == null || pcmData.length == 0) return;
         
         try {
-            MemorySegment pcmSeg = arena.allocateFrom(ValueLayout.JAVA_SHORT, pcmData);
-            midiraja_audio_push.invokeExact(ctx, pcmSeg, pcmData.length);
+            int requiredBytes = pcmData.length * 2;
+            if (currentPushBufferSize < requiredBytes) {
+                pushBuffer = arena.allocate(requiredBytes);
+                currentPushBufferSize = requiredBytes;
+            }
+            MemorySegment.copy(pcmData, 0, pushBuffer, ValueLayout.JAVA_SHORT, 0, pcmData.length);
+            midiraja_audio_push.invokeExact(ctx, pushBuffer, pcmData.length);
         } catch (Throwable ignored) {
             // Intentionally ignored to prevent tearing down the audio thread on a single dropped frame
         }

@@ -10,6 +10,7 @@ typedef struct {
     int tail;
     int count;
     ma_mutex lock;
+    ma_event spaceAvailableEvent;
 } RingBuffer;
 
 typedef struct {
@@ -37,6 +38,11 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
     ctx->rb.count -= samplesToRead;
     
     ma_mutex_unlock(&ctx->rb.lock);
+
+    // Signal that space is available
+    if (samplesToRead > 0) {
+        ma_event_signal(&ctx->rb.spaceAvailableEvent);
+    }
 
     // If we didn't have enough data in the ring buffer, pad the rest with silence (0)
     // to prevent audio glitches/stuttering.
@@ -80,6 +86,13 @@ EXPORT AudioEngineContext* midiraja_audio_init(int sampleRate, int channels, int
         free(ctx);
         return NULL;
     }
+    
+    if (ma_event_init(&ctx->rb.spaceAvailableEvent) != MA_SUCCESS) {
+        ma_mutex_uninit(&ctx->rb.lock);
+        free(ctx->rb.buffer);
+        free(ctx);
+        return NULL;
+    }
 
     // Initialize Miniaudio Device
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
@@ -90,6 +103,8 @@ EXPORT AudioEngineContext* midiraja_audio_init(int sampleRate, int channels, int
     deviceConfig.pUserData         = ctx;
 
     if (ma_device_init(NULL, &deviceConfig, &ctx->device) != MA_SUCCESS) {
+        printf("[NativeAudio] Failed to init miniaudio device.\n");
+        ma_event_uninit(&ctx->rb.spaceAvailableEvent);
         ma_mutex_uninit(&ctx->rb.lock);
         free(ctx->rb.buffer);
         free(ctx);
@@ -97,43 +112,58 @@ EXPORT AudioEngineContext* midiraja_audio_init(int sampleRate, int channels, int
     }
 
     if (ma_device_start(&ctx->device) != MA_SUCCESS) {
+        printf("[NativeAudio] Failed to start miniaudio device.\n");
         ma_device_uninit(&ctx->device);
+        ma_event_uninit(&ctx->rb.spaceAvailableEvent);
         ma_mutex_uninit(&ctx->rb.lock);
         free(ctx->rb.buffer);
         free(ctx);
         return NULL;
     }
+    
+    // printf("[NativeAudio] Engine started: %d Hz, %d channels\n", sampleRate, channels);
 
     return ctx;
+}
+
+EXPORT int midiraja_audio_get_queued_frames(AudioEngineContext* ctx) {
+    if (!ctx) return 0;
+    int frames = 0;
+    ma_mutex_lock(&ctx->rb.lock);
+    frames = ctx->rb.count / ctx->channels;
+    ma_mutex_unlock(&ctx->rb.lock);
+    return frames;
 }
 
 EXPORT void midiraja_audio_push(AudioEngineContext* ctx, const short* data, int numSamples) {
     if (!ctx || !data || numSamples <= 0) return;
 
-    ma_mutex_lock(&ctx->rb.lock);
-    
-    // Write data to the ring buffer
-    for (int i = 0; i < numSamples; i++) {
-        // If buffer is full, we aggressively overwrite the oldest data (tail)
-        // to minimize latency rather than blocking Java. This implies the consumer 
-        // (audio callback) needs to keep up.
-        if (ctx->rb.count == ctx->rb.capacity) {
-            ctx->rb.tail = (ctx->rb.tail + 1) % ctx->rb.capacity;
-            ctx->rb.count--;
+    while (1) {
+        ma_mutex_lock(&ctx->rb.lock);
+        
+        int availableSpace = ctx->rb.capacity - ctx->rb.count;
+        if (availableSpace >= numSamples) {
+            // Write data to the ring buffer
+            for (int i = 0; i < numSamples; i++) {
+                ctx->rb.buffer[ctx->rb.head] = data[i];
+                ctx->rb.head = (ctx->rb.head + 1) % ctx->rb.capacity;
+                ctx->rb.count++;
+            }
+            ma_mutex_unlock(&ctx->rb.lock);
+            break; // Done pushing
         }
         
-        ctx->rb.buffer[ctx->rb.head] = data[i];
-        ctx->rb.head = (ctx->rb.head + 1) % ctx->rb.capacity;
-        ctx->rb.count++;
+        // Not enough space, wait for data_callback to consume
+        ma_mutex_unlock(&ctx->rb.lock);
+        ma_event_wait(&ctx->rb.spaceAvailableEvent);
     }
-    
-    ma_mutex_unlock(&ctx->rb.lock);
 }
 
 EXPORT void midiraja_audio_close(AudioEngineContext* ctx) {
     if (!ctx) return;
     
     ma_device_uninit(&ctx->device);
+    ma_event_uninit(&ctx->rb.spaceAvailableEvent);
     ma_mutex_uninit(&ctx->rb.lock);
     free(ctx->rb.buffer);
     free(ctx);

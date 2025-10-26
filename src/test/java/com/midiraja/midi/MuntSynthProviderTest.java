@@ -79,11 +79,11 @@ class MuntSynthProviderTest {
         
         // 1. Test Initialization Lifecycle
         provider.loadSoundbank("/path/to/roms");
-        assertTrue(mockBridge.created, "Context should be created");
+        assertTrue(mockBridge.opened, "Synth should be opened after loadSoundbank");
         assertEquals("/path/to/roms", mockBridge.loadedRomsDir, "ROM directory should be passed to bridge");
-        
+
         provider.openPort(0);
-        assertTrue(mockBridge.opened, "Synth should be opened");
+        assertTrue(mockBridge.created, "Context should be created after openPort");
 
         // 2. Test MIDI Message Routing
         // Note On

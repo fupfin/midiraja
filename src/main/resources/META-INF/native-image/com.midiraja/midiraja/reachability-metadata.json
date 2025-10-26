@@ -321,6 +321,28 @@
                     "jint"
                 ],
                 "returnType": "void"
+            },
+            {
+                "parameterTypes": [
+                    "void*",
+                    "jdouble"
+                ],
+                "returnType": "void"
+            },
+            {
+                "parameterTypes": [
+                    "void*",
+                    "jint"
+                ],
+                "returnType": "void"
+            },
+            {
+                "parameterTypes": [
+                    "void*",
+                    "void*",
+                    "jint"
+                ],
+                "returnType": "void"
             }
         ]
     }
