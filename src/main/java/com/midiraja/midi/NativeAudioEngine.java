@@ -20,6 +20,7 @@ public class NativeAudioEngine implements AutoCloseable {
     private final MethodHandle midiraja_audio_init;
     private final MethodHandle midiraja_audio_push;
     private final MethodHandle midiraja_audio_get_queued_frames;
+    private final MethodHandle midiraja_audio_get_device_latency_frames;
     private final MethodHandle midiraja_audio_close;
 
     public NativeAudioEngine(String libPath) throws Exception {
@@ -41,6 +42,11 @@ public class NativeAudioEngine implements AutoCloseable {
 
         midiraja_audio_get_queued_frames = linker.downcallHandle(
             lib.find("midiraja_audio_get_queued_frames").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS)
+        );
+
+        midiraja_audio_get_device_latency_frames = linker.downcallHandle(
+            lib.find("midiraja_audio_get_device_latency_frames").orElseThrow(),
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS)
         );
 
@@ -68,6 +74,15 @@ public class NativeAudioEngine implements AutoCloseable {
         if (ctx.equals(MemorySegment.NULL)) return 0;
         try {
             return (int) midiraja_audio_get_queued_frames.invokeExact(ctx);
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
+    public int getDeviceLatencyFrames() {
+        if (ctx.equals(MemorySegment.NULL)) return 0;
+        try {
+            return (int) midiraja_audio_get_device_latency_frames.invokeExact(ctx);
         } catch (Throwable ignored) {
             return 0;
         }

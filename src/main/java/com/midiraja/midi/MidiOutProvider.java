@@ -36,6 +36,15 @@ public interface MidiOutProvider
     void closePort();
 
     /**
+     * Returns the estimated audio output latency in nanoseconds. Used to synchronize visual
+     * feedback (e.g. VU meters) with actual audible output. Default is 0 for hardware MIDI ports
+     * where the OS driver handles latency transparently.
+     */
+    default long getAudioLatencyNanos() {
+        return 0L;
+    }
+
+    /**
      * Transmits a master volume Control Change (CC 7) to all 16 MIDI channels.
      */
     default void setVolume(int volume)

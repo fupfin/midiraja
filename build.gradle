@@ -50,9 +50,7 @@ dependencies {
 }
 
 jacoco {
-    // Note: JaCoCo 0.8.11 currently does not fully support Java 25 (Class version 69).
-    // Tests will run fine, but jacocoTestReport may fail until a newer version is released.
-    toolVersion = "0.8.11"
+    toolVersion = "0.8.14"
 }
 
 jacocoTestReport {

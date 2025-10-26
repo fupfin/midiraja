@@ -14,7 +14,10 @@ import com.midiraja.ui.PlaybackEventListener;
 
 import javax.sound.midi.*;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 /**
@@ -58,6 +61,11 @@ public class PlaybackEngine
     private final int[] channelPrograms = new int[16];
 
     private final List<PlaybackEventListener> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final ScheduledExecutorService notificationScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "midi-notify");
+        t.setDaemon(true);
+        return t;
+    });
 
     public PlaybackEngine(Sequence sequence, MidiOutProvider provider, PlaylistContext context, int initialVolumePercent,
             double initialSpeed, Optional<String> startTimeStr, Optional<Integer> initialTranspose)
@@ -121,6 +129,7 @@ public class PlaybackEngine
             scope.join();
         }
 
+        notificationScheduler.shutdown();
         return endStatus;
     }
 
@@ -456,9 +465,21 @@ public class PlaybackEngine
 
             if (cmd == 0x90 && raw.length >= 3 && (raw[2] & 0xFF) > 0)
             {
-                int velocity = raw[2] & 0xFF;
-                channelLevels[ch] = Math.max(channelLevels[ch], velocity / 127.0);
-                listeners.forEach(l -> l.onChannelActivity(ch, velocity));
+                final int velocity = raw[2] & 0xFF;
+                final int channel  = ch;
+                final long latencyNanos = provider.getAudioLatencyNanos();
+                if (latencyNanos > 0)
+                {
+                    notificationScheduler.schedule(() -> {
+                        channelLevels[channel] = Math.max(channelLevels[channel], velocity / 127.0);
+                        listeners.forEach(l -> l.onChannelActivity(channel, velocity));
+                    }, latencyNanos, TimeUnit.NANOSECONDS);
+                }
+                else
+                {
+                    channelLevels[ch] = Math.max(channelLevels[ch], velocity / 127.0);
+                    listeners.forEach(l -> l.onChannelActivity(ch, velocity));
+                }
             }
 
             try

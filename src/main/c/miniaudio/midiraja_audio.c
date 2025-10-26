@@ -135,6 +135,97 @@ EXPORT int midiraja_audio_get_queued_frames(AudioEngineContext* ctx) {
     return frames;
 }
 
+// Returns the total device-side latency in frames at ctx->sampleRate (32kHz).
+// Covers miniaudio's internal period buffer + CoreAudio hardware/stream/safety latency.
+EXPORT int midiraja_audio_get_device_latency_frames(AudioEngineContext* ctx) {
+    if (!ctx) return 0;
+
+    // miniaudio internal pipeline: internalPeriodSizeInFrames is at the device's
+    // internalSampleRate, not at ctx->sampleRate. Scale to ctx->sampleRate.
+    int miniaudioFrames = 0;
+    {
+        double internalRate = (double)ctx->device.playback.internalSampleRate;
+        if (internalRate > 0.0) {
+            double rawFrames = (double)(ctx->device.playback.internalPeriodSizeInFrames *
+                                        ctx->device.playback.internalPeriods);
+            miniaudioFrames = (int)(rawFrames * ctx->sampleRate / internalRate);
+        }
+    }
+
+#if defined(__APPLE__)
+    // Also query CoreAudio hardware device latency + stream latency + safety offset.
+    // All three are needed for complete end-to-end latency on macOS.
+    AudioObjectID deviceID = ctx->device.coreaudio.deviceObjectIDPlayback;
+    if (deviceID != 0) {
+        UInt32 sz;
+
+        // 1. Device hardware latency (frames at hw nominal rate)
+        AudioObjectPropertyAddress addr = {
+            kAudioDevicePropertyLatency,
+            kAudioObjectPropertyScopeOutput,
+            kAudioObjectPropertyElementMain
+        };
+        UInt32 devLatency = 0;
+        sz = sizeof(devLatency);
+        AudioObjectGetPropertyData(deviceID, &addr, 0, NULL, &sz, &devLatency);
+
+        // 2. Safety offset: additional lead-time the OS requires to avoid underruns
+        AudioObjectPropertyAddress safetyAddr = {
+            kAudioDevicePropertySafetyOffset,
+            kAudioObjectPropertyScopeOutput,
+            kAudioObjectPropertyElementMain
+        };
+        UInt32 safetyOffset = 0;
+        sz = sizeof(safetyOffset);
+        AudioObjectGetPropertyData(deviceID, &safetyAddr, 0, NULL, &sz, &safetyOffset);
+        devLatency += safetyOffset;
+
+        // 3. Sum latency of all output streams
+        AudioObjectPropertyAddress streamsAddr = {
+            kAudioDevicePropertyStreams,
+            kAudioObjectPropertyScopeOutput,
+            kAudioObjectPropertyElementMain
+        };
+        UInt32 streamsSize = 0;
+        if (AudioObjectGetPropertyDataSize(deviceID, &streamsAddr, 0, NULL, &streamsSize) == noErr
+                && streamsSize > 0) {
+            AudioStreamID* streams = (AudioStreamID*)malloc(streamsSize);
+            if (streams) {
+                if (AudioObjectGetPropertyData(deviceID, &streamsAddr, 0, NULL, &streamsSize, streams) == noErr) {
+                    AudioObjectPropertyAddress streamLatAddr = {
+                        kAudioStreamPropertyLatency,
+                        kAudioObjectPropertyScopeOutput,
+                        kAudioObjectPropertyElementMain
+                    };
+                    UInt32 streamLat = 0;
+                    sz = sizeof(streamLat);
+                    AudioObjectGetPropertyData(streams[0], &streamLatAddr, 0, NULL, &sz, &streamLat);
+                    devLatency += streamLat;
+                }
+                free(streams);
+            }
+        }
+
+        // devLatency is in frames at the hardware's nominal sample rate. Scale to ctx->sampleRate.
+        Float64 hwRate = 0.0;
+        AudioObjectPropertyAddress rateAddr = {
+            kAudioDevicePropertyNominalSampleRate,
+            kAudioObjectPropertyScopeOutput,
+            kAudioObjectPropertyElementMain
+        };
+        sz = sizeof(hwRate);
+        AudioObjectGetPropertyData(deviceID, &rateAddr, 0, NULL, &sz, &hwRate);
+        if (hwRate > 0.0) {
+            devLatency = (UInt32)((devLatency * ctx->sampleRate) / hwRate);
+        }
+
+        miniaudioFrames += (int)devLatency;
+    }
+#endif
+
+    return miniaudioFrames;
+}
+
 EXPORT void midiraja_audio_push(AudioEngineContext* ctx, const short* data, int numSamples) {
     if (!ctx || !data || numSamples <= 0) return;
 

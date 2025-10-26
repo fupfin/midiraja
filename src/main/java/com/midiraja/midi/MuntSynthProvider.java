@@ -22,6 +22,22 @@ public class MuntSynthProvider implements SoftSynthProvider {
         this.audio = audio;
     }
 
+    // Munt renders at 32000 Hz. Latency = queued samples / 32000 converted to nanoseconds.
+    private static final int MUNT_SAMPLE_RATE = 32000;
+
+    // Ring buffer capacity (must match audio.init call below).
+    // The render thread keeps this buffer full at steady state, so using the
+    // capacity gives a stable, conservative latency estimate vs a dynamic snapshot.
+    private static final int RING_BUFFER_CAPACITY_FRAMES = 4096;
+
+    @Override
+    public long getAudioLatencyNanos() {
+        if (audio == null) return 0L;
+        // Ring buffer capacity + miniaudio pipeline + CoreAudio hardware latency
+        long totalFrames = (long) RING_BUFFER_CAPACITY_FRAMES + audio.getDeviceLatencyFrames();
+        return totalFrames * 1_000_000_000L / MUNT_SAMPLE_RATE;
+    }
+
     @Override
     public List<MidiPort> getOutputPorts() {
         return List.of(new MidiPort(0, "Munt MT-32 Emulator (Embedded)"));
