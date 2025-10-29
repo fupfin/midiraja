@@ -250,6 +250,20 @@ EXPORT void midiraja_audio_push(AudioEngineContext* ctx, const short* data, int 
     }
 }
 
+// Atomically discards all queued frames from the ring buffer and wakes the render
+// thread if it is blocked waiting for space. Call this after sending a reverb-off
+// SysEx and waiting for Munt to process it, so the next song starts with a silent buffer.
+EXPORT void midiraja_audio_flush(AudioEngineContext* ctx) {
+    if (!ctx) return;
+    ma_mutex_lock(&ctx->rb.lock);
+    ctx->rb.head = 0;
+    ctx->rb.tail = 0;
+    ctx->rb.count = 0;
+    ma_mutex_unlock(&ctx->rb.lock);
+    // Wake the render thread if it is blocked in midiraja_audio_push() waiting for space.
+    ma_event_signal(&ctx->rb.spaceAvailableEvent);
+}
+
 EXPORT void midiraja_audio_close(AudioEngineContext* ctx) {
     if (!ctx) return;
     
