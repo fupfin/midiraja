@@ -356,6 +356,24 @@ public class FluidSynthProvider implements SoftSynthProvider {
     }
 
     @Override
+    @SuppressWarnings("EmptyCatch")
+    public void panic() {
+        // FluidSynth is in-process: note-offs are processed synchronously, so the default
+        // 200ms hardware-flush wait is unnecessary.
+        for (int ch = 0; ch < 16; ch++) {
+            try {
+                sendMessage(new byte[] {(byte) (0xB0 | ch), 64, 0});  // Sustain Off
+                sendMessage(new byte[] {(byte) (0xB0 | ch), 123, 0}); // All Notes Off
+                sendMessage(new byte[] {(byte) (0xB0 | ch), 120, 0}); // All Sound Off
+                sendMessage(new byte[] {(byte) (0xB0 | ch), 121, 0}); // Reset All Controllers
+                for (int note = 0; note < 128; note++) {
+                    sendMessage(new byte[] {(byte) (0x80 | ch), (byte) note, 0});
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @Override
     public void closePort() {
         if ("MOCK_LIBRARY".equals(explicitDriver)) return;
 

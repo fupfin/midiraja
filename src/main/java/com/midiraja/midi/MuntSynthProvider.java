@@ -134,7 +134,7 @@ public class MuntSynthProvider implements SoftSynthProvider {
         bridge.openSynth();
 
         if (audio != null) {
-            audio.init(32000, 2, 4096); // Munt renders at 32000Hz natively
+            audio.init(32000, 2, RING_BUFFER_CAPACITY_FRAMES); // Munt renders at 32000Hz natively
             startRenderThread();
         }
     }
