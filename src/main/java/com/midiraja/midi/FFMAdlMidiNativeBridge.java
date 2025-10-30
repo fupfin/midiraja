@@ -222,6 +222,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge {
                     File f = new File(path);
                     if (f.exists()) {
                         return SymbolLookup.libraryLookup(f.toPath(), arena);
+                    } else {
+                        failedPaths.add(path + " (not found)");
                     }
                 } else {
                     return SymbolLookup.libraryLookup(path, arena);
@@ -230,7 +232,9 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge {
                 failedPaths.add(path);
             }
         }
-        throw new IllegalArgumentException("Cannot open libADLMIDI. Searched paths: " + String.join(", ", failedPaths));
+        throw new IllegalArgumentException(
+            "Cannot open libADLMIDI. Build it first with: ./scripts/build-native-libs.sh\n"
+            + "Searched paths: " + String.join(", ", failedPaths));
     }
 
     @Override
