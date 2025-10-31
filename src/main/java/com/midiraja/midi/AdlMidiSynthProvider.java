@@ -91,7 +91,7 @@ public class AdlMidiSynthProvider implements SoftSynthProvider {
     public List<MidiPort> getOutputPorts() {
         String emuName = (emulatorId >= 0 && emulatorId < EMULATOR_NAMES.length)
             ? EMULATOR_NAMES[emulatorId] : "Emulator " + emulatorId;
-        String portName = "libADLMIDI · " + emuName + " · " + numChips + " chip" + (numChips > 1 ? "s" : "");
+        String portName = emuName + " · " + numChips + " chip" + (numChips > 1 ? "s" : "");
         return List.of(new MidiPort(0, portName));
     }
 
