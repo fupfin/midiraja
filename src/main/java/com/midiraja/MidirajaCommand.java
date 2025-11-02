@@ -115,6 +115,16 @@ public class MidirajaCommand implements Callable<Integer>
     @Option(names = {"--opl-chips"}, description = "Number of OPL chips to emulate (default: 4). More chips = more polyphony. 1 chip = 18 channels, 4 chips = 72 channels.")
     private int oplChips = 4;
 
+    @Option(names = {"--opn"}, arity = "0..1", fallbackValue = "",
+            description = "Use built-in libOPNMIDI OPN2 FM synthesizer (Sega Genesis / PC-98 sound). Optionally provide a path to a .wopn bank file.")
+    private Optional<String> opnBank = Optional.empty();
+
+    @Option(names = {"--opn-emulator"}, description = "OPN2 emulator backend (default: 0). 0=MAME YM2612, 1=Nuked YM3438, 2=GENS, 3=YMFM OPN2, 4=NP2 OPNA, 5=MAME YM2608, 6=YMFM OPNA.")
+    private int opnEmulator = 0;
+
+    @Option(names = {"--opn-chips"}, description = "Number of OPN2 chips to emulate (default: 4). More chips = more polyphony.")
+    private int opnChips = 4;
+
     @ArgGroup(exclusive = true, multiplicity = "0..1")
     private UiModeOptions uiOptions = new UiModeOptions();
 
@@ -322,6 +332,31 @@ public class MidirajaCommand implements Callable<Integer>
                 var oplBridge = new com.midiraja.midi.FFMAdlMidiNativeBridge();
                 logVerbose("Initializing libADLMIDI OPL3 FM Synthesizer (emulator=" + oplEmulator + ", chips=" + oplChips + ").");
                 provider = new com.midiraja.midi.AdlMidiSynthProvider(oplBridge, oplAudio, oplEmulator, oplChips);
+            } else if (opnBank.isPresent()) {
+                java.lang.foreign.Arena opnArena = java.lang.foreign.Arena.ofShared();
+                String libName = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("mac") ? "libmidiraja_audio.dylib" : "libmidiraja_audio.so";
+                String devPath = new File("").getAbsolutePath() + "/src/main/c/miniaudio/" + libName;
+                String[] audioPaths = {libName, devPath};
+                String resolvedAudioPath = null;
+                for (String p : audioPaths) {
+                    try {
+                        if (p.startsWith("/")) {
+                            if (new File(p).exists()) { resolvedAudioPath = p; break; }
+                        } else {
+                            java.lang.foreign.SymbolLookup.libraryLookup(p, opnArena);
+                            resolvedAudioPath = p;
+                            break;
+                        }
+                    } catch (Exception ignored) {
+                        // ignored: we are looping to find a valid path
+                    }
+                }
+                opnArena.close();
+                if (resolvedAudioPath == null) throw new Exception("Could not find " + libName);
+                var opnAudio = new com.midiraja.midi.NativeAudioEngine(resolvedAudioPath);
+                var opnBridge = new com.midiraja.midi.FFMOpnMidiNativeBridge();
+                logVerbose("Initializing libOPNMIDI OPN2 FM Synthesizer (emulator=" + opnEmulator + ", chips=" + opnChips + ").");
+                provider = new com.midiraja.midi.OpnMidiSynthProvider(opnBridge, opnAudio, opnEmulator, opnChips);
             } else if (fluidSoundfont.isPresent()) {
                 var fluid = new com.midiraja.midi.FluidSynthProvider(fluidDriver.orElse(null));
                 logVerbose("Initializing FluidSynth with SoundFont: " + fluidSoundfont.get());
@@ -378,7 +413,7 @@ public class MidirajaCommand implements Callable<Integer>
         }
 
         int portIndex = -1;
-        if (muntRomsDir.isPresent() || oplBank.isPresent() || fluidSoundfont.isPresent() || useSynth)
+        if (muntRomsDir.isPresent() || oplBank.isPresent() || opnBank.isPresent() || fluidSoundfont.isPresent() || useSynth)
         {
             portIndex = 0; // Soft synths only have one virtual port
         }
@@ -431,6 +466,10 @@ public class MidirajaCommand implements Callable<Integer>
                     }
                     softSynth.loadSoundbank(soundbankArg);
                     logVerbose("OPL bank loaded: " + soundbankArg);
+                } else if (opnBank.isPresent()) {
+                    String val = opnBank.get();
+                    softSynth.loadSoundbank(val);  // empty = default OPN2 sound; non-empty = WOPN file
+                    logVerbose("OPN bank loaded: " + (val.isEmpty() ? "(default)" : val));
                 } else if (fluidSoundfont.isPresent()) {
                     softSynth.loadSoundbank(fluidSoundfont.get());
                     logVerbose("SoundFont loaded successfully.");
@@ -451,19 +490,24 @@ public class MidirajaCommand implements Callable<Integer>
                 // Bulletproof terminal restore sequence
                 // If using alt screen, disable it FIRST, then reset properties on the main screen buffer.
                 String safeRestore = (ALT_SCREEN_ACTIVE ? Theme.TERM_ALT_SCREEN_DISABLE : "")
-                                   + Theme.COLOR_RESET      // 1. Reset all colors and styles (bold, invert, etc.)
-                                   + "\033[?7h"             // 2. Re-enable Auto-Wrap (DECAWM)
-                                   + Theme.TERM_SHOW_CURSOR // 3. Show cursor
-                                   + "\r\033[K\n";          // 4. Clear current line and add newline for clean shell prompt
+                                   + Theme.TERM_MOUSE_DISABLE // 0. Disable any mouse tracking modes
+                                   + Theme.COLOR_RESET        // 1. Reset all colors and styles (bold, invert, etc.)
+                                   + "\033[?7h"               // 2. Re-enable Auto-Wrap (DECAWM)
+                                   + Theme.TERM_SHOW_CURSOR   // 3. Show cursor
+                                   + "\r\033[K\n";            // 4. Clear current line and add newline for clean shell prompt
 
-                System.out.print(safeRestore);
-                System.out.flush();
+                // Close JLine terminal FIRST (restores tty attrs via tcsetattr).
+                // JLine may write its own cleanup sequences internally; our safeRestore
+                // must come AFTER to ensure mouse-tracking disables are the last sequences
+                // the terminal emulator sees (otherwise JLine's output overwrites ours).
                 try
                 {
-                    activeIO.close(); // CRITICAL: Restores terminal from Raw mode on Ctrl+C
+                    activeIO.close();
                 }
                 catch (Exception _) { // ignored
                 }
+                System.out.print(safeRestore);
+                System.out.flush();
                 try
                 {
                     if (provider != null && portClosed.compareAndSet(false, true)) {
@@ -550,8 +594,10 @@ public class MidirajaCommand implements Callable<Integer>
                     }
                 }
             } finally {
+                activeIO.close();
                 if (isInteractive) {
                     String safeRestore = (useAltScreen ? Theme.TERM_ALT_SCREEN_DISABLE : "")
+                                       + Theme.TERM_MOUSE_DISABLE
                                        + Theme.COLOR_RESET
                                        + "\033[?7h"
                                        + Theme.TERM_SHOW_CURSOR
@@ -559,7 +605,6 @@ public class MidirajaCommand implements Callable<Integer>
                     out.print(safeRestore);
                     out.flush();
                 }
-                activeIO.close();
             }
         }
         catch (Exception e)

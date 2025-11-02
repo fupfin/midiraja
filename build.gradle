@@ -94,6 +94,55 @@ run {
     }
 }
 
+// ── Native library build tasks ────────────────────────────────────────────────
+// cmake + make are run automatically before nativeCompile so developers don't
+// need to run build-native-libs.sh manually. Gradle's input/output tracking
+// makes each task UP-TO-DATE when the .a already exists and sources are unchanged.
+
+task buildAdlMidiLib(type: Exec) {
+    description = 'Builds libADLMIDI.a via cmake + make.'
+    onlyIf { !org.gradle.internal.os.OperatingSystem.current().isWindows() }
+
+    def sourceDir = file("ext/libADLMIDI")
+    def buildDir  = file("src/main/c/adlmidi")
+    inputs.dir(sourceDir)
+    outputs.file(file("src/main/c/adlmidi/libADLMIDI.a"))
+
+    doFirst { buildDir.mkdirs() }
+    workingDir { buildDir }
+    commandLine 'bash', '-c', """
+        cmake -G 'Unix Makefiles' \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DlibADLMIDI_SHARED=ON -DlibADLMIDI_STATIC=ON \
+            -DWITH_EMBEDDED_BANKS=ON \
+            -DWITH_MUS_SUPPORT=OFF -DWITH_XMI_SUPPORT=OFF \
+            -DUSE_DOSBOX_EMULATOR=OFF -DUSE_OPAL_EMULATOR=OFF -DUSE_JAVA_EMULATOR=OFF \
+            ${sourceDir.absolutePath} && \
+        make -j\$(sysctl -n hw.ncpu 2>/dev/null || nproc)
+    """
+}
+
+task buildOpnMidiLib(type: Exec) {
+    description = 'Builds libOPNMIDI.a via cmake + make.'
+    onlyIf { !org.gradle.internal.os.OperatingSystem.current().isWindows() }
+
+    def sourceDir = file("ext/libOPNMIDI")
+    def buildDir  = file("src/main/c/opnmidi")
+    inputs.dir(sourceDir)
+    outputs.file(file("src/main/c/opnmidi/libOPNMIDI.a"))
+
+    doFirst { buildDir.mkdirs() }
+    workingDir { buildDir }
+    commandLine 'bash', '-c', """
+        cmake -G 'Unix Makefiles' \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DlibOPNMIDI_SHARED=ON -DlibOPNMIDI_STATIC=ON \
+            -DWITH_MUS_SUPPORT=OFF -DWITH_XMI_SUPPORT=OFF \
+            ${sourceDir.absolutePath} && \
+        make -j\$(sysctl -n hw.ncpu 2>/dev/null || nproc)
+    """
+}
+
 graalvmNative {
     binaries {
         main {
@@ -127,7 +176,25 @@ graalvmNative {
                 // libADLMIDI is C++; link against GNU C++ stdlib
                 buildArgs.add("-H:NativeLinkerOption=-lstdc++")
             }
+
+            // Statically link libOPNMIDI: --opn works without distributing a .dylib/.so
+            def opnLib = "${projectDir}/src/main/c/opnmidi/libOPNMIDI.a"
+            if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+                buildArgs.add("-H:NativeLinkerOption=-force_load")
+                buildArgs.add("-H:NativeLinkerOption=${opnLib}")
+                // -lc++ already added for libADLMIDI above
+            } else if (org.gradle.internal.os.OperatingSystem.current().isLinux()) {
+                buildArgs.add("-H:NativeLinkerOption=--whole-archive")
+                buildArgs.add("-H:NativeLinkerOption=${opnLib}")
+                buildArgs.add("-H:NativeLinkerOption=--no-whole-archive")
+                // -lstdc++ already added for libADLMIDI above
+            }
         }
     }
 }
 
+
+// nativeCompile must have both static libraries present before linking
+tasks.named('nativeCompile').configure {
+    dependsOn buildAdlMidiLib, buildOpnMidiLib
+}

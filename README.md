@@ -86,13 +86,14 @@ While a song is playing, you don't need to restart the app to make changes. Just
 
 ## 🎹 Soft Synthesizers
 
-`midra` includes three built-in software synthesizers alongside native OS MIDI output.
+`midra` includes four built-in software synthesizers alongside native OS MIDI output.
 
 | Synthesizer | Flag | Sound |
 |-------------|------|-------|
 | **FluidSynth** | `--fluid <soundfont.sf2>` | General MIDI · SF2 SoundFont |
 | **MT-32 / Munt** | `--munt <rom-dir>` | Roland MT-32 · authentic DOS-era game music |
 | **OPL / libADLMIDI** | `--opl [bank]` | AdLib / Sound Blaster FM · no install required |
+| **OPN2 / libOPNMIDI** | `--opn [bank]` | Sega Genesis / PC-98 FM · no install required |
 
 ```bash
 # FluidSynth (requires: brew install fluid-synth + a .sf2 file)
@@ -105,6 +106,10 @@ midra --munt ~/mt32-roms monkey_island.mid
 midra --opl song.mid
 midra --opl 14 song.mid                  # Doom built-in bank
 midra --opl /path/to/bank.wopl song.mid  # external bank file
+
+# OPN2 FM synthesis (Sega Genesis / PC-98 sound — built into the binary)
+midra --opn song.mid
+midra --opn /path/to/bank.wopn song.mid  # external bank file
 ```
 
 For installation instructions, bank listings, and emulator options, see the **[Soft Synth Guide](docs/soft-synth-guide.md)**.

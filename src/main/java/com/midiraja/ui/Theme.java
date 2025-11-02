@@ -44,5 +44,15 @@ public final class Theme {
     public static final String TERM_ALT_SCREEN_ENABLE = "\033[?1049h";
     public static final String TERM_ALT_SCREEN_DISABLE = "\033[?1049l";
 
+    /** Disables all common mouse-tracking modes to prevent scroll-wheel events from
+     *  leaking into the shell as cursor-key presses after the application exits. */
+    public static final String TERM_MOUSE_DISABLE =
+            "\033[?1000l"   // X10 mouse tracking off
+          + "\033[?1002l"   // button-event tracking off
+          + "\033[?1003l"   // any-event tracking off
+          + "\033[?1006l"   // SGR mouse extension off
+          + "\033[?1007l"   // alternate scroll mode off
+          + "\033[?1015l";  // URXVT mouse extension off
+
     private Theme() {} // Prevent instantiation
 }

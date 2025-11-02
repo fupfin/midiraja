@@ -1,12 +1,13 @@
 # Soft Synth Guide
 
-`midra` supports three built-in software synthesizers in addition to the native OS MIDI output. Each has a different sound character and setup requirements.
+`midra` supports four built-in software synthesizers in addition to the native OS MIDI output. Each has a different sound character and setup requirements.
 
 | Synthesizer | Flag | Sound | External files |
 |-------------|------|-------|----------------|
 | FluidSynth | `--fluid` | General MIDI (SF2) | SoundFont (.sf2) |
 | MT-32 / Munt | `--munt` | Roland MT-32 (DOS-era game music) | 2 ROM files |
 | OPL / libADLMIDI | `--opl` | AdLib / Sound Blaster FM (OPL2/OPL3) | Built-in (optional .wopl bank) |
+| OPN2 / libOPNMIDI | `--opn` | Sega Genesis / PC-98 FM (OPN2/OPNA) | Built-in (optional .wopn bank) |
 
 ---
 
@@ -173,6 +174,45 @@ midra --opl --opl-chips 4 song.mid   # 4 chips = 72 channels (default)
 
 ---
 
+## OPN2 FM Synthesis / libOPNMIDI
+
+OPN chips (Yamaha YM2612/OPN2, YM2608/OPNA) use **FM (Frequency Modulation) synthesis** with 4-operator FM channels, producing the rich, warm timbres iconic to Sega Genesis game soundtracks and PC-98 computer music. YM2612 (used in the Sega Genesis/Mega Drive) provides 6 FM channels plus a PCM DAC channel (channel 6 can switch to 8-bit PCM mode); the chip's 9-bit ladder DAC introduces a characteristic slight distortion that gives Genesis music its gritty, aggressive edge. YM2608 (OPNA, used in NEC PC-88/PC-98) adds SSG (PSG-compatible) channels and ADPCM, producing a cleaner, more refined FM sound. libOPNMIDI maps General MIDI to OPN2 operators using `.wopn` instrument bank files.
+
+libOPNMIDI is **statically linked** into the `midra` binary — no installation required.
+
+### Usage
+
+```bash
+# Default OPN2 sound (uses libOPNMIDI's internal default bank)
+midra --opn song.mid
+
+# External .wopn bank file
+midra --opn /path/to/custom.wopn song.mid
+```
+
+### OPN2 emulator selection
+
+```bash
+midra --opn --opn-emulator 0 song.mid   # MAME YM2612 (default)
+midra --opn --opn-emulator 1 song.mid   # Nuked YM3438 (highest accuracy OPN2)
+midra --opn --opn-emulator 2 song.mid   # GENS
+midra --opn --opn-emulator 3 song.mid   # YMFM OPN2
+midra --opn --opn-emulator 4 song.mid   # NP2 OPNA (PC-98 sound)
+midra --opn --opn-emulator 5 song.mid   # MAME YM2608 OPNA
+midra --opn --opn-emulator 6 song.mid   # YMFM OPNA
+```
+
+> **Tip:** Emulators 0--3 emulate the YM2612 (OPN2) and produce the Sega Genesis sound. Emulators 4--6 emulate the YM2608 (OPNA) and produce the NEC PC-98 sound character.
+
+### Chip count (polyphony)
+
+```bash
+midra --opn --opn-chips 1 song.mid   # 1 chip = 6 FM channels
+midra --opn --opn-chips 4 song.mid   # 4 chips = 24 FM channels (default)
+```
+
+---
+
 ## Checking the active synthesizer
 
 Use `--list-ports` to confirm which synthesizer is selected:
@@ -181,6 +221,10 @@ Use `--list-ports` to confirm which synthesizer is selected:
 midra --opl --list-ports
 # Available MIDI Output Devices:
 # [0] Nuked OPL3 v1.8 · 4 chips
+
+midra --opn --list-ports
+# Available MIDI Output Devices:
+# [0] MAME YM2612 · 4 chips
 
 midra --munt ~/mt32-roms --list-ports
 # Available MIDI Output Devices:

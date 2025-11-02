@@ -63,4 +63,38 @@ else
     echo "Unsupported OS for automated libADLMIDI build. Please build manually."
 fi
 
+# 4. Build libOPNMIDI
+echo "==> Building libOPNMIDI..."
+mkdir -p "$PROJECT_ROOT/src/main/c/opnmidi"
+cd "$PROJECT_ROOT/src/main/c/opnmidi"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    cmake -G "Unix Makefiles" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DlibOPNMIDI_SHARED=ON \
+        -DlibOPNMIDI_STATIC=ON \
+        -DWITH_MIDI_SEQUENCER=OFF \
+        -DWITH_XMI_SUPPORT=OFF \
+        -DUSE_GENS_EMULATOR=OFF \
+        -DUSE_NUKED_OPN2_LLE_EMULATOR=OFF \
+        -DUSE_NUKED_OPNA_LLE_EMULATOR=OFF \
+        -DUSE_VGM_FILE_DUMPER=OFF \
+        ../../../../ext/libOPNMIDI
+    make -j$(sysctl -n hw.ncpu)
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    cmake -G "Unix Makefiles" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DlibOPNMIDI_SHARED=ON \
+        -DlibOPNMIDI_STATIC=ON \
+        -DWITH_MIDI_SEQUENCER=OFF \
+        -DWITH_XMI_SUPPORT=OFF \
+        -DUSE_GENS_EMULATOR=OFF \
+        -DUSE_NUKED_OPN2_LLE_EMULATOR=OFF \
+        -DUSE_NUKED_OPNA_LLE_EMULATOR=OFF \
+        -DUSE_VGM_FILE_DUMPER=OFF \
+        ../../../../ext/libOPNMIDI
+    make -j$(nproc)
+else
+    echo "Unsupported OS for automated libOPNMIDI build. Please build manually."
+fi
+
 echo "Native libraries built successfully."

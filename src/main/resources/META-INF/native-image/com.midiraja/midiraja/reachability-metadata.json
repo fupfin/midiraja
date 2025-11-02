@@ -1,4 +1,7 @@
 {
+    "resources": [
+        {"glob": "com/midiraja/midi/opn-gm.wopn"}
+    ],
     "reflection": [
         {
             "type": "com.midiraja.MidirajaCommand",
@@ -20,6 +23,15 @@
                 },
                 {
                     "name": "oplEmulator"
+                },
+                {
+                    "name": "opnBank"
+                },
+                {
+                    "name": "opnChips"
+                },
+                {
+                    "name": "opnEmulator"
                 },
                 {
                     "name": "port"
