@@ -7,38 +7,60 @@
 
 package com.midiraja;
 
-import org.jspecify.annotations.Nullable;
-import picocli.CommandLine;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
-import picocli.CommandLine.ArgGroup;
-import picocli.CommandLine.Parameters;
-
-import com.midiraja.engine.PlaybackEngine;
-import com.midiraja.engine.PlaybackEngine.PlaybackStatus;
-import com.midiraja.engine.PlaylistContext;
-import com.midiraja.io.JLineTerminalIO;
+import com.midiraja.cli.AudioLibResolver;
+import com.midiraja.cli.CommonOptions;
+import com.midiraja.cli.FluidCommand;
+import com.midiraja.cli.JavaSynthCommand;
+import com.midiraja.cli.ListPortsCommand;
+import com.midiraja.cli.MuntCommand;
+import com.midiraja.cli.OplCommand;
+import com.midiraja.cli.OpnCommand;
+import com.midiraja.cli.PlaybackRunner;
 import com.midiraja.io.TerminalIO;
 import com.midiraja.midi.MidiOutProvider;
 import com.midiraja.midi.MidiPort;
 import com.midiraja.midi.MidiProviderFactory;
-import com.midiraja.ui.Theme;
 
-import javax.sound.midi.MetaMessage;
-import javax.sound.midi.MidiMessage;
-import javax.sound.midi.MidiSystem;
-import javax.sound.midi.Sequence;
-import javax.sound.midi.Track;
+import org.jspecify.annotations.Nullable;
+
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
+
 import java.io.File;
 import java.io.PrintStream;
-import java.lang.ScopedValue;
-import java.util.*;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
-@Command(name = "midra", mixinStandardHelpOptions = true, version = "midiraja " + Version.VERSION,
-        separator = " ",
+@Command(name = "midra",
+        mixinStandardHelpOptions = true,
+        version = "midiraja " + Version.VERSION,
         description = "A fast, cross-platform CLI MIDI player.",
+        customSynopsis = {"midra [command] [OPTIONS] [<files>...]"},
+        subcommands = {
+            OplCommand.class,
+            OpnCommand.class,
+            MuntCommand.class,
+            FluidCommand.class,
+            JavaSynthCommand.class,
+            ListPortsCommand.class,
+            CommandLine.HelpCommand.class,
+        },
         footer = {
+            "",
+            "Synths (subcommands):",
+            "  opl    OPL2/OPL3 FM  (AdLib / Sound Blaster)",
+            "  opn    OPN2 FM       (Sega Genesis / PC-98)",
+            "  munt   MT-32         (Roland MT-32/CM-32L)",
+            "  fluid  FluidSynth    (SoundFont .sf2)",
+            "  java   Java built-in synthesizer (experimental)",
+            "",
+            "Run 'midra <command> --help' for synth-specific options.",
             "",
             "Playlist Features:",
             "  Supports .m3u and .txt files containing paths to .mid files.",
@@ -50,96 +72,52 @@ public class MidirajaCommand implements Callable<Integer>
     public static volatile boolean SHUTTING_DOWN = false;
     public static volatile boolean ALT_SCREEN_ACTIVE = false;
 
-    @Parameters(index = "0..*", description = "The MIDI file(s), directories, or .m3u playlists to play.", arity = "0..*")
+    @Parameters(index = "0..*", description = "MIDI files, directories, or .m3u playlists to play.", arity = "0..*")
     private List<File> files = new ArrayList<>();
 
     @Option(names = {"-p", "--port"}, description = "MIDI output port index or partial name.")
     private Optional<String> port = Optional.empty();
 
-    @Option(names = {"-v", "--volume"}, description = "Initial volume percentage (0-100).",
-            defaultValue = "100")
-    private Integer volume = 100;
+    @Mixin
+    private CommonOptions common = new CommonOptions();
 
-    @Option(names = {"-x", "--speed"}, description = "Playback speed multiplier (e.g. 1.0, 1.2).",
-            defaultValue = "1.0")
-    private Double speed = 1.0;
+    // ── Deprecated legacy options (hidden, for backwards compatibility) ───────
 
-    @Option(names = {"-s", "--start"},
-            description = "Playback start time (e.g. 01:10:12, 05:30, or 90 for seconds).")
-    private Optional<String> startTime = Optional.empty();
+    @Option(names = {"-l", "--list-ports"}, hidden = true, description = "Deprecated: use 'midra ports' instead.")
+    private boolean legacyListPorts;
 
-    @Option(names = {"-t", "--transpose"},
-            description = "Transpose by semitones (e.g. 12 for one octave up, -5 for down).")
-    private Optional<Integer> transpose = Optional.empty();
+    @Option(names = {"--opl"}, hidden = true, arity = "0..1", fallbackValue = "")
+    private Optional<String> legacyOpl = Optional.empty();
 
-    @Option(names = {"-z", "--shuffle"}, description = "Shuffle the playlist before playing.")
-    private boolean shuffle;
+    @Option(names = {"--opl-emulator"}, hidden = true)
+    private int legacyOplEmulator = 0;
 
-    @Option(names = {"-r", "--loop"}, description = "Loop the playlist indefinitely.")
-    private boolean loop;
+    @Option(names = {"--opl-chips"}, hidden = true)
+    private int legacyOplChips = 4;
 
-    @Option(names = {"-l", "--list-ports"}, description = "List all available MIDI output ports.")
-    private boolean listPorts;
+    @Option(names = {"--opn"}, hidden = true, arity = "0..1", fallbackValue = "")
+    private Optional<String> legacyOpn = Optional.empty();
 
-    @Option(names = {"-R", "--recursive"}, description = "Recursively search for MIDI files in given directories.")
-    private boolean recursive;
+    @Option(names = {"--opn-emulator"}, hidden = true)
+    private int legacyOpnEmulator = 0;
 
-    @Option(names = {"--verbose"}, description = "Show verbose error messages and stack traces.")
-    private boolean verbose;
+    @Option(names = {"--opn-chips"}, hidden = true)
+    private int legacyOpnChips = 4;
 
-    @Option(names = {"--ignore-sysex"}, description = "Filter out hardware-specific System Exclusive (SysEx) messages.")
-    private boolean ignoreSysex;
+    @Option(names = {"--munt"}, hidden = true)
+    private Optional<String> legacyMunt = Optional.empty();
 
-    @Option(names = {"--reset"}, description = "Send a SysEx reset before each track (gm, gm2, gs, xg, mt32, or raw hex like F0...F7).")
-    private Optional<String> resetType = Optional.empty();
+    @Option(names = {"--fluid"}, hidden = true)
+    private Optional<String> legacyFluid = Optional.empty();
 
-    @Option(names = {"--synth"}, description = "(Experimental) Use Java's built-in software synthesizer instead of OS native MIDI.")
-    private boolean useSynth;
+    @Option(names = {"--fluid-driver"}, hidden = true)
+    private Optional<String> legacyFluidDriver = Optional.empty();
 
-    @Option(names = {"--fluid"}, description = "Use built-in FluidSynth. Provide the path to a .sf2 SoundFont file.")
-    private Optional<String> fluidSoundfont = Optional.empty();
+    @Option(names = {"--synth"}, hidden = true)
+    private boolean legacySynth;
 
-    @Option(names = {"--fluid-driver"}, description = "Override the audio driver for FluidSynth (e.g. coreaudio, dsound, alsa).")
-    private Optional<String> fluidDriver = Optional.empty();
+    // ── Test injection ────────────────────────────────────────────────────────
 
-    @Option(names = {"--munt"}, description = "Use built-in Munt (MT-32 Emulator). Provide the directory containing MT32_CONTROL.ROM and MT32_PCM.ROM.")
-    private Optional<String> muntRomsDir = Optional.empty();
-
-    @Option(names = {"--opl"}, arity = "0..1", fallbackValue = "",
-            description = "Use built-in libADLMIDI OPL3 FM synthesizer. Optionally provide an embedded bank number (0-75) or a path to a .wopl bank file. Defaults to bank 0 (GeneralMidi).")
-    private Optional<String> oplBank = Optional.empty();
-
-    @Option(names = {"--opl-emulator"}, description = "OPL emulator backend (default: 0). 0=Nuked OPL3 v1.8, 1=Nuked v1.7.4, 5=ESFMu, 6=MAME OPL2, 7=YMFM OPL2, 8=YMFM OPL3.")
-    private int oplEmulator = 0;
-
-    @Option(names = {"--opl-chips"}, description = "Number of OPL chips to emulate (default: 4). More chips = more polyphony. 1 chip = 18 channels, 4 chips = 72 channels.")
-    private int oplChips = 4;
-
-    @Option(names = {"--opn"}, arity = "0..1", fallbackValue = "",
-            description = "Use built-in libOPNMIDI OPN2 FM synthesizer (Sega Genesis / PC-98 sound). Optionally provide a path to a .wopn bank file.")
-    private Optional<String> opnBank = Optional.empty();
-
-    @Option(names = {"--opn-emulator"}, description = "OPN2 emulator backend (default: 0). 0=MAME YM2612, 1=Nuked YM3438, 2=GENS, 3=YMFM OPN2, 4=NP2 OPNA, 5=MAME YM2608, 6=YMFM OPNA.")
-    private int opnEmulator = 0;
-
-    @Option(names = {"--opn-chips"}, description = "Number of OPN2 chips to emulate (default: 4). More chips = more polyphony.")
-    private int opnChips = 4;
-
-    @ArgGroup(exclusive = true, multiplicity = "0..1")
-    private UiModeOptions uiOptions = new UiModeOptions();
-
-    static class UiModeOptions {
-        @Option(names = {"-1", "--classic"}, description = "Classic CLI mode (static line logging, best for pipes).")
-        boolean classicMode;
-
-        @Option(names = {"-2", "--mini"}, description = "Mini TUI mode (single-line interactive status).")
-        boolean miniMode;
-
-        @Option(names = {"-3", "--full"}, description = "Full TUI dashboard (default if terminal is large enough).")
-        boolean fullMode;
-    }
-
-    // Optional overrides for testing
     @Nullable private MidiOutProvider provider;
     @Nullable private TerminalIO terminalIO;
     private boolean isTestMode = false;
@@ -156,797 +134,102 @@ public class MidirajaCommand implements Callable<Integer>
         this.isTestMode = true;
     }
 
-    private void logVerbose(String message) {
-        if (verbose) {
-            err.println("[VERBOSE] " + message);
-        }
+    public PrintStream getOut() { return out; }
+    public PrintStream getErr() { return err; }
+    public @Nullable TerminalIO getTerminalIO() { return terminalIO; }
+    public boolean isInTestMode() { return isTestMode; }
+
+    // ── Port index lookup (package-private for tests) ─────────────────────────
+
+    int findPortIndex(List<MidiPort> ports, String query) {
+        return PlaybackRunner.findPortIndex(ports, query, err);
     }
 
-    @SuppressWarnings({"StringSplitter", "EmptyCatch"})
-    private void parsePlaylistFile(File playlistFile, List<File> playlist) {
-        try {
-            List<String> lines = java.nio.file.Files.readAllLines(playlistFile.toPath());
-            File parentDir = playlistFile.getParentFile();
-            
-            for (String line : lines) {
-                line = line.trim();
-                
-                // Parse Custom M3U Directives: #MIDRA: --option
-                if (line.toUpperCase(Locale.ROOT).startsWith("#MIDRA:")) {
-                    String directive = line.substring(7).trim();
-                    if (directive.contains("--shuffle") || directive.contains("-s")) {
-                        this.shuffle = true;
-                        logVerbose("Applied directive from playlist: --shuffle");
-                    }
-                    if (directive.contains("--loop") || directive.contains("-z")) {
-                        this.loop = true;
-                        logVerbose("Applied directive from playlist: --loop");
-                    }
-                    if (directive.contains("--recursive") || directive.contains("-R")) {
-                        this.recursive = true;
-                        logVerbose("Applied directive from playlist: --recursive");
-                    }
-                    
-                    // Parse key-value directives
-                    String[] tokens = directive.split("\\s+");
-                    for (int i = 0; i < tokens.length; i++) {
-                        String token = tokens[i];
-                        
-                        // Parse Volume
-                        if (token.startsWith("--volume=") || token.startsWith("-v=")) {
-                            try {
-                                this.volume = Integer.parseInt(token.substring(token.indexOf('=') + 1));
-                                logVerbose("Applied directive from playlist: " + token);
-                            } catch (NumberFormatException ignored) {}
-                        } else if ((token.equals("--volume") || token.equals("-v")) && i + 1 < tokens.length) {
-                            try {
-                                this.volume = Integer.parseInt(tokens[++i]);
-                                logVerbose("Applied directive from playlist: " + token + " " + this.volume);
-                            } catch (NumberFormatException ignored) {}
-                        }
-                        
-                        // Parse Speed
-                        if (token.startsWith("--speed=") || token.startsWith("-x=")) {
-                            try {
-                                this.speed = Double.parseDouble(token.substring(token.indexOf('=') + 1));
-                                logVerbose("Applied directive from playlist: " + token);
-                            } catch (NumberFormatException ignored) {}
-                        } else if ((token.equals("--speed") || token.equals("-x")) && i + 1 < tokens.length) {
-                            try {
-                                this.speed = Double.parseDouble(tokens[++i]);
-                                logVerbose("Applied directive from playlist: " + token + " " + this.speed);
-                            } catch (NumberFormatException ignored) {}
-                        }
-                    }
-                    continue;
-                }
+    // ── Entry point ───────────────────────────────────────────────────────────
 
-                if (line.isEmpty() || line.startsWith("#")) {
-                    continue; // Skip standard comments and empty lines
-                }
-                
-                File track = new File(line);
-                if (!track.isAbsolute() && parentDir != null) {
-                    track = new File(parentDir, line);
-                }
-                
-                if (track.exists() && !track.isDirectory()) {
-                    playlist.add(track);
-                } else if (track.isDirectory()) {
-                    parseDirectory(track, playlist);
-                } else {
-                    logVerbose("Playlist track not found: " + track.getAbsolutePath());
-                }
-            }
-            logVerbose("Loaded playlist: " + playlistFile.getName() + " (" + lines.size() + " lines parsed)");
-        } catch (Exception e) {
-            err.println("Error reading playlist file '" + playlistFile.getName() + "': " + e.getMessage());
-            if (verbose) e.printStackTrace(err);
-        }
-    }
-
-    private void parseDirectory(File dir, List<File> playlist) {
-        try {
-            int maxDepth = recursive ? Integer.MAX_VALUE : 1;
-            try (var stream = java.nio.file.Files.walk(dir.toPath(), maxDepth)) {
-                stream.filter(java.nio.file.Files::isRegularFile)
-                      .map(java.nio.file.Path::toFile)
-                      .filter(f -> {
-                          String name = f.getName().toLowerCase(Locale.ROOT);
-                          return name.endsWith(".mid") || name.endsWith(".midi");
-                      })
-                      .forEach(playlist::add);
-            }
-        } catch (Exception e) {
-            err.println("Error reading directory '" + dir.getName() + "': " + e.getMessage());
-            if (verbose) e.printStackTrace(err);
-        }
-    }
-
-    public static void main(String[] args)
-    {
-        int exitCode = new CommandLine(new MidirajaCommand()).execute(args);
+    public static void main(String[] args) {
+        int exitCode = new CommandLine(new MidirajaCommand())
+                .setParameterExceptionHandler(MidirajaCommand::handleParameterException)
+                .execute(args);
         System.exit(exitCode);
+    }
+
+    private static int handleParameterException(CommandLine.ParameterException ex, String[] args) {
+        CommandLine failedCmd = ex.getCommandLine();
+        PrintWriter err = failedCmd.getErr();
+        err.println("Error: " + ex.getMessage());
+
+        if (ex instanceof CommandLine.MissingParameterException) {
+            CommandLine parent = failedCmd.getParent();
+            if (parent != null) {
+                CommandLine.ParseResult parentResult = parent.getParseResult();
+                if (parentResult != null && !parentResult.matchedPositionals().isEmpty()) {
+                    err.println("Hint: The command must come before the files.");
+                    err.println("  Try: midra " + failedCmd.getCommandName() + " [OPTIONS] <files...>");
+                }
+            }
+        }
+        err.println("Run 'midra " + failedCmd.getCommandName() + " --help' for usage.");
+        return 2;
     }
 
     @Override
     public Integer call() throws Exception
     {
-        java.util.concurrent.atomic.AtomicBoolean portClosed = new java.util.concurrent.atomic.AtomicBoolean(false);
-        if (provider == null)
-        {
-            if (muntRomsDir.isPresent()) {
-                var bridge = new com.midiraja.midi.FFMMuntNativeBridge();
-                // Find libmidiraja_audio using the same resolution technique
-                java.lang.foreign.Arena arena = java.lang.foreign.Arena.ofShared();
-                String libName = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("mac") ? "libmidiraja_audio.dylib" : "libmidiraja_audio.so";
-                String devPath = new File("").getAbsolutePath() + "/src/main/c/miniaudio/" + libName;
-                String[] audioPaths = {libName, devPath};
-                String resolvedAudioPath = null;
-                for (String p : audioPaths) {
-                    try {
-                        if (p.startsWith("/")) {
-                            if (new File(p).exists()) {
-                                resolvedAudioPath = p;
-                                break;
-                            }
-                        } else {
-                            java.lang.foreign.SymbolLookup.libraryLookup(p, arena);
-                            resolvedAudioPath = p;
-                            break;
-                        }
-                    } catch (Exception ignored) {
-                        // ignored: we are looping to find a valid path
-                    }
-                }
-                arena.close();
-                
-                if (resolvedAudioPath == null) throw new Exception("Could not find " + libName);
-                
-                var audio = new com.midiraja.midi.NativeAudioEngine(resolvedAudioPath);
-                var munt = new com.midiraja.midi.MuntSynthProvider(bridge, audio);
-                logVerbose("Initializing Munt (MT-32) Emulator with ROMs in: " + muntRomsDir.get());
-                provider = munt;
-            } else if (oplBank.isPresent()) {
-                java.lang.foreign.Arena oplArena = java.lang.foreign.Arena.ofShared();
-                String libName = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("mac") ? "libmidiraja_audio.dylib" : "libmidiraja_audio.so";
-                String devPath = new File("").getAbsolutePath() + "/src/main/c/miniaudio/" + libName;
-                String[] audioPaths = {libName, devPath};
-                String resolvedAudioPath = null;
-                for (String p : audioPaths) {
-                    try {
-                        if (p.startsWith("/")) {
-                            if (new File(p).exists()) { resolvedAudioPath = p; break; }
-                        } else {
-                            java.lang.foreign.SymbolLookup.libraryLookup(p, oplArena);
-                            resolvedAudioPath = p;
-                            break;
-                        }
-                    } catch (Exception ignored) {
-                        // ignored: we are looping to find a valid path
-                    }
-                }
-                oplArena.close();
-                if (resolvedAudioPath == null) throw new Exception("Could not find " + libName);
-                var oplAudio = new com.midiraja.midi.NativeAudioEngine(resolvedAudioPath);
-                var oplBridge = new com.midiraja.midi.FFMAdlMidiNativeBridge();
-                logVerbose("Initializing libADLMIDI OPL3 FM Synthesizer (emulator=" + oplEmulator + ", chips=" + oplChips + ").");
-                provider = new com.midiraja.midi.AdlMidiSynthProvider(oplBridge, oplAudio, oplEmulator, oplChips);
-            } else if (opnBank.isPresent()) {
-                java.lang.foreign.Arena opnArena = java.lang.foreign.Arena.ofShared();
-                String libName = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("mac") ? "libmidiraja_audio.dylib" : "libmidiraja_audio.so";
-                String devPath = new File("").getAbsolutePath() + "/src/main/c/miniaudio/" + libName;
-                String[] audioPaths = {libName, devPath};
-                String resolvedAudioPath = null;
-                for (String p : audioPaths) {
-                    try {
-                        if (p.startsWith("/")) {
-                            if (new File(p).exists()) { resolvedAudioPath = p; break; }
-                        } else {
-                            java.lang.foreign.SymbolLookup.libraryLookup(p, opnArena);
-                            resolvedAudioPath = p;
-                            break;
-                        }
-                    } catch (Exception ignored) {
-                        // ignored: we are looping to find a valid path
-                    }
-                }
-                opnArena.close();
-                if (resolvedAudioPath == null) throw new Exception("Could not find " + libName);
-                var opnAudio = new com.midiraja.midi.NativeAudioEngine(resolvedAudioPath);
-                var opnBridge = new com.midiraja.midi.FFMOpnMidiNativeBridge();
-                logVerbose("Initializing libOPNMIDI OPN2 FM Synthesizer (emulator=" + opnEmulator + ", chips=" + opnChips + ").");
-                provider = new com.midiraja.midi.OpnMidiSynthProvider(opnBridge, opnAudio, opnEmulator, opnChips);
-            } else if (fluidSoundfont.isPresent()) {
-                var fluid = new com.midiraja.midi.FluidSynthProvider(fluidDriver.orElse(null));
-                logVerbose("Initializing FluidSynth with SoundFont: " + fluidSoundfont.get());
-                provider = fluid;
-            } else if (useSynth) {
-                provider = new com.midiraja.midi.JavaSynthProvider();
-                logVerbose("Using experimental Java Built-in Synthesizer (Software mode).");
-            } else {
-                provider = MidiProviderFactory.createProvider();
-                logVerbose("Detected OS and loaded native provider: " + provider.getClass().getSimpleName());
-            }
-        }
-
-        var ports = provider.getOutputPorts();
-
-        if (listPorts)
-        {
+        // Warn and handle deprecated legacy options
+        if (legacyListPorts) {
+            err.println("Warning: --list-ports / -l is deprecated. Use 'midra ports' instead.");
+            var nativeProvider = MidiProviderFactory.createProvider();
             out.println("Available MIDI Output Devices:");
-            for (var p : ports)
-            {
+            for (var p : nativeProvider.getOutputPorts()) {
                 out.println("[" + p.index() + "] " + p.name());
             }
             return 0;
         }
 
-        List<File> playlist = new ArrayList<>();
-        for (File f : files)
-        {
-            String nameLower = f.getName().toLowerCase(Locale.ROOT);
-            if (f.isDirectory())
-            {
-                parseDirectory(f, playlist);
-            }
-            else if (nameLower.endsWith(".m3u") || nameLower.endsWith(".m3u8") || nameLower.endsWith(".txt"))
-            {
-                parsePlaylistFile(f, playlist);
-            }
-            else
-            {
-                playlist.add(f);
-            }
+        MidiOutProvider resolvedProvider;
+        Optional<String> soundbankArg = Optional.empty();
+
+        if (provider != null) {
+            // Test mode: provider already injected
+            resolvedProvider = provider;
+        } else if (legacyMunt.isPresent()) {
+            err.println("Warning: --munt is deprecated. Use 'midra munt <rom-dir> <files...>' instead.");
+            String audioLib = AudioLibResolver.resolve();
+            var audio = new com.midiraja.midi.NativeAudioEngine(audioLib);
+            var bridge = new com.midiraja.midi.FFMMuntNativeBridge();
+            resolvedProvider = new com.midiraja.midi.MuntSynthProvider(bridge, audio);
+            soundbankArg = legacyMunt;
+        } else if (legacyOpl.isPresent()) {
+            err.println("Warning: --opl is deprecated. Use 'midra opl [-b BANK] <files...>' instead.");
+            String audioLib = AudioLibResolver.resolve();
+            var audio = new com.midiraja.midi.NativeAudioEngine(audioLib);
+            var bridge = new com.midiraja.midi.FFMAdlMidiNativeBridge();
+            resolvedProvider = new com.midiraja.midi.AdlMidiSynthProvider(bridge, audio, legacyOplEmulator, legacyOplChips);
+            String val = legacyOpl.get();
+            soundbankArg = Optional.of(val.isEmpty() ? "bank:0" : (val.matches("\\d+") ? "bank:" + val : val));
+        } else if (legacyOpn.isPresent()) {
+            err.println("Warning: --opn is deprecated. Use 'midra opn [-b PATH] <files...>' instead.");
+            String audioLib = AudioLibResolver.resolve();
+            var audio = new com.midiraja.midi.NativeAudioEngine(audioLib);
+            var bridge = new com.midiraja.midi.FFMOpnMidiNativeBridge();
+            resolvedProvider = new com.midiraja.midi.OpnMidiSynthProvider(bridge, audio, legacyOpnEmulator, legacyOpnChips);
+            soundbankArg = Optional.of(legacyOpn.get());
+        } else if (legacyFluid.isPresent()) {
+            err.println("Warning: --fluid is deprecated. Use 'midra fluid <soundfont.sf2> <files...>' instead.");
+            resolvedProvider = new com.midiraja.midi.FluidSynthProvider(legacyFluidDriver.orElse(null));
+            soundbankArg = legacyFluid;
+        } else if (legacySynth) {
+            err.println("Warning: --synth is deprecated. Use 'midra java <files...>' instead.");
+            resolvedProvider = new com.midiraja.midi.JavaSynthProvider();
+        } else {
+            resolvedProvider = MidiProviderFactory.createProvider();
         }
 
-        if (playlist.isEmpty())
-        {
-            err.println(
-                    "Error: No MIDI files specified. Use 'midra <file1.mid> <file2.mid>' or 'midra -h' for help.");
-            return 1;
-        }
+        boolean isSoftSynth = legacyMunt.isPresent() || legacyOpl.isPresent() || legacyOpn.isPresent()
+                || legacyFluid.isPresent() || legacySynth || (provider != null && isTestMode);
 
-        if (shuffle)
-        {
-            Collections.shuffle(playlist);
-        }
-
-        int portIndex = -1;
-        if (muntRomsDir.isPresent() || oplBank.isPresent() || opnBank.isPresent() || fluidSoundfont.isPresent() || useSynth)
-        {
-            portIndex = 0; // Soft synths only have one virtual port
-        }
-        else if (port.isPresent())
-        {
-            String portQuery = port.get();
-            portIndex = findPortIndex(ports, portQuery);
-            if (portIndex == -1)
-            {
-                err.println("Error: Could not find MIDI port matching: " + portQuery);
-                return 1;
-            }
-        }
-        else if (!isTestMode)
-        {
-            if (uiOptions.classicMode) {
-                // In classic/batch mode, skip the fancy TUI menu and just use standard text prompt
-                portIndex = fallbackPortSelection(ports);
-            } else {
-                portIndex = interactivePortSelection(ports, uiOptions.fullMode, uiOptions.miniMode);
-            }
-            if (portIndex == -1) return 0; // User quit
-        }
-        else
-        {
-            portIndex = 0;
-        }
-
-        try
-        {
-            int finalPortIndex = portIndex;
-            ports.stream().filter(p -> p.index() == finalPortIndex).findFirst().ifPresent(
-                p -> logVerbose("Opening MIDI Output Port [" + p.index() + "]: \"" + p.name() + "\"")
-            );
-            provider.openPort(portIndex);
-            
-            if (provider instanceof com.midiraja.midi.SoftSynthProvider softSynth) {
-                if (muntRomsDir.isPresent()) {
-                    softSynth.loadSoundbank(muntRomsDir.get());
-                    logVerbose("Munt ROMs loaded successfully.");
-                } else if (oplBank.isPresent()) {
-                    String val = oplBank.get();
-                    String soundbankArg;
-                    if (val.isEmpty()) {
-                        soundbankArg = "bank:0";              // default embedded bank
-                    } else if (val.matches("\\d+")) {
-                        soundbankArg = "bank:" + val;         // embedded bank by number
-                    } else {
-                        soundbankArg = val;                   // WOPL file path
-                    }
-                    softSynth.loadSoundbank(soundbankArg);
-                    logVerbose("OPL bank loaded: " + soundbankArg);
-                } else if (opnBank.isPresent()) {
-                    String val = opnBank.get();
-                    softSynth.loadSoundbank(val);  // empty = default OPN2 sound; non-empty = WOPN file
-                    logVerbose("OPN bank loaded: " + (val.isEmpty() ? "(default)" : val));
-                } else if (fluidSoundfont.isPresent()) {
-                    softSynth.loadSoundbank(fluidSoundfont.get());
-                    logVerbose("SoundFont loaded successfully.");
-                }
-            }
-
-            int currentTrackIdx = 0;
-            Optional<String> currentStartTime = startTime;
-
-            var activeIO = this.terminalIO != null ? this.terminalIO : new JLineTerminalIO();
-            activeIO.init();
-            boolean isInteractive = activeIO.isInteractive();
-
-            // Add a shutdown hook to handle Ctrl+C (SIGINT) gracefully
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                SHUTTING_DOWN = true;
-                
-                // Bulletproof terminal restore sequence
-                // If using alt screen, disable it FIRST, then reset properties on the main screen buffer.
-                String safeRestore = (ALT_SCREEN_ACTIVE ? Theme.TERM_ALT_SCREEN_DISABLE : "")
-                                   + Theme.TERM_MOUSE_DISABLE // 0. Disable any mouse tracking modes
-                                   + Theme.COLOR_RESET        // 1. Reset all colors and styles (bold, invert, etc.)
-                                   + "\033[?7h"               // 2. Re-enable Auto-Wrap (DECAWM)
-                                   + Theme.TERM_SHOW_CURSOR   // 3. Show cursor
-                                   + "\r\033[K\n";            // 4. Clear current line and add newline for clean shell prompt
-
-                // Close JLine terminal FIRST (restores tty attrs via tcsetattr).
-                // JLine may write its own cleanup sequences internally; our safeRestore
-                // must come AFTER to ensure mouse-tracking disables are the last sequences
-                // the terminal emulator sees (otherwise JLine's output overwrites ours).
-                try
-                {
-                    activeIO.close();
-                }
-                catch (Exception _) { // ignored
-                }
-                System.out.print(safeRestore);
-                System.out.flush();
-                try
-                {
-                    if (provider != null && portClosed.compareAndSet(false, true)) {
-                        provider.panic();
-                        long endWait = System.currentTimeMillis() + 200;
-                        while (System.currentTimeMillis() < endWait) {
-                            try { Thread.sleep(Math.max(1, endWait - System.currentTimeMillis())); } catch (Exception ignored) { /* force wait */ }
-                        }
-                        provider.closePort();
-                    }
-                }
-                catch (Exception _) { // ignored
-                }
-            }));
-            
-            com.midiraja.ui.PlaybackUI ui;
-            boolean useAltScreen = false;
-
-            if (uiOptions.classicMode) {
-                ui = new com.midiraja.ui.DumbUI();
-                logVerbose("UI Mode explicitly set to: classic (DumbUI)");
-            } else if (uiOptions.miniMode) {
-                ui = new com.midiraja.ui.LineUI();
-                logVerbose("UI Mode explicitly set to: mini (LineUI)");
-            } else if (uiOptions.fullMode) {
-                ui = new com.midiraja.ui.DashboardUI();
-                useAltScreen = true;
-                logVerbose("UI Mode explicitly set to: full (DashboardUI)");
-            } else {
-                // Auto mode logic fallback
-                if (!isInteractive) {
-                    ui = new com.midiraja.ui.DumbUI();
-                    logVerbose("Terminal is not interactive. Auto-selected UI: DumbUI");
-                } else if (activeIO.getHeight() < 10) {
-                    ui = new com.midiraja.ui.LineUI();
-                    logVerbose("Terminal height is " + activeIO.getHeight() + " (too small). Auto-selected UI: LineUI");
-                } else {
-                    ui = new com.midiraja.ui.DashboardUI();
-                    useAltScreen = true;
-                    logVerbose("Terminal height is " + activeIO.getHeight() + ". Auto-selected UI: DashboardUI");
-                }
-            }
-
-            if (useAltScreen && isInteractive) {
-                out.print("\033[?1049h\033[?25l"); // Alt screen, hide cursor
-                out.flush();
-                ALT_SCREEN_ACTIVE = true; // tell the shutdown hook to disable alt screen on Ctrl+C
-            }
-
-            try {
-                while (currentTrackIdx >= 0 && currentTrackIdx < playlist.size())
-                {
-                    var file = playlist.get(currentTrackIdx);
-                    var sequence = MidiSystem.getSequence(file);
-                    logVerbose(String.format("Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d", 
-                        file.getName(), sequence.getResolution(), sequence.getMicrosecondLength()));
-
-                    String title = extractSequenceTitle(sequence);
-                    var context = new PlaylistContext(playlist, currentTrackIdx, ports.get(portIndex), title);
-                    
-                    var result = playMidiWithProvider(context, provider, currentStartTime, activeIO, ui);
-                    var status = result.status();
-                    currentStartTime = Optional.empty();
-                    
-                    // Preserve user-adjusted playback state for the next track
-                    this.volume = (int) (result.engine().getVolumeScale() * 100);
-                    this.speed = result.engine().getCurrentSpeed();
-                    this.transpose = java.util.Optional.of(result.engine().getCurrentTranspose());
-
-                    switch (status)
-                    {
-                        case QUIT_ALL -> { currentTrackIdx = -1; }
-                        case PREVIOUS -> {
-                            currentTrackIdx--;
-                            if (loop && currentTrackIdx < 0) currentTrackIdx = playlist.size() - 1;
-                            else currentTrackIdx = Math.max(0, currentTrackIdx);
-                        }
-                        case FINISHED, NEXT -> {
-                            currentTrackIdx++;
-                            if (loop && currentTrackIdx >= playlist.size()) {
-                                currentTrackIdx = 0;
-                                if (shuffle) Collections.shuffle(playlist);
-                            }
-                        }
-                    }
-                }
-            } finally {
-                activeIO.close();
-                if (isInteractive) {
-                    String safeRestore = (useAltScreen ? Theme.TERM_ALT_SCREEN_DISABLE : "")
-                                       + Theme.TERM_MOUSE_DISABLE
-                                       + Theme.COLOR_RESET
-                                       + "\033[?7h"
-                                       + Theme.TERM_SHOW_CURSOR
-                                       + "\r\033[K\n";
-                    out.print(safeRestore);
-                    out.flush();
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            err.println("Error during playback: " + e.getMessage());
-            if (verbose) {
-                e.printStackTrace(err);
-            }
-            return 1;
-        }
-        finally
-        {
-            if (provider != null && portClosed.compareAndSet(false, true)) {
-                provider.panic();
-                long endWait = System.currentTimeMillis() + 200;
-                        while (System.currentTimeMillis() < endWait) {
-                            try { Thread.sleep(Math.max(1, endWait - System.currentTimeMillis())); } catch (Exception ignored) { /* force wait */ }
-                        }
-                provider.closePort();
-            }
-        }
-
-        return 0;
-    }
-
-    int findPortIndex(List<MidiPort> ports, String query)
-    {
-        try
-        {
-            int idx = Integer.parseInt(query);
-            if (ports.stream().anyMatch(p -> p.index() == idx))
-            {
-                return idx;
-            }
-        }
-        catch (NumberFormatException _) { // ignored
-        }
-
-        var lowerQuery = query.toLowerCase(Locale.ROOT);
-        var matches =
-                ports.stream().filter(p -> p.name().toLowerCase(Locale.ROOT).contains(lowerQuery)).toList();
-
-        if (matches.size() == 1) return matches.get(0).index();
-        if (matches.size() > 1)
-        {
-            err.println("Ambiguous port name. Matches:");
-            matches.forEach(m -> err.println("  [" + m.index() + "] " + m.name()));
-        }
-        return -1;
-    }
-
-    private int interactivePortSelection(List<MidiPort> ports, boolean isExplicitFullMode, boolean isExplicitMiniMode) throws Exception
-    {
-        if (ports.isEmpty()) return -1;
-
-        var activeIO = this.terminalIO != null ? this.terminalIO : new JLineTerminalIO();
-        activeIO.init();
-        boolean isInteractive = activeIO.isInteractive();
-        int termHeight = activeIO.getHeight();
-        activeIO.close(); // Probe terminal capabilities and release immediately
-
-        if (isInteractive)
-        {
-            boolean willBeFullMode = isExplicitFullMode || (!isExplicitMiniMode && termHeight >= 10);
-            
-            if (willBeFullMode) {
-                return fullScreenPortSelection(ports);
-            } else {
-                return dynamicPortSelection(ports);
-            }
-        }
-        else
-        {
-            return fallbackPortSelection(ports);
-        }
-    }
-
-    private int dynamicPortSelection(List<MidiPort> ports) throws Exception
-    {
-        int selectedIndex = 0;
-        int numPorts = ports.size();
-
-        try (org.jline.terminal.Terminal terminal =
-                org.jline.terminal.TerminalBuilder.builder().system(true).build())
-        {
-            terminal.enterRawMode();
-            var reader = terminal.reader();
-
-            terminal.writer().print(Theme.TERM_HIDE_CURSOR); // Hide cursor
-            boolean firstDraw = true;
-
-            while (true)
-            {
-                if (!firstDraw)
-                {
-                    terminal.writer().print("\033[" + (numPorts + 1) + "A"); // Move cursor above
-                                                                             // menu
-                }
-                firstDraw = false;
-
-                terminal.writer().println("Available MIDI Output Devices:");
-                for (int i = 0; i < numPorts; i++)
-                {
-                    String prefix = (i == selectedIndex) ? " > " : "   ";
-                    terminal.writer().println(prefix + ports.get(i).name());
-                }
-                terminal.writer().flush();
-
-                int ch = reader.read(10);
-                if (ch <= 0) continue; // Timeout
-
-                if (ch == 'q' || ch == 'Q')
-                {
-                    clearMenu(terminal, numPorts);
-                    terminal.writer().print(Theme.TERM_SHOW_CURSOR); // Restore cursor
-                    terminal.writer().flush();
-                    return -1;
-                }
-                if (ch == 13 || ch == 10)
-                { // Enter
-                    clearMenu(terminal, numPorts);
-                    terminal.writer().print(Theme.TERM_SHOW_CURSOR); // Restore cursor
-                    terminal.writer().flush();
-                    return ports.get(selectedIndex).index();
-                }
-
-                if (ch == 27)
-                { // ANSI Escape Sequence
-                    int next1 = reader.read(2);
-                    if (next1 == '[')
-                    {
-                        int next2 = reader.read(2);
-                        if (next2 == 'A')
-                        { // Up arrow
-                            selectedIndex = (selectedIndex - 1 + numPorts) % numPorts;
-                        }
-                        else if (next2 == 'B')
-                        { // Down arrow
-                            selectedIndex = (selectedIndex + 1) % numPorts;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    
-    private int fullScreenPortSelection(List<MidiPort> ports) throws Exception
-    {
-        int selectedIndex = 0;
-        int numPorts = ports.size();
-
-        try (org.jline.terminal.Terminal terminal =
-                org.jline.terminal.TerminalBuilder.builder().system(true).build())
-        {
-            terminal.enterRawMode();
-            var reader = terminal.reader();
-
-            // Enable Alt Screen and Hide Cursor
-            terminal.writer().print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
-            terminal.writer().flush();
-
-            while (true)
-            {
-                int width = terminal.getWidth();
-                int height = terminal.getHeight();
-                
-                // Calculate box dimensions
-                int boxWidth = 50;
-                int boxHeight = numPorts + 4; // Title + ports + divider + footer
-                
-                int padLeft = Math.max(0, (width - boxWidth) / 2);
-                int padTop = Math.max(0, (height - boxHeight) / 2);
-
-                com.midiraja.ui.ScreenBuffer buffer = new com.midiraja.ui.ScreenBuffer(4096);
-                buffer.append(Theme.TERM_CURSOR_HOME).append(Theme.TERM_CLEAR_TO_END);
-                
-                // Top padding
-                buffer.repeat("\n", padTop);
-                
-                // Title
-                String title = " SELECT MIDI TARGET ";
-                int titlePad = (boxWidth - title.length() - 2) / 2; // -2 for the border lines
-                buffer.repeat(" ", padLeft)
-                      .append(Theme.COLOR_HIGHLIGHT)
-                      .repeat(Theme.DECORATOR_LINE, titlePad)
-                      .append(Theme.COLOR_RESET)
-                      .append(Theme.FORMAT_INVERT).append(title).append(Theme.COLOR_RESET)
-                      .append(Theme.COLOR_HIGHLIGHT)
-                      .repeat(Theme.DECORATOR_LINE, boxWidth - titlePad - title.length())
-                      .append(Theme.COLOR_RESET)
-                      .appendLine();
-                
-                // Ports
-                for (int i = 0; i < numPorts; i++)
-                {
-                    buffer.repeat(" ", padLeft);
-                    String portName = ports.get(i).name();
-                    if (portName.length() > boxWidth - 8) {
-                        portName = portName.substring(0, boxWidth - 11) + "...";
-                    }
-                    
-                    if (i == selectedIndex) {
-                        buffer.append("  ").append(Theme.COLOR_HIGHLIGHT).append(Theme.CHAR_ARROW_RIGHT).append(" [").append(String.valueOf(i)).append("] ")
-                              .append(portName).append(Theme.COLOR_RESET).appendLine();
-                    } else {
-                        buffer.append("    [").append(String.valueOf(i)).append("] ").append(portName).appendLine();
-                    }
-                }
-                
-                // Footer
-                buffer.repeat(" ", padLeft)
-                      .append(Theme.COLOR_HIGHLIGHT)
-                      .repeat(Theme.BORDER_HORIZONTAL, boxWidth)
-                      .append(Theme.COLOR_RESET)
-                      .appendLine();
-                
-                String footer = "[▲/▼] Move   [Enter] Select   [Q] Quit";
-                int footerPad = (boxWidth - footer.length()) / 2;
-                buffer.repeat(" ", padLeft + footerPad)
-                      .append(Theme.COLOR_HIGHLIGHT).append(footer).append(Theme.COLOR_RESET)
-                      .appendLine();
-                
-                terminal.writer().print(buffer.toString());
-                terminal.writer().flush();
-
-                int ch = reader.read(50);
-                if (ch <= 0) continue; // Timeout, redraw (handles resize)
-
-                if (ch == 'q' || ch == 'Q')
-                {
-                    terminal.writer().print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
-                    terminal.writer().flush();
-                    return -1;
-                }
-                if (ch == 13 || ch == 10)
-                { // Enter
-                    terminal.writer().print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
-                    terminal.writer().flush();
-                    return ports.get(selectedIndex).index();
-                }
-
-                if (ch == 27)
-                { // ANSI Escape Sequence
-                    int next1 = reader.read(2);
-                    if (next1 == '[')
-                    {
-                        int next2 = reader.read(2);
-                        if (next2 == 'A')
-                        { // Up arrow
-                            selectedIndex = (selectedIndex - 1 + numPorts) % numPorts;
-                        }
-                        else if (next2 == 'B')
-                        { // Down arrow
-                            selectedIndex = (selectedIndex + 1) % numPorts;
-                        }
-                    }
-                }
-            }
-        }
-    }
-private void clearMenu(org.jline.terminal.Terminal terminal, int numPorts)
-    {
-        terminal.writer().print("\033[" + (numPorts + 1) + "A");
-        for (int i = 0; i <= numPorts; i++)
-        {
-            terminal.writer().println(Theme.TERM_CLEAR_TO_EOL); // Clear line
-        }
-        terminal.writer().print("\033[" + (numPorts + 1) + "A");
-    }
-
-    private int fallbackPortSelection(List<MidiPort> ports)
-    {
-        out.println("Available MIDI Output Devices:");
-        for (var p : ports)
-        {
-            out.println("[" + p.index() + "] " + p.name());
-        }
-
-        out.print("Select a port index: ");
-        out.flush();
-        var scanner = new Scanner(System.in, java.nio.charset.StandardCharsets.UTF_8);
-        if (scanner.hasNextInt())
-        {
-            int selected = scanner.nextInt();
-            if (ports.stream().anyMatch(p -> p.index() == selected))
-            {
-                return selected;
-            }
-        }
-        err.println("Invalid port selection.");
-        return -1;
-    }
-
-    private PlaybackResult playMidiWithProvider(PlaylistContext context, MidiOutProvider provider,
-            Optional<String> currentStartTime, TerminalIO activeIO, com.midiraja.ui.PlaybackUI ui) throws Exception
-    {
-        var file = context.files().get(context.currentIndex());
-        var sequence = MidiSystem.getSequence(file);
-
-        try
-        {
-            var engine = new PlaybackEngine(sequence, provider, context, volume, speed, currentStartTime,
-                    transpose);
-            if (this.ignoreSysex) {
-                engine.setIgnoreSysex(true);
-            }
-            if (this.resetType.isPresent()) {
-                engine.setInitialResetType(this.resetType);
-            }
-            return ScopedValue.where(TerminalIO.CONTEXT, activeIO)
-                    .call(() -> new PlaybackResult(engine.start(ui), 0, engine));
-        }
-        finally
-        {
-            // Do not close activeIO here, managed by main loop
-        }
-    }
-
-    private @Nullable String extractSequenceTitle(Sequence sequence)
-    {
-        for (Track track : sequence.getTracks())
-        {
-            for (int i = 0; i < track.size(); i++)
-            {
-                MidiMessage msg = track.get(i).getMessage();
-                if (msg instanceof MetaMessage meta && meta.getType() == 0x03)
-                {
-                    byte[] data = meta.getData();
-                    if (data != null && data.length > 0)
-                    {
-                        String text = new String(data, java.nio.charset.StandardCharsets.UTF_8).trim();
-                        if (!text.isEmpty() && !text.matches("^[\\s\\p{C}]+$")) return text;
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    private record PlaybackResult(PlaybackStatus status, int linesPrinted, com.midiraja.engine.PlaybackEngine engine)
-    {
+        var runner = new PlaybackRunner(out, err, terminalIO, isTestMode);
+        return runner.run(resolvedProvider, isSoftSynth, port, soundbankArg, files, common);
     }
 }

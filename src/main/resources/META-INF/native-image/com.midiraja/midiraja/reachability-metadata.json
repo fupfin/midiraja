@@ -6,52 +6,127 @@
         {
             "type": "com.midiraja.MidirajaCommand",
             "fields": [
-                {
-                    "name": "files"
-                },
-                {
-                    "name": "listPorts"
-                },
-                {
-                    "name": "loop"
-                },
-                {
-                    "name": "oplBank"
-                },
-                {
-                    "name": "oplChips"
-                },
-                {
-                    "name": "oplEmulator"
-                },
-                {
-                    "name": "opnBank"
-                },
-                {
-                    "name": "opnChips"
-                },
-                {
-                    "name": "opnEmulator"
-                },
-                {
-                    "name": "port"
-                },
-                {
-                    "name": "shuffle"
-                },
-                {
-                    "name": "speed"
-                },
-                {
-                    "name": "startTime"
-                },
-                {
-                    "name": "transpose"
-                },
-                {
-                    "name": "volume"
-                }
+                {"name": "files"},
+                {"name": "port"},
+                {"name": "common"},
+                {"name": "legacyListPorts"},
+                {"name": "legacyOpl"},
+                {"name": "legacyOplEmulator"},
+                {"name": "legacyOplChips"},
+                {"name": "legacyOpn"},
+                {"name": "legacyOpnEmulator"},
+                {"name": "legacyOpnChips"},
+                {"name": "legacyMunt"},
+                {"name": "legacyFluid"},
+                {"name": "legacyFluidDriver"},
+                {"name": "legacySynth"}
             ]
+        },
+        {
+            "type": "com.midiraja.cli.CommonOptions",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "fields": [
+                {"name": "volume"},
+                {"name": "speed"},
+                {"name": "startTime"},
+                {"name": "transpose"},
+                {"name": "shuffle"},
+                {"name": "loop"},
+                {"name": "recursive"},
+                {"name": "verbose"},
+                {"name": "ignoreSysex"},
+                {"name": "resetType"},
+                {"name": "uiOptions"}
+            ]
+        },
+        {
+            "type": "com.midiraja.cli.UiModeOptions",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "fields": [
+                {"name": "classicMode"},
+                {"name": "miniMode"},
+                {"name": "fullMode"}
+            ]
+        },
+        {
+            "type": "com.midiraja.cli.FmSynthOptions",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "fields": [
+                {"name": "emulator"},
+                {"name": "chips"}
+            ]
+        },
+        {
+            "type": "com.midiraja.cli.OplCommand",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true,
+            "fields": [
+                {"name": "files"},
+                {"name": "bank"},
+                {"name": "fmOptions"},
+                {"name": "common"}
+            ]
+        },
+        {
+            "type": "com.midiraja.cli.OpnCommand",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true,
+            "fields": [
+                {"name": "files"},
+                {"name": "bank"},
+                {"name": "fmOptions"},
+                {"name": "common"}
+            ]
+        },
+        {
+            "type": "com.midiraja.cli.MuntCommand",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true,
+            "fields": [
+                {"name": "romDir"},
+                {"name": "files"},
+                {"name": "common"}
+            ]
+        },
+        {
+            "type": "com.midiraja.cli.FluidCommand",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true,
+            "fields": [
+                {"name": "soundfont"},
+                {"name": "files"},
+                {"name": "driver"},
+                {"name": "common"}
+            ]
+        },
+        {
+            "type": "com.midiraja.cli.JavaSynthCommand",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true,
+            "fields": [
+                {"name": "files"},
+                {"name": "common"}
+            ]
+        },
+        {
+            "type": "com.midiraja.cli.ListPortsCommand",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true
         },
         {
             "type": "groovy.lang.Closure"
