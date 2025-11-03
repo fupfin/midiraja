@@ -1,13 +1,13 @@
 # Soft Synth Guide
 
-`midra` supports four built-in software synthesizers in addition to the native OS MIDI output. Each has a different sound character and setup requirements.
+`midra` supports four built-in software synthesizers in addition to the native OS MIDI output. Each is selected as a subcommand.
 
-| Synthesizer | Flag | Sound | External files |
-|-------------|------|-------|----------------|
-| FluidSynth | `--fluid` | General MIDI (SF2) | SoundFont (.sf2) |
-| MT-32 / Munt | `--munt` | Roland MT-32 (DOS-era game music) | 2 ROM files |
-| OPL / libADLMIDI | `--opl` | AdLib / Sound Blaster FM (OPL2/OPL3) | Built-in (optional .wopl bank) |
-| OPN2 / libOPNMIDI | `--opn` | Sega Genesis / PC-98 FM (OPN2/OPNA) | Built-in (optional .wopn bank) |
+| Synthesizer | Command | Sound | External files |
+|-------------|---------|-------|----------------|
+| FluidSynth | `fluid` | General MIDI (SF2) | SoundFont (.sf2) |
+| MT-32 / Munt | `munt` | Roland MT-32 (DOS-era game music) | 2 ROM files |
+| OPL / libADLMIDI | `opl` | AdLib / Sound Blaster FM (OPL2/OPL3) | Built-in (optional .wopl bank) |
+| OPN2 / libOPNMIDI | `opn` | Sega Genesis / PC-98 FM (OPN2/OPNA) | Built-in (optional .wopn bank) |
 
 ---
 
@@ -46,10 +46,10 @@ FluidSynth requires an SF2 SoundFont file. Some freely available options:
 
 ```bash
 # Specify the path to a SoundFont file
-midra --fluid /path/to/soundfont.sf2 song.mid
+midra fluid /path/to/soundfont.sf2 song.mid
 
 # With playlist options
-midra --fluid /path/to/soundfont.sf2 --loop --shuffle *.mid
+midra fluid /path/to/soundfont.sf2 --loop --shuffle *.mid
 ```
 
 ### Audio driver override (optional)
@@ -57,8 +57,8 @@ midra --fluid /path/to/soundfont.sf2 --loop --shuffle *.mid
 If FluidSynth fails to auto-detect the audio driver, specify it explicitly:
 
 ```bash
-midra --fluid soundfont.sf2 --fluid-driver coreaudio song.mid   # macOS
-midra --fluid soundfont.sf2 --fluid-driver alsa song.mid        # Linux
+midra fluid --driver coreaudio soundfont.sf2 song.mid   # macOS
+midra fluid --driver alsa soundfont.sf2 song.mid        # Linux
 ```
 
 ---
@@ -104,10 +104,10 @@ ROM files from CM-32L and LAPC-I variants are also supported.
 
 ```bash
 # Specify the directory containing the ROM files
-midra --munt ~/mt32-roms song.mid
+midra munt ~/mt32-roms song.mid
 
 # MT-32 playlist
-midra --munt ~/mt32-roms --loop monkey_island/*.mid
+midra munt ~/mt32-roms --loop monkey_island/*.mid
 ```
 
 ---
@@ -124,14 +124,14 @@ libADLMIDI is **statically linked** into the `midra` binary — no installation 
 
 ```bash
 # Default bank (General MIDI)
-midra --opl song.mid
+midra opl song.mid
 
 # Built-in bank by number (0–75)
-midra --opl 58 song.mid    # TMB (Descent)
-midra --opl 14 song.mid    # Doom
+midra opl -b 58 song.mid    # TMB (Descent)
+midra opl -b 14 song.mid    # Doom
 
 # External .wopl bank file
-midra --opl /path/to/custom.wopl song.mid
+midra opl -b /path/to/custom.wopl song.mid
 ```
 
 ### Built-in banks (selected)
@@ -155,12 +155,12 @@ For the full list see the [libADLMIDI documentation](https://github.com/Wohlstan
 Several OPL emulator backends are available:
 
 ```bash
-midra --opl --opl-emulator 0 song.mid   # Nuked OPL3 v1.8 (default, highest accuracy)
-midra --opl --opl-emulator 1 song.mid   # Nuked OPL3 v1.7.4
-midra --opl --opl-emulator 5 song.mid   # ESFMu (ESFM extension support)
-midra --opl --opl-emulator 6 song.mid   # MAME OPL2 (suitable for OPL2-only songs)
-midra --opl --opl-emulator 7 song.mid   # YMFM OPL2
-midra --opl --opl-emulator 8 song.mid   # YMFM OPL3
+midra opl -e 0 song.mid   # Nuked OPL3 v1.8 (default, highest accuracy)
+midra opl -e 1 song.mid   # Nuked OPL3 v1.7.4
+midra opl -e 5 song.mid   # ESFMu (ESFM extension support)
+midra opl -e 6 song.mid   # MAME OPL2 (suitable for OPL2-only songs)
+midra opl -e 7 song.mid   # YMFM OPL2
+midra opl -e 8 song.mid   # YMFM OPL3
 ```
 
 ### Chip count (polyphony)
@@ -168,8 +168,8 @@ midra --opl --opl-emulator 8 song.mid   # YMFM OPL3
 More chips means more simultaneous voices:
 
 ```bash
-midra --opl --opl-chips 1 song.mid   # 1 chip = 18 channels (authentic single AdLib card)
-midra --opl --opl-chips 4 song.mid   # 4 chips = 72 channels (default)
+midra opl -c 1 song.mid   # 1 chip = 18 channels (authentic single AdLib card)
+midra opl -c 4 song.mid   # 4 chips = 72 channels (default)
 ```
 
 ---
@@ -184,22 +184,22 @@ libOPNMIDI is **statically linked** into the `midra` binary — no installation 
 
 ```bash
 # Default OPN2 sound (uses libOPNMIDI's internal default bank)
-midra --opn song.mid
+midra opn song.mid
 
 # External .wopn bank file
-midra --opn /path/to/custom.wopn song.mid
+midra opn -b /path/to/custom.wopn song.mid
 ```
 
 ### OPN2 emulator selection
 
 ```bash
-midra --opn --opn-emulator 0 song.mid   # MAME YM2612 (default)
-midra --opn --opn-emulator 1 song.mid   # Nuked YM3438 (highest accuracy OPN2)
-midra --opn --opn-emulator 2 song.mid   # GENS
-midra --opn --opn-emulator 3 song.mid   # YMFM OPN2
-midra --opn --opn-emulator 4 song.mid   # NP2 OPNA (PC-98 sound)
-midra --opn --opn-emulator 5 song.mid   # MAME YM2608 OPNA
-midra --opn --opn-emulator 6 song.mid   # YMFM OPNA
+midra opn -e 0 song.mid   # MAME YM2612 (default)
+midra opn -e 1 song.mid   # Nuked YM3438 (highest accuracy OPN2)
+midra opn -e 2 song.mid   # GENS
+midra opn -e 3 song.mid   # YMFM OPN2
+midra opn -e 4 song.mid   # NP2 OPNA (PC-98 sound)
+midra opn -e 5 song.mid   # MAME YM2608 OPNA
+midra opn -e 6 song.mid   # YMFM OPNA
 ```
 
 > **Tip:** Emulators 0--3 emulate the YM2612 (OPN2) and produce the Sega Genesis sound. Emulators 4--6 emulate the YM2608 (OPNA) and produce the NEC PC-98 sound character.
@@ -207,30 +207,6 @@ midra --opn --opn-emulator 6 song.mid   # YMFM OPNA
 ### Chip count (polyphony)
 
 ```bash
-midra --opn --opn-chips 1 song.mid   # 1 chip = 6 FM channels
-midra --opn --opn-chips 4 song.mid   # 4 chips = 24 FM channels (default)
-```
-
----
-
-## Checking the active synthesizer
-
-Use `--list-ports` to confirm which synthesizer is selected:
-
-```bash
-midra --opl --list-ports
-# Available MIDI Output Devices:
-# [0] Nuked OPL3 v1.8 · 4 chips
-
-midra --opn --list-ports
-# Available MIDI Output Devices:
-# [0] MAME YM2612 · 4 chips
-
-midra --munt ~/mt32-roms --list-ports
-# Available MIDI Output Devices:
-# [0] MT-32 (Munt)
-
-midra --fluid soundfont.sf2 --list-ports
-# Available MIDI Output Devices:
-# [0] FluidSynth
+midra opn -c 1 song.mid   # 1 chip = 6 FM channels
+midra opn -c 4 song.mid   # 4 chips = 24 FM channels (default)
 ```
