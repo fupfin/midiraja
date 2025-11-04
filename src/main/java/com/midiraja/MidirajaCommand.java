@@ -46,6 +46,7 @@ import picocli.CommandLine.Parameters;
             JavaSynthCommand.class,
             ListPortsCommand.class,
             CommandLine.HelpCommand.class,
+            picocli.AutoComplete.GenerateCompletion.class,
         },
     footer = {"", "Synths (subcommands):", "  opl    OPL2/OPL3 FM  (AdLib / Sound Blaster)",
         "  opn    OPN2 FM       (Sega Genesis / PC-98)",
