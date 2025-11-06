@@ -58,7 +58,59 @@ jobs:
           fi
         shell: bash
 
+      - name: Setup Ruby for fpm (Linux only)
+        if: runner.os == 'Linux'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          
+      - name: Install fpm and rpm tools (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          gem install fpm
+
+      - name: Generate completions and build packages (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          # Create staging directories
+          mkdir -p pkg-root/usr/bin
+          mkdir -p pkg-root/usr/share/zsh/vendor-completions
+          mkdir -p pkg-root/usr/share/bash-completion/completions
+
+          # Copy binary to staging (making sure it's executable)
+          cp ${{ matrix.asset_name }} pkg-root/usr/bin/midra
+          chmod +x pkg-root/usr/bin/midra
+
+          # Generate completion scripts directly using the compiled binary
+          ./pkg-root/usr/bin/midra generate-completion > pkg-root/usr/share/zsh/vendor-completions/_midra
+          ./pkg-root/usr/bin/midra generate-completion > pkg-root/usr/share/bash-completion/completions/midra
+
+          # Extract version from tag (remove 'v' prefix)
+          VERSION=${GITHUB_REF_NAME#v}
+          if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
+
+          # Build .deb package
+          fpm -s dir -t deb \
+            -n midra -v "$VERSION" \
+            --description "A blazing fast, cross-platform CLI MIDI player" \
+            --maintainer "Park, Sungchul <fupfin@space-vision.ai>" \
+            --url "https://github.com/sungchulpark/midiraja" \
+            -C pkg-root .
+
+          # Build .rpm package
+          fpm -s dir -t rpm \
+            -n midra -v "$VERSION" \
+            --description "A blazing fast, cross-platform CLI MIDI player" \
+            --maintainer "Park, Sungchul <fupfin@space-vision.ai>" \
+            --url "https://github.com/sungchulpark/midiraja" \
+            -C pkg-root .
+
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset_name }}
+          files: |
+            ${{ matrix.asset_name }}
+            *.deb
+            *.rpm
