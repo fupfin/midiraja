@@ -189,35 +189,6 @@ public class DashboardUI implements PlaybackUI
 
     @Override public void runInputLoop(PlaybackEngine engine)
     {
-        var term = TerminalIO.CONTEXT.get();
-        try
-        {
-            while (engine.isPlaying())
-            {
-                var key = term.readKey();
-                switch (key)
-                {
-                    case PAUSE -> engine.togglePause();
-                    case VOLUME_UP -> engine.adjustVolume(0.05);
-                    case VOLUME_DOWN -> engine.adjustVolume(-0.05);
-                    case NEXT_TRACK -> engine.requestStop(PlaybackEngine.PlaybackStatus.NEXT);
-                    case PREV_TRACK -> engine.requestStop(PlaybackEngine.PlaybackStatus.PREVIOUS);
-                    case TRANSPOSE_UP -> engine.adjustTranspose(1);
-                    case TRANSPOSE_DOWN -> engine.adjustTranspose(-1);
-                    case SPEED_UP -> engine.adjustSpeed(0.1);
-                    case SPEED_DOWN -> engine.adjustSpeed(-0.1);
-                    case SEEK_FORWARD -> engine.seekRelative(10_000_000);
-                    case SEEK_BACKWARD -> engine.seekRelative(-10_000_000);
-                    case QUIT -> engine.requestStop(PlaybackEngine.PlaybackStatus.QUIT_ALL);
-                    default ->
-                    {
-                    }
-                }
-            }
-        }
-        catch (IOException _)
-        {
-            engine.requestStop(PlaybackEngine.PlaybackStatus.QUIT_ALL);
-        }
+        InputLoopRunner.run(engine, InputHandler::handleCommonInput);
     }
 }
