@@ -44,7 +44,7 @@ public class PlaylistPanel implements Panel
                         try
                         {
                             Sequence seq = MidiSystem.getSequence(file);
-                            String title = extractSequenceTitle(seq);
+                            String title = com.midiraja.midi.MidiUtils.extractSequenceTitle(seq);
                             if (title != null && !title.isEmpty())
                             {
                                 titleCache.put(file, title.trim());
@@ -62,26 +62,6 @@ public class PlaylistPanel implements Panel
                 }
             }
         }
-    }
-
-    private @Nullable String extractSequenceTitle(Sequence sequence)
-    {
-        for (javax.sound.midi.Track track : sequence.getTracks())
-        {
-            for (int i = 0; i < track.size(); i++)
-            {
-                MidiMessage message = track.get(i).getMessage();
-                if (message instanceof javax.sound.midi.MetaMessage meta)
-                {
-                    if (meta.getType() == 0x03)
-                    { // Sequence/Track Name
-                        byte[] data = meta.getData();
-                        return new String(data, java.nio.charset.StandardCharsets.UTF_8).trim();
-                    }
-                }
-            }
-        }
-        return null;
     }
 
     @Override public void onPlaybackStateChanged()

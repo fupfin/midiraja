@@ -61,24 +61,13 @@ public class StatusPanel implements Panel
     {
     }
 
-    private String formatTime(long microseconds, boolean includeHours)
-    {
-        long totalSeconds = microseconds / 1000000;
-        long hours = totalSeconds / 3600;
-        long minutes = (totalSeconds % 3600) / 60;
-        long seconds = totalSeconds % 60;
-        if (includeHours)
-            return String.format("%02d:%02d:%02d", hours, minutes, seconds);
-        return String.format("%02d:%02d", minutes, seconds);
-    }
-
     @Override public void render(ScreenBuffer buffer)
     {
         if (constraints.height() <= 0)
             return;
         boolean incHrs = (totalMicros / 1000000) >= 3600;
-        String totStr = formatTime(totalMicros, incHrs);
-        String curStr = formatTime(currentMicros, incHrs);
+        String totStr = UIUtils.formatTime(totalMicros, incHrs);
+        String curStr = UIUtils.formatTime(currentMicros, incHrs);
 
         int percent = (int) (totalMicros > 0 ? (currentMicros * 100 / totalMicros) : 0);
         percent = Math.min(100, Math.max(0, percent));

@@ -19,17 +19,6 @@ public class DumbUI implements PlaybackUI
 {
     private boolean headerPrinted = false;
 
-    private String formatTime(long microseconds)
-    {
-        long totalSeconds = microseconds / 1000000;
-        long hours = totalSeconds / 3600;
-        long minutes = (totalSeconds % 3600) / 60;
-        long seconds = totalSeconds % 60;
-        if (hours > 0)
-            return String.format("%02d:%02d:%02d", hours, minutes, seconds);
-        return String.format("%02d:%02d", minutes, seconds);
-    }
-
     @Override public void runRenderLoop(PlaybackEngine engine)
     {
         var term = TerminalIO.CONTEXT.get();
@@ -69,7 +58,8 @@ public class DumbUI implements PlaybackUI
         String displayTitle =
             title != null && !title.isEmpty() ? title + " (" + fileName + ")" : fileName;
 
-        String lengthStr = formatTime(engine.getTotalMicroseconds());
+        long totalMicros = engine.getTotalMicroseconds();
+        String lengthStr = UIUtils.formatTime(totalMicros, (totalMicros / 1000000) >= 3600);
 
         if (listSize > 1)
         {

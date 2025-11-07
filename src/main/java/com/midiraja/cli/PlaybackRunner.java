@@ -227,7 +227,7 @@ import org.jspecify.annotations.Nullable;
                             file.getName(), sequence.getResolution(),
                             sequence.getMicrosecondLength()));
 
-                    String title = extractSequenceTitle(sequence);
+                    String title = com.midiraja.midi.MidiUtils.extractSequenceTitle(sequence);
                     var context =
                         new PlaylistContext(playlist, currentTrackIdx, ports.get(portIndex), title);
 
@@ -571,29 +571,6 @@ import org.jspecify.annotations.Nullable;
     }
 
     // ── Utilities ──────────────────────────────────────────────────────────────
-
-    private static @Nullable String extractSequenceTitle(Sequence sequence)
-    {
-        for (Track track : sequence.getTracks())
-        {
-            for (int i = 0; i < track.size(); i++)
-            {
-                MidiMessage msg = track.get(i).getMessage();
-                if (msg instanceof MetaMessage meta && meta.getType() == 0x03)
-                {
-                    byte[] data = meta.getData();
-                    if (data != null && data.length > 0)
-                    {
-                        String text =
-                            new String(data, java.nio.charset.StandardCharsets.UTF_8).trim();
-                        if (!text.isEmpty() && !text.matches("^[\\s\\p{C}]+$"))
-                            return text;
-                    }
-                }
-            }
-        }
-        return null;
-    }
 
     private void logVerbose(boolean verbose, String message)
     {

@@ -15,55 +15,6 @@ import java.io.IOException;
 
 public class LineUI implements PlaybackUI
 {
-    private String formatTime(long microseconds, boolean includeHours)
-    {
-        long totalSeconds = microseconds / 1000000;
-        long hours = totalSeconds / 3600;
-        long minutes = (totalSeconds % 3600) / 60;
-        long seconds = totalSeconds % 60;
-        if (includeHours)
-            return String.format("%02d:%02d:%02d", hours, minutes, seconds);
-        return String.format("%02d:%02d", minutes, seconds);
-    }
-
-    private String truncateAnsi(String str, int maxWidth)
-    {
-        StringBuilder result = new StringBuilder();
-        int visibleCount = 0;
-        boolean inAnsi = false;
-        for (int i = 0; i < str.length(); i++)
-        {
-            char c = str.charAt(i);
-            if (c == '\033')
-            {
-                inAnsi = true;
-            }
-
-            result.append(c);
-
-            if (inAnsi)
-            {
-                if (c == 'm' || c == 'K' || c == 'J' || c == 'H' || c == 'A' || c == 'l'
-                    || c == 'h')
-                {
-                    // Primitive check to end ANSI sequences, 'm' is color, others are cursor/screen
-                    inAnsi = false;
-                }
-            }
-            else if (c != '\r' && c != '\n')
-            {
-                visibleCount++;
-            }
-
-            if (visibleCount >= maxWidth)
-            {
-                result.append(Theme.COLOR_RESET);
-                break;
-            }
-        }
-        return result.toString();
-    }
-
     @Override public void runRenderLoop(PlaybackEngine engine)
     {
         var term = TerminalIO.CONTEXT.get();
@@ -133,7 +84,7 @@ public class LineUI implements PlaybackUI
                 boolean incHrs = (totalMicros / 1000000) >= 3600;
 
                 String timeStr =
-                    formatTime(currentMicros, incHrs) + "/" + formatTime(totalMicros, incHrs);
+                    UIUtils.formatTime(currentMicros, incHrs) + "/" + UIUtils.formatTime(totalMicros, incHrs);
                 if (engine.isPaused())
                 {
                     timeStr = "\033[1;33m[PAUSED]\033[0m " + timeStr;
@@ -149,7 +100,7 @@ public class LineUI implements PlaybackUI
                 if (termWidth > 0)
                 {
                     // Safe truncation that leaves room for the cursor
-                    rawLine = truncateAnsi(rawLine, Math.max(10, termWidth - 2));
+                    rawLine = UIUtils.truncateAnsi(rawLine, Math.max(10, termWidth - 2));
                 }
 
                 // Always clear to EOL *after* truncation so the clear command isn't chopped off!
