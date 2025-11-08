@@ -7,7 +7,7 @@
 
 package com.midiraja.io;
 
-import static java.lang.System.out;
+import static java.lang.IO.*;
 
 import java.io.IOException;
 import org.jline.terminal.Attributes;
@@ -113,7 +113,7 @@ public class JLineTerminalIO implements TerminalIO {
       terminal.writer().print(str);
       terminal.writer().flush();
     } else {
-      out.print(str);
+      print(str);
     }
   }
 
@@ -123,7 +123,7 @@ public class JLineTerminalIO implements TerminalIO {
       terminal.writer().println(str);
       terminal.writer().flush();
     } else {
-      out.println(str);
+      println(str);
     }
   }
 
