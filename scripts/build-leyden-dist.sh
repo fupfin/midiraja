@@ -69,7 +69,7 @@ CLASS_PATH="${APP_DIR}/*"
 echo "✅ AppCDS Archive generated at ${JSA_FILE} ($(du -h "${JSA_FILE}" | cut -f1))"
 
 echo "📝 Creating Launcher Script..."
-cat << 'EOF' > "${BIN_DIR}/midra"
+cat << 'EOF' > "${BIN_DIR}/midra-jvm"
 #!/bin/bash
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 ROOT_DIR="$(dirname "$DIR")"
@@ -89,7 +89,7 @@ exec "$JRE/bin/java" -Xlog:cds=off -XX:SharedArchiveFile="$APP/midra.jsa" -Xshar
      -cp "$APP/*" com.midiraja.MidirajaCommand "$@"
 EOF
 
-chmod +x "${BIN_DIR}/midra"
+chmod +x "${BIN_DIR}/midra-jvm"
 
 echo "📦 Packaging final distribution..."
 cd build
@@ -98,4 +98,4 @@ mv "leyden-dist.tar.gz" "../dist/${ARCHIVE_NAME}"
 cd ..
 
 echo "🎉 Done! Leyden Distribution created at: dist/${ARCHIVE_NAME}"
-echo "Test it by running: ./${BIN_DIR}/midra --help"
+echo "Test it by running: ./${BIN_DIR}/midra-jvm --help"
