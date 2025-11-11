@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-native:
     strategy:
       matrix:
         include:
@@ -36,7 +36,7 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           java-version: '25'
-          distribution: 'graalvm'
+          distribution: 'graalvm-community'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Setup Gradle
@@ -48,10 +48,6 @@ jobs:
         
       - name: Build Native Image
         run: ./gradlew nativeCompile
-
-      - name: Build Leyden JVM Distribution (Unix only)
-        if: runner.os != 'Windows'
-        run: bash ./scripts/build-leyden-dist.sh
 
       - name: Rename Artifact
         run: |
@@ -96,26 +92,48 @@ jobs:
           if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
 
           # Build .deb package
-          fpm -s dir -t deb \
-            -n midra -v "$VERSION" \
-            --description "A blazing fast, cross-platform CLI MIDI player" \
-            --maintainer "Park, Sungchul <fupfin@space-vision.ai>" \
-            --url "https://github.com/sungchulpark/midiraja" \
-            -C pkg-root .
+          fpm -s dir -t deb             -n midra -v "$VERSION"             --description "A blazing fast, cross-platform CLI MIDI player"             --maintainer "Park, Sungchul <fupfin@space-vision.ai>"             --url "https://github.com/sungchulpark/midiraja"             -C pkg-root .
 
           # Build .rpm package
-          fpm -s dir -t rpm \
-            -n midra -v "$VERSION" \
-            --description "A blazing fast, cross-platform CLI MIDI player" \
-            --maintainer "Park, Sungchul <fupfin@space-vision.ai>" \
-            --url "https://github.com/sungchulpark/midiraja" \
-            -C pkg-root .
+          fpm -s dir -t rpm             -n midra -v "$VERSION"             --description "A blazing fast, cross-platform CLI MIDI player"             --maintainer "Park, Sungchul <fupfin@space-vision.ai>"             --url "https://github.com/sungchulpark/midiraja"             -C pkg-root .
 
-      - name: Upload Release Asset
+      - name: Upload Native Release Asset
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ matrix.asset_name }}
             *.deb
             *.rpm
-            dist/midra-jvm-*.tar.gz
+
+  build-jvm-dist:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GraalVM Community Edition
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        
+      - name: Build Leyden JVM Distribution
+        run: bash ./scripts/build-leyden-dist.sh
+
+      - name: Upload JVM Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/midra-jvm-*.tar.gz
