@@ -472,7 +472,7 @@ public class PlaybackEngine {
         final int channel = ch;
         final long latencyNanos = provider.getAudioLatencyNanos();
         if (latencyNanos > 0) {
-          notificationScheduler.schedule(() -> {
+          var unused = notificationScheduler.schedule(() -> {
             channelLevels[channel] =
                 Math.max(channelLevels[channel], velocity / 127.0);
             listeners.forEach(l -> l.onChannelActivity(channel, velocity));

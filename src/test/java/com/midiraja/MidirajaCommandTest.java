@@ -98,7 +98,7 @@ class MidirajaCommandTest
         int exitCode = cmd.execute();
 
         assertEquals(1, exitCode);
-        assertTrue(errBytes.toString().contains("No MIDI files specified"));
+        assertTrue(errBytes.toString(java.nio.charset.StandardCharsets.UTF_8).contains("No MIDI files specified"));
     }
 
     @Test void testShuffleFlag(@TempDir Path tempDir) throws Exception
@@ -161,10 +161,10 @@ class MidirajaCommandTest
     @Test void testRootHelpMentionsSubcommands()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setOut(new java.io.PrintWriter(out));
+        cmd.setOut(new java.io.PrintWriter(out, true, java.nio.charset.StandardCharsets.UTF_8));
         cmd.execute("--help");
 
-        String helpOutput = outBytes.toString();
+        String helpOutput = outBytes.toString(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(helpOutput.contains("opl"), "Help should mention 'opl' subcommand");
         assertTrue(helpOutput.contains("opn"), "Help should mention 'opn' subcommand");
         assertTrue(helpOutput.contains("munt"), "Help should mention 'munt' subcommand");
@@ -176,10 +176,10 @@ class MidirajaCommandTest
     @Test void testOplHelpShowsEmulatorIds()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setOut(new java.io.PrintWriter(out));
+        cmd.setOut(new java.io.PrintWriter(out, true, java.nio.charset.StandardCharsets.UTF_8));
         cmd.execute("opl", "--help");
 
-        String helpOutput = outBytes.toString();
+        String helpOutput = outBytes.toString(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(helpOutput.contains("OPL"), "opl help should mention OPL");
         assertTrue(helpOutput.contains("--bank"), "opl help should mention --bank");
     }
@@ -187,50 +187,50 @@ class MidirajaCommandTest
     @Test void testOpnHelpShowsEmulatorIds()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setOut(new java.io.PrintWriter(out));
+        cmd.setOut(new java.io.PrintWriter(out, true, java.nio.charset.StandardCharsets.UTF_8));
         cmd.execute("opn", "--help");
 
-        String helpOutput = outBytes.toString();
+        String helpOutput = outBytes.toString(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(helpOutput.contains("OPN2"), "opn help should mention OPN2");
     }
 
     @Test void testMuntHelp()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setOut(new java.io.PrintWriter(out));
+        cmd.setOut(new java.io.PrintWriter(out, true, java.nio.charset.StandardCharsets.UTF_8));
         cmd.execute("munt", "--help");
 
-        String helpOutput = outBytes.toString();
+        String helpOutput = outBytes.toString(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(helpOutput.contains("MT-32"), "munt help should mention MT-32");
     }
 
     @Test void testFluidHelp()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setOut(new java.io.PrintWriter(out));
+        cmd.setOut(new java.io.PrintWriter(out, true, java.nio.charset.StandardCharsets.UTF_8));
         cmd.execute("fluid", "--help");
 
-        String helpOutput = outBytes.toString();
+        String helpOutput = outBytes.toString(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(helpOutput.contains("FluidSynth"), "fluid help should mention FluidSynth");
     }
 
     @Test void testJavaHelp()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setOut(new java.io.PrintWriter(out));
+        cmd.setOut(new java.io.PrintWriter(out, true, java.nio.charset.StandardCharsets.UTF_8));
         cmd.execute("java", "--help");
 
-        String helpOutput = outBytes.toString();
+        String helpOutput = outBytes.toString(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(helpOutput.contains("Java"), "java help should mention Java");
     }
 
     @Test void testPortsHelp()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setOut(new java.io.PrintWriter(out));
+        cmd.setOut(new java.io.PrintWriter(out, true, java.nio.charset.StandardCharsets.UTF_8));
         cmd.execute("ports", "--help");
 
-        String helpOutput = outBytes.toString();
+        String helpOutput = outBytes.toString(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(helpOutput.contains("List"), "ports help should mention listing ports");
     }
 
@@ -239,7 +239,7 @@ class MidirajaCommandTest
     @Test void testOplWithNoFilesReturnsError()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setErr(new java.io.PrintWriter(err));
+        cmd.setErr(new java.io.PrintWriter(err, true, java.nio.charset.StandardCharsets.UTF_8));
         int exitCode = cmd.execute("opl");
 
         // picocli returns 2 for missing required positional parameters
@@ -249,7 +249,7 @@ class MidirajaCommandTest
     @Test void testOpnWithNoFilesReturnsError()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setErr(new java.io.PrintWriter(err));
+        cmd.setErr(new java.io.PrintWriter(err, true, java.nio.charset.StandardCharsets.UTF_8));
         int exitCode = cmd.execute("opn");
 
         assertEquals(2, exitCode);
@@ -258,7 +258,7 @@ class MidirajaCommandTest
     @Test void testMuntWithNoArgsReturnsError()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setErr(new java.io.PrintWriter(err));
+        cmd.setErr(new java.io.PrintWriter(err, true, java.nio.charset.StandardCharsets.UTF_8));
         int exitCode = cmd.execute("munt");
 
         assertEquals(2, exitCode);
@@ -267,7 +267,7 @@ class MidirajaCommandTest
     @Test void testFluidWithNoArgsReturnsError()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setErr(new java.io.PrintWriter(err));
+        cmd.setErr(new java.io.PrintWriter(err, true, java.nio.charset.StandardCharsets.UTF_8));
         int exitCode = cmd.execute("fluid");
 
         assertEquals(2, exitCode);
@@ -276,7 +276,7 @@ class MidirajaCommandTest
     @Test void testJavaWithNoFilesReturnsError()
     {
         CommandLine cmd = new CommandLine(app);
-        cmd.setErr(new java.io.PrintWriter(err));
+        cmd.setErr(new java.io.PrintWriter(err, true, java.nio.charset.StandardCharsets.UTF_8));
         int exitCode = cmd.execute("java");
 
         assertEquals(2, exitCode);

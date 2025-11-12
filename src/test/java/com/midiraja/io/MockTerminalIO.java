@@ -8,7 +8,7 @@
 package com.midiraja.io;
 
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.ArrayDeque;
 import java.util.Queue;
 
 /**
@@ -17,7 +17,7 @@ import java.util.Queue;
  */
 public class MockTerminalIO implements TerminalIO
 {
-    private final Queue<TerminalKey> keyQueue = new LinkedList<>();
+    private final Queue<TerminalKey> keyQueue = new ArrayDeque<>();
     private final StringBuilder outputBuffer = new StringBuilder();
 
     public void injectKey(TerminalKey key)

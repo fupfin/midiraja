@@ -248,7 +248,7 @@ class PlaylistParserTest
 
     @Test void testM3uRelativePaths(@TempDir Path tempDir) throws Exception
     {
-        File midi = createTestMidi(tempDir, "track.mid");
+        createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "track.mid\n");
 
