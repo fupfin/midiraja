@@ -19,23 +19,33 @@ public class GusEngine {
 
   public int getOutputSampleRate() { return outputSampleRate; }
 
-  public GusEngine(int outputSampleRate) {
-    this.outputSampleRate = outputSampleRate;
+  private final Map<Integer, Integer> channelPrograms = new HashMap<>();
+
+  public GusEngine(int outputSampleRate)
+  {
+      this.outputSampleRate = outputSampleRate;
   }
 
-  public void loadPatch(int program, GusPatch patch) {
-    patchMap.put(program, patch);
+  public void setProgram(int channel, int program)
+  {
+      channelPrograms.put(channel, program);
   }
 
-  public void noteOn(int channel, int note, int velocity) {
-    // Simplification for test: map everything to program 0 for now
-    GusPatch patch = patchMap.get(0);
-    if (patch == null || patch.instruments().isEmpty()) {
-      return;
-    }
+  public void loadPatch(int program, GusPatch patch)
+  {
+      patchMap.put(program, patch);
+  }
 
-    // Simplification: use the first instrument and first sample
-    GusPatch.Sample sample = patch.instruments().get(0).samples().get(0);
+  public void noteOn(int channel, int note, int velocity)  {
+      int program = channelPrograms.getOrDefault(channel, 0);
+      GusPatch patch = patchMap.get(program);
+      if (patch == null || patch.instruments().isEmpty())
+      {
+          return;
+      }
+
+      // Simplification: use the first instrument and first sample
+      GusPatch.Sample sample = patch.instruments().get(0).samples().get(0);
 
     // Calculate frequency of the requested MIDI note
     // MIDI note 69 is A4 (440 Hz)

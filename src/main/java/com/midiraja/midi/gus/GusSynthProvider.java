@@ -12,44 +12,56 @@ import com.midiraja.midi.NativeAudioEngine;
 import com.midiraja.midi.SoftSynthProvider;
 import java.io.File;
 import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 @SuppressWarnings("ThreadPriorityCheck")
 public class GusSynthProvider implements SoftSynthProvider {
   private final NativeAudioEngine audio;
-  private final @Nullable String patchDir;
+
   private final GusEngine engine;
+  private final @Nullable GusBank bank;
 
   private @Nullable Thread renderThread;
   private volatile boolean running = false;
   private volatile boolean renderPaused = false;
 
-  public GusSynthProvider(NativeAudioEngine audio,
-                                   @Nullable String patchDir) {
+  public GusSynthProvider(NativeAudioEngine audio, @Nullable String patchDir) {
     this.audio = audio;
-    this.patchDir = patchDir;
+
     this.engine = new GusEngine(44100);
+    this.bank = patchDir != null ? new GusBank(Path.of(patchDir)) : null;
   }
 
-  @SuppressWarnings("EmptyCatch")
   @Override
   public List<MidiPort> getOutputPorts() {
     return List.of(new MidiPort(0, "Midiraja Pure Java Gravis Ultrasound"));
   }
 
-  @SuppressWarnings("EmptyCatch")
   @Override
   public void openPort(int portIndex) throws Exception {
-    if (patchDir != null) {
-      File pianoPat = new File(patchDir, "acpiano.pat");
-      if (pianoPat.exists()) {
-        try (FileInputStream in = new FileInputStream(pianoPat)) {
-          GusPatch patch = GusPatchReader.read(in);
-          // Map it to program 0 (Acoustic Grand Piano)
-          engine.loadPatch(0, patch);
-        }
+    if (bank != null) {
+      Path cfgPath = bank.getRootDir().resolve("gus.cfg");
+      if (Files.exists(cfgPath)) {
+        bank.loadConfig(Files.readString(cfgPath, StandardCharsets.US_ASCII));
       }
+
+      // Auto-load bank 0, program 0 (Piano) as a default fallback if possible
+      bank.getPatchPath(0, 0).ifPresent(path -> {
+        try {
+          File patFile = bank.getRootDir().resolve(path).toFile();
+          if (patFile.exists()) {
+            try (FileInputStream in = new FileInputStream(patFile)) {
+              engine.loadPatch(0, GusPatchReader.read(in));
+            }
+          }
+        } catch (Exception ignored) {
+          // Ignore failure to load default patch
+        }
+      });
     }
 
     if (audio != null) {
@@ -58,11 +70,13 @@ public class GusSynthProvider implements SoftSynthProvider {
     }
   }
 
-  @SuppressWarnings("EmptyCatch")
   @Override
   public void loadSoundbank(String path) throws Exception {
-    // For TiMidity, the path is already set as patchDir. This handles the
-    // explicit .sf2 equivalent. We could load a .cfg file here in the future.
+    // Path can be a .cfg file or a directory
+    File f = new File(path);
+    if (f.isFile() && bank != null) {
+      bank.loadConfig(Files.readString(f.toPath(), StandardCharsets.US_ASCII));
+    }
   }
 
   private void startRenderThread() {
@@ -84,7 +98,6 @@ public class GusSynthProvider implements SoftSynthProvider {
           continue;
         }
 
-        // Clear buffers
         for (int i = 0; i < framesToRender; i++) {
           left[i] = 0;
           right[i] = 0;
@@ -109,7 +122,6 @@ public class GusSynthProvider implements SoftSynthProvider {
     renderThread.start();
   }
 
-  @SuppressWarnings("EmptyCatch")
   @Override
   public void prepareForNewTrack() {
     if (audio == null)
@@ -118,18 +130,17 @@ public class GusSynthProvider implements SoftSynthProvider {
     try {
       Thread.sleep(20);
     } catch (InterruptedException ignored) {
+      // Expected
     }
     audio.flush();
-    engine.getActiveVoices().clear(); // Fast drain equivalent
+    engine.getActiveVoices().clear();
   }
 
-  @SuppressWarnings("EmptyCatch")
   @Override
   public void onPlaybackStarted() {
     renderPaused = false;
   }
 
-  @SuppressWarnings("EmptyCatch")
   @Override
   public void sendMessage(byte[] data) {
     if (data == null || data.length < 1)
@@ -142,6 +153,10 @@ public class GusSynthProvider implements SoftSynthProvider {
     if (cmd == 0x90 && data.length >= 3) {
       int note = data[1] & 0xFF;
       int velocity = data[2] & 0xFF;
+
+      // Check for Program Change if we haven't loaded the patch yet
+      // (Real-time patch loading logic could go here)
+
       if (velocity > 0) {
         engine.noteOn(ch, note, velocity);
       } else {
@@ -150,10 +165,31 @@ public class GusSynthProvider implements SoftSynthProvider {
     } else if (cmd == 0x80 && data.length >= 3) {
       int note = data[1] & 0xFF;
       engine.noteOff(ch, note);
+    } else if (cmd == 0xC0 && data.length >= 2) {
+      // Program Change!
+      int program = data[1] & 0xFF;
+      engine.setProgram(ch, program);
+      loadPatchOnDemand(program);
     }
   }
 
-  @SuppressWarnings("EmptyCatch")
+  private void loadPatchOnDemand(int program) {
+    if (bank != null) {
+      bank.getPatchPath(0, program).ifPresent(path -> {
+        try {
+          File patFile = bank.getRootDir().resolve(path).toFile();
+          if (patFile.exists()) {
+            try (FileInputStream in = new FileInputStream(patFile)) {
+              engine.loadPatch(program, GusPatchReader.read(in));
+            }
+          }
+        } catch (Exception ignored) {
+          // Ignore failure to load dynamic patch
+        }
+      });
+    }
+  }
+
   @Override
   public void panic() {
     engine.getActiveVoices().clear();
@@ -161,7 +197,6 @@ public class GusSynthProvider implements SoftSynthProvider {
       audio.flush();
   }
 
-  @SuppressWarnings("EmptyCatch")
   @Override
   public void closePort() {
     running = false;
@@ -170,6 +205,7 @@ public class GusSynthProvider implements SoftSynthProvider {
       try {
         renderThread.join(500);
       } catch (InterruptedException ignored) {
+        // Expected during shutdown
       }
     }
     if (audio != null)
