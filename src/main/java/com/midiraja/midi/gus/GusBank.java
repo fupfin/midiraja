@@ -37,10 +37,21 @@ public class GusBank {
         }
 
         String[] parts = WHITESPACE.split(line);
-        if (parts[0].equalsIgnoreCase("bank")) {
+        if (parts[0].equalsIgnoreCase("source") && parts.length > 1) {
+          // Recursively load sourced file
+          Path sourcePath = rootDir.resolve(parts[1]);
+          if (java.nio.file.Files.exists(sourcePath)) {
+            loadConfig(java.nio.file.Files.readString(
+                sourcePath, java.nio.charset.StandardCharsets.US_ASCII));
+          }
+        } else if (parts[0].equalsIgnoreCase("bank") ||
+                   parts[0].equalsIgnoreCase("drumset")) {
           if (parts.length > 1) {
             try {
               currentBank = Integer.parseInt(parts[1]);
+              if (parts[0].equalsIgnoreCase("drumset")) {
+                currentBank += 128; // Store drumsets at an offset (e.g., 128)
+              }
             } catch (NumberFormatException ignored) {
               // Ignore invalid bank numbers
             }

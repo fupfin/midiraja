@@ -21,7 +21,6 @@ import org.jspecify.annotations.Nullable;
 @SuppressWarnings("ThreadPriorityCheck")
 public class GusSynthProvider implements SoftSynthProvider {
   private final NativeAudioEngine audio;
-
   private final GusEngine engine;
   private final @Nullable GusBank bank;
 
@@ -31,7 +30,6 @@ public class GusSynthProvider implements SoftSynthProvider {
 
   public GusSynthProvider(NativeAudioEngine audio, @Nullable String patchDir) {
     this.audio = audio;
-
     this.engine = new GusEngine(44100);
     this.bank = patchDir != null ? new GusBank(Path.of(patchDir)) : null;
   }
@@ -42,21 +40,25 @@ public class GusSynthProvider implements SoftSynthProvider {
   }
 
   @Override
-  public void openPort(int portIndex) throws Exception
-  {
-      if (bank != null)
-      {
-          Path cfgPath = bank.getRootDir().resolve("gus.cfg");
-          if (!Files.exists(cfgPath))
-          {
-              // Fallback to legacy TiMidity++ config name for maximum retro compatibility
-              cfgPath = bank.getRootDir().resolve("timidity.cfg");
-          }
+  public void openPort(int portIndex) throws Exception {
+    System.err.println("[DEBUG] GusSynthProvider.openPort() called!");
+    if (bank != null) {
+      Path cfgPath = bank.getRootDir().resolve("gus.cfg");
+      if (!Files.exists(cfgPath)) {
+        // Fallback to legacy TiMidity++ config name for maximum retro
+        // compatibility
+        cfgPath = bank.getRootDir().resolve("timidity.cfg");
+      }
 
-          if (Files.exists(cfgPath))
-          {
-              bank.loadConfig(Files.readString(cfgPath, StandardCharsets.US_ASCII));
-          }
+      System.err.println("[DEBUG] Looking for config at: " +
+                         cfgPath.toAbsolutePath());
+
+      if (Files.exists(cfgPath)) {
+        System.err.println("[DEBUG] Config found! Loading...");
+        bank.loadConfig(Files.readString(cfgPath, StandardCharsets.US_ASCII));
+      } else {
+        System.err.println("[DEBUG] No config file found!");
+      }
 
       // Auto-load bank 0, program 0 (Piano) as a default fallback if possible
       bank.getPatchPath(0, 0).ifPresent(path -> {
@@ -65,6 +67,8 @@ public class GusSynthProvider implements SoftSynthProvider {
           if (patFile.exists()) {
             try (FileInputStream in = new FileInputStream(patFile)) {
               engine.loadPatch(0, GusPatchReader.read(in));
+              System.err.println("[DEBUG] Default Piano patch loaded from: " +
+                                 patFile.getAbsolutePath());
             }
           }
         } catch (Exception ignored) {
@@ -76,6 +80,8 @@ public class GusSynthProvider implements SoftSynthProvider {
     if (audio != null) {
       audio.init(44100, 2, 4096);
       startRenderThread();
+      System.err.println(
+          "[DEBUG] NativeAudioEngine initialized and render thread started.");
     }
   }
 
@@ -115,8 +121,8 @@ public class GusSynthProvider implements SoftSynthProvider {
         engine.render(left, right, framesToRender);
 
         for (int i = 0; i < framesToRender; i++) {
-          float l = Math.max(-1.0f, Math.min(1.0f, left[i] / 128.0f));
-          float r = Math.max(-1.0f, Math.min(1.0f, right[i] / 128.0f));
+          float l = Math.max(-1.0f, Math.min(1.0f, left[i]));
+          float r = Math.max(-1.0f, Math.min(1.0f, right[i]));
           pcmBuffer[i * 2] = (short)(l * 32767);
           pcmBuffer[i * 2 + 1] = (short)(r * 32767);
         }
@@ -131,6 +137,7 @@ public class GusSynthProvider implements SoftSynthProvider {
     renderThread.start();
   }
 
+  @SuppressWarnings("EmptyCatch")
   @Override
   public void prepareForNewTrack() {
     if (audio == null)
@@ -163,9 +170,6 @@ public class GusSynthProvider implements SoftSynthProvider {
       int note = data[1] & 0xFF;
       int velocity = data[2] & 0xFF;
 
-      // Check for Program Change if we haven't loaded the patch yet
-      // (Real-time patch loading logic could go here)
-
       if (velocity > 0) {
         engine.noteOn(ch, note, velocity);
       } else {
@@ -177,25 +181,47 @@ public class GusSynthProvider implements SoftSynthProvider {
     } else if (cmd == 0xC0 && data.length >= 2) {
       // Program Change!
       int program = data[1] & 0xFF;
+      int bankNum = (ch == 9) ? 128 : 0; // Channel 10 is drums
       engine.setProgram(ch, program);
-      loadPatchOnDemand(program);
+      loadPatchOnDemand(bankNum, program);
     }
   }
 
-  private void loadPatchOnDemand(int program) {
+  private void loadPatchOnDemand(int bankNum, int program) {
     if (bank != null) {
-      bank.getPatchPath(0, program).ifPresent(path -> {
-        try {
-          File patFile = bank.getRootDir().resolve(path).toFile();
-          if (patFile.exists()) {
-            try (FileInputStream in = new FileInputStream(patFile)) {
-              engine.loadPatch(program, GusPatchReader.read(in));
-            }
-          }
-        } catch (Exception ignored) {
-          // Ignore failure to load dynamic patch
-        }
-      });
+      bank.getPatchPath(bankNum, program)
+          .ifPresentOrElse(
+              path
+              -> {
+                try {
+                  // TiMidity allows dropping the .pat extension in cfg files
+                  String filename =
+                      path.toLowerCase(java.util.Locale.ROOT).endsWith(".pat")
+                          ? path
+                          : path + ".pat";
+                  File patFile = bank.getRootDir().resolve(filename).toFile();
+                  if (patFile.exists()) {
+                    try (FileInputStream in = new FileInputStream(patFile)) {
+                      engine.loadPatch(program, GusPatchReader.read(in));
+                      // System.err.println("[DEBUG] Dynamically loaded patch
+                      // for bank " + bankNum + " program " + program + ": " +
+                      // patFile.getAbsolutePath());
+                    }
+                  } else {
+                    System.err.println(
+                        "\r\n[DEBUG] WARNING: Patch file not found for bank " +
+                        bankNum + " program " + program + " -> " +
+                        patFile.getAbsolutePath());
+                  }
+                } catch (Exception e) {
+                  System.err.println("\r\n[DEBUG] ERROR loading patch " + path +
+                                     ": " + e.getMessage());
+                }
+              },
+              ()
+                  -> System.err.println(
+                      "\r\n[DEBUG] No patch mapped in config for bank " +
+                      bankNum + " program " + program));
     }
   }
 
@@ -206,6 +232,7 @@ public class GusSynthProvider implements SoftSynthProvider {
       audio.flush();
   }
 
+  @SuppressWarnings("EmptyCatch")
   @Override
   public void closePort() {
     running = false;

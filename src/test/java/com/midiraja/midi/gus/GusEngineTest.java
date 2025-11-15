@@ -21,8 +21,8 @@ class GusEngineTest {
 
     // Create a dummy patch with a root frequency of 440Hz (A4)
     MemorySegment dummyPcm = Arena.ofAuto().allocate(100);
-    GusPatch.Sample sample = new GusPatch.Sample(100, 0, 0, 44100, 20, 20000,
-                                                 440000, (short)64, dummyPcm);
+    GusPatch.Sample sample = new GusPatch.Sample(
+        100, 0, 0, 44100, 20, 20000, 440000, (short)64, false, false, dummyPcm);
     GusPatch.Instrument inst =
         new GusPatch.Instrument(0, "Test", List.of(sample));
     GusPatch patch = new GusPatch("Test Patch", List.of(inst));
@@ -65,8 +65,9 @@ class GusEngineTest {
     MemorySegment pcmSegment = Arena.ofAuto().allocateFrom(
         java.lang.foreign.ValueLayout.JAVA_BYTE, pcmRaw);
 
-    GusPatch.Sample sample = new GusPatch.Sample(10, 0, 0, 44100, 20, 20000,
-                                                 440000, (short)64, pcmSegment);
+    GusPatch.Sample sample =
+        new GusPatch.Sample(10, 0, 0, 44100, 20, 20000, 440000, (short)64,
+                            false, false, pcmSegment);
     GusPatch patch = new GusPatch(
         "Test Render Patch",
         List.of(new GusPatch.Instrument(0, "Test", List.of(sample))));
@@ -83,11 +84,11 @@ class GusEngineTest {
     // At ratio 1.0, it should perfectly map to the first 5 bytes: 10, 20, 30,
     // 40, 50 (Assuming simple Nearest-Neighbor interpolation for this initial
     // test)
-    assertEquals(10.0f, left[0], 0.1f);
-    assertEquals(20.0f, left[1], 0.1f);
-    assertEquals(30.0f, left[2], 0.1f);
-    assertEquals(40.0f, left[3], 0.1f);
-    assertEquals(50.0f, left[4], 0.1f);
+    assertEquals(10.0f / 128.0f, left[0], 0.001f);
+    assertEquals(20.0f / 128.0f, left[1], 0.001f);
+    assertEquals(30.0f / 128.0f, left[2], 0.001f);
+    assertEquals(40.0f / 128.0f, left[3], 0.001f);
+    assertEquals(50.0f / 128.0f, left[4], 0.001f);
 
     // The voice should still be active because it hasn't reached the end of the
     // 10-byte sample
@@ -99,9 +100,9 @@ class GusEngineTest {
     float[] right2 = new float[10];
     engine.render(left2, right2, 10);
 
-    assertEquals(60.0f, left2[0], 0.1f);
-    assertEquals(100.0f, left2[4], 0.1f);
-    assertEquals(0.0f, left2[5], 0.1f); // Silence after sample ends
+    assertEquals(60.0f / 128.0f, left2[0], 0.001f);
+    assertEquals(100.0f / 128.0f, left2[4], 0.001f);
+    assertEquals(0.0f, left2[5], 0.001f); // Silence after sample ends
 
     // Voice should be deactivated since it didn't loop
     assertEquals(
@@ -117,8 +118,9 @@ class GusEngineTest {
         java.lang.foreign.ValueLayout.JAVA_BYTE, pcmRaw);
 
     // Loop from index 4 to 8. Length is 10.
-    GusPatch.Sample sample = new GusPatch.Sample(10, 4, 8, 44100, 20, 20000,
-                                                 440000, (short)64, pcmSegment);
+    GusPatch.Sample sample =
+        new GusPatch.Sample(10, 4, 8, 44100, 20, 20000, 440000, (short)64,
+                            false, false, pcmSegment);
     GusPatch patch = new GusPatch(
         "Looping Patch",
         List.of(new GusPatch.Instrument(0, "Test", List.of(sample))));
@@ -133,9 +135,9 @@ class GusEngineTest {
     // Expected output:
     // Indices: 0, 1, 2, 3, 4, 5, 6, 7 | (hits 8, wraps to 4) -> 4, 5, 6, 7
     // Values:  0, 10, 20, 30, 40, 50, 60, 70, 40, 50, 60, 70
-    assertEquals(70.0f, left[7], 0.1f);  // index 7
-    assertEquals(40.0f, left[8], 0.1f);  // index 8 wrapped to 4
-    assertEquals(70.0f, left[11], 0.1f); // index 11 is 7 again
+    assertEquals(70.0f / 128.0f, left[7], 0.001f);  // index 7
+    assertEquals(40.0f / 128.0f, left[8], 0.001f);  // index 8 wrapped to 4
+    assertEquals(70.0f / 128.0f, left[11], 0.001f); // index 11 is 7 again
   }
 
   @Test
@@ -149,8 +151,9 @@ class GusEngineTest {
     MemorySegment pcmSegment = Arena.ofAuto().allocateFrom(
         java.lang.foreign.ValueLayout.JAVA_BYTE, pcmRaw);
 
-    GusPatch.Sample sample = new GusPatch.Sample(1000, 0, 0, 44100, 20, 20000,
-                                                 440000, (short)64, pcmSegment);
+    GusPatch.Sample sample =
+        new GusPatch.Sample(1000, 0, 0, 44100, 20, 20000, 440000, (short)64,
+                            false, false, pcmSegment);
     GusPatch patch = new GusPatch(
         "Envelope Patch",
         List.of(new GusPatch.Instrument(0, "Test", List.of(sample))));
@@ -175,7 +178,7 @@ class GusEngineTest {
         "Voice should still be active during release"); // Second frame should
                                                         // be less than the
                                                         // initial full volume
-    assertTrue(leftDecay[1] < 100.0f, "Volume should be decaying");
+    assertTrue(leftDecay[1] < 100.0f / 128.0f, "Volume should be decaying");
     assertTrue(leftDecay[9] < leftDecay[1], "Volume should continue to decay");
   }
 }

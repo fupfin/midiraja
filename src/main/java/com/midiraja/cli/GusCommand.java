@@ -38,8 +38,13 @@ public class GusCommand implements Callable<Integer> {
   private List<File> files = new java.util.ArrayList<>();
 
   @Override
-  public Integer call() throws Exception {
-    var p = java.util.Objects.requireNonNull(parent);
+  public Integer call() throws Exception
+  {
+      System.err.println("[DEBUG] GusCommand.call() triggered!");
+      System.err.println("[DEBUG] Patch Dir: " + patchDir.map(File::getAbsolutePath).orElse("NONE"));
+      System.err.println("[DEBUG] Files to play: " + files.size());
+
+      var p = java.util.Objects.requireNonNull(parent);
     String audioLib = AudioLibResolver.resolve();
     NativeAudioEngine audio = new NativeAudioEngine(audioLib);
     String dirPath = patchDir.map(File::getAbsolutePath).orElse(null);

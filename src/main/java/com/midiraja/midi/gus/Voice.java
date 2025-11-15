@@ -58,11 +58,32 @@ public class Voice {
 
       // Simple Nearest-Neighbor interpolation
       int intPos = (int)currentPosition;
-      byte pcmVal =
-          sample.pcmData().get(java.lang.foreign.ValueLayout.JAVA_BYTE, intPos);
+      float pcmFloat;
 
-      // Apply volume envelope
-      float mixedVal = (float)(pcmVal * currentVolume);
+      if (sample.is16Bit()) {
+        // 16-bit GUS samples are Little-Endian
+        int bytePos = intPos * 2;
+        if (bytePos + 1 < sample.pcmData().byteSize()) {
+          short val = sample.pcmData().get(
+              java.lang.foreign.ValueLayout.JAVA_SHORT_UNALIGNED, bytePos);
+          if (sample.isUnsigned()) {
+            val = (short)((val & 0xFFFF) - 32768);
+          }
+          pcmFloat = val / 32768.0f;
+        } else {
+          pcmFloat = 0.0f;
+        }
+      } else {
+        byte val = sample.pcmData().get(java.lang.foreign.ValueLayout.JAVA_BYTE,
+                                        intPos);
+        if (sample.isUnsigned()) {
+          val = (byte)((val & 0xFF) - 128);
+        }
+        pcmFloat = val / 128.0f;
+      }
+
+      // Apply volume envelope (currentVolume is 0.0 ~ 1.0)
+      float mixedVal = pcmFloat * (float)currentVolume;
 
       // Mix into output
       left[i] += mixedVal;
