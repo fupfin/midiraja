@@ -45,27 +45,30 @@ public class GusSynthProvider implements SoftSynthProvider {
           return Path.of(userPath);
       }
 
-      // List of fallback directories to search for gus.cfg or timidity.cfg
       String homeDir = System.getProperty("user.home");
-      String[] fallbackPaths = {
-          ".", // Current working directory
-          homeDir + "/.config/midiraja/gus", // User config
-          homeDir + "/.midiraja/gus", // Legacy user config
-          "/opt/homebrew/share/midiraja/gus", // Homebrew (Apple Silicon)
-          "/usr/local/share/midiraja/gus", // Homebrew (Intel Mac)
-          "/usr/share/midiraja/gus" // Linux FHS
+      String[] baseDirs = {
+          ".",
+          homeDir + "/.config/midiraja",
+          homeDir + "/.midiraja",
+          "/opt/homebrew/share/midiraja", // Homebrew (Apple Silicon)
+          "/usr/local/share/midiraja",    // Homebrew (Intel Mac)
+          "/usr/share/midiraja"           // Linux FHS
       };
 
-      for (String pathStr : fallbackPaths) {
-          Path p = Path.of(pathStr);
-          if (Files.isDirectory(p) && (Files.exists(p.resolve("gus.cfg")) || Files.exists(p.resolve("timidity.cfg")))) {
-              return p;
+      // Search order preference: user might drop eawpats, otherwise we fallback to our bundled freepats
+      String[] patchSetNames = { "eawpats", "dgguspat", "freepats", "gus", "" };
+
+      for (String baseDir : baseDirs) {
+          for (String patchName : patchSetNames) {
+              Path p = patchName.isEmpty() ? Path.of(baseDir) : Path.of(baseDir, patchName);
+              if (Files.isDirectory(p) && (Files.exists(p.resolve("gus.cfg")) || Files.exists(p.resolve("timidity.cfg")))) {
+                  return p;
+              }
           }
       }
 
       return null;
   }
-
   @Override
   public List<MidiPort> getOutputPorts() {
     return List.of(new MidiPort(0, "Midiraja Pure Java Gravis Ultrasound"));
