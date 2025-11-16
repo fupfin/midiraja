@@ -52,39 +52,37 @@ public class GusPatchReader {
       int samplesInInst = header.get(198) & 0xFF;
 
       List<GusPatch.Sample> samples = new ArrayList<>();
+
       for (int s = 0; s < samplesInInst; s++)
       {
-          // Read Sample Header (96 bytes)
           byte[] sampleHeaderData = in.readNBytes(96);
+          if (sampleHeaderData.length < 96) {
+              break;
+          }
           ByteBuffer sampleBuf = ByteBuffer.wrap(sampleHeaderData).order(ByteOrder.LITTLE_ENDIAN);
 
           byte modes = sampleBuf.get(49);
           boolean is16Bit = (modes & 0x01) != 0;
           boolean isUnsigned = (modes & 0x02) != 0;
 
-          int length = sampleBuf.getInt(8);
-          int loopStart = sampleBuf.getInt(12);
-          int loopEnd = sampleBuf.getInt(16);
+          int lengthInBytes = sampleBuf.getInt(8);
+          int loopStartInBytes = sampleBuf.getInt(12);
+          int loopEndInBytes = sampleBuf.getInt(16);
 
-          // In GUS patches, lengths and loop points are in BYTES.
-          // We convert them to SAMPLES for the engine to use easily.
-          if (is16Bit)
-          {
-              length /= 2;
-              loopStart /= 2;
-              loopEnd /= 2;
-          }
+          // Calculate length in SAMPLES for the engine
+          int length = is16Bit ? lengthInBytes / 2 : lengthInBytes;
+          int loopStart = is16Bit ? loopStartInBytes / 2 : loopStartInBytes;
+          int loopEnd = is16Bit ? loopEndInBytes / 2 : loopEndInBytes;
 
-            int sampleRate = sampleBuf.getShort(20) & 0xFFFF;
-            int lowFreq = sampleBuf.getInt(22);
-            int highFreq = sampleBuf.getInt(26);
-            int rootFreq = sampleBuf.getInt(30);
-            short pan = (short) (sampleBuf.get(36) & 0xFF);
+          int sampleRate = sampleBuf.getShort(20) & 0xFFFF;
+          int lowFreq = sampleBuf.getInt(22);
+          int highFreq = sampleBuf.getInt(26);
+          int rootFreq = sampleBuf.getInt(30);
+          short pan = (short) (sampleBuf.get(36) & 0xFF);
 
-            // Read the raw PCM bytes using the ORIGINAL byte length
-            int byteLength = is16Bit ? length * 2 : length;
-            byte[] pcmRaw = in.readNBytes(byteLength);
-            MemorySegment pcmData = Arena.ofAuto().allocateFrom(ValueLayout.JAVA_BYTE, pcmRaw);
+          // Read the interleaved PCM data
+          byte[] pcmRaw = in.readNBytes(lengthInBytes);
+          MemorySegment pcmData = Arena.ofAuto().allocateFrom(ValueLayout.JAVA_BYTE, pcmRaw);
 
           samples.add(new GusPatch.Sample(
               length, loopStart, loopEnd, sampleRate, lowFreq, highFreq, rootFreq, pan, is16Bit, isUnsigned, pcmData
@@ -95,9 +93,7 @@ public class GusPatchReader {
       instruments.add(new GusPatch.Instrument(0, description, samples));
 
       return new GusPatch(description, instruments);
-  }
-
-  private static String readNullTerminatedString(byte[] data, int offset,
+      }  private static String readNullTerminatedString(byte[] data, int offset,
                                                  int maxLength) {
     int len = 0;
     while (len < maxLength && (offset + len) < data.length &&

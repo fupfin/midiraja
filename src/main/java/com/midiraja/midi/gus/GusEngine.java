@@ -81,12 +81,17 @@ public class GusEngine {
 
       if (bestSample == null) return;
 
-      double rootFreq = bestSample.rootFrequency() / 1000.0;
-      double ratio = targetFreq / rootFreq;
+      double ratio;
+      if (channel == 9) { // Drum channel
+          // Drums always play at their natural recorded pitch
+          ratio = 1.0;
+      } else {
+          double rootFreq = bestSample.rootFrequency() / 1000.0;
+          ratio = targetFreq / rootFreq;
+      }
 
       Voice voice = new Voice(patch, bestSample, note, velocity, ratio);
-      activeVoices.add(voice);
-  }
+      activeVoices.add(voice);  }
   public void render(float[] left, float[] right, int frames) {
     for (Voice v : activeVoices) {
       if (v.isActive()) {
