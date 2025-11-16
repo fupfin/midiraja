@@ -184,7 +184,7 @@ class OpnMidiSynthProviderTest
         provider.sendMessage(new byte[] {(byte) 0x90, 60, 100});
 
         // prepareForNewTrack should clear queue, call bridge.panic(), call bridge.reset()
-        provider.prepareForNewTrack();
+        provider.prepareForNewTrack(null);
 
         assertTrue(mockBridge.panicCalled,
             "bridge.panic() should be called in prepareForNewTrack (render thread is paused)");

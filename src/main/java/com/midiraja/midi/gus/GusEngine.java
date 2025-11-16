@@ -12,10 +12,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class GusEngine {
-  private final int outputSampleRate;
-  private final Map<Integer, GusPatch> patchMap = new HashMap<>();
-  private final List<Voice> activeVoices = new ArrayList<>();
+import java.util.concurrent.CopyOnWriteArrayList;
+
+public class GusEngine
+{
+    private final int outputSampleRate;
+    private final Map<Integer, GusPatch> patchMap = new HashMap<>();
+    private final List<Voice> activeVoices = new CopyOnWriteArrayList<>();
 
   public int getOutputSampleRate() { return outputSampleRate; }
 

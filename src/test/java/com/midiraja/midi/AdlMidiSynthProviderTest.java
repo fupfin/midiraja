@@ -205,7 +205,7 @@ class AdlMidiSynthProviderTest
         provider.sendMessage(new byte[] {(byte) 0x90, 60, 100});
 
         // prepareForNewTrack should clear queue, call bridge.panic(), call bridge.reset()
-        provider.prepareForNewTrack();
+        provider.prepareForNewTrack(null);
 
         // Queue should be cleared before panic events (bridge.panic() called from render-paused
         // context)

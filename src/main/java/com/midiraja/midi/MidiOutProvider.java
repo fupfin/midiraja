@@ -41,15 +41,16 @@ public interface MidiOutProvider
      * (e.g. Munt) should override this to clear reverb tails and flush queued audio buffers
      * so the new track starts cleanly. Implementations may leave their render thread paused
      * here; {@link #onPlaybackStarted()} will resume it when playback actually begins.
+     * The sequence is provided so that software synthesizers can pre-load necessary assets.
      */
-    default void prepareForNewTrack()
+    default void prepareForNewTrack(javax.sound.midi.Sequence sequence)
     {
     }
 
     /**
      * Called by {@code PlaybackEngine.playLoop()} at the very start of playback, just before
      * the first MIDI event is dispatched. Soft-synth implementations that paused their render
-     * thread in {@link #prepareForNewTrack()} should resume it here, resetting any timing
+     * thread in {@link #prepareForNewTrack(javax.sound.midi.Sequence)} should resume it here, resetting any timing
      * references so the first notes are scheduled with fresh, near-zero timestamps.
      * Default is a no-op for hardware MIDI ports.
      */

@@ -111,7 +111,7 @@ public class PlaybackEngine {
     // Clear any reverb tail / queued audio from a previous song before
     // starting. No-op for hardware MIDI ports; Munt overrides this to flush the
     // ring buffer.
-    provider.prepareForNewTrack();
+    provider.prepareForNewTrack(sequence);
 
     try (var scope = StructuredTaskScope.open()) {
       scope.fork(() -> {

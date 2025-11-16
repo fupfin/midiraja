@@ -258,7 +258,7 @@ public class OpnMidiSynthProvider implements SoftSynthProvider
         }
     }
 
-    @Override public void prepareForNewTrack()
+    @Override public void prepareForNewTrack(javax.sound.midi.Sequence sequence)
     {
         // Step 1: Pause render thread (gives it up to 20 ms to finish current generate)
         renderPaused = true;

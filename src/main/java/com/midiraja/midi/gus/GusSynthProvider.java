@@ -139,17 +139,60 @@ public class GusSynthProvider implements SoftSynthProvider {
 
   @SuppressWarnings("EmptyCatch")
   @Override
-  public void prepareForNewTrack() {
-    if (audio == null)
-      return;
-    renderPaused = true;
-    try {
-      Thread.sleep(20);
-    } catch (InterruptedException ignored) {
-      // Expected
-    }
-    audio.flush();
-    engine.getActiveVoices().clear();
+  public void prepareForNewTrack(javax.sound.midi.Sequence sequence)
+  {
+      if (bank != null)
+      {
+          boolean[] loadedPrograms = new boolean[128];
+          boolean[] loadedDrums = new boolean[128];
+
+          for (javax.sound.midi.Track track : sequence.getTracks())
+          {
+              for (int i = 0; i < track.size(); i++)
+              {
+                  javax.sound.midi.MidiMessage msg = track.get(i).getMessage();
+                  byte[] data = msg.getMessage();
+                  if (data == null || data.length < 1) continue;
+
+                  int status = data[0] & 0xFF;
+                  int cmd = status & 0xF0;
+                  int ch = status & 0x0F;
+
+                  if (cmd == 0xC0 && data.length >= 2) // Program Change
+                  {
+                      if (ch != 9) // Not drum channel
+                      {
+                          int program = data[1] & 0xFF;
+                          if (!loadedPrograms[program])
+                          {
+                              loadedPrograms[program] = true;
+                              loadPatchOnDemand(0, program);
+                          }
+                      }
+                  }
+                  else if (cmd == 0x90 && data.length >= 3) // Note On
+                  {
+                      if (ch == 9) // Drum channel
+                      {
+                          int note = data[1] & 0xFF;
+                          if (!loadedDrums[note])
+                          {
+                              loadedDrums[note] = true;
+                              loadPatchOnDemand(128, note);
+                          }
+                      }
+                  }
+              }
+          }
+      }
+
+      if (audio == null) return;
+      renderPaused = true;
+      try { Thread.sleep(20); } catch (InterruptedException ignored) {
+          // Expected
+      }
+      audio.flush();
+      engine.getActiveVoices().clear();
   }
 
   @Override

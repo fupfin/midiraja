@@ -160,7 +160,7 @@ import java.util.List;
         }
     }
 
-    @Override @SuppressWarnings("EmptyCatch") public void prepareForNewTrack()
+    @Override @SuppressWarnings("EmptyCatch") public void prepareForNewTrack(javax.sound.midi.Sequence sequence)
     {
         if (audio == null)
             return;
