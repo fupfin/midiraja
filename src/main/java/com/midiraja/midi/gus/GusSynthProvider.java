@@ -48,13 +48,13 @@ public class GusSynthProvider implements SoftSynthProvider {
       String homeDir = System.getProperty("user.home");
       String[] baseDirs = {
           ".",
-          homeDir + "/.midiraja",
-          homeDir + "/.config/midiraja",
+          homeDir + "/.config/midiraja",  // XDG Standard Config
+          homeDir + "/.local/share/midiraja", // XDG Standard Data
+          homeDir + "/.midiraja",         // Legacy / Non-standard
           "/opt/homebrew/share/midiraja", // Homebrew (Apple Silicon)
           "/usr/local/share/midiraja",    // Homebrew (Intel Mac)
           "/usr/share/midiraja"           // Linux FHS
-      };
-      // Search order preference: user might drop eawpats, otherwise we fallback to our bundled freepats
+      };      // Search order preference: user might drop eawpats, otherwise we fallback to our bundled freepats
       String[] patchSetNames = { "eawpats", "dgguspat", "freepats", "gus", "" };
 
       for (String baseDir : baseDirs) {
