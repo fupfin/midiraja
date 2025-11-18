@@ -47,10 +47,10 @@ public class GusSynthProvider implements SoftSynthProvider {
 
       String homeDir = System.getProperty("user.home");
       String[] baseDirs = {
-          ".",
+          ".",                            // Current Dir (Most specific)
+          homeDir + "/.midiraja",         // User Override (Legacy style)
           homeDir + "/.config/midiraja",  // XDG Standard Config
           homeDir + "/.local/share/midiraja", // XDG Standard Data
-          homeDir + "/.midiraja",         // Legacy / Non-standard
           "/opt/homebrew/share/midiraja", // Homebrew (Apple Silicon)
           "/usr/local/share/midiraja",    // Homebrew (Intel Mac)
           "/usr/share/midiraja"           // Linux FHS
