@@ -93,16 +93,21 @@ While a song is playing, you don't need to restart the app to make changes. Just
 
 ## 🎹 Soft Synthesizers
 
-`midra` includes four built-in software synthesizers alongside native OS MIDI output. Each is a subcommand — put it before the files:
+`midra` includes five built-in software synthesizers alongside native OS MIDI output. Each is a subcommand — put it before the files:
 
 | Synthesizer | Command | Sound |
 |-------------|---------|-------|
 | **FluidSynth** | `fluid <soundfont.sf2>` | General MIDI · SF2 SoundFont |
+| **GUS / Java** | `gus` | Gravis Ultrasound · Zero-dependency pure Java DSP |
 | **MT-32 / Munt** | `munt <rom-dir>` | Roland MT-32 · authentic DOS-era game music |
 | **OPL / libADLMIDI** | `opl` | AdLib / Sound Blaster FM · no install required |
 | **OPN2 / libOPNMIDI** | `opn` | Sega Genesis / PC-98 FM · no install required |
 
 ```bash
+# Gravis Ultrasound (no setup required — uses bundled Freepats)
+midra gus song.mid
+midra gus -p /path/to/eawpats/ song.mid   # or use your own patch set
+
 # FluidSynth (requires: brew install fluid-synth + a .sf2 file)
 midra fluid /path/to/soundfont.sf2 song.mid
 
