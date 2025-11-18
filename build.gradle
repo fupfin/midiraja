@@ -32,6 +32,44 @@ repositories {
     mavenCentral()
 }
 
+def freepatsDir = layout.buildDirectory.dir("freepats")
+
+task downloadFreepats(type: Exec) {
+    def destFile = file("${buildDir}/freepats.zip")
+    def url = "https://github.com/feross/freepats/archive/refs/heads/master.zip"
+    inputs.property("url", url)
+    outputs.file(destFile)
+    
+    commandLine 'curl', '-L', url, '-o', destFile.absolutePath
+    
+    onlyIf { !destFile.exists() }
+}
+
+task setupFreepats(type: Copy) {
+    dependsOn downloadFreepats
+    from zipTree(file("${buildDir}/freepats.zip"))
+    into freepatsDir
+    
+    // GitHub zip has a top-level folder 'freepats-master'
+    // We strip it by mapping everything inside it to the root of freepatsDir
+    eachFile { fcd ->
+        fcd.relativePath = new RelativePath(true, fcd.relativePath.segments.drop(1))
+    }
+    includeEmptyDirs = false
+
+    doLast {
+        def cfg = file("${freepatsDir.get().asFile}/freepats.cfg")
+        if (cfg.exists()) {
+            // Ensure timidity.cfg exists for our engine
+            def target = new File(cfg.parentFile, "timidity.cfg")
+            target.text = cfg.text
+        }
+    }
+}
+
+// Ensure freepats are ready before distribution
+installDist.dependsOn(setupFreepats)
+
 dependencies {
     implementation 'org.jspecify:jspecify:1.0.0'
     implementation 'info.picocli:picocli:4.7.5'

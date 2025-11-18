@@ -17,9 +17,21 @@ class Midra < Formula
     sha256 "REPLACE_ME_LINUX_X64_SHA"
   end
 
+  resource "freepats" do
+    url "https://github.com/feross/freepats/archive/refs/heads/master.zip"
+    sha256 "9fcb812dc1ef7743854093af6db25fdd90b0373f751c53a9929146a771f7f48d"
+  end
+
   def install
     # The tarball should contain the standalone 'midra' binary
     bin.install "midra"
+
+    # Install Freepats to pkgshare (e.g., /opt/homebrew/share/midra/freepats)
+    resource("freepats").stage do
+      (pkgshare/"freepats").install Dir["*"]
+      # Ensure timidity.cfg exists for our engine
+      cp (pkgshare/"freepats/freepats.cfg"), (pkgshare/"freepats/timidity.cfg")
+    end
 
     # Generate and install autocompletion scripts
     system "#{bin}/midra", "generate-completion"

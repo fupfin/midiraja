@@ -87,6 +87,11 @@ jobs:
           ./pkg-root/usr/bin/midra generate-completion > pkg-root/usr/share/zsh/vendor-completions/_midra
           ./pkg-root/usr/bin/midra generate-completion > pkg-root/usr/share/bash-completion/completions/midra
 
+          # Bundle Freepats
+          ./gradlew setupFreepats
+          mkdir -p pkg-root/usr/share/midiraja/freepats
+          cp -r build/freepats/* pkg-root/usr/share/midiraja/freepats/
+
           # Extract version from tag (remove 'v' prefix)
           VERSION=${GITHUB_REF_NAME#v}
           if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
