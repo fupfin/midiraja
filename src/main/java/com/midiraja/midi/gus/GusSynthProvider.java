@@ -30,6 +30,7 @@ public class GusSynthProvider implements SoftSynthProvider
     private final GusEngine engine;
     private final @Nullable GusBank bank;
     private final Set<Integer> failedPatches = Collections.synchronizedSet(new HashSet<>());
+    private final boolean oneBitMode;
     
     private @Nullable Thread renderThread;
     private volatile boolean running = false;
@@ -37,9 +38,15 @@ public class GusSynthProvider implements SoftSynthProvider
 
     public GusSynthProvider(NativeAudioEngine audio, @Nullable String patchDir)
     {
+        this(audio, patchDir, false);
+    }
+
+    public GusSynthProvider(NativeAudioEngine audio, @Nullable String patchDir, boolean oneBitMode)
+    {
         this.audio = audio;
         this.engine = new GusEngine(44100);
         this.bank = resolveBank(patchDir);
+        this.oneBitMode = oneBitMode;
     }
 
     private @Nullable GusBank resolveBank(@Nullable String userPath)
@@ -94,6 +101,9 @@ public class GusSynthProvider implements SoftSynthProvider
     public List<MidiPort> getOutputPorts()
     {
         String name = bank != null ? "GUS (" + bank.getPatchSetName() + ")" : "GUS (No patches found)";
+        if (oneBitMode) {
+            name += " [1-Bit RealSound]";
+        }
         return List.of(new MidiPort(0, "Midiraja Pure Java " + name));
     }
 
@@ -172,6 +182,9 @@ public class GusSynthProvider implements SoftSynthProvider
             short[] pcmBuffer = new short[framesToRender * 2];
             float[] left = new float[framesToRender];
             float[] right = new float[framesToRender];
+            
+            double errorAccumulatorLeft = 0.0;
+            double errorAccumulatorRight = 0.0;
 
             while (running)
             {
@@ -188,8 +201,22 @@ public class GusSynthProvider implements SoftSynthProvider
                 {
                     float l = Math.max(-1.0f, Math.min(1.0f, left[i]));
                     float r = Math.max(-1.0f, Math.min(1.0f, right[i]));
-                    pcmBuffer[i * 2] = (short) (l * 32767);
-                    pcmBuffer[i * 2 + 1] = (short) (r * 32767);
+                    
+                    if (oneBitMode) {
+                        // 1-Bit Quantization via First-Order Delta-Sigma Modulator
+                        double outL = (l + errorAccumulatorLeft) > 0.0 ? 1.0 : -1.0;
+                        errorAccumulatorLeft += (l - outL);
+                        
+                        double outR = (r + errorAccumulatorRight) > 0.0 ? 1.0 : -1.0;
+                        errorAccumulatorRight += (r - outR);
+                        
+                        // Output pure 1 or -1 (scaled to be safe for ears)
+                        pcmBuffer[i * 2] = (short) (outL * 8000);
+                        pcmBuffer[i * 2 + 1] = (short) (outR * 8000);
+                    } else {
+                        pcmBuffer[i * 2] = (short) (l * 32767);
+                        pcmBuffer[i * 2 + 1] = (short) (r * 32767);
+                    }
                 }
 
                 if (audio != null) audio.push(pcmBuffer);

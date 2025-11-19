@@ -33,6 +33,9 @@ public class GusCommand implements Callable<Integer> {
   @Option(names = {"-p", "--patch-dir"}, description = "Directory containing GUS .pat files and gus.cfg (or timidity.cfg)")
   private Optional<File> patchDir = Optional.empty();
 
+  @Option(names = {"--1bit"}, description = "Crush output to a 1-bit PC Speaker style PWM signal (RealSound effect).")
+  private boolean oneBitMode = false;
+
   @Parameters(paramLabel = "<file>",
               description = "MIDI files or M3U playlists to play")
   private List<File> files = new java.util.ArrayList<>();
@@ -40,16 +43,14 @@ public class GusCommand implements Callable<Integer> {
   @Override
   public Integer call() throws Exception
   {
-      System.err.println("[DEBUG] GusCommand.call() triggered!");
-      System.err.println("[DEBUG] Patch Dir: " + patchDir.map(File::getAbsolutePath).orElse("NONE"));
-      System.err.println("[DEBUG] Files to play: " + files.size());
+      // ... debug logs removed ...
 
       var p = java.util.Objects.requireNonNull(parent);
     String audioLib = AudioLibResolver.resolve();
     NativeAudioEngine audio = new NativeAudioEngine(audioLib);
     String dirPath = patchDir.map(File::getAbsolutePath).orElse(null);
 
-    var provider = new GusSynthProvider(audio, dirPath);
+    var provider = new GusSynthProvider(audio, dirPath, oneBitMode);
 
     var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(),
                                     p.isInTestMode());
