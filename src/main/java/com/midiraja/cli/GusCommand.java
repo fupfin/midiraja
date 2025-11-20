@@ -36,6 +36,9 @@ public class GusCommand implements Callable<Integer> {
   @Option(names = {"--bits"}, description = "Crush output to a specific bit depth (e.g. 1, 2, 4, 8) for a retro lo-fi effect. Defaults to 16 (original).", defaultValue = "16")
   private int bits;
 
+  @Option(names = {"--pwm"}, description = "Drive the output using a 1-bit Pulse Width Modulator (PC Speaker simulation).")
+  private boolean pwmMode = false;
+
   @Parameters(paramLabel = "<file>",
               description = "MIDI files or M3U playlists to play")
   private List<File> files = new java.util.ArrayList<>();
@@ -50,7 +53,7 @@ public class GusCommand implements Callable<Integer> {
     NativeAudioEngine audio = new NativeAudioEngine(audioLib);
     String dirPath = patchDir.map(File::getAbsolutePath).orElse(null);
 
-    var provider = new GusSynthProvider(audio, dirPath, bits);
+    var provider = new GusSynthProvider(audio, dirPath, bits, pwmMode);
 
     var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(),
                                     p.isInTestMode());

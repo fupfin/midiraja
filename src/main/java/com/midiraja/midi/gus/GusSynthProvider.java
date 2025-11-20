@@ -31,6 +31,7 @@ public class GusSynthProvider implements SoftSynthProvider
     private final @Nullable GusBank bank;
     private final Set<Integer> failedPatches = Collections.synchronizedSet(new HashSet<>());
     private final int bitDepth;
+    private final boolean pwmMode;
     
     private @Nullable Thread renderThread;
     private volatile boolean running = false;
@@ -38,15 +39,16 @@ public class GusSynthProvider implements SoftSynthProvider
 
     public GusSynthProvider(NativeAudioEngine audio, @Nullable String patchDir)
     {
-        this(audio, patchDir, 16);
+        this(audio, patchDir, 16, false);
     }
 
-    public GusSynthProvider(NativeAudioEngine audio, @Nullable String patchDir, int bitDepth)
+    public GusSynthProvider(NativeAudioEngine audio, @Nullable String patchDir, int bitDepth, boolean pwmMode)
     {
         this.audio = audio;
         this.engine = new GusEngine(44100);
         this.bank = resolveBank(patchDir);
         this.bitDepth = Math.max(1, Math.min(16, bitDepth));
+        this.pwmMode = pwmMode;
     }
 
     private @Nullable GusBank resolveBank(@Nullable String userPath)
@@ -101,10 +103,11 @@ public class GusSynthProvider implements SoftSynthProvider
     public List<MidiPort> getOutputPorts()
     {
         String name = bank != null ? "GUS (" + bank.getPatchSetName() + ")" : "GUS (No patches found)";
-        if (bitDepth == 1) {
-            name += " [1-Bit RealSound]";
-        } else if (bitDepth < 16) {
-            name += " [" + bitDepth + "-Bit Crunchy]";
+        if (bitDepth < 16) {
+            name += " [" + bitDepth + "-Bit Quantized]";
+        }
+        if (pwmMode) {
+            name += " [over 1-Bit PWM]";
         }
         return List.of(new MidiPort(0, "Midiraja Pure Java " + name));
     }
@@ -205,26 +208,38 @@ public class GusSynthProvider implements SoftSynthProvider
                     float l = Math.max(-1.0f, Math.min(1.0f, left[i]));
                     float r = Math.max(-1.0f, Math.min(1.0f, right[i]));
 
-                    if (bitDepth == 1) {
-                        // 1-Bit Quantization via First-Order Delta-Sigma Modulator
-                        double outL = (l + errorAccumulatorLeft) > 0.0 ? 1.0 : -1.0;
-                        errorAccumulatorLeft += (l - outL);
+                    // Stage 1: N-Bit Data Quantization (Bitcrusher)
+                    if (bitDepth < 16) {
+                        l = (float) (Math.round(l * qSteps) / qSteps);
+                        r = (float) (Math.round(r * qSteps) / qSteps);
+                    }
 
-                        double outR = (r + errorAccumulatorRight) > 0.0 ? 1.0 : -1.0;
-                        errorAccumulatorRight += (r - outR);
+                    // Stage 2: 1-Bit PWM Modulator (Hardware delivery simulation)
+                    if (pwmMode) {
+                        // Noise Gate: Stop toggling during absolute silence
+                        if (l == 0.0f && r == 0.0f && Math.abs(errorAccumulatorLeft) < 0.01 && Math.abs(errorAccumulatorRight) < 0.01) {
+                            errorAccumulatorLeft = 0.0;
+                            errorAccumulatorRight = 0.0;
+                            pcmBuffer[i * 2] = 0;
+                            pcmBuffer[i * 2 + 1] = 0;
+                            continue;
+                        }
 
-                        // Output pure 1 or -1 (scaled to be safe for ears)
-                        pcmBuffer[i * 2] = (short) (outL * 8000);
-                        pcmBuffer[i * 2 + 1] = (short) (outR * 8000);
-                    } else if (bitDepth < 16) {
-                        // N-Bit Direct Quantization (Zero-centered Bitcrusher)
-                        double qL = Math.round(l * qSteps) / qSteps;
-                        double qR = Math.round(r * qSteps) / qSteps;
+                        // Leaky accumulator + Dither
+                        double targetL = l + (errorAccumulatorLeft * 0.99) + ((Math.random() - 0.5) * 0.01);
+                        double targetR = r + (errorAccumulatorRight * 0.99) + ((Math.random() - 0.5) * 0.01);
+                        
+                        double outL = targetL > 0.0 ? 1.0 : -1.0;
+                        double outR = targetR > 0.0 ? 1.0 : -1.0;
+                        
+                        errorAccumulatorLeft = targetL - outL;
+                        errorAccumulatorRight = targetR - outR;
 
-                        pcmBuffer[i * 2] = (short) (qL * 32767);
-                        pcmBuffer[i * 2 + 1] = (short) (qR * 32767);
+                        // Output pure 1 or -1 (scaled to 12000 so it's not deafening)
+                        pcmBuffer[i * 2] = (short) (outL * 12000);
+                        pcmBuffer[i * 2 + 1] = (short) (outR * 12000);
                     } else {
-                        // 16-Bit Original (No quantization)
+                        // Standard DAC analog output
                         pcmBuffer[i * 2] = (short) (l * 32767);
                         pcmBuffer[i * 2 + 1] = (short) (r * 32767);
                     }
