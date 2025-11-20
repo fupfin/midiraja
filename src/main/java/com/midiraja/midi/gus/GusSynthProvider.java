@@ -187,8 +187,7 @@ public class GusSynthProvider implements SoftSynthProvider
             
             double errorAccumulatorLeft = 0.0;
             double errorAccumulatorRight = 0.0;
-            final double qSteps = Math.pow(2, bitDepth) - 1;
-
+            final double qSteps = Math.pow(2, bitDepth - 1) - 1; // Creates odd number of levels to perfectly preserve 0.0
 
             while (running)
             {
@@ -205,24 +204,23 @@ public class GusSynthProvider implements SoftSynthProvider
                 {
                     float l = Math.max(-1.0f, Math.min(1.0f, left[i]));
                     float r = Math.max(-1.0f, Math.min(1.0f, right[i]));
-                    
+
                     if (bitDepth == 1) {
                         // 1-Bit Quantization via First-Order Delta-Sigma Modulator
                         double outL = (l + errorAccumulatorLeft) > 0.0 ? 1.0 : -1.0;
                         errorAccumulatorLeft += (l - outL);
-                        
+
                         double outR = (r + errorAccumulatorRight) > 0.0 ? 1.0 : -1.0;
                         errorAccumulatorRight += (r - outR);
-                        
+
                         // Output pure 1 or -1 (scaled to be safe for ears)
                         pcmBuffer[i * 2] = (short) (outL * 8000);
                         pcmBuffer[i * 2 + 1] = (short) (outR * 8000);
                     } else if (bitDepth < 16) {
-                        // N-Bit Direct Quantization (Bitcrusher)
-                        
-                        double qL = Math.round((l + 1.0) / 2.0 * qSteps) / qSteps * 2.0 - 1.0;
-                        double qR = Math.round((r + 1.0) / 2.0 * qSteps) / qSteps * 2.0 - 1.0;
-                        
+                        // N-Bit Direct Quantization (Zero-centered Bitcrusher)
+                        double qL = Math.round(l * qSteps) / qSteps;
+                        double qR = Math.round(r * qSteps) / qSteps;
+
                         pcmBuffer[i * 2] = (short) (qL * 32767);
                         pcmBuffer[i * 2 + 1] = (short) (qR * 32767);
                     } else {
