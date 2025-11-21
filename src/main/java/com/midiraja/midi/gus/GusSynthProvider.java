@@ -53,25 +53,13 @@ public class GusSynthProvider implements SoftSynthProvider
 
     private @Nullable GusBank resolveBank(@Nullable String userPath)
     {
-        // 1. If user provided a path, use it.
-        if (userPath != null)
-        {
-            return new GusBank(Path.of(userPath));
-        }
+        if (userPath != null) return new GusBank(Path.of(userPath));
 
-        // 2. Search standard system paths
         String homeDir = System.getProperty("user.home");
         String[] baseDirs = {
-            ".",
-            homeDir + "/.midiraja",
-            homeDir + "/.config/midiraja",
-            homeDir + "/.local/share/midiraja",
-            "/opt/homebrew/share/midra",
-            "/opt/homebrew/share/midiraja",
-            "/usr/local/share/midra",
-            "/usr/local/share/midiraja",
-            "/usr/share/midra",
-            "/usr/share/midiraja"
+            ".", homeDir + "/.midiraja", homeDir + "/.config/midiraja", homeDir + "/.local/share/midiraja",
+            "/opt/homebrew/share/midra", "/opt/homebrew/share/midiraja", "/usr/local/share/midra",
+            "/usr/local/share/midiraja", "/usr/share/midra", "/usr/share/midiraja"
         };
         String[] patchSetNames = {"eawpats", "dgguspat", "freepats", "gus", ""};
 
@@ -87,15 +75,12 @@ public class GusSynthProvider implements SoftSynthProvider
             }
         }
 
-        // 3. Last fallback: Check JAR resources (embedded freepats)
-        // We look for 'gus/freepats/timidity.cfg' inside the classpath
         InputStream embeddedCfg = getClass().getResourceAsStream("/gus/freepats/timidity.cfg");
         if (embeddedCfg != null)
         {
             try { embeddedCfg.close(); } catch (IOException e) { /* ignored */ }
             return new GusBank(getClass().getClassLoader(), "gus/freepats");
         }
-
         return null;
     }
 
@@ -103,12 +88,8 @@ public class GusSynthProvider implements SoftSynthProvider
     public List<MidiPort> getOutputPorts()
     {
         String name = bank != null ? "GUS (" + bank.getPatchSetName() + ")" : "GUS (No patches found)";
-        if (bitDepth < 16) {
-            name += " [" + bitDepth + "-Bit Quantized]";
-        }
-        if (pwmMode) {
-            name += " [over 1-Bit PWM]";
-        }
+        if (bitDepth < 16) name += " [" + bitDepth + "-Bit Quantized]";
+        if (pwmMode) name += " [over 1-Bit PWM Speaker]";
         return List.of(new MidiPort(0, "Midiraja Pure Java " + name));
     }
 
@@ -120,64 +101,35 @@ public class GusSynthProvider implements SoftSynthProvider
             if (bank.getRootDir() != null)
             {
                 Path cfgPath = bank.getRootDir().resolve("gus.cfg");
-                if (!Files.exists(cfgPath))
-                {
-                    cfgPath = bank.getRootDir().resolve("timidity.cfg");
-                }
-                if (Files.exists(cfgPath))
-                {
-                    bank.loadConfig(Files.readString(cfgPath, StandardCharsets.US_ASCII));
-                }
+                if (!Files.exists(cfgPath)) cfgPath = bank.getRootDir().resolve("timidity.cfg");
+                if (Files.exists(cfgPath)) bank.loadConfig(Files.readString(cfgPath, StandardCharsets.US_ASCII));
             }
             else
             {
-                // Resources mode
                 try (InputStream in = getClass().getResourceAsStream("/gus/freepats/timidity.cfg"))
                 {
                     if (in != null) bank.loadConfig(in);
                 }
             }
-            
-            // Auto-load bank 0, program 0 (Piano) as fallback
             preloadPatch(0, 0);
         }
-        
-        if (audio != null)
-        {
-            audio.init(44100, 2, 4096);
-            startRenderThread();
-        }
+        if (audio != null) { audio.init(44100, 2, 4096); startRenderThread(); }
     }
 
     private void preloadPatch(int bankNum, int program)
     {
         int engineId = (bankNum == 128) ? program + 128 : program;
         if (bank == null || engine.hasPatch(engineId)) return;
-        
         bank.getPatchMapping(bankNum, program).ifPresent(path -> {
             try (InputStream in = bank.openPatchStream(path).orElse(null))
             {
-                if (in != null)
-                {
-                    engine.loadPatch(engineId, GusPatchReader.read(in));
-                }
+                if (in != null) engine.loadPatch(engineId, GusPatchReader.read(in));
             }
             catch (Exception e) { /* ignored */ }
         });
     }
 
-    @Override
-    public void loadSoundbank(String path) throws Exception
-    {
-        if (bank != null)
-        {
-            File f = new File(path);
-            if (f.isFile())
-            {
-                try (InputStream in = new FileInputStream(f)) { bank.loadConfig(in); }
-            }
-        }
-    }
+    @Override public void loadSoundbank(String path) throws Exception { /* not used directly */ }
 
     private void startRenderThread()
     {
@@ -188,9 +140,15 @@ public class GusSynthProvider implements SoftSynthProvider
             float[] left = new float[framesToRender];
             float[] right = new float[framesToRender];
             
-            double errorAccumulatorLeft = 0.0;
-            double errorAccumulatorRight = 0.0;
-            final double qSteps = Math.pow(2, bitDepth - 1) - 1; // Creates odd number of levels to perfectly preserve 0.0
+            double carrierPhase = -1.0;
+            final double carrierStep = (18600.0 / 44100.0) * 2.0; // Original RealSound PIT timer carrier
+            
+            double lp1L = 0, lp1R = 0, lp2L = 0, lp2R = 0;
+            double hpL = 0, hpR = 0, prevL = 0, prevR = 0;
+            
+            final double lpAlpha = 0.20; // Warm treble cut (Cuts PWM carrier completely)
+            final double hpAlpha = 0.98; // Gentle bass cut (Removes deep sub-bass)
+            final double qSteps = Math.pow(2, bitDepth - 1) - 1;
 
             while (running)
             {
@@ -205,46 +163,59 @@ public class GusSynthProvider implements SoftSynthProvider
 
                 for (int i = 0; i < framesToRender; i++)
                 {
-                    float l = Math.max(-1.0f, Math.min(1.0f, left[i]));
-                    float r = Math.max(-1.0f, Math.min(1.0f, right[i]));
+                    double l = Math.max(-1.0, Math.min(1.0, left[i]));
+                    double r = Math.max(-1.0, Math.min(1.0, right[i]));
 
-                    // Stage 1: N-Bit Data Quantization (Bitcrusher)
-                    if (bitDepth < 16) {
-                        l = (float) (Math.round(l * qSteps) / qSteps);
-                        r = (float) (Math.round(r * qSteps) / qSteps);
+                    // Stage 1: Quantization (Zero-centered)
+                    if (bitDepth < 16)
+                    {
+                        l = Math.round(l * qSteps) / qSteps;
+                        r = Math.round(r * qSteps) / qSteps;
                     }
 
-                    // Stage 2: 1-Bit PWM Modulator (Hardware delivery simulation)
-                    if (pwmMode) {
-                        // Noise Gate: Stop toggling during absolute silence
-                        if (l == 0.0f && r == 0.0f && Math.abs(errorAccumulatorLeft) < 0.01 && Math.abs(errorAccumulatorRight) < 0.01) {
-                            errorAccumulatorLeft = 0.0;
-                            errorAccumulatorRight = 0.0;
-                            pcmBuffer[i * 2] = 0;
-                            pcmBuffer[i * 2 + 1] = 0;
-                            continue;
+                    // Stage 2: Hardware PWM & Acoustic Filter
+                    if (pwmMode)
+                    {
+                        // 8x Oversampling to prevent Nyquist Aliasing (Fold-over metallic noise)
+                        // A digital 18.6kHz square wave at 44.1kHz sample rate causes extreme harmonic aliasing.
+                        // By simulating the PWM at 352.8kHz (44100 * 8) internally, we eliminate the in-band noise.
+                        double sumL = 0.0;
+                        double sumR = 0.0;
+                        
+                        for (int over = 0; over < 8; over++) {
+                            carrierPhase += carrierStep / 8.0;
+                            if (carrierPhase > 1.0) carrierPhase -= 2.0;
+                            sumL += (l > carrierPhase ? 1.0 : -1.0);
+                            sumR += (r > carrierPhase ? 1.0 : -1.0);
+                        }
+                        
+                        double bitL = sumL / 8.0;
+                        double bitR = sumR / 8.0;
+
+                        if (l == 0.0 && r == 0.0) {
+                            bitL = 0; bitR = 0;
+                            lp1L *= 0.9; lp1R *= 0.9; lp2L *= 0.9; lp2R *= 0.9;
+                            hpL = 0; hpR = 0;
                         }
 
-                        // Leaky accumulator + Dither
-                        double targetL = l + (errorAccumulatorLeft * 0.99) + ((Math.random() - 0.5) * 0.01);
-                        double targetR = r + (errorAccumulatorRight * 0.99) + ((Math.random() - 0.5) * 0.01);
-                        
-                        double outL = targetL > 0.0 ? 1.0 : -1.0;
-                        double outR = targetR > 0.0 ? 1.0 : -1.0;
-                        
-                        errorAccumulatorLeft = targetL - outL;
-                        errorAccumulatorRight = targetR - outR;
+                        // 2-Stage Low-Pass (Simulates physical cone inertia)
+                        lp1L += lpAlpha * (bitL - lp1L);
+                        lp1R += lpAlpha * (bitR - lp1R);
+                        lp2L += lpAlpha * (lp1L - lp2L);
+                        lp2R += lpAlpha * (lp1R - lp2R);
 
-                        // Output pure 1 or -1 (scaled to 12000 so it's not deafening)
-                        pcmBuffer[i * 2] = (short) (outL * 12000);
-                        pcmBuffer[i * 2 + 1] = (short) (outR * 12000);
-                    } else {
-                        // Standard DAC analog output
-                        pcmBuffer[i * 2] = (short) (l * 32767);
-                        pcmBuffer[i * 2 + 1] = (short) (r * 32767);
+                        // 1-Stage High-Pass (Simulates small speaker diameter)
+                        hpL = hpAlpha * (hpL + lp2L - prevL);
+                        hpR = hpAlpha * (hpR + lp2R - prevR);
+                        prevL = lp2L; prevR = lp2R;
+
+                        // Clean Output (Scale back up slightly due to filter attenuation)
+                        l = Math.max(-1.0, Math.min(1.0, hpL * 1.5));
+                        r = Math.max(-1.0, Math.min(1.0, hpR * 1.5));
                     }
+                    pcmBuffer[i * 2] = (short) (l * 32767);
+                    pcmBuffer[i * 2 + 1] = (short) (r * 32767);
                 }
-
                 if (audio != null) audio.push(pcmBuffer);
             }
         });
@@ -282,7 +253,6 @@ public class GusSynthProvider implements SoftSynthProvider
                 }
             }
         }
-
         if (audio == null) return;
         renderPaused = true;
         try { Thread.sleep(20); } catch (InterruptedException ignored) {}
@@ -290,8 +260,7 @@ public class GusSynthProvider implements SoftSynthProvider
         engine.getActiveVoices().clear();
     }
 
-    @Override
-    public void onPlaybackStarted() { renderPaused = false; }
+    @Override public void onPlaybackStarted() { renderPaused = false; }
 
     @Override
     public void sendMessage(byte[] data)
@@ -322,7 +291,6 @@ public class GusSynthProvider implements SoftSynthProvider
     {
         int engineId = (bankNum == 128) ? program + 128 : program;
         if (engine.hasPatch(engineId) || failedPatches.contains(engineId)) return;
-        
         if (bank != null)
         {
             bank.getPatchMapping(bankNum, program).ifPresentOrElse(path -> {
@@ -336,8 +304,7 @@ public class GusSynthProvider implements SoftSynthProvider
         }
     }
 
-    @Override
-    public void panic() { engine.getActiveVoices().clear(); if (audio != null) audio.flush(); }
+    @Override public void panic() { engine.getActiveVoices().clear(); if (audio != null) audio.flush(); }
 
     @SuppressWarnings("EmptyCatch")
     @Override
