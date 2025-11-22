@@ -184,6 +184,14 @@ public class GusSynthProvider implements SoftSynthProvider
                         dac1R += dacAlpha * (r - dac1R);
                         dac2L += dacAlpha * (dac1L - dac2L);
                         dac2R += dacAlpha * (dac1R - dac2R);
+                        
+                        // Force flush to absolute zero to prevent floating-point asymptotes
+                        // from keeping the Noise Gate open forever.
+                        if (Math.abs(dac2L) < 1e-5 && Math.abs(dac2R) < 1e-5) {
+                            dac1L = 0; dac2L = 0;
+                            dac1R = 0; dac2R = 0;
+                        }
+                        
                         l = dac2L;
                         r = dac2R;
                     }
