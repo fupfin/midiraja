@@ -146,6 +146,10 @@ public class GusSynthProvider implements SoftSynthProvider
             double lp1L = 0, lp1R = 0, lp2L = 0, lp2R = 0;
             double hpL = 0, hpR = 0, prevL = 0, prevR = 0;
             
+            // Inter-stage DAC Reconstruction Filter states
+            double dac1L = 0, dac1R = 0, dac2L = 0, dac2R = 0;
+            final double dacAlpha = 0.45;
+            
             final double lpAlpha = 0.20; // Warm treble cut (Cuts PWM carrier completely)
             final double hpAlpha = 0.98; // Gentle bass cut (Removes deep sub-bass)
             final double qSteps = Math.pow(2, bitDepth - 1) - 1;
@@ -171,6 +175,17 @@ public class GusSynthProvider implements SoftSynthProvider
                     {
                         l = Math.round(l * qSteps) / qSteps;
                         r = Math.round(r * qSteps) / qSteps;
+                        
+                        // Stage 1.5: Inter-stage DAC Reconstruction Filter
+                        // We must smooth the harsh staircases before they hit the PWM carrier,
+                        // otherwise the sharp edges interact with the PWM carrier causing
+                        // severe intermodulation distortion (Aliasing Sizzle).
+                        dac1L += dacAlpha * (l - dac1L);
+                        dac1R += dacAlpha * (r - dac1R);
+                        dac2L += dacAlpha * (dac1L - dac2L);
+                        dac2R += dacAlpha * (dac1R - dac2R);
+                        l = dac2L;
+                        r = dac2R;
                     }
 
                     // Stage 2: Hardware Delivery Simulation (PWM or Standard DAC)
@@ -210,22 +225,7 @@ public class GusSynthProvider implements SoftSynthProvider
                         l = Math.max(-1.0, Math.min(1.0, hpL * 1.5));
                         r = Math.max(-1.0, Math.min(1.0, hpR * 1.5));
                     }
-                    else if (bitDepth < 16)
-                    {
-                        // Classic "Amiga-style" Analog DAC Reconstruction Filter.
-                        // Smooths out the harsh digital steps of low-bit audio to prevent
-                        // high-frequency metallic aliasing (sizzle).
-                        // Uses a brighter cutoff (lpAlpha=0.45) than PWM to keep music clear.
-                        final double dacAlpha = 0.45; 
-                        
-                        lp1L += dacAlpha * (l - lp1L);
-                        lp1R += dacAlpha * (r - lp1R);
-                        lp2L += dacAlpha * (lp1L - lp2L);
-                        lp2R += dacAlpha * (lp1R - lp2R);
-                        
-                        l = lp2L;
-                        r = lp2R;
-                    }
+                    // (DAC Filtering is now handled in Stage 1.5 for all modes)
                     
                     pcmBuffer[i * 2] = (short) (l * 32767);
                     pcmBuffer[i * 2 + 1] = (short) (r * 32767);
