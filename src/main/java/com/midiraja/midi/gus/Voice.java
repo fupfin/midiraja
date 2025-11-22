@@ -18,8 +18,9 @@ public class Voice {
 
   // Envelope state
   private boolean releasing = false;
-  private double currentVolume = 1.0;
-  // Decay by a small amount per frame to create a ~0.1s release tail at 44.1kHz
+  private double targetVolume = 1.0;
+  private double currentVolume = 0.0; // Start at 0 to prevent clicking
+  private final double attackRate = 0.005; // Fast ~5ms attack
   private final double releaseDecayRate = 0.0005;
 
   public Voice(GusPatch patch, GusPatch.Sample sample, int note, int velocity, double playbackRatio)
@@ -30,7 +31,27 @@ public class Voice {
       this.velocity = velocity;
       this.playbackRatio = playbackRatio;
       // Scale down individual voice volume to prevent master bus clipping
-      this.currentVolume = (velocity / 127.0) * 0.15;
+      this.targetVolume = (velocity / 127.0) * 0.15;
+  }
+
+  private float readSample(int index) {
+      if (index < 0 || index >= sample.length()) return 0.0f;
+      if (sample.is16Bit()) {
+          int bytePos = index * 2;
+          if (bytePos + 1 < sample.pcmData().byteSize()) {
+              short val = sample.pcmData().get(java.lang.foreign.ValueLayout.JAVA_SHORT_UNALIGNED, bytePos);
+              if (sample.isUnsigned()) val = (short) ((val & 0xFFFF) - 32768);
+              return val / 32768.0f;
+          }
+      } else {
+          int bytePos = index;
+          if (bytePos < sample.pcmData().byteSize()) {
+              byte val = sample.pcmData().get(java.lang.foreign.ValueLayout.JAVA_BYTE, bytePos);
+              if (sample.isUnsigned()) val = (byte) ((val & 0xFF) - 128);
+              return val / 128.0f;
+          }
+      }
+      return 0.0f;
   }
   public void render(float[] left, float[] right, int frames,
                      int outputSampleRate) {
@@ -56,30 +77,33 @@ public class Voice {
         break;
       }
 
-      // Simple Nearest-Neighbor interpolation
-      int intPos = (int)currentPosition;
-      float pcmFloat;
-
-      if (sample.is16Bit()) {
-        // 16-bit GUS samples are Little-Endian
-        int bytePos = intPos * 2;
-        if (bytePos + 1 < sample.pcmData().byteSize()) {
-          short val = sample.pcmData().get(
-              java.lang.foreign.ValueLayout.JAVA_SHORT_UNALIGNED, bytePos);
-          if (sample.isUnsigned()) {
-            val = (short)((val & 0xFFFF) - 32768);
-          }
-          pcmFloat = val / 32768.0f;
-        } else {
-          pcmFloat = 0.0f;
+      // Linear Interpolation
+      int intPos1 = (int) currentPosition;
+      int intPos2 = intPos1 + 1;
+      
+      if (loops && intPos2 >= sample.loopEnd()) {
+          intPos2 = sample.loopStart() + (intPos2 - sample.loopEnd());
+      } else if (intPos2 >= sample.length()) {
+          intPos2 = intPos1; // Clamp to end
+      }
+      
+      double frac = currentPosition - intPos1;
+      float pcm1 = readSample(intPos1);
+      float pcm2 = readSample(intPos2);
+      float pcmFloat = (float) (pcm1 + frac * (pcm2 - pcm1));
+      // Process Envelope
+      if (releasing) {
+        currentVolume -= releaseDecayRate;
+        if (currentVolume <= 0.0) {
+          currentVolume = 0.0;
+          active = false;
+          break;
         }
       } else {
-        byte val = sample.pcmData().get(java.lang.foreign.ValueLayout.JAVA_BYTE,
-                                        intPos);
-        if (sample.isUnsigned()) {
-          val = (byte)((val & 0xFF) - 128);
+        if (currentVolume < targetVolume) {
+            currentVolume += attackRate;
+            if (currentVolume > targetVolume) currentVolume = targetVolume;
         }
-        pcmFloat = val / 128.0f;
       }
 
       // Apply volume envelope (currentVolume is 0.0 ~ 1.0)
@@ -91,16 +115,6 @@ public class Voice {
 
       // Advance playhead
       currentPosition += speed;
-
-      // Process release envelope
-      if (releasing) {
-        currentVolume -= releaseDecayRate;
-        if (currentVolume <= 0.0) {
-          currentVolume = 0.0;
-          active = false;
-          break;
-        }
-      }
     }
   }
 

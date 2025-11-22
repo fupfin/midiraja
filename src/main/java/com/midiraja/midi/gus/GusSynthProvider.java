@@ -166,31 +166,29 @@ public class GusSynthProvider implements SoftSynthProvider
                     double l = Math.max(-1.0, Math.min(1.0, left[i]));
                     double r = Math.max(-1.0, Math.min(1.0, right[i]));
 
-                    // Stage 1: Quantization (Zero-centered)
+                    // Stage 1: Quantization (Zero-centered Bitcrusher)
                     if (bitDepth < 16)
                     {
                         l = Math.round(l * qSteps) / qSteps;
                         r = Math.round(r * qSteps) / qSteps;
                     }
 
-                    // Stage 2: Hardware PWM & Acoustic Filter
+                    // Stage 2: Hardware Delivery Simulation (PWM or Standard DAC)
                     if (pwmMode)
                     {
-                        // 8x Oversampling to prevent Nyquist Aliasing (Fold-over metallic noise)
-                        // A digital 18.6kHz square wave at 44.1kHz sample rate causes extreme harmonic aliasing.
-                        // By simulating the PWM at 352.8kHz (44100 * 8) internally, we eliminate the in-band noise.
+                        // 32x Oversampling with Boxcar FIR Filter to eliminate Nyquist Aliasing.
                         double sumL = 0.0;
                         double sumR = 0.0;
                         
-                        for (int over = 0; over < 8; over++) {
-                            carrierPhase += carrierStep / 8.0;
+                        for (int over = 0; over < 32; over++) {
+                            carrierPhase += carrierStep / 32.0;
                             if (carrierPhase > 1.0) carrierPhase -= 2.0;
                             sumL += (l > carrierPhase ? 1.0 : -1.0);
                             sumR += (r > carrierPhase ? 1.0 : -1.0);
                         }
                         
-                        double bitL = sumL / 8.0;
-                        double bitR = sumR / 8.0;
+                        double bitL = sumL / 32.0;
+                        double bitR = sumR / 32.0;
 
                         if (l == 0.0 && r == 0.0) {
                             bitL = 0; bitR = 0;
@@ -209,10 +207,26 @@ public class GusSynthProvider implements SoftSynthProvider
                         hpR = hpAlpha * (hpR + lp2R - prevR);
                         prevL = lp2L; prevR = lp2R;
 
-                        // Clean Output (Scale back up slightly due to filter attenuation)
                         l = Math.max(-1.0, Math.min(1.0, hpL * 1.5));
                         r = Math.max(-1.0, Math.min(1.0, hpR * 1.5));
                     }
+                    else if (bitDepth < 16)
+                    {
+                        // Classic "Amiga-style" Analog DAC Reconstruction Filter.
+                        // Smooths out the harsh digital steps of low-bit audio to prevent
+                        // high-frequency metallic aliasing (sizzle).
+                        // Uses a brighter cutoff (lpAlpha=0.45) than PWM to keep music clear.
+                        final double dacAlpha = 0.45; 
+                        
+                        lp1L += dacAlpha * (l - lp1L);
+                        lp1R += dacAlpha * (r - lp1R);
+                        lp2L += dacAlpha * (lp1L - lp2L);
+                        lp2R += dacAlpha * (lp1R - lp2R);
+                        
+                        l = lp2L;
+                        r = lp2R;
+                    }
+                    
                     pcmBuffer[i * 2] = (short) (l * 32767);
                     pcmBuffer[i * 2 + 1] = (short) (r * 32767);
                 }
