@@ -58,14 +58,14 @@ $$ 93.0 \text{ kHz} \rightarrow 93.0 - (44.1 \times 2) = \mathbf{4.8 \text{ kHz}
 
 이러한 수학적 한계를 극복하기 위해, 3단계(3-Stage)로 분리된 오디오 렌더링 파이프라인을 최종 설계했습니다.
 
-### Stage 1: Noise-Shaped Bitcrusher (6-bit Quantization)
+### Stage 1: Noise-Shaped Bitcrusher (N-bit Quantization)
 단순 절삭(Truncation) 방식의 양자화는 심각한 고조파 왜곡(Harmonic Distortion)을 유발합니다. 이를 막기 위해 **First-order Leaky Delta-Sigma**를 양자화 단계에만 독립적으로 적용했습니다.
 $$ \text{target} = x[n] + (E_{q}[n-1] \times 0.95) $$
 $$ y_q[n] = \frac{\text{round}(\text{target} \times Q_{steps})}{Q_{steps}} \quad \text{where} \quad Q_{steps} = 2^{N-1} - 1 $$
-이 과정은 끔찍한 쇳소리를 부드러운 아날로그 테이프 히스(Hiss) 노이즈로 변환합니다.
+이 과정은 사용자가 설정한 $N$ 비트 해상도(예: 6비트, 8비트)에서 발생하는 끔찍한 쇳소리를 부드러운 아날로그 테이프 히스(Hiss) 노이즈로 변환합니다.
 
 ### Stage 1.5: Inter-stage DAC Reconstruction Filter
-6비트 양자화로 인해 발생한 뾰족한 '계단(Staircase)' 파형이 후단의 PWM 톱니파와 부딪히면, 두 비선형 시스템이 곱해지면서 **상호변조 왜곡(Intermodulation Distortion)**을 일으킵니다.
+낮은 비트 양자화로 인해 발생한 뾰족한 '계단(Staircase)' 파형이 후단의 PWM 톱니파와 부딪히면, 두 비선형 시스템이 곱해지면서 **상호변조 왜곡(Intermodulation Distortion)**을 일으킵니다.
 이를 막기 위해, 고전적인 Amiga/SNES 스타일의 **2-pole IIR Low-Pass Filter**($\alpha = 0.45$)를 중간에 삽입하여 계단 모서리를 부드러운 아날로그 곡선으로 재건(Reconstruction)합니다.
 
 ### Stage 2 & 3: 32x Oversampled PWM & Virtual Acoustic LPF
