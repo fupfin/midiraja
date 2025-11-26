@@ -106,6 +106,8 @@ While a song is playing, you don't need to restart the app to make changes. Just
 ```bash
 # Gravis Ultrasound (no setup required — uses bundled Freepats)
 midra gus song.mid
+midra gus --bits 6 song.mid               # 6-bit Bitcrusher effect
+midra gus --realsound song.mid            # 1980s RealSound PC Speaker simulation
 midra gus -p /path/to/eawpats/ song.mid   # or use your own patch set
 
 # FluidSynth (requires: brew install fluid-synth + a .sf2 file)

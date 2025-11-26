@@ -38,6 +38,9 @@ public class GusCommand implements Callable<Integer> {
 
   @Option(names = {"--pwm"}, description = "Drive the output using a 1-bit Pulse Width Modulator (PC Speaker simulation).")
   private boolean pwmMode = false;
+  
+  @Option(names = {"--realsound"}, description = "Authentic 1980s PC Speaker macro (Automatically applies --bits 6 and --pwm).")
+  private boolean realSound = false;
 
   @Parameters(paramLabel = "<file>",
               description = "MIDI files or M3U playlists to play")
@@ -53,7 +56,9 @@ public class GusCommand implements Callable<Integer> {
     NativeAudioEngine audio = new NativeAudioEngine(audioLib);
     String dirPath = patchDir.map(File::getAbsolutePath).orElse(null);
 
-    var provider = new GusSynthProvider(audio, dirPath, bits, pwmMode);
+    int finalBits = realSound ? 6 : bits;
+    boolean finalPwm = realSound || pwmMode;
+    var provider = new GusSynthProvider(audio, dirPath, finalBits, finalPwm);
 
     var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(),
                                     p.isInTestMode());

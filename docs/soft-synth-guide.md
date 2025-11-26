@@ -128,18 +128,45 @@ Some highly recommended, historically accurate patch sets:
 - **Freepats** — A completely free and open-source patch set. Midiraja uses the definitive 2006-02-19 release, as it is the most complete final collection of instruments ever produced in the legacy GUS .pat format before the project transitioned to modern SoundFonts.
 - **Original Gravis Patches** — The original 1992 files bundled with the sound card.
 
-### Installation
+### Installation & Zero-Dependency
 
-No installation required! The GUS DSP engine is built directly into `midra`. Just download a patch set (like `eawpats`) and point the player to it.
+No installation required! The GUS DSP engine is built directly into `midra`. 
+
+Furthermore, `midra` is **zero-dependency** by default. It comes bundled with the **Freepats (2006-02-19)** instrument collection. If you don't provide a patch directory, it will automatically use the bundled patches to play MIDI files immediately.
 
 ### Usage
 
 ```bash
-# Point to a directory containing gus.cfg or timidity.cfg and .pat files
-midra gus -p ~/Downloads/eawpats/ song.mid
+# Play using bundled Freepats (Default)
+midra gus song.mid
 
-# The synthesizer seamlessly handles drum kits, pitch shifting, and multi-samples!
-midra gus -p ~/.timidity/ final_fantasy.mid
+# Point to an external patch set (e.g. Eawpats or Original Gravis patches)
+midra gus -p ~/Downloads/eawpats/ song.mid
+```
+
+### Retro Lo-Fi & RealSound Effects
+
+The `midra gus` engine includes advanced DSP filters to simulate various historical audio delivery methods:
+
+#### Bitcrushing (`--bits <N>`)
+Crush the audio resolution to $N$ bits (1--15). Unlike simple bitcrushers, `midra` uses **First-Order Delta-Sigma Noise Shaping** and an **Amiga-style DAC Reconstruction Filter**. This preserves the musicality and reverb tails of the music while adding that signature warm, harmonic grit of a vintage 8-bit or 12-bit sampler.
+
+```bash
+# 6-bit "Amiga/SNES" style sound
+midra gus --bits 6 song.mid
+```
+
+#### RealSound Simulation (`--pwm`)
+Simulates the legendary **Access Software RealSound** technology. It converts the audio into a 1-bit high-frequency switching signal (Pulse Width Modulation) to mimic the IBM PC internal speaker.
+
+To achieve audiophile-grade historical accuracy, `midra` uses:
+- **32x Oversampling (1.41 MHz):** Eliminates digital aliasing noise.
+- **18.6 kHz True Carrier:** Mathematically identical to the Intel 8253 PIT timer.
+- **Virtual Paper Speaker Filter:** A steep band-pass filter that emulates the physical muffled, tinny, and distorted acoustic properties of a 2.25-inch paper cone speaker.
+
+```bash
+# True 1980s PC Speaker "RealSound" Experience
+midra gus --realsound song.mid
 ```
 
 ---
