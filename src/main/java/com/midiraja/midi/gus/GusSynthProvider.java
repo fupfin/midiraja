@@ -7,9 +7,15 @@
 
 package com.midiraja.midi.gus;
 
+import com.midiraja.dsp.AudioProcessor;
+import com.midiraja.dsp.AutoFlushGate;
+import com.midiraja.dsp.NoiseShapedQuantizer;
+import com.midiraja.dsp.PwmAcousticSimulator;
+import com.midiraja.dsp.ReconstructionFilter;
 import com.midiraja.midi.MidiPort;
 import com.midiraja.midi.NativeAudioEngine;
 import com.midiraja.midi.SoftSynthProvider;
+import java.util.ArrayList;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -32,6 +38,7 @@ public class GusSynthProvider implements SoftSynthProvider
     private final Set<Integer> failedPatches = Collections.synchronizedSet(new HashSet<>());
     private final int bitDepth;
     private final boolean pwmMode;
+    private final List<AudioProcessor> dspPipeline = new ArrayList<>();
     
     private @Nullable Thread renderThread;
     private volatile boolean running = false;
@@ -49,6 +56,17 @@ public class GusSynthProvider implements SoftSynthProvider
         this.bank = resolveBank(patchDir);
         this.bitDepth = Math.max(1, Math.min(16, bitDepth));
         this.pwmMode = pwmMode;
+        
+        // Assemble the modular DSP pipeline
+        if (this.bitDepth < 16) {
+            dspPipeline.add(new NoiseShapedQuantizer(this.bitDepth));
+            dspPipeline.add(new ReconstructionFilter(0.45));
+            dspPipeline.add(new AutoFlushGate(dspPipeline));
+        }
+        
+        if (this.pwmMode) {
+            dspPipeline.add(new PwmAcousticSimulator(44100));
+        }
     }
 
     private @Nullable GusBank resolveBank(@Nullable String userPath)
