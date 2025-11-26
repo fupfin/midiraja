@@ -105,10 +105,16 @@ public class GusSynthProvider implements SoftSynthProvider
     @Override
     public List<MidiPort> getOutputPorts()
     {
-        String name = bank != null ? "GUS (" + bank.getPatchSetName() + ")" : "GUS (No patches found)";
-        if (bitDepth < 16) name += " [" + bitDepth + "-Bit Quantized]";
-        if (pwmMode) name += " [over 1-Bit PWM Speaker]";
-        return List.of(new MidiPort(0, "Midiraja Pure Java " + name));
+        String name = bank != null ? "GUS (" + bank.getPatchSetName() + ")" : "GUS (No patches)";
+        
+        if (bitDepth == 6 && pwmMode) {
+            name += " [RealSound]";
+        } else {
+            if (bitDepth < 16) name += " [" + bitDepth + "-Bit]";
+            if (pwmMode) name += " [PWM]";
+        }
+        
+        return List.of(new MidiPort(0, name));
     }
 
     @Override
