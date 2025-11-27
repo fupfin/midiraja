@@ -29,7 +29,7 @@ import java.util.Optional;
     footer = {"",
         "Experience the extreme limitations of 1980s computer audio.",
         "Modes:",
-        "  arpeggio : Rapidly cycles through notes to simulate chords (Classic 8-bit style).",
+        "  sixteentet : 8-Core Electric Duet simulation (16-note polyphony with Ring Modulation). to simulate chords (Classic 8-bit style).",
         "  pwm      : Uses 1-bit Pulse Width Modulation to forcefully mix multiple channels."})
 public class BeepCommand implements Callable<Integer>
 {
@@ -37,9 +37,9 @@ public class BeepCommand implements Callable<Integer>
 
     @Mixin @org.jspecify.annotations.Nullable private CommonOptions common;
 
-    @Option(names = {"-m", "--mode"}, defaultValue = "arpeggio",
-        description = "The 1-bit mixing mode: 'arpeggio' (default) or 'pwm'.")
-    private String mode = "arpeggio";
+    @Option(names = {"-m", "--mode"}, defaultValue = "sixteentet",
+        description = "The 1-bit mixing mode: 'sixteentet' (default) or 'pwm'.")
+    private String mode = "sixteentet";
 
     @Parameters(paramLabel = "FILE", description = "One or more MIDI files to play")
     private List<File> files = new ArrayList<>();

@@ -41,7 +41,7 @@ public class BeepSynthProvider implements SoftSynthProvider
     // 1-bit Delta-Sigma state
     private double errorAccumulator = 0.0;
 
-    // 8-Core "Electric Duet" Apple II cluster
+    // 8-Core "Electric Sixteentet" Apple II cluster
     // Each virtual Apple II uses XOR Ring Modulation to play 2 notes simultaneously on a 1-bit pin.
     private static final int NUM_SPEAKERS = 8;
     private static final int MAX_NOTES_PER_SPEAKER = 2;
@@ -50,7 +50,7 @@ public class BeepSynthProvider implements SoftSynthProvider
         double phase1 = 0.0;
         double phase2 = 0.0;
         
-        // Duty cycle creates the unique "Timbre" of Electric Duet
+        // Duty cycle creates the unique "Timbre" of Electric Sixteentet
         // A slight offset from 0.5 (perfect square) adds harmonic richness
         double duty1 = 0.3;
         double duty2 = 0.7;
@@ -107,7 +107,7 @@ public class BeepSynthProvider implements SoftSynthProvider
     @Override
     public List<MidiPort> getOutputPorts()
     {
-        return List.of(new MidiPort(0, "Midiraja 1-Bit " + (mode.equals("pwm") ? "PWM" : "Electric Duet")));
+        return List.of(new MidiPort(0, "Midiraja 1-Bit " + (mode.equals("pwm") ? "PWM" : "Electric Sixteentet")));
     }
 
     @Override
