@@ -2,17 +2,9 @@
 
 This document outlines the roadmap for future enhancements to the Midiraja project.
 
-## 1. 🎹 Alternative Soft Synth Integrations via FFM
-**Goal:** Expand the successful FFM dynamic linking architecture beyond FluidSynth to support different MIDI standards and retro gaming aesthetics.
-**Ideas to Explore:**
-- **Munt (libmunt):** The ultimate Roland MT-32/CM-32L emulator. Essential for correctly playing early 90s DOS game MIDI files that sound incorrect on General MIDI/FluidSynth. Requires investigating its C API or writing a small C wrapper since Munt is primarily C++. (Target: `--munt /path/to/roms/`)
-- **Pure Java Gravis Ultrasound (GUS) Synthesizer (Gravis Ultrasound `.pat` support):** Instead of using FFM to wrap the C `libTiMidity` (which does not support realtime MIDI event injection), we will undertake a clean-room Java port of the core GUS DSP engine. This aligns perfectly with our Zero-Dependency vision and allows full integration with our realtime `PlaybackEngine` and TUI.
-    - *Phase 1:* Implement `GusPatchReader` to parse `.pat` file headers, envelopes, and 8-bit/16-bit PCM sample data into Java records.
-    - *Phase 2:* Implement `GusEngine` to handle frequency scaling (resampling), envelope application, and software audio mixing.
-    - *Phase 3:* Integrate into `SoftSynthProvider` to allow playing MIDI files with authentic 90s GUS patch sets.
-    - *Methodology:* Test-Driven Development (TDD) at the class level. Write the parsing tests first using dummy or minimal `.pat` structures, then implement the parser, refactoring heavily to leverage modern Java features (Records, MemorySegment, var) and eliminate technical debt.
-- **OPL3 / AdLib Emulator:** FFM bindings for a Yamaha OPL3 FM synthesis emulator (like Nuked OPL3). Allows playing MIDI files using the iconic, gritty FM synth sound of early Sound Blaster cards without needing any external soundbank files. (Target: `--opl3`)
-- **TinySoundFont (TSF):** A single-header C library for SoundFont rendering. If compiled into a tiny shared library and bundled inside the jar, we could extract and link it at runtime to achieve true "Zero-Dependency" AOT software synthesis without requiring users to `brew install fluidsynth`.
+## 1. 🎹 Alternative Soft Synth Integrations
+**Goal:** Expand the synthesis engine to support more formats and true zero-dependency rendering.
+- **TinySoundFont (TSF):** A single-header C library for SoundFont rendering. If compiled into a tiny shared library and bundled inside the JAR, we could extract and link it at runtime to achieve true "Zero-Dependency" AOT software synthesis without requiring users to manually install FluidSynth.
 
 ## 2. 🌍 Automated Cross-Platform CI/CD
 **Goal:** Automate native binary compilation for Mac, Linux, and Windows via GitHub Actions.
@@ -20,3 +12,11 @@ This document outlines the roadmap for future enhancements to the Midiraja proje
 - Automatic release generation on tag pushes.
 - Integration with Package Managers: `brew install midiraja` (Homebrew) and `scoop install midra` (Windows).
 - Instant, JRE-free downloads for anyone, anywhere.
+
+## 3. 💡 Experimental & Retro Audio Ideas
+**Goal:** Explore extreme retro audio constraints and unique synthesizer architectures to expand the "museum of computer audio" experience.
+- **PSG (Programmable Sound Generator) Mode (`midra psg`):** A pure Java synthesizer emulating early 8-bit consoles (AY-3-8910, SN76489, NES). It would mathematically generate basic waveforms (Square for melody, Triangle for bass) and map MIDI drum tracks (Channel 10) to a dedicated White Noise generator with ADSR envelopes to simulate classic 8-bit percussive hits.
+- **Amiga "Paula" Simulation (`--paula` for GUS):** Add an option to the GUS engine to mathematically restrict playback to the harsh hardware limitations of the Commodore Amiga's Paula chip.
+  - **4-Voice Polyphony Limit:** Aggressive voice stealing to replicate tracker limitations.
+  - **Hard-Panned Stereo:** Force voices 0/3 to 100% Left and 1/2 to 100% Right, completely ignoring MIDI pan events.
+  - **8-Bit Forced Resolution:** Route output through the existing 8-bit Noise Shaped Quantizer and Amiga-style DAC Reconstruction Filter.

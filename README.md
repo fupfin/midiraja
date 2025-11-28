@@ -99,11 +99,16 @@ While a song is playing, you don't need to restart the app to make changes. Just
 |-------------|---------|-------|
 | **FluidSynth** | `fluid <soundfont.sf2>` | General MIDI · SF2 SoundFont |
 | **GUS / Java** | `gus` | Gravis Ultrasound · Zero-dependency pure Java DSP |
+| **PC Speaker / Apple II** | `beep` | 1-bit PC Speaker & Apple II Electric Sixteentet |
 | **MT-32 / Munt** | `munt <rom-dir>` | Roland MT-32 · authentic DOS-era game music |
 | **OPL / libADLMIDI** | `opl` | AdLib / Sound Blaster FM · no install required |
 | **OPN2 / libOPNMIDI** | `opn` | Sega Genesis / PC-98 FM · no install required |
 
 ```bash
+# PC Speaker / Apple II 1-Bit synthesis (Zero-dependency)
+midra beep song.mid
+midra beep --mode pwm song.mid            # Mathematical PWM Mode
+
 # Gravis Ultrasound (no setup required — uses bundled Freepats)
 midra gus song.mid
 midra gus --bits 6 song.mid               # 6-bit Bitcrusher effect

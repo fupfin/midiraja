@@ -7,10 +7,34 @@
 | FluidSynth | `fluid` | General MIDI (SF2) | SoundFont (.sf2) |
 | MT-32 / Munt | `munt` | Roland MT-32 (DOS-era game music) | 2 ROM files |
 | GUS / Java | `gus` | Gravis Ultrasound (1990s Tracker/MIDI) | `.pat` Patch sets (gus.cfg) |
+| PC Speaker | `beep` | 1-bit Apple II / DOS PC Speaker | None (Pure Math) |
 | OPL / libADLMIDI | `opl` | AdLib / Sound Blaster FM (OPL2/OPL3) | Built-in (optional .wopl bank) |
 | OPN2 / libOPNMIDI | `opn` | Sega Genesis / PC-98 FM (OPN2/OPNA) | Built-in (optional .wopn bank) |
 
 ---
+
+
+---
+
+## PC Speaker & Apple II / `beep`
+
+The `beep` engine is a pure mathematical software synthesizer designed to recreate the extreme limitations of early 1980s computer audio, such as the IBM PC internal speaker and the Apple II. It relies on mathematically generating raw 1-bit square waves, requiring no soundbanks or external files.
+
+### Usage
+
+```bash
+# Default: Electric Sixteentet (8-Core Apple II Cluster)
+midra beep song.mid
+
+# Pure PWM (Mathematical Delta-Sigma modulation)
+midra beep --mode pwm song.mid
+```
+
+### The "Electric Sixteentet" Engine
+
+By default, the `beep` command runs the **Electric Sixteentet** engine. This is a highly advanced simulation of the legendary "Electric Duet" software written by Paul Lutus for the Apple II in 1981.
+
+Instead of simple arpeggios, `midra` simulates a cluster of **8 synchronized Apple II computers**. Each virtual machine computes two simultaneous voices and multiplexes them onto a single 1-bit output pin using **XOR Ring Modulation** and dynamic **Duty Cycle Sweeps**. The result is a surprisingly rich, fuzzy, 16-note polyphonic 8-bit chorus that must be heard to be believed.
 
 ## FluidSynth (General MIDI / SF2)
 
