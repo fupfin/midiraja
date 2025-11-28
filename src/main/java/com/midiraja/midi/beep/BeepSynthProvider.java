@@ -100,6 +100,72 @@ public class BeepSynthProvider implements SoftSynthProvider
         
     }
     
+
+    // ---------------------------------------------------------
+    // 1-Bit FM Arpeggiator (DAC522 Style PWM + 2-OP FM Synth)
+    // ---------------------------------------------------------
+    private class FmArpeggiatorSpeaker {
+        int arpeggioIndex = 0;
+        int framesSinceSwitch = 0;
+        
+        // FM Synthesis State
+        double carrierPhase = 0.0;
+        double modPhase = 0.0;
+        
+        // The DAC522 PWM Carrier (e.g. 22.05kHz)
+        double pwmCarrierPhase = -1.0;
+        final double pwmCarrierStep = (22050.0 / sampleRate) * 2.0;
+
+        // Output -1.0, 0.0, or 1.0 (True PWM Pulse Train)
+        double render(List<ActiveNote> assignedNotes, int framesPerSwitch) {
+            if (assignedNotes.isEmpty()) {
+                // Decay phases to zero to prevent DC offset
+                return 0.0; 
+            }
+            
+            if (arpeggioIndex >= assignedNotes.size()) {
+                arpeggioIndex = 0;
+            }
+            
+            ActiveNote currentNote = assignedNotes.get(arpeggioIndex);
+            
+            // 1. 2-OP FM Synthesis
+            // Modulator: Frequency is exactly 2x the carrier (classic FM bell/brass ratio)
+            double modFreq = currentNote.frequency * 2.0;
+            modPhase += modFreq / sampleRate;
+            if (modPhase >= 1.0) modPhase -= 1.0;
+            double modulator = Math.sin(modPhase * 2.0 * Math.PI);
+            
+            // Carrier: Frequency modulated by the Modulator. Index = 1.5
+            double modulationIndex = 1.5;
+            double instFreq = currentNote.frequency + (modulator * modulationIndex * currentNote.frequency);
+            
+            carrierPhase += instFreq / sampleRate;
+            if (carrierPhase >= 1.0) carrierPhase -= 1.0;
+            if (carrierPhase < 0.0) carrierPhase += 1.0; // FM can cause negative frequencies
+            
+            // The pure analog Sine Wave [-1.0 to 1.0]
+            double analogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
+            
+            // 2. DAC522 Style True PWM Conversion
+            // Compare the analog wave against a high-frequency sawtooth carrier
+            pwmCarrierPhase += pwmCarrierStep;
+            if (pwmCarrierPhase > 1.0) pwmCarrierPhase -= 2.0;
+            
+            double pwmOutput = analogFm > pwmCarrierPhase ? 1.0 : -1.0;
+            
+            // 3. Arpeggiator Advance
+            framesSinceSwitch++;
+            if (framesSinceSwitch >= framesPerSwitch) {
+                framesSinceSwitch = 0;
+                arpeggioIndex++;
+            }
+            
+            return pwmOutput;
+        }
+    }
+    private final FmArpeggiatorSpeaker[] fmSpeakers = new FmArpeggiatorSpeaker[NUM_SPEAKERS];
+    private final int framesPerSwitch = sampleRate / 40; // 40 Hz fast arpeggio
     private final SixteentetSpeaker[] speakers = new SixteentetSpeaker[NUM_SPEAKERS];
     
 
@@ -117,13 +183,19 @@ public class BeepSynthProvider implements SoftSynthProvider
         this.mode = mode.toLowerCase(java.util.Locale.ROOT);
         for (int i = 0; i < NUM_SPEAKERS; i++) {
             speakers[i] = new SixteentetSpeaker();
+            fmSpeakers[i] = new FmArpeggiatorSpeaker();
         }
     }
 
     @Override
     public List<MidiPort> getOutputPorts()
     {
-        return List.of(new MidiPort(0, "Midiraja 1-Bit " + (mode.equals("pwm") ? "PWM" : "Electric Sixteentet")));
+        
+        String name = "Electric Sixteentet";
+        if (mode.equals("pwm")) name = "PWM";
+        else if (mode.equals("fm")) name = "FM Arpeggiator (DAC522)";
+        return List.of(new MidiPort(0, "Midiraja 1-Bit " + name));
+
     }
 
     @Override
@@ -164,6 +236,8 @@ public class BeepSynthProvider implements SoftSynthProvider
                     for (int i = 0; i < framesToRender; i++) pcmBuffer[i] = 0;
                 } else if (mode.equals("pwm")) {
                     renderPwm(currentNotes, pcmBuffer, framesToRender);
+                } else if (mode.equals("fm")) {
+                    renderFm(currentNotes, pcmBuffer, framesToRender);
                 } else {
                     renderDuet(currentNotes, pcmBuffer, framesToRender);
                 }
@@ -176,6 +250,34 @@ public class BeepSynthProvider implements SoftSynthProvider
         renderThread.start();
     }
 
+
+    private void renderFm(List<ActiveNote> notes, short[] buffer, int frames)
+    {
+        List<List<ActiveNote>> speakerAssignments = new ArrayList<>(NUM_SPEAKERS);
+        for (int i = 0; i < NUM_SPEAKERS; i++) {
+            speakerAssignments.add(new ArrayList<>());
+        }
+        
+        // Distribute notes across the 8 speakers (Max 3 notes per speaker for arpeggio)
+        int noteIdx = 0;
+        for (ActiveNote note : notes) {
+            int targetSpeaker = noteIdx % NUM_SPEAKERS;
+            if (speakerAssignments.get(targetSpeaker).size() < 3) {
+                speakerAssignments.get(targetSpeaker).add(note);
+            }
+            noteIdx++;
+        }
+
+        for (int i = 0; i < frames; i++) {
+            double analogSum = 0.0;
+            for (int s = 0; s < NUM_SPEAKERS; s++) {
+                analogSum += fmSpeakers[s].render(speakerAssignments.get(s), framesPerSwitch);
+            }
+            double mixed = analogSum / NUM_SPEAKERS;
+            buffer[i] = (short) (mixed * 8000); 
+        }
+        for (ActiveNote n : notes) n.activeFrames += frames;
+    }
     private void renderPwm(List<ActiveNote> notes, short[] buffer, int frames)
     {
         double volumeScale = 1.0 / Math.max(1, notes.size());
