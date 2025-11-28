@@ -46,7 +46,7 @@ public class BeepSynthProvider implements SoftSynthProvider
     private static final int NUM_SPEAKERS = 8;
     private static final int MAX_NOTES_PER_SPEAKER = 2;
     
-    private class ElectricDuetSpeaker {
+    private class SixteentetSpeaker {
         double phase1 = 0.0;
         double phase2 = 0.0;
         
@@ -100,7 +100,7 @@ public class BeepSynthProvider implements SoftSynthProvider
         
     }
     
-    private final ElectricDuetSpeaker[] speakers = new ElectricDuetSpeaker[NUM_SPEAKERS];
+    private final SixteentetSpeaker[] speakers = new SixteentetSpeaker[NUM_SPEAKERS];
     
 
     // Pitches for MIDI note numbers
@@ -116,7 +116,7 @@ public class BeepSynthProvider implements SoftSynthProvider
         this.audio = audio;
         this.mode = mode.toLowerCase(java.util.Locale.ROOT);
         for (int i = 0; i < NUM_SPEAKERS; i++) {
-            speakers[i] = new ElectricDuetSpeaker();
+            speakers[i] = new SixteentetSpeaker();
         }
     }
 

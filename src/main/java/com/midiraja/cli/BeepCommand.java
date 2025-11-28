@@ -29,7 +29,7 @@ import java.util.Optional;
     footer = {"",
         "Experience the extreme limitations of 1980s computer audio.",
         "Modes:",
-        "  sixteentet : 8-Core Electric Duet simulation (16-note polyphony with Ring Modulation). to simulate chords (Classic 8-bit style).",
+        "  sixteentet : 8-Core synchronized Apple II cluster (16-note polyphony with Karateka-style modulation) (16-note polyphony with Ring Modulation). to simulate chords (Classic 8-bit style).",
         "  pwm      : Uses 1-bit Pulse Width Modulation to forcefully mix multiple channels."})
 public class BeepCommand implements Callable<Integer>
 {
