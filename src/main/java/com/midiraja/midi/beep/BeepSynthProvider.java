@@ -52,29 +52,45 @@ public class BeepSynthProvider implements SoftSynthProvider
         
         // Duty cycle creates the unique "Timbre" of Electric Sixteentet
         // A slight offset from 0.5 (perfect square) adds harmonic richness
-        double duty1 = 0.3;
-        double duty2 = 0.7;
         
         // Output purely -1.0, 0.0 (silent), or 1.0
         double render(List<ActiveNote> assignedNotes) {
             if (assignedNotes.isEmpty()) return 0.0;
             
-            // Voice 1
+            // Karateka / Prince of Persia Style Enhancements
+            // 1. Vibrato (LFO): Modulate the frequency slightly
+            // 2. Duty Sweep (FM-like Timbre): Move duty cycle from 0.1 to 0.9 based on active frames
+            
             ActiveNote n1 = assignedNotes.get(0);
-            phase1 += n1.frequency / sampleRate;
+            
+            // Vibrato LFO: ~6 Hz sine wave, +/- 1.5% frequency modulation
+            double lfo1 = Math.sin(n1.activeFrames * 2.0 * Math.PI * 6.0 / sampleRate);
+            double modFreq1 = n1.frequency * (1.0 + lfo1 * 0.015);
+            
+            // Duty Sweep: Sweeps back and forth to create an FM-like "Wah" or shifting timbre
+            double sweep1 = Math.sin(n1.activeFrames * 2.0 * Math.PI * 1.5 / sampleRate); // 1.5 Hz sweep
+            double duty1 = 0.5 + (sweep1 * 0.4); // Sweeps between 0.1 and 0.9
+            
+            phase1 += modFreq1 / sampleRate;
             if (phase1 >= 1.0) phase1 -= 1.0;
             boolean sq1 = phase1 < duty1;
             
             if (assignedNotes.size() > 1) {
-                // Voice 2
                 ActiveNote n2 = assignedNotes.get(1);
-                phase2 += n2.frequency / sampleRate;
+                
+                // Vibrato for voice 2 (slightly out of phase for chorus effect)
+                double lfo2 = Math.sin((n2.activeFrames * 2.0 * Math.PI * 6.2 / sampleRate) + 1.0);
+                double modFreq2 = n2.frequency * (1.0 + lfo2 * 0.015);
+                
+                // Duty Sweep for voice 2
+                double sweep2 = Math.cos(n2.activeFrames * 2.0 * Math.PI * 1.1 / sampleRate); 
+                double duty2 = 0.5 + (sweep2 * 0.35); // Sweeps between 0.15 and 0.85
+                
+                phase2 += modFreq2 / sampleRate;
                 if (phase2 >= 1.0) phase2 -= 1.0;
                 boolean sq2 = phase2 < duty2;
                 
-                // The Paul Lutus Magic: XOR mixing of two duty-cycle square waves.
-                // This perfectly multiplexes 2 pitches into a single 1-bit channel
-                // while creating the signature "Ring Modulated" fuzzy timbre.
+                // XOR Mixing of the two modulated duty-cycle waves!
                 boolean output = sq1 ^ sq2; 
                 return output ? 1.0 : -1.0;
             } else {
