@@ -112,6 +112,8 @@ public class BeepSynthProvider implements SoftSynthProvider
         // FM Synthesis State
         double carrierPhase = 0.0;
         double modPhase = 0.0;
+        long internalFrames = 0;
+        @org.jspecify.annotations.Nullable ActiveNote lastNote = null;
         
         // The DAC522 PWM Carrier (e.g. 22.05kHz)
         double pwmCarrierPhase = -1.0;
@@ -129,8 +131,14 @@ public class BeepSynthProvider implements SoftSynthProvider
             }
             
             ActiveNote currentNote = assignedNotes.get(arpeggioIndex);
+            if (currentNote != lastNote) {
+                lastNote = currentNote;
+                internalFrames = currentNote.activeFrames; // Sync
+            }
+            internalFrames++;
             
             double analogFm = 0.0;
+            double time = internalFrames / (double) sampleRate;
             
             if (currentNote.isDrum) {
                 // --- OPL-Style Drum Synthesis ---
@@ -138,7 +146,6 @@ public class BeepSynthProvider implements SoftSynthProvider
                 
                 if (noteNum == 35 || noteNum == 36) {
                     // Kick Drum: Fast pitch drop (Pitch envelope)
-                    double time = currentNote.activeFrames / (double) sampleRate;
                     if (time < 0.2) {
                         double pitchDrop = 150.0 * Math.exp(-time * 30.0); // 150Hz drops quickly to 0
                         double kickFreq = 50.0 + pitchDrop;
@@ -148,29 +155,30 @@ public class BeepSynthProvider implements SoftSynthProvider
                 } 
                 else if (noteNum == 38 || noteNum == 40) {
                     // Snare Drum: Burst of noise + a slight tone
-                    double time = currentNote.activeFrames / (double) sampleRate;
+                    
                     if (time < 0.15) {
                         double noiseEnv = Math.exp(-time * 20.0);
                         double toneEnv = Math.exp(-time * 10.0);
                         carrierPhase += 200.0 / sampleRate;
-                        double tone = Math.sin(carrierPhase * 2.0 * Math.PI) * toneEnv * 0.3;
-                        double noise = (Math.random() * 2.0 - 1.0) * noiseEnv * 0.7;
-                        analogFm = tone + noise;
+                        double tone = Math.sin(carrierPhase * 2.0 * Math.PI) * toneEnv * 0.4;
+                        double noise = (Math.random() * 2.0 - 1.0) * noiseEnv * 1.5; // Boosted noise
+                        analogFm = Math.max(-1.0, Math.min(1.0, tone + noise));
                     }
                 }
                 else if (noteNum == 42 || noteNum == 44 || noteNum == 46 || noteNum == 49 || noteNum == 51 || noteNum == 53) {
                     // Hi-Hat / Cymbal: Very short, high-frequency metallic noise
-                    double time = currentNote.activeFrames / (double) sampleRate;
+                    
                     double duration = (noteNum >= 49) ? 0.3 : 0.05; // Cymbals last longer
                     if (time < duration) {
                         double env = Math.exp(-time * (1.0 / duration) * 5.0);
                         // FM metallic noise (high index FM with random phase)
-                        analogFm = (Math.random() > 0.5 ? 1.0 : -1.0) * env;
+                        analogFm = (Math.random() > 0.5 ? 1.5 : -1.5) * env; // Boosted
+                        analogFm = Math.max(-1.0, Math.min(1.0, analogFm));
                     }
                 }
                 else {
                     // Toms and other percussions: Pitch sweep down
-                    double time = currentNote.activeFrames / (double) sampleRate;
+                    
                     if (time < 0.25) {
                         double pitchDrop = 300.0 * Math.exp(-time * 15.0);
                         double tomFreq = 80.0 + pitchDrop;
@@ -309,14 +317,28 @@ public class BeepSynthProvider implements SoftSynthProvider
             speakerAssignments.add(new ArrayList<>());
         }
         
-        // Distribute notes across the 8 speakers (Max 3 notes per speaker for arpeggio)
-        int noteIdx = 0;
+        // Dedicated Drum Routing (Like AdLib Rhythm Mode)
+        // Speakers 0~5: Melody (Arpeggiated)
+        // Speakers 6~7: Drums Only (Strict)
+        int melodyIdx = 0;
+        int drumIdx = 0;
+        
         for (ActiveNote note : notes) {
-            int targetSpeaker = noteIdx % NUM_SPEAKERS;
-            if (speakerAssignments.get(targetSpeaker).size() < 2) {
-                speakerAssignments.get(targetSpeaker).add(note);
+            if (note.isDrum) {
+                // Route to Speakers 6 and 7
+                int target = 6 + (drumIdx % 2);
+                if (speakerAssignments.get(target).size() < 2) {
+                    speakerAssignments.get(target).add(note);
+                }
+                drumIdx++;
+            } else {
+                // Route to Speakers 0 to 5
+                int target = melodyIdx % 6;
+                if (speakerAssignments.get(target).size() < 2) {
+                    speakerAssignments.get(target).add(note);
+                }
+                melodyIdx++;
             }
-            noteIdx++;
         }
 
         for (int i = 0; i < frames; i++) {
