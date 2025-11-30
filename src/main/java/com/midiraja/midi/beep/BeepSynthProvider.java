@@ -112,8 +112,7 @@ public class BeepSynthProvider implements SoftSynthProvider
         // FM Synthesis State
         double carrierPhase = 0.0;
         double modPhase = 0.0;
-        long internalFrames = 0;
-        @org.jspecify.annotations.Nullable ActiveNote lastNote = null;
+
         
         // The DAC522 PWM Carrier (e.g. 22.05kHz)
         double pwmCarrierPhase = -1.0;
@@ -131,14 +130,8 @@ public class BeepSynthProvider implements SoftSynthProvider
             }
             
             ActiveNote currentNote = assignedNotes.get(arpeggioIndex);
-            if (currentNote != lastNote) {
-                lastNote = currentNote;
-                internalFrames = currentNote.activeFrames; // Sync
-            }
-            internalFrames++;
-            
             double analogFm = 0.0;
-            double time = internalFrames / (double) sampleRate;
+            double time = currentNote.activeFrames / (double) sampleRate;
             
             if (currentNote.isDrum) {
                 // --- OPL-Style Drum Synthesis ---
@@ -348,8 +341,10 @@ public class BeepSynthProvider implements SoftSynthProvider
             }
             double mixed = analogSum / NUM_SPEAKERS;
             buffer[i] = (short) (mixed * 8000); 
+            
+            // Age all notes precisely at 44.1kHz resolution
+            for (ActiveNote n : notes) n.activeFrames++;
         }
-        for (ActiveNote n : notes) n.activeFrames += frames;
     }
     private void renderPwm(List<ActiveNote> notes, short[] buffer, int frames)
     {
@@ -408,9 +403,10 @@ public class BeepSynthProvider implements SoftSynthProvider
             double mixed = analogSum / NUM_SPEAKERS;
             
             buffer[i] = (short) (mixed * 8000); // Master volume scaled safely
+            
+            // Age all notes precisely at 44.1kHz resolution
+            for (ActiveNote n : notes) n.activeFrames++;
         }
-        
-        for (ActiveNote n : notes) n.activeFrames += frames;
     }
     @Override
     public void prepareForNewTrack(javax.sound.midi.Sequence sequence)
