@@ -46,7 +46,7 @@ public class BeepSynthProvider implements SoftSynthProvider
     // 8-Core "Electric Sixteentet" Apple II cluster
     // Each virtual Apple II uses XOR Ring Modulation to play 2 notes simultaneously on a 1-bit pin.
     private static final int NUM_SPEAKERS = 8;
-    private final PwmAcousticSimulator dspSimulator = new PwmAcousticSimulator(44100);
+    private PwmAcousticSimulator dspSimulator;
     private static final int MAX_NOTES_PER_SPEAKER = 2;
     
     private class SixteentetSpeaker {
@@ -222,10 +222,14 @@ public class BeepSynthProvider implements SoftSynthProvider
         }
     }
 
-    public BeepSynthProvider(NativeAudioEngine audio, String mode)
+    public BeepSynthProvider(NativeAudioEngine audio, String mode, int oversample)
     {
         this.audio = audio;
         this.mode = mode.toLowerCase(java.util.Locale.ROOT);
+        
+        // Re-initialize DSP with custom oversample
+        this.dspSimulator = new PwmAcousticSimulator(sampleRate, oversample);
+        
         for (int i = 0; i < NUM_SPEAKERS; i++) {
             speakers[i] = new SixteentetSpeaker();
             fmSpeakers[i] = new FmArpeggiatorSpeaker();

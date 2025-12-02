@@ -38,8 +38,12 @@ public class BeepCommand implements Callable<Integer>
     @Mixin @org.jspecify.annotations.Nullable private CommonOptions common;
 
     @Option(names = {"-m", "--mode"}, defaultValue = "sixteentet",
-        description = "The 1-bit mixing mode: 'sixteentet' (default) or 'pwm'.")
+        description = "The 1-bit mixing mode: 'sixteentet' (default), 'fm', or 'pwm'.")
     private String mode = "sixteentet";
+
+    @Option(names = {"-o", "--oversample"}, defaultValue = "32",
+        description = "Internal DSP oversampling factor (1 to simulate original hardware aliasing, 32 for studio quality).")
+    private int oversample = 32;
 
     @Parameters(paramLabel = "FILE", description = "One or more MIDI files to play")
     private List<File> files = new ArrayList<>();
@@ -56,7 +60,7 @@ public class BeepCommand implements Callable<Integer>
         String audioLib = AudioLibResolver.resolve();
         NativeAudioEngine audio = new NativeAudioEngine(audioLib);
         
-        var provider = new com.midiraja.midi.beep.BeepSynthProvider(audio, mode);
+        var provider = new com.midiraja.midi.beep.BeepSynthProvider(audio, mode, oversample);
 
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(),
                                         p.isInTestMode());

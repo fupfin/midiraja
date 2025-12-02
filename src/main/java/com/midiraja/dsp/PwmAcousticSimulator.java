@@ -3,6 +3,7 @@ package com.midiraja.dsp;
 public class PwmAcousticSimulator implements AudioProcessor {
     private double carrierPhase = -1.0;
     private final double carrierStep;
+    private final int oversampleFactor;
     
     private double lp1L = 0, lp1R = 0, lp2L = 0, lp2R = 0;
     private double hpL = 0, hpR = 0, prevL = 0, prevR = 0;
@@ -11,7 +12,11 @@ public class PwmAcousticSimulator implements AudioProcessor {
     private final double hpAlpha = 0.98; // Low-frequency small diameter attenuation
 
     public PwmAcousticSimulator(int sampleRate) {
-        // 18.6kHz true hardware carrier
+        this(sampleRate, 32);
+    }
+    
+    public PwmAcousticSimulator(int sampleRate, int oversampleFactor) {
+        this.oversampleFactor = Math.max(1, oversampleFactor);
         this.carrierStep = (18600.0 / sampleRate) * 2.0;
     }
 
@@ -24,16 +29,16 @@ public class PwmAcousticSimulator implements AudioProcessor {
             double sumL = 0.0;
             double sumR = 0.0;
             
-            // 32x Oversampling loop to prevent Nyquist fold-over
-            for (int over = 0; over < 32; over++) {
-                carrierPhase += carrierStep / 32.0;
+            // Oversampling loop to prevent Nyquist fold-over
+            for (int over = 0; over < oversampleFactor; over++) {
+                carrierPhase += carrierStep / oversampleFactor;
                 if (carrierPhase > 1.0) carrierPhase -= 2.0;
                 sumL += (l > carrierPhase ? 1.0 : -1.0);
                 sumR += (r > carrierPhase ? 1.0 : -1.0);
             }
             
-            double bitL = sumL / 32.0;
-            double bitR = sumR / 32.0;
+            double bitL = sumL / oversampleFactor;
+            double bitR = sumR / oversampleFactor;
 
             // Strict noise gate to kill the carrier whine on absolute silence
             if (l == 0.0 && r == 0.0) {
