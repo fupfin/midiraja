@@ -36,7 +36,8 @@ public class BeepSynthProvider implements SoftSynthProvider
         int channel;
         int note;
         double frequency;
-        double phase = 0.0;
+        double phase = 0.0;     // Used as Carrier Phase
+        double modPhase = 0.0;  // Used as Modulator Phase
         long activeFrames = 0; // For envelope/decay tracking
         boolean isDrum = false;
     }
@@ -90,8 +91,6 @@ public class BeepSynthProvider implements SoftSynthProvider
     private class FmArpeggiatorSpeaker {
         int arpeggioIndex = 0;
         int framesSinceSwitch = 0;
-        double carrierPhase = 0.0;
-        double modPhase = 0.0;
 
         double render(List<ActiveNote> assignedNotes, int framesPerSwitch) {
             if (assignedNotes.isEmpty()) return 0.0;
@@ -107,14 +106,14 @@ public class BeepSynthProvider implements SoftSynthProvider
                 if (noteNum == 35 || noteNum == 36) { // Kick
                     if (time < 0.2) {
                         double pitchDrop = 150.0 * Math.exp(-time * 30.0);
-                        carrierPhase += (50.0 + pitchDrop) / sampleRate;
-                        analogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
+                        currentNote.phase += (50.0 + pitchDrop) / sampleRate;
+                        analogFm = Math.sin(currentNote.phase * 2.0 * Math.PI);
                     }
                 } else if (noteNum == 38 || noteNum == 40) { // Snare
                     if (time < 0.15) {
                         double noiseEnv = Math.exp(-time * 20.0);
-                        carrierPhase += 200.0 / sampleRate;
-                        double tone = Math.sin(carrierPhase * 2.0 * Math.PI) * Math.exp(-time * 10.0) * 0.4;
+                        currentNote.phase += 200.0 / sampleRate;
+                        double tone = Math.sin(currentNote.phase * 2.0 * Math.PI) * Math.exp(-time * 10.0) * 0.4;
                         double noise = (Math.random() * 2.0 - 1.0) * noiseEnv * 1.5;
                         analogFm = Math.max(-1.0, Math.min(1.0, tone + noise));
                     }
@@ -127,21 +126,27 @@ public class BeepSynthProvider implements SoftSynthProvider
                 } else { // Toms
                     if (time < 0.25) {
                         double pitchDrop = 300.0 * Math.exp(-time * 15.0);
-                        carrierPhase += (80.0 + pitchDrop) / sampleRate;
-                        analogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
+                        currentNote.phase += (80.0 + pitchDrop) / sampleRate;
+                        analogFm = Math.sin(currentNote.phase * 2.0 * Math.PI);
                     }
                 }
             } else {
                 // 2-OP FM Synthesis (Melody)
                 double decay = Math.max(0.0, 1.0 - (time / 0.5));
-                double modFreq = currentNote.frequency * 3.5;
-                modPhase += modFreq / sampleRate;
-                if (modPhase >= 1.0) modPhase -= 1.0;
-                double modulator = Math.sin(modPhase * 2.0 * Math.PI);
-                double modIndex = 0.2 + (2.3 * decay); 
+                double modFreq = currentNote.frequency * 1.0;
+                
+                // Track modulator phase per-note
+                currentNote.modPhase += modFreq / sampleRate;
+                if (currentNote.modPhase >= 1.0) currentNote.modPhase -= 1.0;
+                double modulator = Math.sin(currentNote.modPhase * 2.0 * Math.PI);
+                
+                double modIndex = 0.1 + (1.1 * decay); 
                 double instFreq = currentNote.frequency + (modulator * modIndex * currentNote.frequency);
-                carrierPhase += instFreq / sampleRate;
-                analogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
+                
+                // Track carrier phase per-note! This prevents the clicking/popping when arpeggiating!
+                currentNote.phase += instFreq / sampleRate;
+                if (currentNote.phase >= 1.0) currentNote.phase -= 1.0;
+                analogFm = Math.sin(currentNote.phase * 2.0 * Math.PI);
             }
 
             framesSinceSwitch++;
