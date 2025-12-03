@@ -29,7 +29,9 @@ public class BeepSynthProvider implements SoftSynthProvider
     private volatile boolean running = false;
     private volatile boolean renderPaused = false;
 
-    // Track active notes across all channels
+    // Universal DAC522 / PC Speaker output filter
+    private PwmAcousticSimulator dspSimulator;
+
     private static class ActiveNote {
         int channel;
         int note;
@@ -40,39 +42,25 @@ public class BeepSynthProvider implements SoftSynthProvider
     }
     private final List<ActiveNote> activeNotes = new CopyOnWriteArrayList<>();
 
-    // 1-bit Delta-Sigma state
     private double errorAccumulator = 0.0;
-
-    // 8-Core "Electric Sixteentet" Apple II cluster
-    // Each virtual Apple II uses XOR Ring Modulation to play 2 notes simultaneously on a 1-bit pin.
     private static final int NUM_SPEAKERS = 8;
-    private PwmAcousticSimulator dspSimulator;
     private static final int MAX_NOTES_PER_SPEAKER = 2;
     
+    // ---------------------------------------------------------
+    // Electric Sixteentet (XOR Ring Modulation)
+    // ---------------------------------------------------------
     private class SixteentetSpeaker {
         double phase1 = 0.0;
         double phase2 = 0.0;
         
-        // Duty cycle creates the unique "Timbre" of Electric Sixteentet
-        // A slight offset from 0.5 (perfect square) adds harmonic richness
-        
-        // Output purely -1.0, 0.0 (silent), or 1.0
         double render(List<ActiveNote> assignedNotes) {
             if (assignedNotes.isEmpty()) return 0.0;
             
-            // Karateka / Prince of Persia Style Enhancements
-            // 1. Vibrato (LFO): Modulate the frequency slightly
-            // 2. Duty Sweep (FM-like Timbre): Move duty cycle from 0.1 to 0.9 based on active frames
-            
             ActiveNote n1 = assignedNotes.get(0);
-            
-            // Vibrato LFO: ~6 Hz sine wave, +/- 1.5% frequency modulation
             double lfo1 = Math.sin(n1.activeFrames * 2.0 * Math.PI * 6.0 / sampleRate);
             double modFreq1 = n1.frequency * (1.0 + lfo1 * 0.015);
-            
-            // Duty Sweep: Sweeps back and forth to create an FM-like "Wah" or shifting timbre
-            double sweep1 = Math.sin(n1.activeFrames * 2.0 * Math.PI * 1.5 / sampleRate); // 1.5 Hz sweep
-            double duty1 = 0.5 + (sweep1 * 0.4); // Sweeps between 0.1 and 0.9
+            double sweep1 = Math.sin(n1.activeFrames * 2.0 * Math.PI * 1.5 / sampleRate);
+            double duty1 = 0.5 + (sweep1 * 0.4);
             
             phase1 += modFreq1 / sampleRate;
             if (phase1 >= 1.0) phase1 -= 1.0;
@@ -80,156 +68,108 @@ public class BeepSynthProvider implements SoftSynthProvider
             
             if (assignedNotes.size() > 1) {
                 ActiveNote n2 = assignedNotes.get(1);
-                
-                // Vibrato for voice 2 (slightly out of phase for chorus effect)
                 double lfo2 = Math.sin((n2.activeFrames * 2.0 * Math.PI * 6.2 / sampleRate) + 1.0);
                 double modFreq2 = n2.frequency * (1.0 + lfo2 * 0.015);
-                
-                // Duty Sweep for voice 2
                 double sweep2 = Math.cos(n2.activeFrames * 2.0 * Math.PI * 1.1 / sampleRate); 
-                double duty2 = 0.5 + (sweep2 * 0.35); // Sweeps between 0.15 and 0.85
+                double duty2 = 0.5 + (sweep2 * 0.35);
                 
                 phase2 += modFreq2 / sampleRate;
                 if (phase2 >= 1.0) phase2 -= 1.0;
                 boolean sq2 = phase2 < duty2;
                 
-                // XOR Mixing of the two modulated duty-cycle waves!
-                boolean output = sq1 ^ sq2; 
-                return output ? 1.0 : -1.0;
+                return (sq1 ^ sq2) ? 1.0 : -1.0;
             } else {
                 return sq1 ? 1.0 : -1.0;
             }
         }
-        
     }
-    
 
     // ---------------------------------------------------------
-    // 1-Bit FM Arpeggiator (DAC522 Style PWM + 2-OP FM Synth)
+    // 1-Bit FM Arpeggiator (DAC522 Reality Mode)
     // ---------------------------------------------------------
     private class FmArpeggiatorSpeaker {
         int arpeggioIndex = 0;
         int framesSinceSwitch = 0;
-        
-        // FM Synthesis State
         double carrierPhase = 0.0;
         double modPhase = 0.0;
+        double cachedSample = 0.0;
+        long lastUpdateFrame = -1;
 
-        
-
-
-        // Output -1.0, 0.0, or 1.0 (True PWM Pulse Train)
         double render(List<ActiveNote> assignedNotes, int framesPerSwitch) {
-            if (assignedNotes.isEmpty()) {
-                // Decay phases to zero to prevent DC offset
-                return 0.0; 
-            }
-            
-            if (arpeggioIndex >= assignedNotes.size()) {
-                arpeggioIndex = 0;
-            }
+            if (assignedNotes.isEmpty()) return 0.0;
+            if (arpeggioIndex >= assignedNotes.size()) arpeggioIndex = 0;
             
             ActiveNote currentNote = assignedNotes.get(arpeggioIndex);
-            double analogFm = 0.0;
-            double time = currentNote.activeFrames / (double) sampleRate;
             
-            if (currentNote.isDrum) {
-                // --- OPL-Style Drum Synthesis ---
-                int noteNum = currentNote.note;
-                
-                if (noteNum == 35 || noteNum == 36) {
-                    // Kick Drum: Fast pitch drop (Pitch envelope)
-                    if (time < 0.2) {
-                        double pitchDrop = 150.0 * Math.exp(-time * 30.0); // 150Hz drops quickly to 0
-                        double kickFreq = 50.0 + pitchDrop;
-                        carrierPhase += kickFreq / sampleRate;
-                        analogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
+            // APPLE II REALITY: 11,025Hz CPU Loop Simulation (1/4th of 44.1kHz)
+            // Simulates the 92-cycle budget of the 6502 CPU.
+            long currentCycle = currentNote.activeFrames / 4;
+            if (currentCycle != lastUpdateFrame) {
+                lastUpdateFrame = currentCycle;
+                double time = (lastUpdateFrame * 4) / (double) sampleRate;
+                double currentAnalogFm = 0.0;
+
+                if (currentNote.isDrum) {
+                    int noteNum = currentNote.note;
+                    if (noteNum == 35 || noteNum == 36) { // Kick
+                        if (time < 0.2) {
+                            double pitchDrop = 150.0 * Math.exp(-time * 30.0);
+                            carrierPhase += ((50.0 + pitchDrop) / sampleRate) * 4.0;
+                            currentAnalogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
+                        }
+                    } else if (noteNum == 38 || noteNum == 40) { // Snare
+                        if (time < 0.15) {
+                            double noiseEnv = Math.exp(-time * 20.0);
+                            carrierPhase += (200.0 / sampleRate) * 4.0;
+                            double tone = Math.sin(carrierPhase * 2.0 * Math.PI) * Math.exp(-time * 10.0) * 0.4;
+                            double noise = (Math.random() * 2.0 - 1.0) * noiseEnv * 1.5;
+                            currentAnalogFm = Math.max(-1.0, Math.min(1.0, tone + noise));
+                        }
+                    } else if (noteNum == 42 || noteNum == 44 || noteNum == 46 || noteNum >= 49) { // Hi-Hat / Cymbal
+                        double duration = (noteNum >= 49) ? 0.3 : 0.05;
+                        if (time < duration) {
+                            double env = Math.exp(-time * (1.0 / duration) * 5.0);
+                            currentAnalogFm = (Math.random() > 0.5 ? 1.5 : -1.5) * env;
+                        }
+                    } else { // Toms
+                        if (time < 0.25) {
+                            double pitchDrop = 300.0 * Math.exp(-time * 15.0);
+                            carrierPhase += ((80.0 + pitchDrop) / sampleRate) * 4.0;
+                            currentAnalogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
+                        }
                     }
-                } 
-                else if (noteNum == 38 || noteNum == 40) {
-                    // Snare Drum: Burst of noise + a slight tone
-                    
-                    if (time < 0.15) {
-                        double noiseEnv = Math.exp(-time * 20.0);
-                        double toneEnv = Math.exp(-time * 10.0);
-                        carrierPhase += 200.0 / sampleRate;
-                        double tone = Math.sin(carrierPhase * 2.0 * Math.PI) * toneEnv * 0.4;
-                        double noise = (Math.random() * 2.0 - 1.0) * noiseEnv * 1.5; // Boosted noise
-                        analogFm = Math.max(-1.0, Math.min(1.0, tone + noise));
-                    }
+                } else {
+                    // 2-OP FM Synthesis (Melody)
+                    double decay = Math.max(0.0, 1.0 - (time / 0.5));
+                    double modFreq = currentNote.frequency * 3.5;
+                    modPhase += (modFreq / sampleRate) * 4.0;
+                    if (modPhase >= 1.0) modPhase -= 1.0;
+                    double modulator = Math.sin(modPhase * 2.0 * Math.PI);
+                    double modIndex = 0.2 + (2.3 * decay); 
+                    double instFreq = currentNote.frequency + (modulator * modIndex * currentNote.frequency);
+                    carrierPhase += (instFreq / sampleRate) * 4.0;
+                    currentAnalogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
                 }
-                else if (noteNum == 42 || noteNum == 44 || noteNum == 46 || noteNum == 49 || noteNum == 51 || noteNum == 53) {
-                    // Hi-Hat / Cymbal: Very short, high-frequency metallic noise
-                    
-                    double duration = (noteNum >= 49) ? 0.3 : 0.05; // Cymbals last longer
-                    if (time < duration) {
-                        double env = Math.exp(-time * (1.0 / duration) * 5.0);
-                        // FM metallic noise (high index FM with random phase)
-                        analogFm = (Math.random() > 0.5 ? 1.5 : -1.5) * env; // Boosted
-                        analogFm = Math.max(-1.0, Math.min(1.0, analogFm));
-                    }
-                }
-                else {
-                    // Toms and other percussions: Pitch sweep down
-                    
-                    if (time < 0.25) {
-                        double pitchDrop = 300.0 * Math.exp(-time * 15.0);
-                        double tomFreq = 80.0 + pitchDrop;
-                        carrierPhase += tomFreq / sampleRate;
-                        analogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
-                    }
-                }
-            } else {
-                // --- 2-OP FM Synthesis (Melody/Chords) ---
-                double decay = Math.max(0.0, 1.0 - (currentNote.activeFrames / (sampleRate * 0.5))); // 0.5s decay
-                
-                // Modulator: Frequency is 3.5x the carrier (Inharmonic ratio for metallic bell sound)
-                double modFreq = currentNote.frequency * 3.5;
-                modPhase += modFreq / sampleRate;
-                if (modPhase >= 1.0) modPhase -= 1.0;
-                double modulator = Math.sin(modPhase * 2.0 * Math.PI);
-                
-                // Carrier: Modulated by the Modulator. Index sweeps from 6.0 down to 0.5!
-                double modulationIndex = 0.5 + (5.5 * decay); 
-                double instFreq = currentNote.frequency + (modulator * modulationIndex * currentNote.frequency);
-                
-                carrierPhase += instFreq / sampleRate;
-                
-                // The pure analog FM Sine Wave [-1.0 to 1.0]
-                analogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
+                cachedSample = currentAnalogFm;
             }
-            
-            // 3. Arpeggiator Advance
+
             framesSinceSwitch++;
             if (framesSinceSwitch >= framesPerSwitch) {
                 framesSinceSwitch = 0;
                 arpeggioIndex++;
             }
-            
-            return analogFm;
+            return cachedSample;
         }
     }
-    private final FmArpeggiatorSpeaker[] fmSpeakers = new FmArpeggiatorSpeaker[NUM_SPEAKERS];
-    private final int framesPerSwitch = sampleRate / 40; // 40 Hz fast arpeggio
+
     private final SixteentetSpeaker[] speakers = new SixteentetSpeaker[NUM_SPEAKERS];
-    
+    private final FmArpeggiatorSpeaker[] fmSpeakers = new FmArpeggiatorSpeaker[NUM_SPEAKERS];
+    private final int framesPerSwitch = sampleRate / 40;
 
-    // Pitches for MIDI note numbers
-    private static final double[] PITCHES = new double[128];
-    static {
-        for (int i = 0; i < 128; i++) {
-            PITCHES[i] = 440.0 * Math.pow(2.0, (i - 69) / 12.0);
-        }
-    }
-
-    public BeepSynthProvider(NativeAudioEngine audio, String mode, int oversample)
-    {
+    public BeepSynthProvider(NativeAudioEngine audio, String mode, int oversample) {
         this.audio = audio;
         this.mode = mode.toLowerCase(java.util.Locale.ROOT);
-        
-        // Re-initialize DSP with custom oversample
         this.dspSimulator = new PwmAcousticSimulator(sampleRate, oversample);
-        
         for (int i = 0; i < NUM_SPEAKERS; i++) {
             speakers[i] = new SixteentetSpeaker();
             fmSpeakers[i] = new FmArpeggiatorSpeaker();
@@ -237,48 +177,42 @@ public class BeepSynthProvider implements SoftSynthProvider
     }
 
     @Override
-    public List<MidiPort> getOutputPorts()
-    {
-        
+    public List<MidiPort> getOutputPorts() {
         String name = "Electric Sixteentet";
         if (mode.equals("pwm")) name = "PWM";
-        else if (mode.equals("fm")) name = "FM Arpeggiator (DAC522)";
+        else if (mode.equals("fm")) name = "FM Arpeggiator (DAC522 Reality)";
         return List.of(new MidiPort(0, "Midiraja 1-Bit " + name));
-
     }
 
     @Override
-    public void openPort(int portIndex) throws Exception
-    {
-        audio.init(sampleRate, 1, 4096); // Mono output
+    public void openPort(int portIndex) throws Exception {
+        audio.init(sampleRate, 1, 4096);
         startRenderThread();
     }
 
     @Override
-    public void loadSoundbank(String path) throws Exception
-    {
-        // Not applicable for mathematical synthesis
+    public void loadSoundbank(String path) throws Exception {}
+
+    @Override
+    public void sendMessage(byte[] data) throws Exception {
+        if (data.length > 0) {
+            int cmd = data[0] & 0xF0;
+            int ch = data[0] & 0x0F;
+            handleMessage(ch, cmd, data);
+        }
     }
 
-    private void startRenderThread()
-    {
+    private void startRenderThread() {
         running = true;
         renderThread = new Thread(() -> {
             final int framesToRender = 512;
-            short[] pcmBuffer = new short[framesToRender]; // Mono
-
-            while (running)
-            {
-                if (renderPaused)
-                {
-                    try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            short[] pcmBuffer = new short[framesToRender];
+            while (running) {
+                if (renderPaused) {
+                    try { Thread.sleep(1); } catch (InterruptedException e) { break; }
                     continue;
                 }
-
-                // Snap active notes to a local array to prevent modification during loop
                 List<ActiveNote> currentNotes = new ArrayList<>(activeNotes);
-                // Simple decay: remove notes that have been playing too long to prevent infinite drones
-                // (PC speaker has no real velocity envelope, so we just cut them off after ~2 seconds)
                 activeNotes.removeIf(n -> n.activeFrames > sampleRate * 2.0);
 
                 if (currentNotes.isEmpty()) {
@@ -290,7 +224,6 @@ public class BeepSynthProvider implements SoftSynthProvider
                 } else {
                     renderDuet(currentNotes, pcmBuffer, framesToRender);
                 }
-
                 audio.push(pcmBuffer);
             }
         });
@@ -299,101 +232,58 @@ public class BeepSynthProvider implements SoftSynthProvider
         renderThread.start();
     }
 
-
-    private void renderFm(List<ActiveNote> notes, short[] buffer, int frames)
-    {
+    private void renderFm(List<ActiveNote> notes, short[] buffer, int frames) {
         List<List<ActiveNote>> speakerAssignments = new ArrayList<>(NUM_SPEAKERS);
-        for (int i = 0; i < NUM_SPEAKERS; i++) {
-            speakerAssignments.add(new ArrayList<>());
-        }
+        for (int i = 0; i < NUM_SPEAKERS; i++) speakerAssignments.add(new ArrayList<>());
         
-        // Dedicated Drum Routing (Like AdLib Rhythm Mode)
-        // Speakers 0~5: Melody (Arpeggiated)
-        // Speakers 6~7: Drums Only (Strict)
-        int melodyIdx = 0;
-        int drumIdx = 0;
-        
+        int melodyIdx = 0, drumIdx = 0;
         for (ActiveNote note : notes) {
             if (note.isDrum) {
-                // Route to Speakers 6 and 7
                 int target = 6 + (drumIdx % 2);
-                if (speakerAssignments.get(target).size() < 2) {
-                    speakerAssignments.get(target).add(note);
-                }
+                if (speakerAssignments.get(target).size() < 2) speakerAssignments.get(target).add(note);
                 drumIdx++;
             } else {
-                // Route to Speakers 0 to 5
                 int target = melodyIdx % 6;
-                if (speakerAssignments.get(target).size() < 2) {
-                    speakerAssignments.get(target).add(note);
-                }
+                if (speakerAssignments.get(target).size() < 2) speakerAssignments.get(target).add(note);
                 melodyIdx++;
             }
         }
 
         float[] analogL = new float[frames];
         float[] analogR = new float[frames];
-
         for (int i = 0; i < frames; i++) {
             double analogSum = 0.0;
             for (int s = 0; s < NUM_SPEAKERS; s++) {
                 analogSum += fmSpeakers[s].render(speakerAssignments.get(s), framesPerSwitch);
             }
-            
-            // Normalize the 8-speaker analog mix to [-1.0, 1.0]
             float mixed = (float) (analogSum / NUM_SPEAKERS);
-            analogL[i] = mixed;
-            analogR[i] = mixed;
-            
-            // Age all notes precisely at 44.1kHz resolution
+            analogL[i] = mixed; analogR[i] = mixed;
             for (ActiveNote n : notes) n.activeFrames++;
         }
-
-        // Apply professional 32x Oversampled PWM & Acoustic Filter
         dspSimulator.process(analogL, analogR, frames);
-
-        // Convert back to 16-bit PCM
-        for (int i = 0; i < frames; i++) {
-            buffer[i] = (short) (analogL[i] * 32767);
-        }
+        for (int i = 0; i < frames; i++) buffer[i] = (short) (analogL[i] * 32767);
     }
-    private void renderPwm(List<ActiveNote> notes, short[] buffer, int frames)
-    {
+
+    private void renderPwm(List<ActiveNote> notes, short[] buffer, int frames) {
         double volumeScale = 1.0 / Math.max(1, notes.size());
-        
         for (int i = 0; i < frames; i++) {
             double mixedSample = 0.0;
-            
             for (ActiveNote n : notes) {
-                // Generate square wave
                 n.phase += n.frequency / sampleRate;
                 if (n.phase >= 1.0) n.phase -= 1.0;
-                double square = n.phase < 0.5 ? 1.0 : -1.0;
-                mixedSample += square;
+                mixedSample += (n.phase < 0.5 ? 1.0 : -1.0);
                 n.activeFrames++;
             }
-            
-            // Normalize sum to roughly [-1.0, 1.0]
-            mixedSample *= volumeScale;
-
-            // 1-Bit Quantization via First-Order Delta-Sigma Modulator
-            double target = mixedSample;
+            double target = mixedSample * volumeScale;
             double outputBit = (target + errorAccumulator) > 0.0 ? 1.0 : -1.0;
             errorAccumulator += (target - outputBit);
-
-            // Output purely 1 or -1 (scaled to 16-bit max amplitude)
-            buffer[i] = (short) (outputBit * 8000); // 8000 instead of 32767 to save ears!
+            buffer[i] = (short) (outputBit * 8000);
         }
     }
 
-    private void renderDuet(List<ActiveNote> notes, short[] buffer, int frames)
-    {
+    private void renderDuet(List<ActiveNote> notes, short[] buffer, int frames) {
         List<List<ActiveNote>> speakerAssignments = new ArrayList<>(NUM_SPEAKERS);
-        for (int i = 0; i < NUM_SPEAKERS; i++) {
-            speakerAssignments.add(new ArrayList<>());
-        }
-        
-        // Distribute notes across the 8 Apple IIs (Max 2 notes per machine)
+        for (int i = 0; i < NUM_SPEAKERS; i++) speakerAssignments.add(new ArrayList<>());
         int noteIdx = 0;
         for (ActiveNote note : notes) {
             int targetSpeaker = noteIdx % NUM_SPEAKERS;
@@ -402,95 +292,49 @@ public class BeepSynthProvider implements SoftSynthProvider
             }
             noteIdx++;
         }
-
         for (int i = 0; i < frames; i++) {
             double analogSum = 0.0;
-            
             for (int s = 0; s < NUM_SPEAKERS; s++) {
                 analogSum += speakers[s].render(speakerAssignments.get(s));
             }
-            
-            // Normalize the analog sum of 8 speakers [-8.0, 8.0]
-            double mixed = analogSum / NUM_SPEAKERS;
-            
-            buffer[i] = (short) (mixed * 8000); // Master volume scaled safely
-            
-            // Age all notes precisely at 44.1kHz resolution
+            buffer[i] = (short) ((analogSum / NUM_SPEAKERS) * 8000);
             for (ActiveNote n : notes) n.activeFrames++;
         }
     }
+
     @Override
-    public void prepareForNewTrack(javax.sound.midi.Sequence sequence)
-    {
+    public void closePort() {
+        running = false;
+        if (renderThread != null) renderThread.interrupt();
+    }
+
+    @Override
+    public void prepareForNewTrack(javax.sound.midi.Sequence seq) {
         if (audio == null) return;
         renderPaused = true;
-        try { Thread.sleep(20); } catch (InterruptedException ignored) {}
         audio.flush();
         activeNotes.clear();
         errorAccumulator = 0.0;
     }
 
-    @Override
-    public void onPlaybackStarted() { renderPaused = false; }
+    @Override public void onPlaybackStarted() { renderPaused = false; }
 
-    @Override
-    public void sendMessage(byte[] data)
-    {
-        if (data == null || data.length < 1) return;
-        int status = data[0] & 0xFF;
-        int cmd = status & 0xF0;
-        int ch = status & 0x0F;
-
-        if (cmd == 0x90 && data.length >= 3)
-        {
+    private void handleMessage(int ch, int cmd, byte[] data) {
+        if (cmd == 0x90 && data.length >= 3) {
             int note = data[1] & 0xFF;
             int velocity = data[2] & 0xFF;
-            if (velocity > 0) noteOn(ch, note);
-            else noteOff(ch, note);
+            if (velocity > 0) {
+                ActiveNote an = new ActiveNote();
+                an.channel = ch; an.note = note;
+                an.frequency = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
+                an.isDrum = (ch == 9);
+                activeNotes.add(an);
+            } else {
+                activeNotes.removeIf(n -> n.channel == ch && n.note == note);
+            }
+        } else if (cmd == 0x80) {
+            int note = data[1] & 0xFF;
+            activeNotes.removeIf(n -> n.channel == ch && n.note == note);
         }
-        else if (cmd == 0x80 && data.length >= 3)
-        {
-            noteOff(ch, data[1] & 0xFF);
-        }
-    }
-
-    private void noteOn(int channel, int note)
-    {
-        if (channel == 9) return; // Ignore drums for pure 1-bit beep
-
-        // Remove existing note to re-trigger
-        activeNotes.removeIf(n -> n.channel == channel && n.note == note);
-
-        ActiveNote an = new ActiveNote();
-        an.channel = channel;
-        an.note = note;
-        an.frequency = PITCHES[note];
-        activeNotes.add(an);
-        
-        // Limit total active notes to 8 to prevent complete chaos
-        if (activeNotes.size() > 18) {
-            activeNotes.remove(0);
-        }
-    }
-
-    private void noteOff(int channel, int note)
-    {
-        activeNotes.removeIf(n -> n.channel == channel && n.note == note);
-    }
-
-    @Override
-    public void panic() { activeNotes.clear(); if (audio != null) audio.flush(); }
-
-    @Override
-    public void closePort()
-    {
-        running = false;
-        if (renderThread != null)
-        {
-            renderThread.interrupt();
-            try { renderThread.join(500); } catch (InterruptedException ignored) {}
-        }
-        if (audio != null) audio.close();
-        activeNotes.clear();
     }
 }
