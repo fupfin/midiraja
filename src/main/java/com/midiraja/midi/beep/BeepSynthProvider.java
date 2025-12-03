@@ -149,11 +149,19 @@ public class BeepSynthProvider implements SoftSynthProvider
                 analogFm = Math.sin(currentNote.phase * 2.0 * Math.PI);
             }
 
-            framesSinceSwitch++;
-            if (framesSinceSwitch >= framesPerSwitch) {
+            // If there's only 1 note, DO NOT trigger the arpeggiator switching logic.
+            // This prevents the 50Hz LFO/Tremolo artifacts on single pure notes.
+            if (assignedNotes.size() > 1) {
+                framesSinceSwitch++;
+                if (framesSinceSwitch >= framesPerSwitch) {
+                    framesSinceSwitch = 0;
+                    arpeggioIndex++;
+                }
+            } else {
+                arpeggioIndex = 0; // Lock to the first note
                 framesSinceSwitch = 0;
-                arpeggioIndex++;
             }
+            
             return analogFm;
         }
     }
