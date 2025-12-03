@@ -18,7 +18,7 @@ public class PwmAcousticSimulator implements AudioProcessor {
     public PwmAcousticSimulator(int sampleRate, int oversampleFactor) {
         this.oversampleFactor = Math.max(1, oversampleFactor);
         // Apple II DAC522 style: 22.184kHz (92 cycles/sample @ 1.023MHz)
-        this.carrierStep = (22184.0 / sampleRate) * 2.0;
+        this.carrierStep = (18600.0 / sampleRate) * 2.0;
     }
 
     @Override
@@ -38,11 +38,8 @@ public class PwmAcousticSimulator implements AudioProcessor {
                 sumR += (r > carrierPhase ? 1.0 : -1.0);
             }
             
-            // Simulate Apple II 5-bit (32 levels) precision
-            // Even if the input is high-res, the 1-bit switching frequency (46 cycles per pulse)
-            // limits the effective resolution to 32 discrete duty cycle steps.
-            double bitL = Math.round((sumL / oversampleFactor) * 16.0) / 16.0;
-            double bitR = Math.round((sumR / oversampleFactor) * 16.0) / 16.0;
+            double bitL = sumL / oversampleFactor;
+            double bitR = sumR / oversampleFactor;
 
             // Strict noise gate to kill the carrier whine on absolute silence
             if (l == 0.0 && r == 0.0) {

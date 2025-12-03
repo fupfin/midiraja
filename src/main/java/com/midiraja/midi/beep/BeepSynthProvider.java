@@ -92,8 +92,6 @@ public class BeepSynthProvider implements SoftSynthProvider
         int framesSinceSwitch = 0;
         double carrierPhase = 0.0;
         double modPhase = 0.0;
-        double cachedSample = 0.0;
-        long lastUpdateFrame = -1;
 
         double render(List<ActiveNote> assignedNotes, int framesPerSwitch) {
             if (assignedNotes.isEmpty()) return 0.0;
@@ -101,56 +99,49 @@ public class BeepSynthProvider implements SoftSynthProvider
             
             ActiveNote currentNote = assignedNotes.get(arpeggioIndex);
             
-            // APPLE II REALITY: 11,025Hz CPU Loop Simulation (1/4th of 44.1kHz)
-            // Simulates the 92-cycle budget of the 6502 CPU.
-            long currentCycle = currentNote.activeFrames / 4;
-            if (currentCycle != lastUpdateFrame) {
-                lastUpdateFrame = currentCycle;
-                double time = (lastUpdateFrame * 4) / (double) sampleRate;
-                double currentAnalogFm = 0.0;
+            double analogFm = 0.0;
+            double time = currentNote.activeFrames / (double) sampleRate;
 
-                if (currentNote.isDrum) {
-                    int noteNum = currentNote.note;
-                    if (noteNum == 35 || noteNum == 36) { // Kick
-                        if (time < 0.2) {
-                            double pitchDrop = 150.0 * Math.exp(-time * 30.0);
-                            carrierPhase += ((50.0 + pitchDrop) / sampleRate) * 4.0;
-                            currentAnalogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
-                        }
-                    } else if (noteNum == 38 || noteNum == 40) { // Snare
-                        if (time < 0.15) {
-                            double noiseEnv = Math.exp(-time * 20.0);
-                            carrierPhase += (200.0 / sampleRate) * 4.0;
-                            double tone = Math.sin(carrierPhase * 2.0 * Math.PI) * Math.exp(-time * 10.0) * 0.4;
-                            double noise = (Math.random() * 2.0 - 1.0) * noiseEnv * 1.5;
-                            currentAnalogFm = Math.max(-1.0, Math.min(1.0, tone + noise));
-                        }
-                    } else if (noteNum == 42 || noteNum == 44 || noteNum == 46 || noteNum >= 49) { // Hi-Hat / Cymbal
-                        double duration = (noteNum >= 49) ? 0.3 : 0.05;
-                        if (time < duration) {
-                            double env = Math.exp(-time * (1.0 / duration) * 5.0);
-                            currentAnalogFm = (Math.random() > 0.5 ? 1.5 : -1.5) * env;
-                        }
-                    } else { // Toms
-                        if (time < 0.25) {
-                            double pitchDrop = 300.0 * Math.exp(-time * 15.0);
-                            carrierPhase += ((80.0 + pitchDrop) / sampleRate) * 4.0;
-                            currentAnalogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
-                        }
+            if (currentNote.isDrum) {
+                int noteNum = currentNote.note;
+                if (noteNum == 35 || noteNum == 36) { // Kick
+                    if (time < 0.2) {
+                        double pitchDrop = 150.0 * Math.exp(-time * 30.0);
+                        carrierPhase += (50.0 + pitchDrop) / sampleRate;
+                        analogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
                     }
-                } else {
-                    // 2-OP FM Synthesis (Melody)
-                    double decay = Math.max(0.0, 1.0 - (time / 0.5));
-                    double modFreq = currentNote.frequency * 3.5;
-                    modPhase += (modFreq / sampleRate) * 4.0;
-                    if (modPhase >= 1.0) modPhase -= 1.0;
-                    double modulator = Math.sin(modPhase * 2.0 * Math.PI);
-                    double modIndex = 0.2 + (2.3 * decay); 
-                    double instFreq = currentNote.frequency + (modulator * modIndex * currentNote.frequency);
-                    carrierPhase += (instFreq / sampleRate) * 4.0;
-                    currentAnalogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
+                } else if (noteNum == 38 || noteNum == 40) { // Snare
+                    if (time < 0.15) {
+                        double noiseEnv = Math.exp(-time * 20.0);
+                        carrierPhase += 200.0 / sampleRate;
+                        double tone = Math.sin(carrierPhase * 2.0 * Math.PI) * Math.exp(-time * 10.0) * 0.4;
+                        double noise = (Math.random() * 2.0 - 1.0) * noiseEnv * 1.5;
+                        analogFm = Math.max(-1.0, Math.min(1.0, tone + noise));
+                    }
+                } else if (noteNum == 42 || noteNum == 44 || noteNum == 46 || noteNum >= 49) { // Hi-Hat / Cymbal
+                    double duration = (noteNum >= 49) ? 0.3 : 0.05;
+                    if (time < duration) {
+                        double env = Math.exp(-time * (1.0 / duration) * 5.0);
+                        analogFm = (Math.random() > 0.5 ? 1.5 : -1.5) * env;
+                    }
+                } else { // Toms
+                    if (time < 0.25) {
+                        double pitchDrop = 300.0 * Math.exp(-time * 15.0);
+                        carrierPhase += (80.0 + pitchDrop) / sampleRate;
+                        analogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
+                    }
                 }
-                cachedSample = currentAnalogFm;
+            } else {
+                // 2-OP FM Synthesis (Melody)
+                double decay = Math.max(0.0, 1.0 - (time / 0.5));
+                double modFreq = currentNote.frequency * 3.5;
+                modPhase += modFreq / sampleRate;
+                if (modPhase >= 1.0) modPhase -= 1.0;
+                double modulator = Math.sin(modPhase * 2.0 * Math.PI);
+                double modIndex = 0.2 + (2.3 * decay); 
+                double instFreq = currentNote.frequency + (modulator * modIndex * currentNote.frequency);
+                carrierPhase += instFreq / sampleRate;
+                analogFm = Math.sin(carrierPhase * 2.0 * Math.PI);
             }
 
             framesSinceSwitch++;
@@ -158,7 +149,7 @@ public class BeepSynthProvider implements SoftSynthProvider
                 framesSinceSwitch = 0;
                 arpeggioIndex++;
             }
-            return cachedSample;
+            return analogFm;
         }
     }
 
