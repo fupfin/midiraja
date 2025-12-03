@@ -160,7 +160,7 @@ public class BeepSynthProvider implements SoftSynthProvider
 
     private final SixteentetSpeaker[] speakers = new SixteentetSpeaker[NUM_SPEAKERS];
     private final FmArpeggiatorSpeaker[] fmSpeakers = new FmArpeggiatorSpeaker[NUM_SPEAKERS];
-    private final int framesPerSwitch = sampleRate / 40;
+    private final int framesPerSwitch = sampleRate / 50; // 50 Hz fast arpeggio (Classic PAL framerate)
 
     public BeepSynthProvider(NativeAudioEngine audio, String mode, int oversample) {
         this.audio = audio;
