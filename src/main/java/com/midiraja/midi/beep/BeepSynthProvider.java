@@ -96,57 +96,66 @@ public class BeepSynthProvider implements SoftSynthProvider
             if (assignedNotes.isEmpty()) return 0.0;
             if (arpeggioIndex >= assignedNotes.size()) arpeggioIndex = 0;
             
-            ActiveNote currentNote = assignedNotes.get(arpeggioIndex);
-            
+            // WE MUST ADVANCE THE PHASE OF ALL NOTES CONTINUOUSLY!
+            // If we only advance the phase of the currently sounding note, its effective 
+            // frequency is divided by the number of notes (because it freezes when not selected).
             double analogFm = 0.0;
-            double time = currentNote.activeFrames / (double) sampleRate;
-
-            if (currentNote.isDrum) {
-                int noteNum = currentNote.note;
-                if (noteNum == 35 || noteNum == 36) { // Kick
-                    if (time < 0.2) {
-                        double pitchDrop = 150.0 * Math.exp(-time * 30.0);
-                        currentNote.phase += (50.0 + pitchDrop) / sampleRate;
-                        analogFm = Math.sin(currentNote.phase * 2.0 * Math.PI);
+            
+            for (int i = 0; i < assignedNotes.size(); i++) {
+                ActiveNote note = assignedNotes.get(i);
+                double time = note.activeFrames / (double) sampleRate;
+                double out = 0.0;
+                
+                if (note.isDrum) {
+                    int noteNum = note.note;
+                    if (noteNum == 35 || noteNum == 36) { // Kick
+                        if (time < 0.2) {
+                            double pitchDrop = 150.0 * Math.exp(-time * 30.0);
+                            note.phase += (50.0 + pitchDrop) / sampleRate;
+                            out = Math.sin(note.phase * 2.0 * Math.PI);
+                        }
+                    } else if (noteNum == 38 || noteNum == 40) { // Snare
+                        if (time < 0.15) {
+                            double noiseEnv = Math.exp(-time * 20.0);
+                            note.phase += 200.0 / sampleRate;
+                            double tone = Math.sin(note.phase * 2.0 * Math.PI) * Math.exp(-time * 10.0) * 0.4;
+                            double noise = (Math.random() * 2.0 - 1.0) * noiseEnv * 1.5;
+                            out = Math.max(-1.0, Math.min(1.0, tone + noise));
+                        }
+                    } else if (noteNum == 42 || noteNum == 44 || noteNum == 46 || noteNum >= 49) { // Hi-Hat / Cymbal
+                        double duration = (noteNum >= 49) ? 0.3 : 0.05;
+                        if (time < duration) {
+                            double env = Math.exp(-time * (1.0 / duration) * 5.0);
+                            out = (Math.random() > 0.5 ? 1.5 : -1.5) * env;
+                        }
+                    } else { // Toms
+                        if (time < 0.25) {
+                            double pitchDrop = 300.0 * Math.exp(-time * 15.0);
+                            note.phase += (80.0 + pitchDrop) / sampleRate;
+                            out = Math.sin(note.phase * 2.0 * Math.PI);
+                        }
                     }
-                } else if (noteNum == 38 || noteNum == 40) { // Snare
-                    if (time < 0.15) {
-                        double noiseEnv = Math.exp(-time * 20.0);
-                        currentNote.phase += 200.0 / sampleRate;
-                        double tone = Math.sin(currentNote.phase * 2.0 * Math.PI) * Math.exp(-time * 10.0) * 0.4;
-                        double noise = (Math.random() * 2.0 - 1.0) * noiseEnv * 1.5;
-                        analogFm = Math.max(-1.0, Math.min(1.0, tone + noise));
-                    }
-                } else if (noteNum == 42 || noteNum == 44 || noteNum == 46 || noteNum >= 49) { // Hi-Hat / Cymbal
-                    double duration = (noteNum >= 49) ? 0.3 : 0.05;
-                    if (time < duration) {
-                        double env = Math.exp(-time * (1.0 / duration) * 5.0);
-                        analogFm = (Math.random() > 0.5 ? 1.5 : -1.5) * env;
-                    }
-                } else { // Toms
-                    if (time < 0.25) {
-                        double pitchDrop = 300.0 * Math.exp(-time * 15.0);
-                        currentNote.phase += (80.0 + pitchDrop) / sampleRate;
-                        analogFm = Math.sin(currentNote.phase * 2.0 * Math.PI);
-                    }
+                } else {
+                    // 2-OP FM Synthesis (Melody)
+                    double decay = Math.max(0.0, 1.0 - (time / 0.5));
+                    double modFreq = note.frequency * 1.0;
+                    
+                    note.modPhase += modFreq / sampleRate;
+                    if (note.modPhase >= 1.0) note.modPhase -= 1.0;
+                    double modulator = Math.sin(note.modPhase * 2.0 * Math.PI);
+                    
+                    double modIndex = 0.1 + (1.1 * decay); 
+                    double instFreq = note.frequency + (modulator * modIndex * note.frequency);
+                    
+                    note.phase += instFreq / sampleRate;
+                    if (note.phase >= 1.0) note.phase -= 1.0;
+                    out = Math.sin(note.phase * 2.0 * Math.PI);
                 }
-            } else {
-                // 2-OP FM Synthesis (Melody)
-                double decay = Math.max(0.0, 1.0 - (time / 0.5));
-                double modFreq = currentNote.frequency * 1.0;
                 
-                // Track modulator phase per-note
-                currentNote.modPhase += modFreq / sampleRate;
-                if (currentNote.modPhase >= 1.0) currentNote.modPhase -= 1.0;
-                double modulator = Math.sin(currentNote.modPhase * 2.0 * Math.PI);
-                
-                double modIndex = 0.1 + (1.1 * decay); 
-                double instFreq = currentNote.frequency + (modulator * modIndex * currentNote.frequency);
-                
-                // Track carrier phase per-note! This prevents the clicking/popping when arpeggiating!
-                currentNote.phase += instFreq / sampleRate;
-                if (currentNote.phase >= 1.0) currentNote.phase -= 1.0;
-                analogFm = Math.sin(currentNote.phase * 2.0 * Math.PI);
+                // Only output the sound of the currently selected arpeggiator slot
+                if (i == arpeggioIndex) {
+                    analogFm = out;
+                }
             }
 
             // If there's only 1 note, DO NOT trigger the arpeggiator switching logic.
