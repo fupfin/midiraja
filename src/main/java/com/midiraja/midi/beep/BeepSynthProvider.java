@@ -226,7 +226,13 @@ public class BeepSynthProvider implements SoftSynthProvider
                     continue;
                 }
                 List<ActiveNote> currentNotes = new ArrayList<>(activeNotes);
-                activeNotes.removeIf(n -> n.isDrum && n.activeFrames > sampleRate * 0.5); // Only forcefully kill drums to free polyphony
+                
+                // Aggressive Garbage Collection to prevent messy overlapping notes:
+                // 1. Drums are very short mathematical transient bursts. Kill them after 0.2 seconds.
+                // 2. Melodies should die when NoteOff is received. But as a failsafe against stuck 
+                //    MIDI notes (drones), kill them after 3.0 seconds maximum.
+                activeNotes.removeIf(n -> (n.isDrum && n.activeFrames > sampleRate * 0.2) || 
+                                          (!n.isDrum && n.activeFrames > sampleRate * 3.0));
 
                 if (currentNotes.isEmpty()) {
                     for (int i = 0; i < framesToRender; i++) pcmBuffer[i] = 0;
