@@ -30,8 +30,6 @@ public class BeepSynthProvider implements SoftSynthProvider
     private volatile boolean renderPaused = false;
 
     // Universal DAC522 / PC Speaker output filter
-    private PwmAcousticSimulator dspSimulator;
-
     private static class ActiveNote {
         int channel;
         int note;
@@ -44,6 +42,7 @@ public class BeepSynthProvider implements SoftSynthProvider
     private final List<ActiveNote> activeNotes = new CopyOnWriteArrayList<>();
 
     private double errorAccumulator = 0.0;
+    private double lpfState = 0.0; // Acoustic filter state
     private static final int NUM_SPEAKERS = 8;
     private static final int MAX_NOTES_PER_SPEAKER = 2;
     
@@ -177,12 +176,11 @@ public class BeepSynthProvider implements SoftSynthProvider
 
     private final SixteentetSpeaker[] speakers = new SixteentetSpeaker[NUM_SPEAKERS];
     private final FmArpeggiatorSpeaker[] fmSpeakers = new FmArpeggiatorSpeaker[NUM_SPEAKERS];
-    private final int framesPerSwitch = sampleRate / 50; // 50 Hz fast arpeggio (Classic PAL framerate)
+    private final int framesPerSwitch = sampleRate / 10; // 10 Hz slow arpeggio (Diagnostic speed)
 
     public BeepSynthProvider(NativeAudioEngine audio, String mode, int oversample) {
         this.audio = audio;
         this.mode = mode.toLowerCase(java.util.Locale.ROOT);
-        this.dspSimulator = new PwmAcousticSimulator(sampleRate, oversample);
         for (int i = 0; i < NUM_SPEAKERS; i++) {
             speakers[i] = new SixteentetSpeaker();
             fmSpeakers[i] = new FmArpeggiatorSpeaker();
@@ -226,7 +224,7 @@ public class BeepSynthProvider implements SoftSynthProvider
                     continue;
                 }
                 List<ActiveNote> currentNotes = new ArrayList<>(activeNotes);
-                activeNotes.removeIf(n -> n.activeFrames > sampleRate * 2.0);
+                activeNotes.removeIf(n -> n.isDrum && n.activeFrames > sampleRate * 0.5); // Only forcefully kill drums to free polyphony
 
                 if (currentNotes.isEmpty()) {
                     for (int i = 0; i < framesToRender; i++) pcmBuffer[i] = 0;
@@ -262,19 +260,35 @@ public class BeepSynthProvider implements SoftSynthProvider
             }
         }
 
-        float[] analogL = new float[frames];
-        float[] analogR = new float[frames];
         for (int i = 0; i < frames; i++) {
             double analogSum = 0.0;
             for (int s = 0; s < NUM_SPEAKERS; s++) {
                 analogSum += fmSpeakers[s].render(speakerAssignments.get(s), framesPerSwitch);
             }
-            float mixed = (float) (analogSum / NUM_SPEAKERS);
-            analogL[i] = mixed; analogR[i] = mixed;
+            // Aggressive Volume scaling to prevent clipping
+            double safeMix = (analogSum / NUM_SPEAKERS) * 0.7;
+            safeMix = Math.max(-0.95, Math.min(0.95, safeMix));
+            
+            // Age all notes perfectly smoothly
             for (ActiveNote n : notes) n.activeFrames++;
+            
+            // --- TRUE 1-BIT CONVERSION (First-Order Delta-Sigma) ---
+            // Instead of comparing against an 18.6kHz sawtooth carrier (which causes 
+            // massive intermodulation distortion when paired with complex FM harmonics),
+            // we use a mathematically pure Error Accumulator. This perfectly preserves 
+            // the analog volume/timbre without generating harsh high-frequency sizzle.
+            
+            double target = safeMix;
+            double outputBit = (target + errorAccumulator) > 0.0 ? 1.0 : -1.0;
+            errorAccumulator += (target - outputBit);
+            
+            // Soft paper-speaker acoustic filtering (Simple 1-pole Low Pass)
+            // This rolls off the extreme high-end switching noise, making it sound warm.
+            lpfState += 0.3 * (outputBit - lpfState);
+            
+            // Output to 16-bit PCM buffer
+            buffer[i] = (short) (lpfState * 8000);
         }
-        dspSimulator.process(analogL, analogR, frames);
-        for (int i = 0; i < frames; i++) buffer[i] = (short) (analogL[i] * 32767);
     }
 
     private void renderPwm(List<ActiveNote> notes, short[] buffer, int frames) {
