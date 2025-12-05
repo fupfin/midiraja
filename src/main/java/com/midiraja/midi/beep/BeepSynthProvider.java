@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import org.jspecify.annotations.Nullable;
 
 @SuppressWarnings({"ThreadPriorityCheck", "EmptyCatch"})
@@ -40,7 +39,7 @@ public class BeepSynthProvider implements SoftSynthProvider
         long activeFrames = 0; // For envelope/decay tracking
         boolean isDrum = false;
     }
-    private final List<ActiveNote> activeNotes = new CopyOnWriteArrayList<>();
+    private final List<ActiveNote> activeNotes = new ArrayList<>(64); // Pre-allocate capacity to avoid resizing
 
     private double errorAccumulator = 0.0;
     private double lpfState = 0.0; private double lpfState2 = 0.0; // Acoustic filter state
@@ -225,14 +224,17 @@ public class BeepSynthProvider implements SoftSynthProvider
                     try { Thread.sleep(1); } catch (InterruptedException e) { break; }
                     continue;
                 }
-                List<ActiveNote> currentNotes = new ArrayList<>(activeNotes);
+                List<ActiveNote> currentNotes = new ArrayList<>(32);
                 
-                // Aggressive Garbage Collection to prevent messy overlapping notes:
-                // 1. Drums are very short mathematical transient bursts. Kill them after 0.2 seconds.
-                // 2. Melodies should die when NoteOff is received. But as a failsafe against stuck 
-                //    MIDI notes (drones), kill them after 3.0 seconds maximum.
-                activeNotes.removeIf(n -> (n.isDrum && n.activeFrames > sampleRate * 0.2) || 
-                                          (!n.isDrum && n.activeFrames > sampleRate * 3.0));
+                // Extremely fast, synchronized snapshot of notes to prevent sequencer blockage
+                synchronized (activeNotes) {
+                    // Aggressive Garbage Collection done IN PLACE
+                    activeNotes.removeIf(n -> (n.isDrum && n.activeFrames > sampleRate * 0.2) || 
+                                              (!n.isDrum && n.activeFrames > sampleRate * 3.0));
+                                              
+                    // Copy references for thread-safe rendering
+                    currentNotes.addAll(activeNotes);
+                }
 
                 if (currentNotes.isEmpty()) {
                     for (int i = 0; i < framesToRender; i++) pcmBuffer[i] = 0;
@@ -358,7 +360,7 @@ public class BeepSynthProvider implements SoftSynthProvider
         if (audio == null) return;
         renderPaused = true;
         audio.flush();
-        activeNotes.clear();
+        synchronized(activeNotes) { activeNotes.clear(); }
         errorAccumulator = 0.0;
     }
 
