@@ -196,6 +196,18 @@ public class BeepSynthProvider implements SoftSynthProvider
 
     private final SixteentetSpeaker[] speakers = new SixteentetSpeaker[NUM_SPEAKERS];
     private final FmArpeggiatorSpeaker[] fmSpeakers = new FmArpeggiatorSpeaker[NUM_SPEAKERS];
+
+    // Pre-allocated routing buffers to prevent GC stutter
+    private final List<List<ActiveNote>> fmSpeakerAssignments;
+    private final List<List<ActiveNote>> duetSpeakerAssignments;
+    {
+        fmSpeakerAssignments = new ArrayList<>(NUM_SPEAKERS);
+        duetSpeakerAssignments = new ArrayList<>(NUM_SPEAKERS);
+        for (int i = 0; i < NUM_SPEAKERS; i++) {
+            fmSpeakerAssignments.add(new ArrayList<>(4));
+            duetSpeakerAssignments.add(new ArrayList<>(4));
+        }
+    }
     private final int framesPerSwitch = sampleRate / 10; // 10 Hz slow arpeggio (Diagnostic speed)
 
     public BeepSynthProvider(NativeAudioEngine audio, String mode, int oversample) {
@@ -274,18 +286,18 @@ public class BeepSynthProvider implements SoftSynthProvider
     }
 
     private void renderFm(List<ActiveNote> notes, short[] buffer, int frames) {
-        List<List<ActiveNote>> speakerAssignments = new ArrayList<>(NUM_SPEAKERS);
-        for (int i = 0; i < NUM_SPEAKERS; i++) speakerAssignments.add(new ArrayList<>());
+        // Clear pre-allocated routing buffers to avoid GC pauses
+        for (int i = 0; i < NUM_SPEAKERS; i++) fmSpeakerAssignments.get(i).clear();
         
         int melodyIdx = 0, drumIdx = 0;
         for (ActiveNote note : notes) {
             if (note.isDrum) {
                 int target = 6 + (drumIdx % 2);
-                if (speakerAssignments.get(target).size() < 2) speakerAssignments.get(target).add(note);
+                if (fmSpeakerAssignments.get(target).size() < 2) fmSpeakerAssignments.get(target).add(note);
                 drumIdx++;
             } else {
                 int target = melodyIdx % 6;
-                if (speakerAssignments.get(target).size() < 2) speakerAssignments.get(target).add(note);
+                if (fmSpeakerAssignments.get(target).size() < 2) fmSpeakerAssignments.get(target).add(note);
                 melodyIdx++;
             }
         }
@@ -293,7 +305,7 @@ public class BeepSynthProvider implements SoftSynthProvider
         for (int i = 0; i < frames; i++) {
             double analogSum = 0.0;
             for (int s = 0; s < NUM_SPEAKERS; s++) {
-                analogSum += fmSpeakers[s].render(speakerAssignments.get(s), framesPerSwitch);
+                analogSum += fmSpeakers[s].render(fmSpeakerAssignments.get(s), framesPerSwitch);
             }
             // Aggressive Volume scaling to prevent clipping
             double safeMix = (analogSum / NUM_SPEAKERS) * 0.7;
@@ -349,20 +361,21 @@ public class BeepSynthProvider implements SoftSynthProvider
     }
 
     private void renderDuet(List<ActiveNote> notes, short[] buffer, int frames) {
-        List<List<ActiveNote>> speakerAssignments = new ArrayList<>(NUM_SPEAKERS);
-        for (int i = 0; i < NUM_SPEAKERS; i++) speakerAssignments.add(new ArrayList<>());
+        // Clear pre-allocated routing buffers
+        for (int i = 0; i < NUM_SPEAKERS; i++) duetSpeakerAssignments.get(i).clear();
+        
         int noteIdx = 0;
         for (ActiveNote note : notes) {
             int targetSpeaker = noteIdx % NUM_SPEAKERS;
-            if (speakerAssignments.get(targetSpeaker).size() < MAX_NOTES_PER_SPEAKER) {
-                speakerAssignments.get(targetSpeaker).add(note);
+            if (duetSpeakerAssignments.get(targetSpeaker).size() < MAX_NOTES_PER_SPEAKER) {
+                duetSpeakerAssignments.get(targetSpeaker).add(note);
             }
             noteIdx++;
         }
         for (int i = 0; i < frames; i++) {
             double analogSum = 0.0;
             for (int s = 0; s < NUM_SPEAKERS; s++) {
-                analogSum += speakers[s].render(speakerAssignments.get(s));
+                analogSum += speakers[s].render(duetSpeakerAssignments.get(s));
             }
             buffer[i] = (short) ((analogSum / NUM_SPEAKERS) * 8000);
             for (ActiveNote n : notes) n.activeFrames++;
