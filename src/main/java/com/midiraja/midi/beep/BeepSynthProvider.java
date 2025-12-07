@@ -233,7 +233,7 @@ public class BeepSynthProvider implements SoftSynthProvider
             duetSpeakerAssignments.add(new ArrayList<>(4));
         }
     }
-    private final int framesPerSwitch = sampleRate / 50; // 50 Hz fast arpeggio (Classic PAL framerate for psychoacoustic blending)
+    private final int framesPerSwitch = sampleRate / 35; // 35 Hz arpeggio (Music Maker style) (Classic PAL framerate for psychoacoustic blending)
 
     public BeepSynthProvider(NativeAudioEngine audio, String mode, int oversample) {
         this.audio = audio;
