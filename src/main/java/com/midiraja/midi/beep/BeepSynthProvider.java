@@ -23,6 +23,7 @@ public class BeepSynthProvider implements SoftSynthProvider
     private final NativeAudioEngine audio;
     private final String mode;
     private final int sampleRate = 44100;
+    private final int oversample;
     
     private @Nullable Thread renderThread;
     private volatile boolean running = false;
@@ -123,7 +124,7 @@ public class BeepSynthProvider implements SoftSynthProvider
         private final double pwmCarrierStep;
         
         FmArpeggiatorSpeaker(int sampleRate) {
-            this.framesPerSwitch = sampleRate / 35;
+            this.framesPerSwitch = sampleRate / 50;
             this.pwmCarrierStep = (22050.0 / sampleRate) * 2.0;
         }
 
@@ -198,14 +199,15 @@ public class BeepSynthProvider implements SoftSynthProvider
             }
             
             // 3. DAC522 1-Bit PWM Simulation per Speaker
+            // Use the global oversample factor to simulate different levels of CPU precision.
+            // 1 = Original harsh aliasing, 32 = Modern clean emulation.
             double sumPwm = 0.0;
-            int localOversample = 8; 
-            for (int o = 0; o < localOversample; o++) {
-                pwmCarrierPhase += pwmCarrierStep / localOversample;
+            for (int o = 0; o < oversample; o++) {
+                pwmCarrierPhase += pwmCarrierStep / oversample;
                 if (pwmCarrierPhase > 1.0) pwmCarrierPhase -= 2.0;
                 sumPwm += (targetAnalogValue > pwmCarrierPhase ? 1.0 : -1.0);
             }
-            return sumPwm / localOversample;
+            return sumPwm / oversample;
         }
     }
 
@@ -225,6 +227,7 @@ public class BeepSynthProvider implements SoftSynthProvider
     public BeepSynthProvider(NativeAudioEngine audio, String mode, int oversample) {
         this.audio = audio;
         this.mode = mode.toLowerCase(java.util.Locale.ROOT);
+        this.oversample = Math.max(1, oversample);
         for (int i = 0; i < NUM_SPEAKERS; i++) {
             speakers[i] = new SixteentetSpeaker();
             fmSpeakers[i] = new FmArpeggiatorSpeaker(sampleRate);
