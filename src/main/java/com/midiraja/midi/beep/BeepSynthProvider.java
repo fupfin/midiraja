@@ -208,7 +208,8 @@ public class BeepSynthProvider implements SoftSynthProvider
 
     @Override
     public List<MidiPort> getOutputPorts() {
-        return List.of(new MidiPort(0, String.format("[%d-Core] Apple II 1-Bit FM Cluster", NUM_SPEAKERS)));
+        int maxPolyphony = NUM_SPEAKERS * voicesPerCore;
+        return List.of(new MidiPort(0, String.format("[%d-Core, %d-Voice] Apple II 1-Bit FM Cluster", NUM_SPEAKERS, maxPolyphony)));
     }
 
     @Override
