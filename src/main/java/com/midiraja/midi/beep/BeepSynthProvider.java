@@ -81,16 +81,16 @@ public class BeepSynthProvider implements SoftSynthProvider
     private double lpfState = 0.0; 
     private double lpfState2 = 0.0;
 
-    private static final int NUM_SPEAKERS = 8;
+    private final int numUnits;
     
     // ---------------------------------------------------------
-    // Ultimate Apple II Core (XOR Multiplexing FM)
+    // Ultimate Apple II Unit (XOR Multiplexing FM)
     // ---------------------------------------------------------
-    private class AppleIICore {
+    private class AppleIIUnit {
         private double pwmCarrierPhase = -1.0;
         private final double pwmCarrierStep;
         
-        AppleIICore(int sampleRate) {
+        AppleIIUnit(int sampleRate) {
             // DAC522 Hardware limit: 22.05kHz carrier
             this.pwmCarrierStep = (22050.0 / sampleRate) * 2.0;
         }
@@ -186,14 +186,8 @@ public class BeepSynthProvider implements SoftSynthProvider
         }
     }
 
-    private final AppleIICore[] cores = new AppleIICore[NUM_SPEAKERS];
-    private final List<List<ActiveNote>> coreAssignments;
-    {
-        coreAssignments = new ArrayList<>(NUM_SPEAKERS);
-        for (int i = 0; i < NUM_SPEAKERS; i++) {
-            coreAssignments.add(new ArrayList<>(8)); // Allocate enough capacity
-        }
-    }
+    private final AppleIIUnit[] units;
+    private final List<List<ActiveNote>> unitAssignments;
 
     public BeepSynthProvider(NativeAudioEngine audio, int voices, double fmRatio, double fmIndex, int oversample) {
         this.audio = audio;
@@ -201,15 +195,24 @@ public class BeepSynthProvider implements SoftSynthProvider
         this.fmRatio = fmRatio;
         this.fmIndex = fmIndex;
         this.oversample = Math.max(1, oversample);
-        for (int i = 0; i < NUM_SPEAKERS; i++) {
-            cores[i] = new AppleIICore(sampleRate);
+        
+        // Dynamic Unit Scaling: Always guarantee at least 16 total polyphony (12 Melody + 4 Drum)
+        // If voices = 1, we need 16 units. If voices = 2, we need 8 units. If voices = 4, we need 4 units.
+        this.numUnits = (int) Math.ceil(16.0 / this.voicesPerCore);
+        
+        this.units = new AppleIIUnit[numUnits];
+        this.unitAssignments = new ArrayList<>(numUnits);
+        
+        for (int i = 0; i < numUnits; i++) {
+            this.units[i] = new AppleIIUnit(sampleRate);
+            this.unitAssignments.add(new ArrayList<>(8));
         }
     }
 
     @Override
     public List<MidiPort> getOutputPorts() {
-        int maxPolyphony = NUM_SPEAKERS * voicesPerCore;
-        return List.of(new MidiPort(0, String.format("[%d-Core, %d-Voice] Apple II 1-Bit FM Cluster", NUM_SPEAKERS, maxPolyphony)));
+        int maxPolyphony = numUnits * voicesPerCore;
+        return List.of(new MidiPort(0, String.format("[%d-Unit, %d-Voice] Apple II 1-Bit FM Cluster", numUnits, maxPolyphony)));
     }
 
     @Override
@@ -259,18 +262,26 @@ public class BeepSynthProvider implements SoftSynthProvider
     }
 
     private void renderCluster(List<ActiveNote> notes, short[] buffer, int frames) {
-        for (int i = 0; i < NUM_SPEAKERS; i++) coreAssignments.get(i).clear();
+        for (int i = 0; i < numUnits; i++) unitAssignments.get(i).clear();
         
-        // Route notes to cores. Cores 6 & 7 are reserved for Rhythm/Drums.
+        // Dynamic Routing based on available units
+        // Dedicate 25% of units to Rhythm/Drums (minimum 1), the rest to Melody.
+        int drumUnits = Math.max(1, numUnits / 4);
+        int melodyUnits = numUnits - drumUnits;
+        
         int melodyIdx = 0, drumIdx = 0;
         for (ActiveNote note : notes) {
             if (note.isDrum) {
-                int target = 6 + (drumIdx % 2);
-                if (coreAssignments.get(target).size() < voicesPerCore) coreAssignments.get(target).add(note);
+                int target = melodyUnits + (drumIdx % drumUnits);
+                if (unitAssignments.get(target).size() < voicesPerCore) {
+                    unitAssignments.get(target).add(note);
+                }
                 drumIdx++;
             } else {
-                int target = melodyIdx % 6;
-                if (coreAssignments.get(target).size() < voicesPerCore) coreAssignments.get(target).add(note);
+                int target = melodyIdx % melodyUnits;
+                if (unitAssignments.get(target).size() < voicesPerCore) {
+                    unitAssignments.get(target).add(note);
+                }
                 melodyIdx++;
             }
         }
@@ -278,13 +289,13 @@ public class BeepSynthProvider implements SoftSynthProvider
         for (int i = 0; i < frames; i++) {
             // Hardware Gathering: Collect 1-bit outputs from 8 machines
             double sumOfAppleIIs = 0.0;
-            for (int s = 0; s < NUM_SPEAKERS; s++) {
-                sumOfAppleIIs += cores[s].render(coreAssignments.get(s));
+            for (int s = 0; s < numUnits; s++) {
+                sumOfAppleIIs += units[s].render(unitAssignments.get(s));
             }
             for (ActiveNote n : notes) n.activeFrames++;
             
             // Analog Mixing Console: Sum the voltages, add slight headroom
-            double analogMix = (sumOfAppleIIs / NUM_SPEAKERS) * 0.8; 
+            double analogMix = (sumOfAppleIIs / numUnits) * 0.8; 
             
             // Master Acoustic Filtering (2.25-inch paper cones)
             double filterCutoff = 0.25; 

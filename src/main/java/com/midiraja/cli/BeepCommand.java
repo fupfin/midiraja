@@ -37,7 +37,7 @@ public class BeepCommand implements Callable<Integer>
 
     @Mixin @org.jspecify.annotations.Nullable private CommonOptions common;
 
-    @Option(names = {"--voices"}, defaultValue = "2", description = "Polyphony per virtual Apple II core (1-4). Default: 2")
+    @Option(names = {"--voices"}, defaultValue = "2", description = "Polyphony per virtual Apple II unit (1-4). Default: 2")
     private int voices = 2;
 
     @Option(names = {"--fm-ratio"}, defaultValue = "1.0", description = "FM Modulator frequency ratio (e.g., 1.0 for clean, 3.5 for metallic). Default: 1.0")
