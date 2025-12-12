@@ -29,17 +29,25 @@ To solve this, the engine employs a **Yamaha-like Phase Modulation (PM)** archit
 2.  The modulator wave is added directly to the *lookup phase* (not the frequency) just before querying the Sine LUT.
 This guarantees absolute pitch stability at any frequency. Furthermore, a bulletproof mathematical wrapper (`phase - Math.floor(phase)`) ensures the accumulator never escapes the [0.0, 1.0) boundary, preventing permanent state corruption across notes.
 
-### 2.2. The Dual Multiplexing Engine: XOR vs. TDM
-The most critical engineering challenge in 1-bit audio is mixing multiple notes within a single unit. The engine provides two distinct multiplexing algorithms (`--mux`), allowing users to choose between historical authenticity and modern clarity:
+### 2.2. The Multiplexing Evolution: From XOR to DSD
+The most critical engineering challenge in 1-bit audio is mixing multiple polyphonic notes within a single, binary (On/Off) speaker pin. The engine documents the historical and mathematical evolution of this problem by providing four distinct multiplexing algorithms (`--mux`):
 
-**1. Historical Mode: The XOR Logic Gate (`--mux xor`)**
-*   Mimicking the original "Electric Duet," this mode converts all analog PM signals into Pulse Width Modulated (PWM) streams and crushes them through a boolean Exclusive-OR (`^`) gate.
-*   **Acoustic Result:** Severe, authentic Ring Modulation. It creates a gritty, buzzing chiptune texture. 
-*   **Limitation:** It is strictly limited by physics. XORing more than 2 voices causes catastrophic phase cancellation ($1 \oplus 1 = 0$), obliterating the fundamental pitch and leaving only boiling white noise.
+**1. The 1981 Hack: XOR Logic Gate (`--mux xor`)**
+*   Mimicking Paul Lutus's original "Electric Duet," this mode converts each analog sine wave into a discrete 1-bit Pulse Width Modulated (PWM) stream, then crushes them together through a boolean Exclusive-OR (`^`) logic gate.
+*   **Acoustic Result:** Severe, authentic Ring Modulation. Creates a highly gritty, buzzing chiptune texture.
+*   **Limitation:** XORing more than 2 voices causes catastrophic phase cancellation ($1 \oplus 1 = 0$), obliterating the fundamental pitch into white noise.
 
-**2. Modern Mode: Time-Division Multiplexing (`--mux tdm`)**
-*   An over-engineered solution impossible on a 1MHz 6502 CPU. During the hardware oversampling loop (e.g., 1.4MHz), the unit does not try to mix notes simultaneously. Instead, it sequentially switches between notes at microsecond speeds.
-*   **Acoustic Result:** At any given micro-tick, the speaker outputs the state of only **ONE** specific note. This guarantees zero intermodulation distortion and zero phase cancellation, allowing up to 4 dense FM voices to share a single 1-bit pin while maintaining flawless psychoacoustic blending.
+**2. The High-Speed Switch: Time-Division Multiplexing (`--mux tdm`)**
+*   An impossible feat for a 1MHz CPU, this algorithm switches between notes at over 1.4MHz. Instead of logically mixing them, the pin simply outputs the state of only **ONE** specific note per micro-tick.
+*   **Acoustic Result:** Zero intermodulation distortion, allowing 4 voices per pin, but results in a slightly "thin" or "sliced" acoustic texture.
+
+**3. The Analog Cheat: Pure PWM Multiplexing (`--mux pwm`)**
+*   Abandoning logical mixing entirely, this mode mathematically sums all analog Phase Modulation sine waves together *first*, and then compares that massive combined chord against a 22kHz sawtooth carrier.
+*   **Acoustic Result:** Flawless phase mixing and 0% intermodulation. However, it leaves a distinct, retro 22kHz "carrier whine" (a faint, high-pitched background hum) characteristic of early Class-D amplifiers.
+
+**4. The Modern Pinnacle: Delta-Sigma Modulation (`--mux dsd` - Default)**
+*   The ultimate conclusion of 1-bit audio. It sums the analog waves perfectly, but replaces the 22kHz PWM carrier with a 1st-order Delta-Sigma error accumulator running at 1.4MHz.
+*   **Acoustic Result:** It pushes all quantization noise (the carrier whine) completely out of the human hearing range. It yields breathtaking, studio-grade Hi-Fi sound while technically remaining a pure 1-bit logic stream.
 
 ### 2.3. Psychoacoustic Routing: Bass Isolation
 Even with advanced multiplexing, routing multiple deep bass notes into the same physical Apple II unit caused muddy, low-frequency beat frequencies (beating). 
