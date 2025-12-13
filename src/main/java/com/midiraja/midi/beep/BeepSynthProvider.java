@@ -154,31 +154,34 @@ public class BeepSynthProvider implements SoftSynthProvider
                 } else {
                     if ("xor".equals(synthMode)) {
                         // --- MODE 2: TIMBRAL XOR RING MODULATION ---
-                        // The user's brilliant historical constraint mode.
-                        // Instead of smooth Phase Modulation, it generates two raw 1-bit square waves
-                        // (Carrier and Modulator) and crushes them together using an XOR logic gate
-                        // to carve out gritty, buzz-saw timbres before multiplexing.
+                        // Generates two raw 1-bit square waves and crushes them together via XOR.
                         
-                        // 1. Advance phases (same speed logic as PM)
+                        // 1. Advance Carrier Phase
                         note.phase += note.frequency / sampleRate;
                         note.phase = note.phase - Math.floor(note.phase);
                         
-                        double modFreq = note.frequency * fmRatio;
+                        // 2. Advance Modulator Phase (with crucial Detuning!)
+                        // If the modulator frequency perfectly matches the carrier, they phase-lock 
+                        // into silence (1^1=0) or an extreme asymmetric duty cycle that the DC Blocker kills.
+                        // We forcefully detune the modulator to guarantee rich, drifting Ring Modulation.
+                        double actualRatio = fmRatio;
+                        if (actualRatio == 1.0) {
+                            actualRatio = 1.005; // 0.5% detune creates a thick "PWM Sweep" effect
+                        }
+                        double modFreq = note.frequency * actualRatio;
                         note.modPhase += modFreq / sampleRate;
                         note.modPhase = note.modPhase - Math.floor(note.modPhase);
                         
-                        // 2. Generate raw Square Waves (Duty cycle 50%)
+                        // 3. Generate raw Square Waves (Duty cycle 50%)
                         boolean carrierBit = note.phase > 0.5;
                         boolean modBit = note.modPhase > 0.5;
                         
-                        // 3. The Magic: Timbral XOR (Ring Modulation)
-                        // If fmIndex is very low, we bypass the XOR to allow pure square wave bass.
-                        // Otherwise, we perform the 1-bit crushing.
+                        // 4. The Magic: Timbral XOR
                         boolean finalBit;
                         if (fmIndex < 0.1) {
-                            finalBit = carrierBit;
+                            finalBit = carrierBit; // Pure square wave if modulation is turned off
                         } else {
-                            finalBit = carrierBit ^ modBit;
+                            finalBit = carrierBit ^ modBit; // Gritty chiptune buzz!
                         }
                         
                         // Convert back to analog domain [-1.0, 1.0] to pass into the Multiplexer
