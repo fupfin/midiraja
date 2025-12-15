@@ -233,15 +233,35 @@ public class BeepSynthProvider implements SoftSynthProvider
                 
                 if ("xor".equals(muxMode)) {
                     // --- MODE 1: HISTORICAL XOR LOGIC ---
-                    // Converts each note to 1-bit individually, then crushes them via Exclusive-OR.
-                    // Causes authentic 1980s Ring Modulation, but destroys pitch if >2 voices.
                     boolean mixedXor = false;
+                    boolean hasActiveNotes = false;
+                    
                     for (int i = 0; i < numNotes; i++) {
-                        boolean pwmBit = assignedNotes.get(i).cachedSample > pwmCarrierPhase;
+                        double sample = assignedNotes.get(i).cachedSample;
+                        
+                        // CRITICAL FIX for XOR MUX: The "Zero-Volume Buzz" Bug
+                        // If the analog sample decays to 0.0 (silence), comparing it to a 
+                        // bipolar [-1.0, 1.0] carrier generates a perfect 50% duty cycle square wave!
+                        // This turns silence into a deafening 22kHz buzz. We MUST implement a Noise Gate
+                        // to kill the bit conversion if the volume is practically zero.
+                        boolean pwmBit;
+                        if (Math.abs(sample) < 0.05) {
+                            pwmBit = false; // Noise Gate: Force silence
+                        } else {
+                            pwmBit = sample > pwmCarrierPhase;
+                            hasActiveNotes = true;
+                        }
+                        
                         if (i == 0) mixedXor = pwmBit;
                         else mixedXor ^= pwmBit;
                     }
-                    sumPwm += (mixedXor ? 1.0 : -1.0);
+                    
+                    // If all notes are dead, output 0.0 instead of a constant DC offset or buzz
+                    if (!hasActiveNotes) {
+                        sumPwm += 0.0;
+                    } else {
+                        sumPwm += (mixedXor ? 1.0 : -1.0);
+                    }
                     
                 } else if ("tdm".equals(muxMode)) {
                     // --- MODE 2: TIME-DIVISION MULTIPLEXING (TDM) ---
