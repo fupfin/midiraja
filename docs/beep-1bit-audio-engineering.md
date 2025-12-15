@@ -21,13 +21,20 @@ The `midra beep` engine pushes this philosophy to its absolute mathematical limi
 
 The engine's architecture is the result of rigorous acoustic engineering, overcoming severe mathematical constraints to achieve perfectly synchronized, polyphonic 1-bit audio.
 
-### 2.1. Yamaha-Like Phase Modulation (PM)
-Initial iterations of the engine utilized Direct Frequency Modulation (FM). However, at high frequencies or high modulation indices, Direct FM produced severe inharmonic aliasing because the frequency accumulator could swing into negative values, fundamentally detuning the pitch.
+### 2.1. The Synthesis Triad (Timbre Generation)
+Before any notes can be multiplexed together, the engine must generate their fundamental timbre. The engine provides three distinct synthesis algorithms (`--synth`), representing different eras of digital audio engineering:
 
-To solve this, the engine employs a **Yamaha-like Phase Modulation (PM)** architecture:
-1.  The carrier frequency strictly accumulates phase at a constant, mathematically perfect rate.
-2.  The modulator wave is added directly to the *lookup phase* (not the frequency) just before querying the Sine LUT.
-This guarantees absolute pitch stability at any frequency. Furthermore, a bulletproof mathematical wrapper (`phase - Math.floor(phase)`) ensures the accumulator never escapes the [0.0, 1.0) boundary, preventing permanent state corruption across notes.
+**1. Modern: Yamaha-Like Phase Modulation (`--synth pm` - Default)**
+*   Provides a clean, bell-like, pseudo-analog sound.
+*   Instead of mathematically unstable Direct Frequency Modulation, it adds the modulator wave directly to the *lookup phase* of a mathematically perfect carrier accumulator. This guarantees absolute pitch stability at any frequency and prevents high-frequency chords from collapsing into dissonant noise.
+
+**2. Hardcore 1980s: Timbral Ring Modulation (`--synth xor`)**
+*   Mimics the brilliant 'Ring Modulation' hacks used by 1-bit legends like Tim Follin on the ZX Spectrum.
+*   It generates two raw 1-bit square waves (a Carrier and a slightly detuned Modulator) and logically crushes them together using an Exclusive-OR (`^`) gate. This carves out a gritty, aggressively buzzing, chainsaw-like chiptune timbre before the signal ever reaches the master multiplexer.
+
+**3. Classic Apple II: Pure Square Wave (`--synth square`)**
+*   The original workhorse of 1980s computer games (e.g., *Karateka*, *Ultima*).
+*   Uses a single square wave oscillator but keeps it "alive" by continuously wobbling its fundamental pitch via a 6Hz LFO (Vibrato) and mathematically sweeping its pulse width between 10% and 90% (Wah-Wah Duty Sweep). It is given a much longer decay envelope (1.5s) to compensate for the acoustic energy lost during narrow duty cycles.
 
 ### 2.2. The Multiplexing Evolution: From XOR to DSD
 The most critical engineering challenge in 1-bit audio is mixing multiple polyphonic notes within a single, binary (On/Off) speaker pin. The engine documents the historical and mathematical evolution of this problem by providing four distinct multiplexing algorithms (`--mux`):
