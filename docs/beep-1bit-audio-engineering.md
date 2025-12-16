@@ -82,6 +82,25 @@ To transform the harsh, mathematically pure 1-bit logic outputs into a warm, lis
 
 ---
 
+### 2.6. The Apple II Hardware Reality Check
+While the `midra beep` engine provides a vast matrix of 1-bit audio possibilities, it is important to distinguish between historical fact and modern over-engineering. A stock 1980s Apple II, running a MOS Technology 6502 CPU at exactly 1.023 MHz, had severe physical limits.
+
+**What was ACTUALLY possible on the Apple II?**
+Only two distinct acoustic paths were possible within the constraints of a 1MHz processor:
+1.  **The Synthesizer Path:** Generated via real-time CPU cycle-counting.
+    *   **Generation:** Only pure Square Waves (`--synth square`) were possible. LFO Vibrato and Duty Sweep were achievable by mathematically altering the delay loops.
+    *   **Multiplexing:** Only Boolean XOR (`--mux xor`) was possible, and strictly limited to 2 voices (e.g., *Electric Duet*). 
+2.  **The Sampler Path:** 
+    *   Pre-rendered 1-bit audio (essentially `--mux pwm` or PCM) could be played back, but *only as a static recording*. Real-time polyphonic MIDI synthesis using PWM was mathematically impossible because the 6502 CPU lacked the speed to perform real-time analog summing and high-frequency comparator logic simultaneously.
+
+**What is a Modern "Cheat"?**
+*   **Phase Modulation (`--synth pm`):** Impossible. The 6502 had no floating-point unit (FPU) and lacked hardware multiplication/division, making real-time Sine wave generation and phase deviation impossible at audio rates.
+*   **TDM, PWM, and DSD Multiplexing:** Impossible. These require switching the speaker pin at minimums of 44.1kHz up to 1.4MHz. The absolute fastest an Apple II could toggle a pin while doing nothing else was ~150kHz, and realistically ~10kHz when executing audio logic.
+
+By setting the engine to `--synth square --mux xor --voices 2 --quality 1`, the user can exactly replicate the absolute physical limits of 1980s Apple II hardware.
+
+---
+
 ## 3. Global Mixing Pipeline
 
 Once each virtual Apple II unit has generated its 1-bit signal, the master bus finalizes the sound:
