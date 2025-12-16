@@ -248,7 +248,19 @@ public class BeepSynthProvider implements SoftSynthProvider
                         double finalPhase = note.phase + (modulator * (envIndex / (2.0 * Math.PI)));
                         finalPhase = finalPhase - Math.floor(finalPhase);
                         
-                        out = fastSin(finalPhase);
+                        // Pure sine wave
+                        double rawSine = fastSin(finalPhase);
+                        
+                        // 1-Bit Translation Survival Hack (Wave Shaping)
+                        // Pure analog sine waves sound muddy and weak when forced through a 1-bit comparator 
+                        // because they spend too much time near the 0.0 crossing. By pushing the wave through 
+                        // a soft-clipper (Overdrive), we "square off" the edges slightly. 
+                        // This makes the FM timbre much punchier, sharper, and highly resistant to being 
+                        // destroyed by multiplexing interference.
+                        out = Math.tanh(rawSine * 2.5); 
+                        
+                        // Apply volume envelope AFTER the shaping
+                        out *= decay;
                     }
                 }
                 note.cachedSample = out;
