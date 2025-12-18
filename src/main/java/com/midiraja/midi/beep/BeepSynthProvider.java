@@ -251,18 +251,16 @@ public class BeepSynthProvider implements SoftSynthProvider
                         // Pure sine wave
                         double rawSine = fastSin(finalPhase);
                         
-                        // The Ultimate 1-Bit Translation Survival Hack: INFINITE FUZZ (Hard Clipping)
-                        // Acknowledging user feedback: Soft-clipping (tanh) still left too much "analog grey area" 
-                        // (decimals like 0.3 or -0.5). When multiplexed (TDM/XOR), these analog fragments collided
-                        // and caused severe Intermodulation Distortion, turning chords into white noise.
-                        // Solution: We must brutally quantize the beautifully modulated FM sine wave into a strict
-                        // 1-bit square wave (Sign extraction) BEFORE it hits the multiplexer. 
-                        // This preserves the complex Phase Modulation in the zero-crossings (horizontal axis)
-                        // while ensuring maximum acoustic density and bulletproof survival in the vertical axis.
-                        double hardFmBit = (rawSine > 0.0) ? 1.0 : -1.0;
+                        // 1-Bit Translation Survival Hack (Wave Shaping)
+                        // Pure analog sine waves sound muddy and weak when forced through a 1-bit comparator 
+                        // because they spend too much time near the 0.0 crossing. By pushing the wave through 
+                        // a soft-clipper (Overdrive), we "square off" the edges slightly. 
+                        // This makes the FM timbre much punchier, sharper, and highly resistant to being 
+                        // destroyed by multiplexing interference.
+                        out = Math.tanh(rawSine * 2.5); 
                         
-                        // Apply volume envelope AFTER the brutal hard-clipping
-                        out = hardFmBit * decay;
+                        // Apply volume envelope AFTER the shaping
+                        out *= decay;
                     }
                 }
                 note.cachedSample = out;
