@@ -103,8 +103,7 @@ public class BeepSynthProvider implements SoftSynthProvider
         // Per-Unit DC Blocker (Isolation)
         private double dcBlockerX = 0.0;
         private double dcBlockerY = 0.0;
-        private double sigmaDeltaError1 = 0.0;
-        private double sigmaDeltaError2 = 0.0;
+        private double sigmaDeltaError = 0.0;
         
 
         
@@ -330,38 +329,25 @@ public class BeepSynthProvider implements SoftSynthProvider
                     
                 } else {
                     // --- MODE 4: DELTA-SIGMA MODULATION (DSD) - DEFAULT ---
-                    // The ultimate modern 1-bit conclusion. Sums the analog waves perfectly,
-                    // then converts to 1-bit using 1st-order Delta-Sigma.
+                    // Reverted back to a bulletproof 1st-Order Modulator. 2nd-order blew up (filter overload)
+                    // during dense polyphonic peaks, causing massive broadband noise in the mid-highs.
                     double analogMix = 0.0;
                     for (int i = 0; i < numNotes; i++) {
                         analogMix += assignedNotes.get(i).cachedSample;
                     }
                     analogMix /= numNotes;
                     
-                    // --- 2nd-ORDER DELTA-SIGMA MODULATOR ---
-                    // A 1st-order modulator only pushes noise up at 6dB/octave, leaving a massive
-                    // mound of high-frequency quantization noise right at the edge of human hearing (10k-20kHz),
-                    // which the user accurately identified as a persistent "whistling/leaking" sound.
-                    // By upgrading to a 2nd-order topology (cascading two integrators), we push the noise
-                    // shaping slope to 12dB/octave. This aggressively sweeps all that 10kHz whistling garbage 
-                    // out to 50kHz+ (ultrasonic), yielding true audiophile-grade silence in the audible band.
+                    // TPDF (Triangular Probability Density Function) Dither
+                    // Two random rolls added together create a triangle distribution, which is mathematically
+                    // proven to be the most perfectly invisible dither for breaking quantization limit-cycles
+                    // without adding harsh "hiss". This will smear the 10kHz whistling smoothly.
+                    double dither1 = fastRandom() * 2.0 - 1.0;
+                    double dither2 = fastRandom() * 2.0 - 1.0;
+                    double tpdfDither = (dither1 + dither2) * 0.03; 
                     
-                    // We still use a tiny amount of dither to prevent micro limit-cycles
-                    double dither = (fastRandom() * 2.0 - 1.0) * 0.02; 
-                    double input = analogMix + dither;
-                    
-                    // Integrator 1
-                    sigmaDeltaError1 += input;
-                    
-                    // Integrator 2
-                    sigmaDeltaError2 += sigmaDeltaError1;
-                    
-                    // 1-Bit Quantizer
-                    double outBit = (sigmaDeltaError2 > 0.0) ? 1.0 : -1.0;
-                    
-                    // Feedback to both integrators
-                    sigmaDeltaError1 -= outBit;
-                    sigmaDeltaError2 -= outBit * 2.0; // Stability coefficient for 2nd order
+                    sigmaDeltaError += (analogMix + tpdfDither);
+                    double outBit = (sigmaDeltaError > 0.0) ? 1.0 : -1.0;
+                    sigmaDeltaError -= outBit;
                     
                     sumPwm += outBit;
                 }
