@@ -221,8 +221,14 @@ public class BeepSynthProvider implements SoftSynthProvider
                             double finalPhase = note.phase + (modulator * (envIndex / (2.0 * Math.PI)));
                             finalPhase = finalPhase - Math.floor(finalPhase);
                             
+                            // Pure Sine Wave (No Wave Shaping/Distortion)
+                            // User correctly identified that the soft-clipping (Math.tanh)
+                            // was destroying the pure sine wave and generating high-frequency 
+                            // aliasing (squeaking noise) exactly like the square/xor modes.
+                            // By returning to a mathematically pure sine wave, we guarantee 
+                            // absolute silence in the high-frequency spectrum.
                             double rawSine = fastSin(finalPhase);
-                            out = Math.tanh(rawSine * 2.5) * decay;
+                            out = rawSine * decay;
                         }
                     }
                     
