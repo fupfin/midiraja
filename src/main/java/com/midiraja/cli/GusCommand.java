@@ -20,7 +20,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
 
-@Command(name = "gus",
+@Command(name = "gus", mixinStandardHelpOptions = true,
          description =
              "Play using Pure Java Gravis Ultrasound (GUS) Synthesizer")
 public class GusCommand implements Callable<Integer> {

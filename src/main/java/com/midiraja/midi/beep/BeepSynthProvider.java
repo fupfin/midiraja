@@ -82,11 +82,11 @@ public class BeepSynthProvider implements SoftSynthProvider
     private final int sampleRate = 44100;
     
     // Dynamic DSP Parameters discovered via Genetic Algorithm
-    private final double dspLpfCutoff;
-    private final double dspDitherAmp;
+    @SuppressWarnings("unused") private final double dspLpfCutoff;
+    @SuppressWarnings("unused") private final double dspDitherAmp;
     private final double pmOverdrive;
     private final double dspDcBlockerR;
-    private final boolean dspUseDcBlocker;
+    @SuppressWarnings("unused") private final boolean dspUseDcBlocker;
     
     private @Nullable Thread renderThread;
     private volatile boolean running = false;
@@ -102,7 +102,6 @@ public class BeepSynthProvider implements SoftSynthProvider
         double lfoPhase = 0.0;
         long activeFrames = 0;
         boolean isDrum = false;
-        double cachedSample = 0.0;
         
         void reset() {
             phase = 0.0;
@@ -110,7 +109,6 @@ public class BeepSynthProvider implements SoftSynthProvider
             lfoPhase = 0.0;
             activeFrames = 0;
             frequency = 0.0;
-            cachedSample = 0.0;
         }
     }
     
@@ -163,8 +161,6 @@ public class BeepSynthProvider implements SoftSynthProvider
         private double dcBlockerX = 0.0;
         private double dcBlockerY = 0.0;
         private double sigmaDeltaError = 0.0;
-        private double sigmaDeltaError1 = 0.0;
-        private double sigmaDeltaError2 = 0.0;
         
 
         
@@ -186,7 +182,6 @@ public class BeepSynthProvider implements SoftSynthProvider
                 
                 double analogMix = 0.0;
                 boolean mixedXor = false;
-                boolean xorMix = false;
                 boolean hasActiveNotes = false;
                 double tdmSample = 0.0;
                 
