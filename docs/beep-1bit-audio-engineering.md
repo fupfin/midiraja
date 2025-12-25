@@ -24,7 +24,7 @@ The engine's architecture is the result of rigorous acoustic engineering, overco
 ### 2.1. The Synthesis Triad (Timbre Generation)
 Before any notes can be multiplexed together, the engine must generate their fundamental timbre. The engine provides three distinct synthesis algorithms (`--synth`), representing different eras of digital audio engineering:
 
-**1. Modern: Yamaha-Like Phase Modulation (`--synth pm` - Default)**
+**1. Modern: Yamaha-Like Phase Modulation (`--synth pm`)**
 *   Provides a clean, bell-like, pseudo-analog sound.
 *   Instead of mathematically unstable Direct Frequency Modulation, it adds the modulator wave directly to the *lookup phase* of a mathematically perfect carrier accumulator. This guarantees absolute pitch stability at any frequency and prevents high-frequency chords from collapsing into dissonant noise.
 
@@ -32,14 +32,14 @@ Before any notes can be multiplexed together, the engine must generate their fun
 *   Mimics the brilliant 'Ring Modulation' hacks used by 1-bit legends like Tim Follin on the ZX Spectrum.
 *   It generates two raw 1-bit square waves (a Carrier and a slightly detuned Modulator) and logically crushes them together using an Exclusive-OR (`^`) gate. This carves out a gritty, aggressively buzzing, chainsaw-like chiptune timbre before the signal ever reaches the master multiplexer.
 
-**3. Classic Apple II: Pure Square Wave (`--synth square`)**
+**3. Classic Apple II: Pure Square Wave (`--synth square` - Default)**
 *   The original workhorse of 1980s computer games (e.g., *Karateka*, *Ultima*).
 *   Uses a single square wave oscillator but keeps it "alive" by continuously wobbling its fundamental pitch via a 6Hz LFO (Vibrato) and mathematically sweeping its pulse width between 10% and 90% (Wah-Wah Duty Sweep). It is given a much longer decay envelope (1.5s) to compensate for the acoustic energy lost during narrow duty cycles.
 
 ### 2.2. The Multiplexing Evolution: From XOR to DSD
 The most critical engineering challenge in 1-bit audio is mixing multiple polyphonic notes within a single, binary (On/Off) speaker pin. The engine documents the historical and mathematical evolution of this problem by providing four distinct multiplexing algorithms (`--mux`):
 
-**1. The 1981 Hack: XOR Logic Gate (`--mux xor`)**
+**1. The 1981 Hack: XOR Logic Gate (`--mux xor` - Default)**
 *   Mimicking Paul Lutus's original "Electric Duet," this mode converts each analog sine wave into a discrete 1-bit Pulse Width Modulated (PWM) stream, then crushes them together through a boolean Exclusive-OR (`^`) logic gate.
 *   **Acoustic Result:** Severe, authentic Ring Modulation. Creates a highly gritty, buzzing chiptune texture.
 *   **Limitation:** XORing more than 2 voices causes catastrophic phase cancellation ($1 \oplus 1 = 0$), obliterating the fundamental pitch into white noise.
@@ -52,7 +52,7 @@ The most critical engineering challenge in 1-bit audio is mixing multiple polyph
 *   Abandoning logical mixing entirely, this mode mathematically sums all analog Phase Modulation sine waves together *first*, and then compares that massive combined chord against a 22kHz sawtooth carrier.
 *   **Acoustic Result:** Flawless phase mixing and 0% intermodulation. However, it leaves a distinct, retro 22kHz "carrier whine" (a faint, high-pitched background hum) characteristic of early Class-D amplifiers.
 
-**4. The Modern Pinnacle: Delta-Sigma Modulation (`--mux dsd` - Default)**
+**4. The Modern Pinnacle: Delta-Sigma Modulation (`--mux dsd`)**
 *   The ultimate conclusion of 1-bit audio. It sums the analog waves perfectly, but replaces the 22kHz PWM carrier with a 1st-order Delta-Sigma error accumulator running at 1.4MHz.
 *   **Acoustic Result:** It pushes all quantization noise (the carrier whine) completely out of the human hearing range. It yields breathtaking, studio-grade Hi-Fi sound while technically remaining a pure 1-bit logic stream.
 
@@ -88,8 +88,8 @@ While the `midra beep` engine provides a vast matrix of 1-bit audio possibilitie
 **What was ACTUALLY possible on the Apple II?**
 Only two distinct acoustic paths were possible within the constraints of a 1MHz processor:
 1.  **The Synthesizer Path:** Generated via real-time CPU cycle-counting.
-    *   **Generation:** Only pure Square Waves (`--synth square`) were possible. LFO Vibrato and Duty Sweep were achievable by mathematically altering the delay loops.
-    *   **Multiplexing:** Only Boolean XOR (`--mux xor`) was possible, and strictly limited to 2 voices (e.g., *Electric Duet*). 
+    *   **Generation:** Only pure Square Waves (`--synth square` - Default) were possible. LFO Vibrato and Duty Sweep were achievable by mathematically altering the delay loops.
+    *   **Multiplexing:** Only Boolean XOR (`--mux xor` - Default) was possible, and strictly limited to 2 voices (e.g., *Electric Duet*). 
 2.  **The Sampler Path:** 
     *   Pre-rendered 1-bit audio (essentially `--mux pwm` or PCM) could be played back, but *only as a static recording*. Real-time polyphonic MIDI synthesis using PWM was mathematically impossible because the 6502 CPU lacked the speed to perform real-time analog summing and high-frequency comparator logic simultaneously.
 
