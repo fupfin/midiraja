@@ -187,6 +187,18 @@ public class MidirajaCommand implements Callable<Integer> {
 
   @Override
   public Integer call() throws Exception {
+    // Fail-fast validation: Ensure all provided file paths actually exist
+    if (files != null) {
+      for (File file : files) {
+        if (!file.exists()) {
+          err.println("Error: The file or directory '" + file.getPath() + "' does not exist.");
+          err.println("Hint: Did you misspell a command? (e.g., 'midra fluidsynth' instead of 'midra fluid')");
+          err.println("Run 'midra --help' for a list of available commands.");
+          return 1;
+        }
+      }
+    }
+
     // Warn and handle deprecated legacy options
     if (legacyListPorts) {
       stdErr.println("Warning: --list-ports / -l is deprecated. Use 'midra "

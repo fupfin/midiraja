@@ -71,6 +71,19 @@ public class PlaybackRunner {
   public int run(MidiOutProvider provider, boolean isSoftSynth,
                  Optional<String> portQuery, Optional<String> soundbankArg,
                  List<File> rawFiles, CommonOptions common) throws Exception {
+                 
+    // FAIL-FAST VALIDATION: Prevent commands/options typed as files from proceeding
+    if (rawFiles != null) {
+      for (File f : rawFiles) {
+        if (!f.exists()) {
+          err.println("Error: The file or directory '" + f.getPath() + "' does not exist.");
+          err.println("Hint: Did you misspell a command or option? (e.g. 'midra fluidsynth' instead of 'midra fluid')");
+          err.println("Run 'midra --help' for usage instructions.");
+          return 1;
+        }
+      }
+    }
+
     AtomicBoolean portClosed = new AtomicBoolean(false);
     var ports = provider.getOutputPorts();
 
