@@ -33,36 +33,19 @@ public class BeepSynthProvider implements SoftSynthProvider
     }
 
     private static final java.util.Map<String, DspParams> GOD_TABLE = java.util.Map.ofEntries(
-        java.util.Map.entry("pm_dsd_1", new DspParams(0.347, 0.071, 0.000)),
-        java.util.Map.entry("pm_dsd_2", new DspParams(0.374, 0.022, 0.000)),
-        java.util.Map.entry("pm_dsd_4", new DspParams(0.361, 0.009, 1.466)),
-        java.util.Map.entry("pm_pwm_1", new DspParams(0.204, 0.000, 1.778)),
-        java.util.Map.entry("pm_pwm_2", new DspParams(0.244, 0.000, 0.000)),
-        java.util.Map.entry("pm_pwm_4", new DspParams(0.221, 0.000, 1.292)),
+        // Purist Architecture: Only XOR and TDM are valid true Multiplexers.
         java.util.Map.entry("pm_tdm_1", new DspParams(0.230, 0.000, 1.580)),
         java.util.Map.entry("pm_tdm_2", new DspParams(0.241, 0.000, 1.806)),
         java.util.Map.entry("pm_tdm_4", new DspParams(0.224, 0.000, 0.000)),
         java.util.Map.entry("pm_xor_1", new DspParams(0.028, 0.000, 8.625)),
         java.util.Map.entry("pm_xor_2", new DspParams(0.186, 0.000, 0.129)),
         java.util.Map.entry("pm_xor_4", new DspParams(0.143, 0.000, 0.059)),
-        java.util.Map.entry("xor_dsd_1", new DspParams(0.040, 0.211, 0.000)),
-        java.util.Map.entry("xor_dsd_2", new DspParams(0.019, 0.066, 0.000)),
-        java.util.Map.entry("xor_dsd_4", new DspParams(0.015, 0.072, 0.000)),
-        java.util.Map.entry("xor_pwm_1", new DspParams(0.030, 0.000, 0.000)),
-        java.util.Map.entry("xor_pwm_2", new DspParams(0.028, 0.000, 0.000)),
-        java.util.Map.entry("xor_pwm_4", new DspParams(0.034, 0.000, 0.000)),
         java.util.Map.entry("xor_tdm_1", new DspParams(0.023, 0.000, 0.000)),
         java.util.Map.entry("xor_tdm_2", new DspParams(0.036, 0.000, 0.000)),
         java.util.Map.entry("xor_tdm_4", new DspParams(0.028, 0.000, 0.000)),
         java.util.Map.entry("xor_xor_1", new DspParams(0.024, 0.000, 0.000)),
         java.util.Map.entry("xor_xor_2", new DspParams(0.028, 0.000, 0.000)),
         java.util.Map.entry("xor_xor_4", new DspParams(0.033, 0.000, 0.000)),
-        java.util.Map.entry("square_dsd_1", new DspParams(0.231, 0.043, 0.000)),
-        java.util.Map.entry("square_dsd_2", new DspParams(0.247, 0.094, 0.000)),
-        java.util.Map.entry("square_dsd_4", new DspParams(0.218, 0.205, 0.000)),
-        java.util.Map.entry("square_pwm_1", new DspParams(0.231, 0.000, 0.000)),
-        java.util.Map.entry("square_pwm_2", new DspParams(0.230, 0.000, 0.000)),
-        java.util.Map.entry("square_pwm_4", new DspParams(0.228, 0.000, 0.000)),
         java.util.Map.entry("square_tdm_1", new DspParams(0.232, 0.000, 0.000)),
         java.util.Map.entry("square_tdm_2", new DspParams(0.236, 0.000, 0.000)),
         java.util.Map.entry("square_tdm_4", new DspParams(0.230, 0.000, 0.000)),
@@ -124,7 +107,7 @@ public class BeepSynthProvider implements SoftSynthProvider
     // Purist 8-Bit Integer Sine LUT (Retro Hardware Emulation)
     // Replaced the 64-bit float array with a strict signed 8-bit (-127 to +127) lookup table.
     // This perfectly recreates the 'quantization grit' inherent to 1980s hardware FM chips (like the OPL2).
-    private static final int SINE_LUT_SIZE = 1024; // Smaller size like old ROMs
+    private static final int SINE_LUT_SIZE = 256; // Smaller size like old ROMs
     private static final byte[] SINE_LUT_8BIT = new byte[SINE_LUT_SIZE];
     static {
         for (int i = 0; i < SINE_LUT_SIZE; i++) {
@@ -168,9 +151,11 @@ public class BeepSynthProvider implements SoftSynthProvider
         // Per-Unit DC Blocker (Isolation)
         private double dcBlockerX = 0.0;
         private double dcBlockerY = 0.0;
-        private double sigmaDeltaError = 0.0;
+        
         
 
+        
+        double internalPwmCarrier = -1.0;
         
         DigitalUnit(int sampleRate) {
             // DAC522 Hardware limit: 22.05kHz carrier
@@ -188,19 +173,24 @@ public class BeepSynthProvider implements SoftSynthProvider
                 pwmCarrierPhase += pwmCarrierStep / oversample;
                 if (pwmCarrierPhase > 1.0) pwmCarrierPhase -= 2.0;
                 
-                double analogMix = 0.0;
+                // Advanced an internal fast carrier just for quantizing PM waves BEFORE multiplexing
+                internalPwmCarrier += (22050.0 / sampleRate) * 2.0 / oversample;
+                if (internalPwmCarrier > 1.0) internalPwmCarrier -= 2.0;
+                
                 boolean mixedXor = false;
                 boolean hasActiveNotes = false;
-                double tdmSample = 0.0;
+                boolean tdmBit = false;
                 
-                // TRUE OVERSAMPLED SYNTHESIS: Advance phase at 1.4MHz to prevent Zero-Order Hold aliasing!
+                // --- LAYER 1 & 2: SYNTHESIS & QUANTIZATION ---
+                // Every synthesizer MUST output a pure boolean (0 or 1) into the multiplexer.
                 for (int i = 0; i < numNotes; i++) {
                     ActiveNote note = assignedNotes.get(i);
                     double time = note.activeFrames / (double) sampleRate; 
-                    double out = 0.0;
+                    boolean synthBit = false;
                     
                     if (note.isDrum) {
                         int noteNum = note.note;
+                        double out = 0.0;
                         if (noteNum == 35 || noteNum == 36) { 
                             if (time < 0.2) {
                                 double pitchDrop = 150.0 * Math.exp(-time * 30.0);
@@ -231,8 +221,13 @@ public class BeepSynthProvider implements SoftSynthProvider
                                 out = fastSin(note.phase);
                             }
                         }
+                        // Quantize drums using PWM
+                        synthBit = out > internalPwmCarrier;
+                        if (Math.abs(out) > 0.05) hasActiveNotes = true;
+                        
                     } else {
                         if ("xor".equals(synthMode)) {
+                            // Synthesizer is inherently Boolean
                             note.phase += note.frequency / trueSampleRate;
                             note.phase = note.phase - Math.floor(note.phase);
                             
@@ -243,12 +238,15 @@ public class BeepSynthProvider implements SoftSynthProvider
                             
                             boolean carrierBit = note.phase > 0.5;
                             boolean modBit = note.modPhase > 0.5;
-                            boolean finalBit = (fmIndex < 0.1) ? carrierBit : (carrierBit ^ modBit);
+                            synthBit = (fmIndex < 0.1) ? carrierBit : (carrierBit ^ modBit);
                             
+                            // Check volume envelope to silence dead notes
                             double decay = Math.max(0.0, 1.0 - (time / 0.5));
-                            out = (finalBit ? 1.0 : -1.0) * decay;
+                            if (decay > 0.01) hasActiveNotes = true;
+                            else synthBit = false; // Noise gate
                             
                         } else if ("square".equals(synthMode)) {
+                            // Synthesizer is inherently Boolean
                             double decay = Math.max(0.0, 1.0 - (time / 1.5));
                             note.lfoPhase += 1.0 / trueSampleRate;
                             double vibratoLfo = fastSin(note.lfoPhase * 6.0 - Math.floor(note.lfoPhase * 6.0));
@@ -259,11 +257,13 @@ public class BeepSynthProvider implements SoftSynthProvider
                             note.phase = note.phase - Math.floor(note.phase);
                             
                             double dutyCycle = 0.5 + (0.4 * sweepLfo);
-                            boolean squareBit = note.phase > dutyCycle;
-                            out = (squareBit ? 1.0 : -1.0) * decay;
+                            synthBit = note.phase > dutyCycle;
+                            
+                            if (decay > 0.01) hasActiveNotes = true;
+                            else synthBit = false;
                             
                         } else {
-                            // Phase Modulation
+                            // PHASE MODULATION (Analog generation)
                             double decay = Math.max(0.0, 1.0 - (time / 0.5));
                             double keyScale = 1.0;
                             if (note.frequency > 261.63) {
@@ -283,58 +283,34 @@ public class BeepSynthProvider implements SoftSynthProvider
                             double finalPhase = note.phase + (modulator * (envIndex / (2.0 * Math.PI)));
                             finalPhase = finalPhase - Math.floor(finalPhase);
                             
-                            // Pure Sine Wave (No Wave Shaping/Distortion)
-                            // User correctly identified that the soft-clipping (Math.tanh)
-                            // was destroying the pure sine wave and generating high-frequency 
-                            // aliasing (squeaking noise) exactly like the square/xor modes.
-                            // By returning to a mathematically pure sine wave, we guarantee 
-                            // absolute silence in the high-frequency spectrum.
                             double rawSine = fastSin(finalPhase);
-                            // DYNAMIC GA OVERDRIVE
-                            // The AI discovered that applying an massive 8.7x overdrive (hard clipping)
-                            // is mathematically required to prevent pure sine waves from turning into
-                            // broadband noise when squeezed through a multiplexer.
-                            out = (pmOverdrive > 0.0) ? Math.tanh(rawSine * pmOverdrive) * decay : rawSine * decay;
+                            double out = (pmOverdrive > 0.0) ? Math.tanh(rawSine * pmOverdrive) * decay : rawSine * decay;
+                            
+                            // LAYER 2: THE QUANTIZER
+                            // Purist rule: Analog sine wave MUST be converted to a discrete boolean 
+                            // via an internal PWM comparator before entering the multiplexer!
+                            synthBit = out > internalPwmCarrier;
+                            
+                            if (Math.abs(out) > 0.05) hasActiveNotes = true;
+                            else synthBit = false; // Noise gate
                         }
                     }
                     
-                    analogMix += out;
+                    // --- LAYER 3: THE MULTIPLEXER (Boolean Domain Only) ---
+                    if (i == 0) mixedXor = synthBit;
+                    else mixedXor ^= synthBit;
                     
-                    // Support logic for XOR/TDM muxes
-                    if (Math.abs(out) > 0.05) hasActiveNotes = true;
-                    boolean pwmBit = out > pwmCarrierPhase;
-                    if (i == 0) mixedXor = pwmBit;
-                    else mixedXor ^= pwmBit;
-                    
-                    if (i == (o % numNotes)) tdmSample = out;
+                    if (i == (o % numNotes)) tdmBit = synthBit;
                 }
                 
-                analogMix /= numNotes;
-                
-                // MULTIPLEXING ENGINE
-                if ("xor".equals(muxMode)) {
+                // Final Pin Output
+                if ("tdm".equals(muxMode)) {
+                    if (!hasActiveNotes) sumPwm += 0.0;
+                    else sumPwm += (tdmBit ? 1.0 : -1.0);
+                } else {
+                    // Default to XOR mux
                     if (!hasActiveNotes) sumPwm += 0.0;
                     else sumPwm += (mixedXor ? 1.0 : -1.0);
-                    
-                } else if ("tdm".equals(muxMode)) {
-                    boolean pwmBit = tdmSample > pwmCarrierPhase;
-                    sumPwm += (pwmBit ? 1.0 : -1.0);
-                    
-                } else if ("pwm".equals(muxMode)) {
-                    boolean pwmBit = analogMix > pwmCarrierPhase;
-                    sumPwm += (pwmBit ? 1.0 : -1.0);
-                    
-                } else {
-                    // DSD
-                    double dither1 = fastRandom() * 2.0 - 1.0;
-                    double dither2 = fastRandom() * 2.0 - 1.0;
-                    double ditherParam = Double.parseDouble(System.getProperty("midiraja.tune.dither", "0.03"));
-                    double tpdfDither = (dither1 + dither2) * ditherParam; 
-                    
-                    sigmaDeltaError += (analogMix + tpdfDither);
-                    double outBit = (sigmaDeltaError > 0.0) ? 1.0 : -1.0;
-                    sigmaDeltaError -= outBit;
-                    sumPwm += outBit;
                 }
             }
             
