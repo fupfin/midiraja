@@ -40,14 +40,16 @@ import org.jspecify.annotations.Nullable;
  * soft-synth subcommands.
  */
 @SuppressWarnings("EmptyCatch")
-public class PlaybackRunner {
+public class PlaybackRunner
+{
   private final PrintStream out;
   private final PrintStream err;
   @Nullable private final TerminalIO terminalIO;
   private final boolean isTestMode;
 
   public PlaybackRunner(PrintStream out, PrintStream err,
-                        @Nullable TerminalIO terminalIO, boolean isTestMode) {
+                        @Nullable TerminalIO terminalIO, boolean isTestMode)
+                        {
     this.out = out;
     this.err = err;
     this.terminalIO = terminalIO;
@@ -70,12 +72,15 @@ public class PlaybackRunner {
    */
   public int run(MidiOutProvider provider, boolean isSoftSynth,
                  Optional<String> portQuery, Optional<String> soundbankArg,
-                 List<File> rawFiles, CommonOptions common) throws Exception {
-                 
+                 List<File> rawFiles, CommonOptions common) throws Exception
+                 {
     // FAIL-FAST VALIDATION: Prevent commands/options typed as files from proceeding
-    if (rawFiles != null) {
-      for (File f : rawFiles) {
-        if (!f.exists()) {
+    if (rawFiles != null)
+    {
+      for (File f : rawFiles)
+      {
+        if (!f.exists())
+        {
           err.println("Error: The file or directory '" + f.getPath() + "' does not exist.");
           err.println("Hint: Did you misspell a command or option? (e.g. 'midra fluidsynth' instead of 'midra fluid')");
           err.println("Run 'midra --help' for usage instructions.");
@@ -91,36 +96,44 @@ public class PlaybackRunner {
     PlaylistParser parser = new PlaylistParser(err, common.verbose);
     List<File> playlist = parser.parse(rawFiles, common);
 
-    if (playlist.isEmpty()) {
+    if (playlist.isEmpty())
+    {
       err.println("Error: No MIDI files specified. Use 'midra <file1.mid>' " +
                   "or 'midra -h' for help.");
       return 1;
     }
 
-    if (common.shuffle) {
+    if (common.shuffle)
+    {
       Collections.shuffle(playlist);
     }
 
     // ── Port selection ────────────────────────────────────────────────────
     int portIndex;
-    if (isSoftSynth) {
+    if (isSoftSynth)
+    {
       portIndex = 0;
-    } else if (portQuery.isPresent()) {
+    } else if (portQuery.isPresent())
+    {
       portIndex = findPortIndex(ports, portQuery.get(), err);
-      if (portIndex == -1) {
+      if (portIndex == -1)
+      {
         err.println("Error: Could not find MIDI port matching: " +
                     portQuery.get());
         return 1;
       }
-    } else if (!isTestMode) {
+    } else if (!isTestMode)
+    {
       portIndex = interactivePortSelection(ports, common.uiOptions);
       if (portIndex == -1)
         return 0; // User quit
-    } else {
+    } else
+    {
       portIndex = 0;
     }
 
-    try {
+    try
+    {
       int finalPortIndex = portIndex;
       ports.stream()
           .filter(p -> p.index() == finalPortIndex)
@@ -132,7 +145,8 @@ public class PlaybackRunner {
       provider.openPort(portIndex);
 
       if (soundbankArg.isPresent() && provider instanceof
-                                          SoftSynthProvider softSynth) {
+                                          SoftSynthProvider softSynth)
+                                          {
         softSynth.loadSoundbank(soundbankArg.get());
         logVerbose(common.verbose, "Soundbank loaded: " + soundbankArg.get());
       }
@@ -146,32 +160,41 @@ public class PlaybackRunner {
       boolean isInteractive = activeIO.isInteractive();
 
       // Shutdown hook for Ctrl+C
-      Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      Runtime.getRuntime().addShutdownHook(new Thread(() ->
+      {
         MidirajaCommand.SHUTTING_DOWN = true;
         String safeRestore =
             (MidirajaCommand.ALT_SCREEN_ACTIVE ? Theme.TERM_ALT_SCREEN_DISABLE
                                                : "") +
             Theme.TERM_MOUSE_DISABLE + Theme.COLOR_RESET + "\033[?7h" +
             Theme.TERM_SHOW_CURSOR + "\r\033[K\n";
-        try {
+        try
+        {
           activeIO.close();
-        } catch (Exception _) {
+        } catch (Exception _)
+        {
         }
         out.print(safeRestore);
         out.flush();
-        try {
-          if (portClosed.compareAndSet(false, true)) {
+        try
+        {
+          if (portClosed.compareAndSet(false, true))
+          {
             provider.panic();
             long endWait = System.currentTimeMillis() + 200;
-            while (System.currentTimeMillis() < endWait) {
-              try {
+            while (System.currentTimeMillis() < endWait)
+            {
+              try
+              {
                 Thread.sleep(Math.max(1, endWait - System.currentTimeMillis()));
-              } catch (Exception ignored) {
+              } catch (Exception ignored)
+              {
               }
             }
             provider.closePort();
           }
-        } catch (Exception _) {
+        } catch (Exception _)
+        {
         }
       }));
 
@@ -180,30 +203,39 @@ public class PlaybackRunner {
       boolean useAltScreen = false;
       UiModeOptions uiOpts = common.uiOptions;
 
-      if (uiOpts.classicMode) {
+      if (uiOpts.classicMode)
+      {
         ui = new com.midiraja.ui.DumbUI();
-      } else if (uiOpts.miniMode) {
+      } else if (uiOpts.miniMode)
+      {
         ui = new com.midiraja.ui.LineUI();
-      } else if (uiOpts.fullMode) {
+      } else if (uiOpts.fullMode)
+      {
         ui = new com.midiraja.ui.DashboardUI();
         useAltScreen = true;
-      } else if (!isInteractive) {
+      } else if (!isInteractive)
+      {
         ui = new com.midiraja.ui.DumbUI();
-      } else if (activeIO.getHeight() < 10) {
+      } else if (activeIO.getHeight() < 10)
+      {
         ui = new com.midiraja.ui.LineUI();
-      } else {
+      } else
+      {
         ui = new com.midiraja.ui.DashboardUI();
         useAltScreen = true;
       }
 
-      if (useAltScreen && isInteractive) {
+      if (useAltScreen && isInteractive)
+      {
         out.print("\033[?1049h\033[?25l");
         out.flush();
         MidirajaCommand.ALT_SCREEN_ACTIVE = true;
       }
 
-      try {
-        while (currentTrackIdx >= 0 && currentTrackIdx < playlist.size()) {
+      try
+      {
+        while (currentTrackIdx >= 0 && currentTrackIdx < playlist.size())
+        {
           var file = playlist.get(currentTrackIdx);
           var sequence = MidiSystem.getSequence(file);
           logVerbose(
@@ -234,18 +266,22 @@ public class PlaybackRunner {
           common.speed = engine.getCurrentSpeed();
           common.transpose = Optional.of(engine.getCurrentTranspose());
 
-          switch (status) {
+          switch (status)
+          {
           case QUIT_ALL -> currentTrackIdx = -1;
-          case PREVIOUS -> {
+          case PREVIOUS ->
+          {
             currentTrackIdx--;
             if (common.loop && currentTrackIdx < 0)
               currentTrackIdx = playlist.size() - 1;
             else
               currentTrackIdx = Math.max(0, currentTrackIdx);
           }
-          case FINISHED, NEXT -> {
+          case FINISHED, NEXT ->
+          {
             currentTrackIdx++;
-            if (common.loop && currentTrackIdx >= playlist.size()) {
+            if (common.loop && currentTrackIdx >= playlist.size())
+            {
               currentTrackIdx = 0;
               if (common.shuffle)
                 Collections.shuffle(playlist);
@@ -253,9 +289,11 @@ public class PlaybackRunner {
           }
           }
         }
-      } finally {
+      } finally
+      {
         activeIO.close();
-        if (isInteractive) {
+        if (isInteractive)
+        {
           String safeRestore =
               (useAltScreen ? Theme.TERM_ALT_SCREEN_DISABLE : "") +
               Theme.TERM_MOUSE_DISABLE + Theme.COLOR_RESET + "\033[?7h" +
@@ -264,19 +302,25 @@ public class PlaybackRunner {
           out.flush();
         }
       }
-    } catch (Exception e) {
+    } catch (Exception e)
+    {
       err.println("Error during playback: " + e.getMessage());
       if (common.verbose)
         e.printStackTrace(err);
       return 1;
-    } finally {
-      if (portClosed.compareAndSet(false, true)) {
+    } finally
+    {
+      if (portClosed.compareAndSet(false, true))
+      {
         provider.panic();
         long endWait = System.currentTimeMillis() + 200;
-        while (System.currentTimeMillis() < endWait) {
-          try {
+        while (System.currentTimeMillis() < endWait)
+        {
+          try
+          {
             Thread.sleep(Math.max(1, endWait - System.currentTimeMillis()));
-          } catch (Exception ignored) {
+          } catch (Exception ignored)
+          {
           }
         }
         provider.closePort();
@@ -292,12 +336,15 @@ public class PlaybackRunner {
    * Finds the port index for an explicit query (index number or partial name).
    */
   public static int findPortIndex(List<MidiPort> ports, String query,
-                                  PrintStream err) {
-    try {
+                                  PrintStream err)
+                                  {
+    try
+    {
       int idx = Integer.parseInt(query);
       if (ports.stream().anyMatch(p -> p.index() == idx))
         return idx;
-    } catch (NumberFormatException _) {
+    } catch (NumberFormatException _)
+    {
     }
 
     var lowerQuery = query.toLowerCase(java.util.Locale.ROOT);
@@ -310,7 +357,8 @@ public class PlaybackRunner {
 
     if (matches.size() == 1)
       return matches.get(0).index();
-    if (matches.size() > 1) {
+    if (matches.size() > 1)
+    {
       err.println("Ambiguous port name. Matches:");
       matches.forEach(m -> err.println("  [" + m.index() + "] " + m.name()));
     }
@@ -318,7 +366,8 @@ public class PlaybackRunner {
   }
 
   private int interactivePortSelection(List<MidiPort> ports,
-                                       UiModeOptions uiOpts) throws Exception {
+                                       UiModeOptions uiOpts) throws Exception
+                                       {
     if (ports.isEmpty())
       return -1;
 
@@ -337,25 +386,29 @@ public class PlaybackRunner {
                           : dynamicPortSelection(ports);
   }
 
-  private int dynamicPortSelection(List<MidiPort> ports) throws Exception {
+  private int dynamicPortSelection(List<MidiPort> ports) throws Exception
+  {
     int selectedIndex = 0;
     int numPorts = ports.size();
 
     try (
         org.jline.terminal.Terminal terminal =
-            org.jline.terminal.TerminalBuilder.builder().system(true).build()) {
+            org.jline.terminal.TerminalBuilder.builder().system(true).build())
+            {
       terminal.enterRawMode();
       var reader = terminal.reader();
       terminal.writer().print(Theme.TERM_HIDE_CURSOR);
       boolean firstDraw = true;
 
-      while (true) {
+      while (true)
+      {
         if (!firstDraw)
           terminal.writer().print("\033[" + (numPorts + 1) + "A");
         firstDraw = false;
 
         terminal.writer().println("Available MIDI Output Devices:");
-        for (int i = 0; i < numPorts; i++) {
+        for (int i = 0; i < numPorts; i++)
+        {
           String prefix = (i == selectedIndex) ? " > " : "   ";
           terminal.writer().println(prefix + ports.get(i).name());
         }
@@ -365,21 +418,25 @@ public class PlaybackRunner {
         if (ch <= 0)
           continue;
 
-        if (ch == 'q' || ch == 'Q') {
+        if (ch == 'q' || ch == 'Q')
+        {
           clearMenu(terminal, numPorts);
           terminal.writer().print(Theme.TERM_SHOW_CURSOR);
           terminal.writer().flush();
           return -1;
         }
-        if (ch == 13 || ch == 10) {
+        if (ch == 13 || ch == 10)
+        {
           clearMenu(terminal, numPorts);
           terminal.writer().print(Theme.TERM_SHOW_CURSOR);
           terminal.writer().flush();
           return ports.get(selectedIndex).index();
         }
-        if (ch == 27) {
+        if (ch == 27)
+        {
           int next1 = reader.read(2);
-          if (next1 == '[') {
+          if (next1 == '[')
+          {
             int next2 = reader.read(2);
             if (next2 == 'A')
               selectedIndex = (selectedIndex - 1 + numPorts) % numPorts;
@@ -391,20 +448,23 @@ public class PlaybackRunner {
     }
   }
 
-  private int fullScreenPortSelection(List<MidiPort> ports) throws Exception {
+  private int fullScreenPortSelection(List<MidiPort> ports) throws Exception
+  {
     int selectedIndex = 0;
     int numPorts = ports.size();
 
     try (
         org.jline.terminal.Terminal terminal =
-            org.jline.terminal.TerminalBuilder.builder().system(true).build()) {
+            org.jline.terminal.TerminalBuilder.builder().system(true).build())
+            {
       terminal.enterRawMode();
       var reader = terminal.reader();
       terminal.writer().print(Theme.TERM_ALT_SCREEN_ENABLE +
                               Theme.TERM_HIDE_CURSOR);
       terminal.writer().flush();
 
-      while (true) {
+      while (true)
+      {
         int width = terminal.getWidth();
         int height = terminal.getHeight();
         int boxWidth = 50;
@@ -431,12 +491,14 @@ public class PlaybackRunner {
             .append(Theme.COLOR_RESET)
             .appendLine();
 
-        for (int i = 0; i < numPorts; i++) {
+        for (int i = 0; i < numPorts; i++)
+        {
           buffer.repeat(" ", padLeft);
           String portName = ports.get(i).name();
           if (portName.length() > boxWidth - 8)
             portName = portName.substring(0, boxWidth - 11) + "...";
-          if (i == selectedIndex) {
+          if (i == selectedIndex)
+          {
             buffer.append("  ")
                 .append(Theme.COLOR_HIGHLIGHT)
                 .append(Theme.CHAR_ARROW_RIGHT)
@@ -446,7 +508,8 @@ public class PlaybackRunner {
                 .append(portName)
                 .append(Theme.COLOR_RESET)
                 .appendLine();
-          } else {
+          } else
+          {
             buffer.append("    [")
                 .append(String.valueOf(i))
                 .append("] ")
@@ -475,21 +538,25 @@ public class PlaybackRunner {
         if (ch <= 0)
           continue;
 
-        if (ch == 'q' || ch == 'Q') {
+        if (ch == 'q' || ch == 'Q')
+        {
           terminal.writer().print(Theme.TERM_ALT_SCREEN_DISABLE +
                                   Theme.TERM_SHOW_CURSOR);
           terminal.writer().flush();
           return -1;
         }
-        if (ch == 13 || ch == 10) {
+        if (ch == 13 || ch == 10)
+        {
           terminal.writer().print(Theme.TERM_ALT_SCREEN_DISABLE +
                                   Theme.TERM_SHOW_CURSOR);
           terminal.writer().flush();
           return ports.get(selectedIndex).index();
         }
-        if (ch == 27) {
+        if (ch == 27)
+        {
           int next1 = reader.read(2);
-          if (next1 == '[') {
+          if (next1 == '[')
+          {
             int next2 = reader.read(2);
             if (next2 == 'A')
               selectedIndex = (selectedIndex - 1 + numPorts) % numPorts;
@@ -501,24 +568,29 @@ public class PlaybackRunner {
     }
   }
 
-  private void clearMenu(org.jline.terminal.Terminal terminal, int numPorts) {
+  private void clearMenu(org.jline.terminal.Terminal terminal, int numPorts)
+  {
     terminal.writer().print("\033[" + (numPorts + 1) + "A");
-    for (int i = 0; i <= numPorts; i++) {
+    for (int i = 0; i <= numPorts; i++)
+    {
       terminal.writer().println(Theme.TERM_CLEAR_TO_EOL);
     }
     terminal.writer().print("\033[" + (numPorts + 1) + "A");
   }
 
-  private int fallbackPortSelection(List<MidiPort> ports) {
+  private int fallbackPortSelection(List<MidiPort> ports)
+  {
     out.println("Available MIDI Output Devices:");
-    for (var p : ports) {
+    for (var p : ports)
+    {
       out.println("[" + p.index() + "] " + p.name());
     }
     out.print("Select a port index: ");
     out.flush();
     var scanner = new java.util.Scanner(
         System.in, java.nio.charset.StandardCharsets.UTF_8);
-    if (scanner.hasNextInt()) {
+    if (scanner.hasNextInt())
+    {
       int selected = scanner.nextInt();
       if (ports.stream().anyMatch(p -> p.index() == selected))
         return selected;
@@ -529,7 +601,8 @@ public class PlaybackRunner {
 
   // ── Utilities ──────────────────────────────────────────────────────────────
 
-  private void logVerbose(boolean verbose, String message) {
+  private void logVerbose(boolean verbose, String message)
+  {
     if (verbose)
       err.println("[VERBOSE] " + message);
   }

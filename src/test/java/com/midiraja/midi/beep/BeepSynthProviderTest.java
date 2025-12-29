@@ -8,15 +8,17 @@ import org.junit.jupiter.api.Test;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.List;
 
-class BeepSynthProviderTest {
-
+class BeepSynthProviderTest
+{
     private AudioEngine mockAudio;
     private AtomicInteger pushCallCount;
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         pushCallCount = new AtomicInteger(0);
-        mockAudio = new AudioEngine() {
+        mockAudio = new AudioEngine()
+        {
             @Override public void init(int sampleRate, int channels, int bufferSize) {}
             @Override public void push(short[] pcm) { pushCallCount.incrementAndGet(); }
             @Override public int getQueuedFrames() { return 0; }
@@ -27,15 +29,19 @@ class BeepSynthProviderTest {
     }
 
     @Test
-    void testAllArchitecturalCombinations() throws Exception {
+    void testAllArchitecturalCombinations() throws Exception
+    {
         // To maximize code coverage, we must test all synths, all muxes, and polyphony extremes
         String[] synths = {"fm", "xor", "square"};
         String[] muxes = {"dsd", "pwm", "tdm", "xor"};
         int[] voiceOptions = {1, 4};
         
-        for (String synth : synths) {
-            for (String mux : muxes) {
-                for (int voices : voiceOptions) {
+        for (String synth : synths)
+        {
+            for (String mux : muxes)
+            {
+                for (int voices : voiceOptions)
+                {
                     BeepSynthProvider provider = new BeepSynthProvider(mockAudio, voices, 1.0, 1.1, 32, mux, synth);
                     provider.openPort(0);
                     
@@ -58,7 +64,8 @@ class BeepSynthProviderTest {
     // ... Include the rest of the previously written tests ...
     
     @Test
-    void testInitializationAndPortName() {
+    void testInitializationAndPortName()
+    {
         BeepSynthProvider provider = new BeepSynthProvider(mockAudio, 2, 1.0, 1.1, 32, "dsd", "fm");
         assertEquals(1, provider.getOutputPorts().size());
         assertEquals("[8-Unit] 1-Bit Digital Cluster", provider.getOutputPorts().get(0).name());
@@ -71,13 +78,15 @@ class BeepSynthProviderTest {
     }
     
     @Test
-    void testExtremeBoundaryParameters() {
+    void testExtremeBoundaryParameters()
+    {
         BeepSynthProvider provider = new BeepSynthProvider(mockAudio, 10, -5.0, 999.0, 0, "UNKNOWN", "INVALID");
         assertEquals("[4-Unit] 1-Bit Digital Cluster", provider.getOutputPorts().get(0).name());
     }
 
     @Test
-    void testMidiNoteAllocationAndVoiceStealing() throws Exception {
+    void testMidiNoteAllocationAndVoiceStealing() throws Exception
+    {
         BeepSynthProvider provider = new BeepSynthProvider(mockAudio, 2, 1.0, 1.1, 32, "dsd", "fm");
         provider.sendMessage(new byte[] { (byte)0x90, 60, 100 });
         provider.sendMessage(new byte[] { (byte)0x90, 64, 100 });
@@ -87,7 +96,8 @@ class BeepSynthProviderTest {
     }
     
     @Test
-    void testMidiPitchBend() throws Exception {
+    void testMidiPitchBend() throws Exception
+    {
         BeepSynthProvider provider = new BeepSynthProvider(mockAudio, 2, 1.0, 1.1, 32, "dsd", "fm");
         provider.sendMessage(new byte[] { (byte)0x90, 60, 100 });
         provider.sendMessage(new byte[] { (byte)0xE0, 0x00, 0x7F });
@@ -96,7 +106,8 @@ class BeepSynthProviderTest {
     }
 
     @Test
-    void testMidiControlChanges() throws Exception {
+    void testMidiControlChanges() throws Exception
+    {
         BeepSynthProvider provider = new BeepSynthProvider(mockAudio, 2, 1.0, 1.1, 32, "dsd", "fm");
         provider.sendMessage(new byte[] { (byte)0x90, 60, 100 }); 
         provider.sendMessage(new byte[] { (byte)0xB0, 123, 0 });
@@ -105,7 +116,8 @@ class BeepSynthProviderTest {
     }
     
     @Test
-    void testInvalidMidiMessages() {
+    void testInvalidMidiMessages()
+    {
         BeepSynthProvider provider = new BeepSynthProvider(mockAudio, 2, 1.0, 1.1, 32, "dsd", "fm");
         assertDoesNotThrow(() -> provider.sendMessage(new byte[] {}));
         assertDoesNotThrow(() -> provider.sendMessage(new byte[] { (byte)0x90, 60 }));

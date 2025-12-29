@@ -22,12 +22,14 @@ import org.jspecify.annotations.Nullable;
 @SuppressWarnings({"ThreadPriorityCheck", "EmptyCatch"})
 public class BeepSynthProvider implements SoftSynthProvider
 {
-    private static class DspParams {
+    private static class DspParams
+    {
         final double lpfCutoff;
         final double ditherAmp;
         final double pmOverdrive;
         
-        DspParams(double lpfCutoff, double ditherAmp, double pmOverdrive) {
+        DspParams(double lpfCutoff, double ditherAmp, double pmOverdrive)
+        {
             this.lpfCutoff = lpfCutoff;
             this.ditherAmp = ditherAmp;
             this.pmOverdrive = pmOverdrive;
@@ -77,7 +79,8 @@ public class BeepSynthProvider implements SoftSynthProvider
     private volatile boolean running = false;
     private volatile boolean renderPaused = false;
 
-    private static class ActiveNote {
+    private static class ActiveNote
+    {
         volatile boolean active = false;
         int channel;
         int note;
@@ -94,7 +97,8 @@ public class BeepSynthProvider implements SoftSynthProvider
         long activeFrames = 0;
         boolean isDrum = false;
         
-        void reset() {
+        void reset()
+        {
             phase = 0.0;
             modPhase = 0.0;
             lfoPhase = 0.0;
@@ -119,8 +123,10 @@ public class BeepSynthProvider implements SoftSynthProvider
     // --- PURE INTEGER SINE LUT (8-Bit Amplitude, 8-Bit Phase) ---
     private static final int SINE_LUT_SIZE = 256; 
     private static final byte[] SINE_LUT_8BIT = new byte[SINE_LUT_SIZE];
-    static {
-        for (int i = 0; i < SINE_LUT_SIZE; i++) {
+    static
+    {
+        for (int i = 0; i < SINE_LUT_SIZE; i++)
+        {
             double pureSine = Math.sin((i / 256.0) * 2.0 * Math.PI);
             SINE_LUT_8BIT[i] = (byte) Math.round(pureSine * 127.0); 
         }
@@ -129,13 +135,15 @@ public class BeepSynthProvider implements SoftSynthProvider
     // Fast 16-bit fixed-point Sine Lookup
     // Phase is an integer from 0 to 65535. We shift right by 8 to get the 0-255 index.
     @SuppressWarnings("unused")
-    private static int fastSinInt(int phase16) {
+    private static int fastSinInt(int phase16)
+    {
         int index = (phase16 >>> 8) & 0xFF; // Wrap around safely via bitmask
         return SINE_LUT_8BIT[index];
     }
     
     // Kept for LFOs which don't need the extreme 16-bit integer performance constraint
-    private static double fastSin(double phase) {
+    private static double fastSin(double phase)
+    {
         int index = (int) (phase * 256);
         if (index < 0) index = 0;
         if (index > 255) index = 255;
@@ -143,7 +151,8 @@ public class BeepSynthProvider implements SoftSynthProvider
     }
 
     private static int rngSeed = 12345;
-    private static double fastRandom() {
+    private static double fastRandom()
+    {
         rngSeed ^= (rngSeed << 13);
         rngSeed ^= (rngSeed >>> 17);
         rngSeed ^= (rngSeed << 5);
@@ -159,7 +168,8 @@ public class BeepSynthProvider implements SoftSynthProvider
     // ---------------------------------------------------------
     // Ultimate 1-Bit Digital Unit (XOR Multiplexing FM)
     // ---------------------------------------------------------
-    private class DigitalUnit {
+    private class DigitalUnit
+    {
         private double pwmCarrierPhase = -1.0;
         private final double pwmCarrierStep;
         
@@ -172,19 +182,22 @@ public class BeepSynthProvider implements SoftSynthProvider
         
         double internalPwmCarrier = -1.0;
         
-        DigitalUnit(int sampleRate) {
+        DigitalUnit(int sampleRate)
+        {
             // DAC522 Hardware limit: 22.05kHz carrier
             this.pwmCarrierStep = (22050.0 / sampleRate) * 2.0;
         }
 
-        double render(List<ActiveNote> assignedNotes) {
+        double render(List<ActiveNote> assignedNotes)
+        {
             if (assignedNotes.isEmpty()) return 0.0;
             
             double sumPwm = 0.0;
             int numNotes = assignedNotes.size();
             double trueSampleRate = sampleRate * oversample;
             
-            for (int o = 0; o < oversample; o++) {
+            for (int o = 0; o < oversample; o++)
+            {
                 pwmCarrierPhase += pwmCarrierStep / oversample;
                 if (pwmCarrierPhase > 1.0) pwmCarrierPhase -= 2.0;
                 
@@ -198,23 +211,29 @@ public class BeepSynthProvider implements SoftSynthProvider
                 
                 // --- LAYER 1 & 2: SYNTHESIS & QUANTIZATION ---
                 // Every synthesizer MUST output a pure boolean (0 or 1) into the multiplexer.
-                for (int i = 0; i < numNotes; i++) {
+                for (int i = 0; i < numNotes; i++)
+                {
                     ActiveNote note = assignedNotes.get(i);
                     double time = note.activeFrames / (double) sampleRate; 
                     boolean synthBit = false;
                     
-                    if (note.isDrum) {
+                    if (note.isDrum)
+                    {
                         int noteNum = note.note;
                         double out = 0.0;
-                        if (noteNum == 35 || noteNum == 36) { 
-                            if (time < 0.2) {
+                        if (noteNum == 35 || noteNum == 36)
+                        {
+                            if (time < 0.2)
+                            {
                                 double pitchDrop = 150.0 * Math.exp(-time * 30.0);
                                 note.phase += (50.0 + pitchDrop) / trueSampleRate;
                                 note.phase = note.phase - Math.floor(note.phase);
                                 out = fastSin(note.phase);
                             }
-                        } else if (noteNum == 38 || noteNum == 40) { 
-                            if (time < 0.15) {
+                        } else if (noteNum == 38 || noteNum == 40)
+                        {
+                            if (time < 0.15)
+                            {
                                 double noiseEnv = Math.exp(-time * 20.0);
                                 note.phase += 200.0 / trueSampleRate;
                                 note.phase = note.phase - Math.floor(note.phase);
@@ -222,14 +241,18 @@ public class BeepSynthProvider implements SoftSynthProvider
                                 double noise = (fastRandom() * 2.0 - 1.0) * noiseEnv * 1.5;
                                 out = Math.max(-1.0, Math.min(1.0, tone + noise));
                             }
-                        } else if (noteNum == 42 || noteNum == 44 || noteNum == 46 || noteNum >= 49) {
+                        } else if (noteNum == 42 || noteNum == 44 || noteNum == 46 || noteNum >= 49)
+                        {
                             double duration = (noteNum >= 49) ? 0.3 : 0.05;
-                            if (time < duration) {
+                            if (time < duration)
+                            {
                                 double env = Math.exp(-time * (1.0 / duration) * 5.0);
                                 out = (fastRandom() > 0.5 ? 1.5 : -1.5) * env;
                             }
-                        } else { 
-                            if (time < 0.25) {
+                        } else
+                        {
+                            if (time < 0.25)
+                            {
                                 double pitchDrop = 300.0 * Math.exp(-time * 15.0);
                                 note.phase += (80.0 + pitchDrop) / trueSampleRate;
                                 note.phase = note.phase - Math.floor(note.phase);
@@ -240,8 +263,10 @@ public class BeepSynthProvider implements SoftSynthProvider
                         synthBit = out > internalPwmCarrier;
                         if (Math.abs(out) > 0.05) hasActiveNotes = true;
                         
-                    } else {
-                        if ("xor".equals(synthMode)) {
+                    } else
+                    {
+                        if ("xor".equals(synthMode))
+                        {
                             // --- PURE 16-BIT INTEGER TIMBRAL XOR ---
                             note.phase16 = (note.phase16 + note.phaseStep16) & 0xFFFF;
                             note.modPhase16 = (note.modPhase16 + note.modPhaseStep16) & 0xFFFF;
@@ -255,7 +280,8 @@ public class BeepSynthProvider implements SoftSynthProvider
                             if (decay > 0.01) hasActiveNotes = true;
                             else synthBit = false;
                             
-                        } else if ("square".equals(synthMode)) {
+                        } else if ("square".equals(synthMode))
+                        {
                             // --- PURE 16-BIT INTEGER SQUARE WAVE ---
                             double decay = Math.max(0.0, 1.0 - (time / 1.5));
                             note.lfoPhase += 1.0 / trueSampleRate;
@@ -274,11 +300,13 @@ public class BeepSynthProvider implements SoftSynthProvider
                             if (decay > 0.01) hasActiveNotes = true;
                             else synthBit = false;
                             
-                        } else {
+                        } else
+                        {
                             // FM (Phase Modulation logic)
                             double decay = Math.max(0.0, 1.0 - (time / 0.5));
                             double keyScale = 1.0;
-                            if (note.frequency > 261.63) {
+                            if (note.frequency > 261.63)
+                            {
                                 keyScale = 261.63 / note.frequency; 
                             }
                             double scaledFmIndex = fmIndex * keyScale;
@@ -316,10 +344,12 @@ public class BeepSynthProvider implements SoftSynthProvider
                 }
                 
                 // Final Pin Output
-                if ("tdm".equals(muxMode)) {
+                if ("tdm".equals(muxMode))
+                {
                     if (!hasActiveNotes) sumPwm += 0.0;
                     else sumPwm += (tdmBit ? 1.0 : -1.0);
-                } else {
+                } else
+                {
                     // Default to XOR mux
                     if (!hasActiveNotes) sumPwm += 0.0;
                     else sumPwm += (mixedXor ? 1.0 : -1.0);
@@ -329,20 +359,23 @@ public class BeepSynthProvider implements SoftSynthProvider
             double rawPwm = sumPwm / oversample;
             
             // ISOLATION: Apply DC Blocking instantly at the pin level.
-            if (dspUseDcBlocker) {
+            if (dspUseDcBlocker)
+            {
                 double R = dspDcBlockerR;
                 double cleanSignal = rawPwm - dcBlockerX + (R * dcBlockerY);
                 dcBlockerX = rawPwm;
                 dcBlockerY = cleanSignal;
                 return cleanSignal;
-            } else {
+            } else
+            {
                 return rawPwm;
             }
         }
     }    private final DigitalUnit[] units;
     private final List<List<ActiveNote>> unitAssignments;
 
-    public BeepSynthProvider(AudioEngine audio, int voices, double fmRatio, double fmIndex, int oversample, String muxMode, String synthMode) {
+    public BeepSynthProvider(AudioEngine audio, int voices, double fmRatio, double fmIndex, int oversample, String muxMode, String synthMode)
+    {
         this.audio = audio;
         this.voicesPerCore = Math.max(1, Math.min(4, voices));
         this.fmRatio = fmRatio;
@@ -362,10 +395,12 @@ public class BeepSynthProvider implements SoftSynthProvider
         this.pmOverdrive = params.pmOverdrive;
         
         // DC Blocker is mathematically only required (and safe) when combining multiple square waves via XOR.
-        if ("xor".equals(muxMode) && this.voicesPerCore > 1) {
+        if ("xor".equals(muxMode) && this.voicesPerCore > 1)
+        {
             this.dspUseDcBlocker = true;
             this.dspDcBlockerR = 0.995;
-        } else {
+        } else
+        {
             this.dspUseDcBlocker = false;
             this.dspDcBlockerR = 0.0;
         }
@@ -377,53 +412,66 @@ public class BeepSynthProvider implements SoftSynthProvider
         this.units = new DigitalUnit[numUnits];
         this.unitAssignments = new ArrayList<>(numUnits);
         
-        for (int i = 0; i < numUnits; i++) {
+        for (int i = 0; i < numUnits; i++)
+        {
             this.units[i] = new DigitalUnit(sampleRate);
             this.unitAssignments.add(new ArrayList<>(8));
         }
     }
 
     @Override
-    public List<MidiPort> getOutputPorts() {
+    public List<MidiPort> getOutputPorts()
+    {
         return List.of(new MidiPort(0, String.format("[%d-Unit] 1-Bit Digital Cluster", numUnits)));
     }
 
     @Override
-    public void openPort(int portIndex) throws Exception {
+    public void openPort(int portIndex) throws Exception
+    {
         audio.init(sampleRate, 1, 4096);
         startRenderThread();
     }
 
     @Override public void loadSoundbank(String path) throws Exception {}
 
-    private void startRenderThread() {
+    private void startRenderThread()
+    {
         running = true;
-        renderThread = new Thread(() -> {
+        renderThread = new Thread(() ->
+        {
             final int framesToRender = 512;
             short[] pcmBuffer = new short[framesToRender];
-            while (running) {
-                if (renderPaused) {
+            while (running)
+            {
+                if (renderPaused)
+                {
                     try { Thread.sleep(1); } catch (InterruptedException e) { break; }
                     continue;
                 }
                 
                 // Wait-Free garbage collection and snapshot
                 List<ActiveNote> currentNotes = new ArrayList<>(32);
-                for (int i = 0; i < MAX_POLYPHONY; i++) {
+                for (int i = 0; i < MAX_POLYPHONY; i++)
+                {
                     ActiveNote n = activeNotes[i];
-                    if (n.active) {
+                    if (n.active)
+                    {
                         if ((n.isDrum && n.activeFrames > sampleRate * 0.2) || 
-                            (!n.isDrum && n.activeFrames > sampleRate * 3.0)) {
+                            (!n.isDrum && n.activeFrames > sampleRate * 3.0))
+                            {
                             n.active = false;
-                        } else {
+                        } else
+                        {
                             currentNotes.add(n);
                         }
                     }
                 }
                 
-                if (currentNotes.isEmpty()) {
+                if (currentNotes.isEmpty())
+                {
                     for (int i = 0; i < framesToRender; i++) pcmBuffer[i] = 0;
-                } else {
+                } else
+                {
                     renderCluster(currentNotes, pcmBuffer, framesToRender);
                 }
                 audio.push(pcmBuffer);
@@ -434,7 +482,8 @@ public class BeepSynthProvider implements SoftSynthProvider
         renderThread.start();
     }
 
-    private void renderCluster(List<ActiveNote> notes, short[] buffer, int frames) {
+    private void renderCluster(List<ActiveNote> notes, short[] buffer, int frames)
+    {
         for (int i = 0; i < numUnits; i++) unitAssignments.get(i).clear();
         
         int drumUnits = Math.max(1, numUnits / 4);
@@ -443,21 +492,26 @@ public class BeepSynthProvider implements SoftSynthProvider
         int melodyIdx = 0, drumIdx = 0;
         List<ActiveNote> survivingNotes = new ArrayList<>(notes.size());
         
-        for (ActiveNote note : notes) {
+        for (ActiveNote note : notes)
+        {
             boolean assigned = false;
             
-            if (note.isDrum) {
+            if (note.isDrum)
+            {
                 // Simple Round-Robin for Drums (they are short noise bursts anyway)
-                for (int attempt = 0; attempt < drumUnits; attempt++) {
+                for (int attempt = 0; attempt < drumUnits; attempt++)
+                {
                     int target = melodyUnits + ((drumIdx + attempt) % drumUnits);
-                    if (unitAssignments.get(target).size() < voicesPerCore) {
+                    if (unitAssignments.get(target).size() < voicesPerCore)
+                    {
                         unitAssignments.get(target).add(note);
                         drumIdx = target + 1 - melodyUnits;
                         assigned = true;
                         break;
                     }
                 }
-            } else {
+            } else
+            {
                 // --- FREQUENCY-WEIGHTED BASS ISOLATION ROUTING ---
                 // The ultimate psychoacoustic solution: Never allow two deep bass notes 
                 // (<150Hz) to share the same physical unit! Low-frequency multiplexing 
@@ -467,7 +521,8 @@ public class BeepSynthProvider implements SoftSynthProvider
                 double bestScore = -1.0;
                 boolean isBassNote = note.frequency < 150.0;
                 
-                for (int i = 0; i < melodyUnits; i++) {
+                for (int i = 0; i < melodyUnits; i++)
+                {
                     List<ActiveNote> currentOccupants = unitAssignments.get(i);
                     
                     // Skip if unit is already full
@@ -475,7 +530,8 @@ public class BeepSynthProvider implements SoftSynthProvider
                     
                     // Analyze current occupants
                     boolean hasBass = false;
-                    for (ActiveNote occupant : currentOccupants) {
+                    for (ActiveNote occupant : currentOccupants)
+                    {
                         if (occupant.frequency < 150.0) hasBass = true;
                     }
                     
@@ -486,10 +542,12 @@ public class BeepSynthProvider implements SoftSynthProvider
                     if (currentOccupants.isEmpty()) score += 5.0;
                     
                     // 2. The Bass Isolation Rule!
-                    if (isBassNote && hasBass) {
+                    if (isBassNote && hasBass)
+                    {
                         // EXTREME PENALTY: Two bass notes in one room = Muddy explosion
                         score -= 100.0; 
-                    } else if (!isBassNote && hasBass) {
+                    } else if (!isBassNote && hasBass)
+                    {
                         // PERFECT MATCH: Treble + Bass sharing a room = Excellent bandwidth separation
                         score += 20.0;
                     }
@@ -497,30 +555,36 @@ public class BeepSynthProvider implements SoftSynthProvider
                     // 3. Round-robin tie-breaker (to keep spread moving)
                     if (i == melodyIdx) score += 1.0;
                     
-                    if (score > bestScore) {
+                    if (score > bestScore)
+                    {
                         bestScore = score;
                         bestTarget = i;
                     }
                 }
                 
                 // Assign to the best calculated unit
-                if (bestTarget != -1) {
+                if (bestTarget != -1)
+                {
                     unitAssignments.get(bestTarget).add(note);
                     melodyIdx = (bestTarget + 1) % melodyUnits; // Advance RR pointer
                     assigned = true;
                 }
             }
             
-            if (assigned) {
+            if (assigned)
+            {
                 survivingNotes.add(note);
-            } else {
+            } else
+            {
                 note.active = false; // Voice Stealing: Kill overflow ghost notes
             }
         }
         
-        for (int i = 0; i < frames; i++) {
+        for (int i = 0; i < frames; i++)
+        {
             double sumOfAppleIIs = 0.0;
-            for (int s = 0; s < numUnits; s++) {
+            for (int s = 0; s < numUnits; s++)
+            {
                 sumOfAppleIIs += units[s].render(unitAssignments.get(s));
             }
             
@@ -541,12 +605,14 @@ public class BeepSynthProvider implements SoftSynthProvider
         }
     }
 
-    @Override public void closePort() {
+    @Override public void closePort()
+    {
         running = false;
         if (renderThread != null) renderThread.interrupt();
     }
 
-    @Override public void prepareForNewTrack(javax.sound.midi.Sequence seq) {
+    @Override public void prepareForNewTrack(javax.sound.midi.Sequence seq)
+    {
         if (audio == null) return;
         renderPaused = true;
         audio.flush();
@@ -556,22 +622,27 @@ public class BeepSynthProvider implements SoftSynthProvider
     @Override public void onPlaybackStarted() { renderPaused = false; }
 
     @Override
-    public void sendMessage(byte[] data) throws Exception {
-        if (data.length > 0) {
+    public void sendMessage(byte[] data) throws Exception
+    {
+        if (data.length > 0)
+        {
             int cmd = data[0] & 0xF0;
             int ch = data[0] & 0x0F;
             
             // Handle Pitch Bend (0xE0)
-            if (cmd == 0xE0 && data.length >= 3) {
+            if (cmd == 0xE0 && data.length >= 3)
+            {
                 int lsb = data[1] & 0x7F;
                 int msb = data[2] & 0x7F;
                 int bend = (msb << 7) | lsb; // 0 to 16383
                 pitchBends[ch] = bend - 8192; // Center at 0
                 
                 // Instantly update frequencies of all playing notes on this channel
-                for (int i = 0; i < MAX_POLYPHONY; i++) {
+                for (int i = 0; i < MAX_POLYPHONY; i++)
+                {
                     ActiveNote n = activeNotes[i];
-                    if (n.active && n.channel == ch) {
+                    if (n.active && n.channel == ch)
+                    {
                         // Standard MIDI pitch bend range is typically +/- 2 semitones
                         double bendSemitones = (pitchBends[ch] / 8192.0) * 2.0;
                         n.frequency = 440.0 * Math.pow(2.0, (n.note - 69 + bendSemitones) / 12.0);
@@ -579,17 +650,22 @@ public class BeepSynthProvider implements SoftSynthProvider
                 }
             }
             
-            if (cmd == 0x90 && data.length >= 3) {
+            if (cmd == 0x90 && data.length >= 3)
+            {
                 int note = data[1] & 0xFF;
                 int velocity = data[2] & 0xFF;
-                if (velocity > 0) {
-                    for (int i = 0; i < MAX_POLYPHONY; i++) {
+                if (velocity > 0)
+                {
+                    for (int i = 0; i < MAX_POLYPHONY; i++)
+                    {
                         ActiveNote n = activeNotes[i];
                         if (n.active && n.channel == ch && n.note == note) n.active = false;
                     }
-                    for (int i = 0; i < MAX_POLYPHONY; i++) {
+                    for (int i = 0; i < MAX_POLYPHONY; i++)
+                    {
                         ActiveNote n = activeNotes[i];
-                        if (!n.active) {
+                        if (!n.active)
+                        {
                             n.reset();
                             n.channel = ch; n.note = note;
                                                         double bendSemitones = (pitchBends[ch] / 8192.0) * 2.0;
@@ -597,7 +673,8 @@ public class BeepSynthProvider implements SoftSynthProvider
                             double oversampledRate = 44100.0 * oversample;
                             n.phaseStep16 = (int) ((n.frequency * 65536.0) / oversampledRate);
                             n.modPhaseStep16 = (int) ((n.frequency * fmRatio * 65536.0) / oversampledRate);
-                            if ("xor".equals(synthMode) && fmRatio == 1.0) {
+                            if ("xor".equals(synthMode) && fmRatio == 1.0)
+                            {
                                 n.modPhaseStep16 = (int) ((n.frequency * 1.005 * 65536.0) / oversampledRate);
                             }
                             n.isDrum = (ch == 9);
@@ -605,32 +682,42 @@ public class BeepSynthProvider implements SoftSynthProvider
                             break;
                         }
                     }
-                } else {
-                    for (int i = 0; i < MAX_POLYPHONY; i++) {
+                } else
+                {
+                    for (int i = 0; i < MAX_POLYPHONY; i++)
+                    {
                         ActiveNote n = activeNotes[i];
                         if (n.active && n.channel == ch && n.note == note) n.active = false;
                     }
                 }
-            } else if (cmd == 0x80 && data.length >= 2) {
+            } else if (cmd == 0x80 && data.length >= 2)
+            {
                 int note = data[1] & 0xFF;
-                for (int i = 0; i < MAX_POLYPHONY; i++) {
+                for (int i = 0; i < MAX_POLYPHONY; i++)
+                {
                     ActiveNote n = activeNotes[i];
                     if (n.active && n.channel == ch && n.note == note) n.active = false;
                 }
-            } else if (cmd == 0xB0 && data.length >= 3) {
+            } else if (cmd == 0xB0 && data.length >= 3)
+            {
                 int cc = data[1] & 0xFF;
-                if (cc == 123 || cc == 120) { // All Notes Off / All Sound Off
+                if (cc == 123 || cc == 120)
+                {
+                    // All Notes Off / All Sound Off
                     for (int i = 0; i < MAX_POLYPHONY; i++) activeNotes[i].active = false;
                 } else if (cc == 121) { // Reset All Controllers
                     pitchBends[ch] = 0;
-                    for (int i = 0; i < MAX_POLYPHONY; i++) {
+                    for (int i = 0; i < MAX_POLYPHONY; i++)
+                    {
                         ActiveNote n = activeNotes[i];
-                        if (n.active && n.channel == ch) {
+                        if (n.active && n.channel == ch)
+                        {
                             n.frequency = 440.0 * Math.pow(2.0, (n.note - 69) / 12.0);
                             double oversampledRate = 44100.0 * oversample;
                             n.phaseStep16 = (int) ((n.frequency * 65536.0) / oversampledRate);
                             n.modPhaseStep16 = (int) ((n.frequency * fmRatio * 65536.0) / oversampledRate);
-                            if ("xor".equals(synthMode) && fmRatio == 1.0) {
+                            if ("xor".equals(synthMode) && fmRatio == 1.0)
+                            {
                                 n.modPhaseStep16 = (int) ((n.frequency * 1.005 * 65536.0) / oversampledRate);
                             }
                         }

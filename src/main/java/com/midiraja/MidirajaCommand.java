@@ -72,7 +72,8 @@ import picocli.CommandLine.Parameters;
               "  You can embed CLI options inside M3U files using the "
                   + "#MIDRA: prefix.",
               "  Example: #MIDRA: --shuffle --loop"})
-public class MidirajaCommand implements Callable<Integer> {
+public class MidirajaCommand implements Callable<Integer>
+{
   public static volatile boolean SHUTTING_DOWN = false;
   public static volatile boolean ALT_SCREEN_ACTIVE = false;
 
@@ -133,7 +134,8 @@ public class MidirajaCommand implements Callable<Integer> {
 
   public void setTestEnvironment(MidiOutProvider provider,
                                  TerminalIO terminalIO, PrintStream out,
-                                 PrintStream err) {
+                                 PrintStream err)
+                                 {
     this.provider = provider;
     this.terminalIO = terminalIO;
     this.stdOut = out;
@@ -148,13 +150,15 @@ public class MidirajaCommand implements Callable<Integer> {
 
   // ── Port index lookup (package-private for tests) ─────────────────────────
 
-  int findPortIndex(List<MidiPort> ports, String query) {
+  int findPortIndex(List<MidiPort> ports, String query)
+  {
     return PlaybackRunner.findPortIndex(ports, query, stdErr);
   }
 
   // ── Entry point ───────────────────────────────────────────────────────────
 
-  public static void main(String[] args) {
+  public static void main(String[] args)
+  {
     int exitCode = new CommandLine(new MidirajaCommand())
                        .setParameterExceptionHandler(
                            MidirajaCommand::handleParameterException)
@@ -163,17 +167,21 @@ public class MidirajaCommand implements Callable<Integer> {
   }
 
   private static int handleParameterException(CommandLine.ParameterException ex,
-                                              String[] args) {
+                                              String[] args)
+                                              {
     CommandLine failedCmd = ex.getCommandLine();
     PrintWriter err = failedCmd.getErr();
     err.println("Error: " + ex.getMessage());
 
-    if (ex instanceof CommandLine.MissingParameterException) {
+    if (ex instanceof CommandLine.MissingParameterException)
+    {
       CommandLine parent = failedCmd.getParent();
-      if (parent != null) {
+      if (parent != null)
+      {
         CommandLine.ParseResult parentResult = parent.getParseResult();
         if (parentResult != null &&
-            !parentResult.matchedPositionals().isEmpty()) {
+            !parentResult.matchedPositionals().isEmpty())
+            {
           err.println("Hint: The command must come before the files.");
           err.println("  Try: midra " + failedCmd.getCommandName() +
                       " [OPTIONS] <files...>");
@@ -186,11 +194,15 @@ public class MidirajaCommand implements Callable<Integer> {
   }
 
   @Override
-  public Integer call() throws Exception {
+  public Integer call() throws Exception
+  {
     // Fail-fast validation: Ensure all provided file paths actually exist
-    if (files != null) {
-      for (File file : files) {
-        if (!file.exists()) {
+    if (files != null)
+    {
+      for (File file : files)
+      {
+        if (!file.exists())
+        {
           stdErr.println("Error: The file or directory '" + file.getPath() + "' does not exist.");
           stdErr.println("Hint: Did you misspell a command? (e.g., 'midra fluidsynth' instead of 'midra fluid')");
           stdErr.println("Run .midra --help. for a list of available commands.");
@@ -200,12 +212,14 @@ public class MidirajaCommand implements Callable<Integer> {
     }
 
     // Warn and handle deprecated legacy options
-    if (legacyListPorts) {
+    if (legacyListPorts)
+    {
       stdErr.println("Warning: --list-ports / -l is deprecated. Use 'midra "
                      + "ports' instead.");
       var nativeProvider = MidiProviderFactory.createProvider();
       stdOut.println("Available MIDI Output Devices:");
-      for (var p : nativeProvider.getOutputPorts()) {
+      for (var p : nativeProvider.getOutputPorts())
+      {
         stdOut.println("[" + p.index() + "] " + p.name());
       }
       return 0;
@@ -214,10 +228,12 @@ public class MidirajaCommand implements Callable<Integer> {
     MidiOutProvider resolvedProvider;
     Optional<String> soundbankArg = Optional.empty();
 
-    if (provider != null) {
+    if (provider != null)
+    {
       // Test mode: provider already injected
       resolvedProvider = provider;
-    } else if (legacyMunt.isPresent()) {
+    } else if (legacyMunt.isPresent())
+    {
       err.println("Warning: --munt is deprecated. Use 'midra munt <rom-dir> "
                   + "<files...>' instead.");
       String audioLib = AudioLibResolver.resolve();
@@ -225,7 +241,8 @@ public class MidirajaCommand implements Callable<Integer> {
       var bridge = new com.midiraja.midi.FFMMuntNativeBridge();
       resolvedProvider = new com.midiraja.midi.MuntSynthProvider(bridge, audio);
       soundbankArg = legacyMunt;
-    } else if (legacyOpl.isPresent()) {
+    } else if (legacyOpl.isPresent())
+    {
       err.println("Warning: --opl is deprecated. Use 'midra opl [-b BANK] "
                   + "<files...>' instead.");
       String audioLib = AudioLibResolver.resolve();
@@ -237,7 +254,8 @@ public class MidirajaCommand implements Callable<Integer> {
       soundbankArg = Optional.of(
           val.isEmpty() ? "bank:0"
                         : (val.matches("\\d+") ? "bank:" + val : val));
-    } else if (legacyOpn.isPresent()) {
+    } else if (legacyOpn.isPresent())
+    {
       err.println("Warning: --opn is deprecated. Use 'midra opn [-b PATH] "
                   + "<files...>' instead.");
       String audioLib = AudioLibResolver.resolve();
@@ -246,18 +264,21 @@ public class MidirajaCommand implements Callable<Integer> {
       resolvedProvider = new com.midiraja.midi.OpnMidiSynthProvider(
           bridge, audio, legacyOpnEmulator, legacyOpnChips);
       soundbankArg = Optional.of(legacyOpn.get());
-    } else if (legacyFluid.isPresent()) {
+    } else if (legacyFluid.isPresent())
+    {
       stdErr.println(
           "Warning: --fluid is deprecated. Use 'midra fluid <soundfont.sf2> "
           + "<files...>' instead.");
       resolvedProvider = new com.midiraja.midi.FluidSynthProvider(
           legacyFluidDriver.orElse(null));
       soundbankArg = legacyFluid;
-    } else if (legacySynth) {
+    } else if (legacySynth)
+    {
       stdErr.println("Warning: --synth is deprecated. Use 'midra java "
                      + "<files...>' instead.");
       resolvedProvider = new com.midiraja.midi.JavaSynthProvider();
-    } else {
+    } else
+    {
       resolvedProvider = MidiProviderFactory.createProvider();
     }
 
