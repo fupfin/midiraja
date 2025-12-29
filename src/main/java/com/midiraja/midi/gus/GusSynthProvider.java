@@ -7,6 +7,8 @@
 
 package com.midiraja.midi.gus;
 
+import com.midiraja.midi.AudioEngine;
+
 import com.midiraja.dsp.AudioProcessor;
 import com.midiraja.dsp.AutoFlushGate;
 import com.midiraja.dsp.NoiseShapedQuantizer;
@@ -32,7 +34,7 @@ import org.jspecify.annotations.Nullable;
 @SuppressWarnings("ThreadPriorityCheck")
 public class GusSynthProvider implements SoftSynthProvider
 {
-    private final NativeAudioEngine audio;
+    private final AudioEngine audio;
     private final GusEngine engine;
     private final @Nullable GusBank bank;
     private final Set<Integer> failedPatches = Collections.synchronizedSet(new HashSet<>());
@@ -44,12 +46,12 @@ public class GusSynthProvider implements SoftSynthProvider
     private volatile boolean running = false;
     private volatile boolean renderPaused = false;
 
-    public GusSynthProvider(NativeAudioEngine audio, @Nullable String patchDir)
+    public GusSynthProvider(AudioEngine audio, @Nullable String patchDir)
     {
         this(audio, patchDir, 16, false);
     }
 
-    public GusSynthProvider(NativeAudioEngine audio, @Nullable String patchDir, int bitDepth, boolean pwmMode)
+    public GusSynthProvider(AudioEngine audio, @Nullable String patchDir, int bitDepth, boolean pwmMode)
     {
         this.audio = audio;
         this.engine = new GusEngine(44100);

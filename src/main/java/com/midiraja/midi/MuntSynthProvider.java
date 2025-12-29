@@ -12,7 +12,7 @@ import java.util.List;
 @SuppressWarnings("ThreadPriorityCheck") public class MuntSynthProvider implements SoftSynthProvider
 {
     private final MuntNativeBridge bridge;
-    private final @org.jspecify.annotations.Nullable NativeAudioEngine audio;
+    private final @org.jspecify.annotations.Nullable AudioEngine audio;
     private @org.jspecify.annotations.Nullable Thread renderThread;
     private volatile boolean running = false;
     // Set to true while prepareForNewTrack() is cycling the Munt synth context.
@@ -21,7 +21,7 @@ import java.util.List;
     private volatile boolean renderPaused = false;
 
     public MuntSynthProvider(
-        MuntNativeBridge bridge, @org.jspecify.annotations.Nullable NativeAudioEngine audio)
+        MuntNativeBridge bridge, @org.jspecify.annotations.Nullable AudioEngine audio)
     {
         this.bridge = bridge;
         this.audio = audio;

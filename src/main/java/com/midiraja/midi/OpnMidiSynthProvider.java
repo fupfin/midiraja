@@ -36,7 +36,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class OpnMidiSynthProvider implements SoftSynthProvider
 {
     private final OpnMidiNativeBridge bridge;
-    private final @org.jspecify.annotations.Nullable NativeAudioEngine audio;
+    private final @org.jspecify.annotations.Nullable AudioEngine audio;
 
     // Raw MIDI bytes queued by the playback thread; drained by the render thread.
     private final ConcurrentLinkedQueue<byte[]> eventQueue = new ConcurrentLinkedQueue<>();
@@ -53,13 +53,13 @@ public class OpnMidiSynthProvider implements SoftSynthProvider
 
     /** Uses MAME YM2612 (emulator 0) and 4 chips by default. */
     public OpnMidiSynthProvider(
-        OpnMidiNativeBridge bridge, @org.jspecify.annotations.Nullable NativeAudioEngine audio)
+        OpnMidiNativeBridge bridge, @org.jspecify.annotations.Nullable AudioEngine audio)
     {
         this(bridge, audio, 0, 4);
     }
 
     public OpnMidiSynthProvider(OpnMidiNativeBridge bridge,
-        @org.jspecify.annotations.Nullable NativeAudioEngine audio, int emulatorId, int numChips)
+        @org.jspecify.annotations.Nullable AudioEngine audio, int emulatorId, int numChips)
     {
         this.bridge = bridge;
         this.audio = audio;

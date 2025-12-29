@@ -7,6 +7,8 @@
 
 package com.midiraja.midi.beep;
 
+import com.midiraja.midi.AudioEngine;
+
 import com.midiraja.dsp.PwmAcousticSimulator;
 import com.midiraja.midi.MidiPort;
 import com.midiraja.midi.NativeAudioEngine;
@@ -55,7 +57,7 @@ public class BeepSynthProvider implements SoftSynthProvider
     );
 
 
-    private final NativeAudioEngine audio;
+    private final AudioEngine audio;
     private final int voicesPerCore;
     private final double fmRatio;
     private final double fmIndex;
@@ -340,7 +342,7 @@ public class BeepSynthProvider implements SoftSynthProvider
     }    private final DigitalUnit[] units;
     private final List<List<ActiveNote>> unitAssignments;
 
-    public BeepSynthProvider(NativeAudioEngine audio, int voices, double fmRatio, double fmIndex, int oversample, String muxMode, String synthMode) {
+    public BeepSynthProvider(AudioEngine audio, int voices, double fmRatio, double fmIndex, int oversample, String muxMode, String synthMode) {
         this.audio = audio;
         this.voicesPerCore = Math.max(1, Math.min(4, voices));
         this.fmRatio = fmRatio;

@@ -11,7 +11,7 @@ import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import org.jspecify.annotations.Nullable;
 
-@SuppressWarnings("EmptyCatch") public class NativeAudioEngine implements AutoCloseable
+@SuppressWarnings("EmptyCatch") public class NativeAudioEngine implements AudioEngine
 {
     private final Arena arena;
     private MemorySegment ctx = MemorySegment.NULL;
@@ -54,7 +54,7 @@ import org.jspecify.annotations.Nullable;
             FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
     }
 
-    public void init(int sampleRate, int channels, int bufferFrames) throws Exception
+    @Override public void init(int sampleRate, int channels, int bufferFrames) throws Exception
     {
         try
         {
@@ -74,7 +74,7 @@ import org.jspecify.annotations.Nullable;
     private MemorySegment pushBuffer = MemorySegment.NULL;
     private int currentPushBufferSize = 0;
 
-    public int getQueuedFrames()
+    @Override public int getQueuedFrames()
     {
         if (ctx.equals(MemorySegment.NULL))
             return 0;
@@ -88,7 +88,7 @@ import org.jspecify.annotations.Nullable;
         }
     }
 
-    public int getDeviceLatencyFrames()
+    @Override public int getDeviceLatencyFrames()
     {
         if (ctx.equals(MemorySegment.NULL))
             return 0;
@@ -102,7 +102,7 @@ import org.jspecify.annotations.Nullable;
         }
     }
 
-    public void push(short[] pcmData)
+    @Override public void push(short[] pcmData)
     {
         if (ctx.equals(MemorySegment.NULL) || pcmData == null || pcmData.length == 0)
             return;
@@ -125,7 +125,7 @@ import org.jspecify.annotations.Nullable;
         }
     }
 
-    public void flush()
+    @Override public void flush()
     {
         if (ctx.equals(MemorySegment.NULL))
             return;

@@ -70,6 +70,13 @@ task setupFreepats(type: Copy) {
 // Ensure freepats are ready before distribution
 installDist.dependsOn(setupFreepats)
 
+processResources {
+    dependsOn setupFreepats
+    from("${buildDir}/freepats") {
+        into "gus/freepats"
+    }
+}
+
 dependencies {
     implementation 'org.jspecify:jspecify:1.0.0'
     implementation 'info.picocli:picocli:4.7.5'
