@@ -22,7 +22,7 @@ import picocli.CommandLine.ParentCommand;
 /**
  * Plays MIDI files through the built-in Munt MT-32 emulator.
  */
-@Command(name = "munt", mixinStandardHelpOptions = true,
+@Command(name = "munt", aliases = {"mt32", "mt32emu", "lapc1", "cm32l"}, mixinStandardHelpOptions = true,
     description = "Play with MT-32 emulation (Roland MT-32/CM-32L).",
     footer = {"", "Requires MT32_CONTROL.ROM and MT32_PCM.ROM in the specified ROM directory."})
 public class MuntCommand implements Callable<Integer>
