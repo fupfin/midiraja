@@ -48,6 +48,7 @@ public class PsgSynthProvider implements SoftSynthProvider
         int arpIndex = 0;
         
         // Hardware State
+        double baseFrequency = 0.0;
         int phase16 = 0;
         int phaseStep16 = 0;
         boolean isNoise = false; // Interleaved Noise flag
@@ -60,6 +61,9 @@ public class PsgSynthProvider implements SoftSynthProvider
             arpIndex = 0;
             activeFrames = 0;
             isNoise = false;
+            midiChannel = -1;
+            midiNote = -1;
+            baseFrequency = 0.0;
         }
     }
     
@@ -107,12 +111,11 @@ public class PsgSynthProvider implements SoftSynthProvider
             short[] pcmBuffer = new short[framesToRender];
             
             // 4-Bit DAC translation table (Non-linear logarithmic output like real hardware)
-            // Values 0-15 mapped to amplitudes
             double[] dacTable = new double[16];
             for (int i = 0; i < 16; i++) {
                 dacTable[i] = Math.pow(10.0, (i - 15) * 1.5 / 20.0);
             }
-            dacTable[0] = 0.0; // Absolute silence
+            dacTable[0] = 0.0;
 
             while (running)
             {
@@ -122,54 +125,56 @@ public class PsgSynthProvider implements SoftSynthProvider
                     continue;
                 }
                 
-                // Audio rendering loop
                 for (int i = 0; i < framesToRender; i++)
                 {
                     double sumOutput = 0.0;
                     
-                    // 1. Update Noise Generator (Clocked by noisePhase)
                     noisePhase16 = (noisePhase16 + noiseStep16) & 0xFFFF;
-                    if (noisePhase16 < noiseStep16) { // Overflow occurred
-                        // Standard 17-bit LFSR for AY-3-8910
+                    if (noisePhase16 < noiseStep16) { 
                         int bit0 = lfsr & 1;
                         int bit3 = (lfsr >> 3) & 1;
                         lfsr = (lfsr >> 1) | ((bit0 ^ bit3) << 16);
                     }
                     boolean noiseBit = (lfsr & 1) == 1;
                     
-                    // 2. Update Hardware Envelope (Sawtooth down for Buzzer Bass)
                     if (hwEnvActive) {
                         hwEnvPhase16 = (hwEnvPhase16 + hwEnvStep16) & 0xFFFF;
                     }
-                    // The envelope shape is \ (Sawtooth Down). Value is 15 -> 0.
-                    int hwEnvVal15 = 15 - (hwEnvPhase16 >> 12); // top 4 bits reversed
+                    int hwEnvVal15 = 15 - (hwEnvPhase16 >> 12);
                     
-                    // 3. Render Channels
                     for (int ch = 0; ch < NUM_CHANNELS; ch++)
                     {
                         PsgChannel c = channels[ch];
                         if (!c.active) continue;
                         
-                        // 50Hz Tracker Tick (approx every 882 frames at 44100Hz)
                         if (c.activeFrames % 882 == 0) {
-                            // --- HACK 1: FAST ARPEGGIOS ---
                             if (c.arpSize > 1) {
                                 c.arpIndex = (c.arpIndex + 1) % c.arpSize;
-                                double freq = 440.0 * Math.pow(2.0, (c.arpNotes[c.arpIndex] - 69) / 12.0);
-                                c.phaseStep16 = (int) ((freq * 65536.0) / sampleRate);
+                                c.baseFrequency = 440.0 * Math.pow(2.0, (c.arpNotes[c.arpIndex] - 69) / 12.0);
+                                c.phaseStep16 = (int) ((c.baseFrequency * 65536.0) / sampleRate);
+                            } else if (c.baseFrequency > 0.0) {
+                                // --- HACK 5: SOFTWARE VIBRATO (LFO) ---
+                                // If it's a sustained single note, the tracker wiggles the pitch!
+                                // 6Hz vibrato frequency, starting after a slight delay (approx 10 ticks = 0.2s)
+                                if (c.activeFrames > 10 * 882) {
+                                    double lfoTime = (c.activeFrames / (double) sampleRate);
+                                    // Math.sin is a heavy float operation, but we only do it at 50Hz, so it's extremely cheap!
+                                    double lfo = Math.sin(lfoTime * 6.0 * 2.0 * Math.PI);
+                                    double vibratoFreq = c.baseFrequency * (1.0 + (0.01 * lfo)); // ~17 cents depth
+                                    c.phaseStep16 = (int) ((vibratoFreq * 65536.0) / sampleRate);
+                                }
                             }
                             
-                            // --- HACK 2: SOFTWARE 4-BIT DECAY ---
-                            // Decrement volume by 1 every tick (creates stepped zipper effect)
-                            if (c.volume15 > 0) {
-                                c.volume15--;
-                            } else {
+                            // Decrement volume every 4 tracker ticks to extend sustain
+                            if (c.activeFrames % (882 * 4) == 0) {
+                                if (c.volume15 > 0) c.volume15--;
+                            }
+                            
+                            if (c.volume15 == 0) {
                                 c.active = false;
                                 continue;
                             }
                             
-                            // --- HACK 3: INTERLEAVED NOISE (SNARE) ---
-                            // If this is a drum channel, toggle between noise and tone every tick!
                             if (c.midiChannel == 9) {
                                 c.isNoise = !c.isNoise;
                             }
@@ -177,24 +182,19 @@ public class PsgSynthProvider implements SoftSynthProvider
                         
                         c.phase16 = (c.phase16 + c.phaseStep16) & 0xFFFF;
                         boolean toneBit = c.phase16 > 32767;
-                        
-                        // Mixer logic: Tone AND/OR Noise
                         boolean outBit = c.isNoise ? noiseBit : toneBit;
                         
-                        // Volume selection: Software or Hardware Env?
                         int finalVol15 = c.volume15;
                         if (ch == 2 && hwEnvActive) {
-                            finalVol15 = hwEnvVal15; // Channel 3 can use the Hardware Env Bass
-                            outBit = true; // When using Env as Audio, the envelope IS the wave!
+                            finalVol15 = hwEnvVal15;
+                            outBit = true;
                         }
                         
-                        // Apply DAC table
-                        double amplitude = dacTable[finalVol15] / 3.0; // Divide by 3 to prevent clipping
+                        double amplitude = dacTable[finalVol15] / 3.0;
                         sumOutput += outBit ? amplitude : -amplitude;
                         
                         c.activeFrames++;
                     }
-                    
                     pcmBuffer[i] = (short) (Math.max(-1.0, Math.min(1.0, sumOutput)) * 32767);
                 }
                 audio.push(pcmBuffer);
@@ -235,84 +235,91 @@ public class PsgSynthProvider implements SoftSynthProvider
             
             if (velocity > 0)
             {
-                // Note On Routing Logic
+                for (int i = 0; i < NUM_CHANNELS; i++) {
+                    if (channels[i].active && channels[i].midiChannel == ch && channels[i].midiNote == note) {
+                        channels[i].volume15 = (int) ((velocity / 127.0) * 15.0);
+                        return;
+                    }
+                }
                 
-                // 1. Drum Routing (Channel 10 -> PsgChannel 0)
+                int targetCh = -1;
+                for (int i = 0; i < NUM_CHANNELS; i++) {
+                    if (!channels[i].active) {
+                        targetCh = i;
+                        break;
+                    }
+                }
+                
                 if (ch == 9) {
-                    PsgChannel drumCh = channels[0];
-                    drumCh.reset();
-                    drumCh.active = true;
-                    drumCh.midiChannel = 9;
-                    drumCh.volume15 = 15; // Max strike
-                    drumCh.isNoise = true;
-                    
-                    if (note == 35 || note == 36) { // Kick
-                        noiseStep16 = 500; // Low rumble
-                    } else if (note == 38 || note == 40) { // Snare
-                        noiseStep16 = 3000; // High hiss
-                    } else { // Hi-hats
-                        noiseStep16 = 6000;
-                        drumCh.volume15 = 8; // Softer
-                    }
+                    if (targetCh == -1) targetCh = 0;
+                    PsgChannel c = channels[targetCh];
+                    c.reset();
+                    c.active = true;
+                    c.midiChannel = 9;
+                    c.volume15 = 15;
+                    c.isNoise = true;
+                    if (note == 35 || note == 36) noiseStep16 = 500; 
+                    else if (note == 38 || note == 40) noiseStep16 = 3000;
+                    else noiseStep16 = 6000;
                     return;
                 }
                 
-                // 2. Bass Routing (Low notes -> Hardware Envelope Buzzer on PsgChannel 2)
-                if (note < 48) { // Below C3
-                    PsgChannel bassCh = channels[2];
-                    bassCh.reset();
-                    bassCh.active = true;
-                    bassCh.midiChannel = ch;
-                    bassCh.midiNote = note;
-                    
-                    // Tie the Hardware Envelope frequency to the note frequency!
-                    double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-                    hwEnvStep16 = (int) ((freq * 65536.0) / sampleRate);
-                    hwEnvActive = true;
-                    return;
+                if (note < 45 && targetCh == -1) {
+                    targetCh = 2;
                 }
                 
-                // 3. Melody/Chord Routing (Arpeggiator on PsgChannel 1)
-                PsgChannel melCh = channels[1];
-                if (melCh.active && melCh.midiChannel == ch && melCh.activeFrames < 20000) {
-                    // It's a chord being struck! Add to arpeggio queue.
-                    if (melCh.arpSize < 4) {
+                if (targetCh == -1) {
+                    PsgChannel melCh = channels[1];
+                    if (melCh.active && melCh.arpSize < 4) {
                         melCh.arpNotes[melCh.arpSize++] = note;
+                        return;
                     }
-                } else {
-                    // Fresh melody note
-                    melCh.reset();
-                    melCh.active = true;
-                    melCh.midiChannel = ch;
-                    melCh.midiNote = note;
-                    melCh.volume15 = (int) ((velocity / 127.0) * 15.0);
-                    melCh.arpNotes[0] = note;
-                    melCh.arpSize = 1;
-                    melCh.arpIndex = 0;
-                    
-                    double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-                    melCh.phaseStep16 = (int) ((freq * 65536.0) / sampleRate);
+                    targetCh = 1;
+                }
+                
+                PsgChannel c = channels[targetCh];
+                c.reset();
+                c.active = true;
+                c.midiChannel = ch;
+                c.midiNote = note;
+                c.volume15 = (int) ((velocity / 127.0) * 15.0);
+                c.arpNotes[0] = note;
+                c.arpSize = 1;
+                
+                c.baseFrequency = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
+                c.phaseStep16 = (int) ((c.baseFrequency * 65536.0) / sampleRate);
+                
+                if (note < 45) {
+                    hwEnvStep16 = c.phaseStep16;
+                    hwEnvActive = true;
                 }
                 
             } else {
-                // Note Off
-                for (int i = 0; i < NUM_CHANNELS; i++) {
-                    if (channels[i].active && channels[i].midiChannel == ch && channels[i].midiNote == note) {
-                        // Instead of killing it instantly, just drop volume slightly to let Tracker finish it?
-                        // Actually, for pure 8-bit, Note Off often means instant zero.
-                        channels[i].active = false;
-                        if (i == 2) hwEnvActive = false; // Turn off bass buzzer
-                    }
-                }
+                handleNoteOff(ch, note);
             }
         } else if (cmd == 0x80 && data.length >= 2) {
-            int note = data[1] & 0xFF;
-            for (int i = 0; i < NUM_CHANNELS; i++) {
-                if (channels[i].active && channels[i].midiChannel == ch && channels[i].midiNote == note) {
-                    channels[i].active = false;
-                    if (i == 2) hwEnvActive = false;
-                }
+            handleNoteOff(ch, data[1] & 0xFF);
+        } else if (cmd == 0xB0 && data.length >= 3) {
+            int cc = data[1] & 0xFF;
+            if (cc == 123 || cc == 120) {
+                for (int i = 0; i < NUM_CHANNELS; i++) channels[i].active = false;
+                hwEnvActive = false;
             }
         }
+    }
+
+    private void handleNoteOff(int ch, int note) {
+        for (int i = 0; i < NUM_CHANNELS; i++) {
+            if (channels[i].active && channels[i].midiChannel == ch && channels[i].midiNote == note) {
+                channels[i].active = false;
+                if (i == 2) hwEnvActive = false;
+            }
+        }
+    }
+
+    @Override public void panic() { 
+        for (int i = 0; i < NUM_CHANNELS; i++) channels[i].reset();
+        hwEnvActive = false;
+        if (audio != null) audio.flush(); 
     }
 }
