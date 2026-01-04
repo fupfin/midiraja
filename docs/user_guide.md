@@ -39,7 +39,7 @@ The biggest hurdle with playing MIDI files is usually hunting down "Patch Banks"
 
 To hear music immediately without any setup, find any `.mid` file on your computer and type:
 ```bash
-midra beep song.mid
+midra 1bit song.mid
 ```
 *(This instantly fires up the Terminal UI alongside our built-in "1-Bit Digital Cluster" engine, generating classic retro sound using pure mathematics!)*
 
@@ -93,17 +93,24 @@ Once the music starts, your terminal becomes an interactive dashboard. You don't
 
 What makes Midiraja a "Museum of Computer Audio" is its ability to radically change how a song sounds. You choose the "Engine" by typing its name right after `midra`.
 
-### Method A: OS MIDI Ports (No Subcommand)
-If you don't type an engine name, Midiraja acts as a traffic director. It sends the raw sheet music (MIDI data) to your computer's built-in synthesizer or out through a USB cable to a real physical piano!
-* **Usage:** `midra song.mid`
-* **What happens:** A friendly menu will pop up asking you to select which port or device you want to send the music to.
+### Method A: OS MIDI Devices (`device`)
+Midiraja can act as a pure sequencer (traffic director), sending the raw MIDI sheet music directly to your operating system's built-in synthesizer or out through a USB cable to a physical hardware keyboard!
+* **Usage:** `midra device [device_id_or_name] song.mid`
+* **Aliases:** `dev`
+* **What happens:** If you don't provide a device ID, a friendly menu will pop up asking you to select which physical or virtual device you want to send the music to.
+* **Examples:**
+  * `midra device song.mid` (Opens interactive selection menu)
+  * `midra device 1 song.mid` (Instantly routes audio to Device Index #1)
+  * `midra device "Yamaha" song.mid` (Instantly routes audio to the device named "Yamaha")
+
+*(Note: For convenience, you can also just type `midra song.mid` without any subcommand, and it will default to this OS Device behavior!)*
 
 ### Method B: Built-in Retro Engines (Zero-Dependency)
 These engines are baked directly into the Midiraja app. They require **absolutely zero external files or downloads**.
 
-#### 1. 1-Bit Digital Cluster (`beep`)
+#### 1. 1-Bit Digital Cluster (`1bit` or `beep`)
 * **What is it?** Back in 1981, computers like the Apple II didn't have sound cards; they just had a tiny beeper that could only be turned ON or OFF (1-Bit). This engine mathematically simulates that incredibly harsh, gritty, and charming sound constraint.
-* **How to use it:** `midra beep song.mid`
+* **How to use it:** `midra 1bit song.mid`
 * **🎛️ Advanced Options:**
   * `--synth <mode>`: Choose the waveform generation method.
     * `fm` *(Default)*: Smooth, Yamaha-style Phase Modulation. Sounds like a retro electric piano, clarinet, or bell.
@@ -114,7 +121,7 @@ These engines are baked directly into the Midiraja app. They require **absolutel
     * `tdm`: A modern "cheat". Switches the speaker between notes at 1.4 million times a second. Sounds incredibly clean with zero distortion.
   * `--voices <1-4>`: How many notes a single "virtual speaker" is allowed to play. Set this to `2` with `--mux xor` to perfectly emulate the exact physical limits of early 80s hardware!
   * `--fm-ratio <float>` & `--fm-index <float>`: When using `--synth fm`, these tweak the mathematics of the sound. `Ratio 1.0 / Index 2.5` sounds like a bright keyboard. `Ratio 3.5 / Index 1.8` sounds like a crystal bell.
-* **Example:** `midra beep --synth square --mux xor --voices 2 song.mid` (Hardcore 1981 Apple II mode!)
+* **Example:** `midra 1bit --synth square --mux xor --voices 2 song.mid` (Hardcore 1981 Apple II mode!)
 
 #### 2. AdLib / Sound Blaster FM (`opl` & `opn`)
 * **What is it?** This perfectly replicates the famous Yamaha chips used in 1990s PC sound cards and Sega Genesis consoles. It gives everything that classic, twangy "DOOM" or "Sonic the Hedgehog" vibe.
