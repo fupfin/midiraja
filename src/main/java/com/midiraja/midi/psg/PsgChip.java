@@ -22,6 +22,7 @@ class PsgChip
         int arpIndex = 0;
         
         double baseFrequency = 0.0;
+        int dutyCycle16 = 32767; // Default 50% square wave
         int phase16 = 0;
         int phaseStep16 = 0;
         boolean isNoise = false; 
@@ -37,6 +38,7 @@ class PsgChip
             midiChannel = -1;
             midiNote = -1;
             baseFrequency = 0.0;
+            dutyCycle16 = 32767;
         }
     }
     
@@ -90,15 +92,30 @@ class PsgChip
             if (!c.active) continue;
             
             if (c.activeFrames % 882 == 0) {
+                // If Arpeggio is active, do NOT apply vibrato or duty sweeps (too chaotic!)
                 if (c.arpSize > 1) {
                     c.arpIndex = (c.arpIndex + 1) % c.arpSize;
                     c.baseFrequency = 440.0 * Math.pow(2.0, (c.arpNotes[c.arpIndex] - 69) / 12.0);
                     c.phaseStep16 = (int) ((c.baseFrequency * 65536.0) / sampleRate);
+                    c.dutyCycle16 = 32767; // Lock to pure 50% square for crisp chords
                 } else if (c.baseFrequency > 0.0) {
-                    if (c.activeFrames > 10 * 882) {
-                        double lfoTime = (c.activeFrames / (double) sampleRate);
-                        double lfo = Math.sin(lfoTime * 6.0 * 2.0 * Math.PI);
-                        double vibratoFreq = c.baseFrequency * (1.0 + (0.01 * lfo));
+                    // --- HACK 6: DUTY CYCLE SWEEP (FAKE FM) & DEEP VIBRATO ---
+                    // By sweeping the duty cycle from 10% to 50%, we create a harsh, nasal 
+                    // "Phaser/Wah" effect that tricks the ear into hearing FM synthesis on a 
+                    // pure square wave chip.
+                    double timeSec = (c.activeFrames / (double) sampleRate);
+                    
+                    // 1. Sweep Duty Cycle (LFO at 2Hz) -> Gives that "Waaaaow" FM timbre
+                    double dutyLfo = Math.sin(timeSec * 2.0 * 2.0 * Math.PI); 
+                    double dutyPercent = 0.5 + (0.35 * dutyLfo); // Sweeps between 15% and 85%
+                    c.dutyCycle16 = (int) (65535.0 * dutyPercent);
+                    
+                    // 2. Delayed, Slower, Deeper Vibrato (Pitch bend)
+                    if (c.activeFrames > 15 * 882) { // Wait ~0.3 seconds before vibrato hits
+                        // 5Hz LFO, 3% depth (almost a semitone) to prevent phase-cancellation chorusing 
+                        // and enforce a true solo performance wobble.
+                        double pitchLfo = Math.sin(timeSec * 5.0 * 2.0 * Math.PI);
+                        double vibratoFreq = c.baseFrequency * (1.0 + (0.03 * pitchLfo));
                         c.phaseStep16 = (int) ((vibratoFreq * 65536.0) / sampleRate);
                     }
                 }
@@ -118,7 +135,8 @@ class PsgChip
             }
             
             c.phase16 = (c.phase16 + c.phaseStep16) & 0xFFFF;
-            boolean toneBit = c.phase16 > 32767;
+            // Use the dynamically sweeping duty cycle instead of hardcoded 50% (32767)
+            boolean toneBit = c.phase16 > c.dutyCycle16;
             boolean outBit = c.isNoise ? noiseBit : toneBit;
             
             int finalVol15 = c.volume15;
