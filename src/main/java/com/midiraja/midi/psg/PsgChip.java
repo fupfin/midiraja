@@ -105,17 +105,17 @@ class PsgChip
                     // pure square wave chip.
                     double timeSec = (c.activeFrames / (double) sampleRate);
                     
-                    // 1. Sweep Duty Cycle (LFO at 2Hz) -> Gives that "Waaaaow" FM timbre
-                    double dutyLfo = Math.sin(timeSec * 2.0 * 2.0 * Math.PI); 
-                    double dutyPercent = 0.5 + (0.35 * dutyLfo); // Sweeps between 15% and 85%
+                    // 1. Gentle Duty Cycle Sweep (LFO at 0.5Hz) -> Subtle, breathing texture
+                    double dutyLfo = Math.sin(timeSec * 0.5 * 2.0 * Math.PI); 
+                    double dutyPercent = 0.5 + (0.25 * dutyLfo); // Gently sweeps between 25% and 75%
                     c.dutyCycle16 = (int) (65535.0 * dutyPercent);
                     
-                    // 2. Delayed, Slower, Deeper Vibrato (Pitch bend)
-                    if (c.activeFrames > 15 * 882) { // Wait ~0.3 seconds before vibrato hits
-                        // 5Hz LFO, 3% depth (almost a semitone) to prevent phase-cancellation chorusing 
-                        // and enforce a true solo performance wobble.
-                        double pitchLfo = Math.sin(timeSec * 5.0 * 2.0 * Math.PI);
-                        double vibratoFreq = c.baseFrequency * (1.0 + (0.03 * pitchLfo));
+                    // 2. Delayed, Elegant Vibrato (Pitch modulation)
+                    // Wait ~0.5 seconds before vibrato to let the initial pitch settle
+                    if (c.activeFrames > 25 * 882) { 
+                        // 3.5Hz LFO, very subtle 0.5% depth (just enough to feel alive without sounding out of tune)
+                        double pitchLfo = Math.sin(timeSec * 3.5 * 2.0 * Math.PI);
+                        double vibratoFreq = c.baseFrequency * (1.0 + (0.005 * pitchLfo));
                         c.phaseStep16 = (int) ((vibratoFreq * 65536.0) / sampleRate);
                     }
                 }
