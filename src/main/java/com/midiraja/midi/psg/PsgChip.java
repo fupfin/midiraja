@@ -52,9 +52,13 @@ class PsgChip
     private int noiseStep16 = 0; 
     
     private final double[] dacTable = new double[16];
+    private final double vibratoDepth;
+    private final double dutySweep;
     
-    PsgChip(int sampleRate)
+    PsgChip(int sampleRate, double vibratoDepth, double dutySweep)
     {
+        this.vibratoDepth = Math.max(0.0, vibratoDepth) / 100.0; // convert percentage 0.5 -> 0.005
+        this.dutySweep = Math.max(0.0, Math.min(0.5, dutySweep)); // cap max sweep to avoid inverting phase
         this.sampleRate = sampleRate;
         for (int i = 0; i < NUM_CHANNELS; i++) channels[i] = new PsgChannel();
         
@@ -105,17 +109,19 @@ class PsgChip
                     // pure square wave chip.
                     double timeSec = (c.activeFrames / (double) sampleRate);
                     
-                    // 1. Gentle Duty Cycle Sweep (LFO at 0.5Hz) -> Subtle, breathing texture
-                    double dutyLfo = Math.sin(timeSec * 0.5 * 2.0 * Math.PI); 
-                    double dutyPercent = 0.5 + (0.25 * dutyLfo); // Gently sweeps between 25% and 75%
-                    c.dutyCycle16 = (int) (65535.0 * dutyPercent);
+                    // 1. Dynamic Duty Cycle Sweep (Fake FM)
+                    if (dutySweep > 0.001) {
+                        double dutyLfo = Math.sin(timeSec * 0.5 * 2.0 * Math.PI); 
+                        double dutyPercent = 0.5 + (dutySweep * dutyLfo);
+                        c.dutyCycle16 = (int) (65535.0 * dutyPercent);
+                    } else {
+                        c.dutyCycle16 = 32767; // Pure 50% square
+                    }
                     
-                    // 2. Delayed, Elegant Vibrato (Pitch modulation)
-                    // Wait ~0.5 seconds before vibrato to let the initial pitch settle
-                    if (c.activeFrames > 25 * 882) { 
-                        // 3.5Hz LFO, very subtle 0.5% depth (just enough to feel alive without sounding out of tune)
+                    // 2. Delayed, Dynamic Vibrato
+                    if (vibratoDepth > 0.0001 && c.activeFrames > 25 * 882) { 
                         double pitchLfo = Math.sin(timeSec * 3.5 * 2.0 * Math.PI);
-                        double vibratoFreq = c.baseFrequency * (1.0 + (0.005 * pitchLfo));
+                        double vibratoFreq = c.baseFrequency * (1.0 + (vibratoDepth * pitchLfo));
                         c.phaseStep16 = (int) ((vibratoFreq * 65536.0) / sampleRate);
                     }
                 }

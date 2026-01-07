@@ -33,16 +33,16 @@ public class PsgSynthProvider implements SoftSynthProvider
     
     public PsgSynthProvider(AudioEngine audio)
     {
-        this(audio, 4); // Default to a Quad-Chip setup (12 Channels) for modern MIDI handling
+        this(audio, 4, 0.5, 0.25); // Default setup
     }
     
-    public PsgSynthProvider(AudioEngine audio, int numChips)
+    public PsgSynthProvider(AudioEngine audio, int numChips, double vibratoDepth, double dutySweep)
     {
         this.audio = audio;
         this.numChips = Math.max(1, Math.min(16, numChips));
         this.chips = new PsgChip[this.numChips];
         for (int i = 0; i < this.numChips; i++) {
-            this.chips[i] = new PsgChip(sampleRate);
+            this.chips[i] = new PsgChip(sampleRate, vibratoDepth, dutySweep);
         }
     }
 

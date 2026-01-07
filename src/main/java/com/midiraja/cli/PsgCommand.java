@@ -27,6 +27,12 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
 
     @Option(names = {"--chips"}, defaultValue = "4", description = "Number of virtual PSG chips to instantiate (1 to 16). Default: 4 (12 channels). Set to 1 for authentic harsh arpeggios.")
     private int chips = 4;
+    
+    @Option(names = {"--vibrato"}, defaultValue = "0.5", description = "Depth of the software vibrato LFO as a percentage (e.g., 0.5 for subtle, 3.0 for extreme wobble). Set to 0 to disable.")
+    private double vibratoDepth = 0.5;
+
+    @Option(names = {"--duty-sweep"}, defaultValue = "0.25", description = "Width of the Fake FM duty cycle sweep (e.g., 0.25 for gentle breathing, 0.45 for harsh wah-wah). Set to 0 to disable.")
+    private double dutySweep = 0.25;
 
     @Mixin private CommonOptions common = new CommonOptions();
 
@@ -36,7 +42,7 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
         
         String audioLib = AudioLibResolver.resolve();
         var audio = new NativeAudioEngine(audioLib);
-        var provider = new PsgSynthProvider(audio, chips);
+        var provider = new PsgSynthProvider(audio, chips, vibratoDepth, dutySweep);
 
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false);
         return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common);
