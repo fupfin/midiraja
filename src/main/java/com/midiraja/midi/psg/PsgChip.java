@@ -57,8 +57,8 @@ class PsgChip
     
     PsgChip(int sampleRate, double vibratoDepth, double dutySweep)
     {
-        this.vibratoDepth = Math.max(0.0, vibratoDepth) / 100.0; // convert percentage 0.5 -> 0.005
-        this.dutySweep = Math.max(0.0, Math.min(0.5, dutySweep)); // cap max sweep to avoid inverting phase
+        this.vibratoDepth = Math.max(0.0, Math.min(100.0, vibratoDepth)) / 1000.0; // convert per mille 5.0 -> 0.005, max 10% pitch bend
+        this.dutySweep = Math.max(0.0, Math.min(50.0, dutySweep)) / 100.0; // convert percentage 25.0 -> 0.25, cap max sweep to avoid inverting phase
         this.sampleRate = sampleRate;
         for (int i = 0; i < NUM_CHANNELS; i++) channels[i] = new PsgChannel();
         

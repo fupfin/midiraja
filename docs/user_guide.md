@@ -124,9 +124,11 @@ These engines are baked directly into the Midiraja app. They require **absolutel
 * **Example:** `midra 1bit --synth square --mux xor --voices 2 song.mid` (Hardcore 1981 Apple II mode!)
 
 * **🎛️ Advanced Options:**
-  * `--chips <1-16>`: How many virtual PSG chips to solder onto the motherboard. Default is `4` (giving you 12 channels for modern MIDI compatibility). Set to `1` (3 channels total) for extremely harsh, authentic voice-stealing and forced arpeggios!
-  
-#### 2. AdLib / Sound Blaster FM (`opl` & `opn`)
+  * `--chips <1-16>`: How many virtual PSG chips to instantiate. Default is `4` (12 channels).
+  * `--vibrato <0-100>`: Depth of the pitch vibration in parts per thousand (per mille) of the base frequency. Default is `5.0` (subtle). `30.0` is a heavy wobble, `100.0` is max (extreme FX).
+  * `--duty-sweep <0-100>`: Width of the pulse-width sweep as a percentage of the waveform cycle. Default is `25.0`. `50.0` is the maximum sweep (0% to 100% duty).
+
+  #### 2. AdLib / Sound Blaster FM (`opl` & `opn`)
 * **What is it?** This perfectly replicates the famous Yamaha chips used in 1990s PC sound cards and Sega Genesis consoles. It gives everything that classic, twangy "DOOM" or "Sonic the Hedgehog" vibe.
 * **How to use it:** `midra opl song.mid` (PC DOS style) or `midra opn song.mid` (Sega Genesis style).
 * **🎛️ Advanced Options:**

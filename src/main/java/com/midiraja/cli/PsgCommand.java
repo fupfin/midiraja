@@ -28,11 +28,11 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
     @Option(names = {"--chips"}, defaultValue = "4", description = "Number of virtual PSG chips to instantiate (1 to 16). Default: 4 (12 channels). Set to 1 for authentic harsh arpeggios.")
     private int chips = 4;
     
-    @Option(names = {"--vibrato"}, defaultValue = "0.5", description = "Depth of the software vibrato LFO as a percentage (e.g., 0.5 for subtle, 3.0 for extreme wobble). Set to 0 to disable.")
-    private double vibratoDepth = 0.5;
+    @Option(names = {"--vibrato"}, defaultValue = "5.0", description = "Depth of the software vibrato LFO in parts per thousand (0-100). Default: 5.0 (subtle), 30.0 (heavy wobble). Set to 0 to disable.")
+    private double vibratoDepth = 5.0;
 
-    @Option(names = {"--duty-sweep"}, defaultValue = "0.25", description = "Width of the Fake FM duty cycle sweep (e.g., 0.25 for gentle breathing, 0.45 for harsh wah-wah). Set to 0 to disable.")
-    private double dutySweep = 0.25;
+    @Option(names = {"--duty-sweep"}, defaultValue = "25.0", description = "Width of the pulse-width sweep as a percentage (0-100). Default: 25.0 (gentle breathing), 45.0 (harsh wah-wah). Set to 0 to disable.")
+    private double dutySweep = 25.0;
 
     @Mixin private CommonOptions common = new CommonOptions();
 
