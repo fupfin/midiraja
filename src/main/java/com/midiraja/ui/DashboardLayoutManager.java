@@ -60,12 +60,12 @@ public class DashboardLayoutManager
             int twoColumnReqHeight = APP_STATIC_OVERHEAD + wrapTitled(NOW_PLAYING_MIN_CONTENT)
                 + wrapTitled(CHANNELS_MAX_CONTENT) + CONTROLS_MIN_CONTENT;
 
-            if (safeHeight >= twoColumnReqHeight)
+            if (safeHeight >= twoColumnReqHeight && showPlaylist)
             {
                 // --- Two-Column Mode ---
                 isHorizontal = false;
                 hChannels = wrapTitled(CHANNELS_MAX_CONTENT);
-                hPlaylist = showPlaylist ? wrapTitled(CHANNELS_MAX_CONTENT) : 0;
+                hPlaylist = wrapTitled(CHANNELS_MAX_CONTENT);
 
                 int surplus = safeHeight - twoColumnReqHeight;
 
@@ -80,8 +80,7 @@ public class DashboardLayoutManager
 
                 // Remaining to Center
                 hChannels += surplus;
-                if (showPlaylist)
-                    hPlaylist += surplus;
+                hPlaylist += surplus;
             }
             else
             {
@@ -98,7 +97,11 @@ public class DashboardLayoutManager
                 }
                 else
                 {
-                    hChannels += surplus;
+                    // If no playlist, give half of surplus to metadata and half to channels
+                    // but cap metadata at max.
+                    int extraNow = Math.min(surplus / 2, NOW_PLAYING_MAX_CONTENT - hNowPlaying + TITLED_PANEL_OVERHEAD);
+                    hNowPlaying += extraNow;
+                    hChannels += (surplus - extraNow);
                 }
             }
         }

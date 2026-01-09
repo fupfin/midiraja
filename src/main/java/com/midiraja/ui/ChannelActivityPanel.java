@@ -67,53 +67,79 @@ public class ChannelActivityPanel implements Panel
         if (constraints.height() <= 0)
             return;
 
-        // Internal Decay Logic
         for (int i = 0; i < 16; i++)
         {
             channelLevels[i] = Math.max(0, channelLevels[i] - 0.05);
         }
 
-        if (!constraints.isHorizontal() && constraints.height() >= 16)
-        {
-            int maxMeterLength = Math.max(5, constraints.width() - 26);
-            for (int i = 0; i < 16; i++)
-            {
-                int meterLength = (int) (channelLevels[i] * maxMeterLength);
-                String meter = Theme.COLOR_HIGHLIGHT + Theme.CHAR_BLOCK_FULL.repeat(meterLength)
-                    + Theme.COLOR_RESET + " ".repeat(maxMeterLength - meterLength);
-                String line = String.format(
-                    "CH %02d %-11s : %s", i + 1, "(" + getChannelName(i) + ")", meter);
-                buffer.append(truncate(line, constraints.width())).append("\n");
-            }
+        int w = constraints.width();
+        int h = constraints.height();
+
+        // Determine optimal number of columns based on available space
+        int numCols;
+        if (h >= 16 && w < 80) {
+            numCols = 1; // Lots of vertical space, not enough horizontal -> 1 Column
+        } else if (h >= 8 && w >= 60) {
+            numCols = 2; // Good amount of both -> 2 Columns
+        } else if (h >= 4 && w >= 40) {
+            numCols = 4; // Not enough vertical, but enough horizontal -> 4 Columns
+        } else if (h >= 16) {
+            numCols = 1; // Fallback for very tall but somehow not caught
+        } else {
+            numCols = 4; // Absolute fallback for small screens (crammed)
         }
-        else if (constraints.height() >= 4)
+
+        // If layout manager gave us less than needed rows, clip it gracefully
+        int numRows = (int) Math.ceil(16.0 / numCols);
+        int rowsToDraw = Math.min(numRows, h);
+
+        int colWidth = w / numCols;
+
+        for (int r = 0; r < rowsToDraw; r++)
         {
-            int colWidth = constraints.width() / 4;
-            int maxMeterLength = Math.max(2, colWidth - 7);
-            for (int row = 0; row < 4; row++)
+            StringBuilder rowSb = new StringBuilder();
+            for (int c = 0; c < numCols; c++)
             {
-                StringBuilder rowSb = new StringBuilder();
-                for (int col = 0; col < 4; col++)
-                {
-                    int ch = row + (col * 4);
-                    int meterLength = (int) (channelLevels[ch] * maxMeterLength);
-                    String meter = Theme.COLOR_HIGHLIGHT + Theme.CHAR_BLOCK_FULL.repeat(meterLength)
-                        + Theme.COLOR_RESET + " ".repeat(maxMeterLength - meterLength);
-                    String cell = String.format("C%02d:%s", ch + 1, meter);
-                    int visibleLen =
-                        4 + maxMeterLength; // "C01:" is 4 chars, meter is maxMeterLength chars
-                    if (visibleLen > colWidth)
-                    {
-                        // In extremely narrow terminals we might need to truncate the meter string
-                        // itself, but since maxMeterLength = max(2, colWidth - 7), visibleLen is
-                        // (colWidth - 3). So visibleLen is NEVER > colWidth in reality!
-                    }
+                int ch = r + (c * numRows);
+                if (ch >= 16) break;
+
+                String cell;
+                if (numCols == 4) {
+                    // 4-Column: Compact (No instrument name)
+                    int maxMeter = Math.max(2, colWidth - 7);
+                    int meterLen = (int) (channelLevels[ch] * maxMeter);
+                    String meter = Theme.COLOR_HIGHLIGHT + Theme.CHAR_BLOCK_FULL.repeat(meterLen)
+                        + Theme.COLOR_RESET + " ".repeat(maxMeter - meterLen);
+                    cell = String.format("C%02d:%s", ch + 1, meter);
+                    
+                    int visibleLen = 4 + maxMeter;
                     int padding = Math.max(0, colWidth - visibleLen);
                     cell += " ".repeat(padding);
-                    rowSb.append(cell);
+                } else {
+                    // 1 or 2-Column: Rich (Includes instrument name)
+                    String instName = getChannelName(ch);
+                    if (instName.length() > 11) {
+                        instName = instName.substring(0, 11);
+                    }
+                    // Format: "CH 01 (Piano      ) : [meter]"
+                    int prefixLen = 22; // length of "CH 01 (Piano      ) : "
+                    int maxMeter = Math.max(2, colWidth - prefixLen - 2); 
+                    int meterLen = (int) (channelLevels[ch] * maxMeter);
+                    String meter = Theme.COLOR_HIGHLIGHT + Theme.CHAR_BLOCK_FULL.repeat(meterLen)
+                        + Theme.COLOR_RESET + " ".repeat(maxMeter - meterLen);
+                        
+                    cell = String.format("CH %02d %-13s: %s", ch + 1, "(" + instName + ")", meter);
+                    
+                    int visibleLen = 20 + maxMeter; 
+                    int padding = Math.max(0, colWidth - visibleLen);
+                    cell += " ".repeat(padding);
                 }
-                buffer.append(truncate(rowSb.toString(), constraints.width())).append("\n");
+                
+                // For safety, hard-truncate if string calculation overshoots
+                // (ansi codes make length calculation tricky, but our padding logic is based on visible chars)
+                rowSb.append(cell);
             }
+            buffer.append(truncate(rowSb.toString(), w)).append("\n");
         }
     }
 }
