@@ -1,6 +1,7 @@
 .gradle
 build
 !gradle/wrapper/gradle-wrapper.jar
+conductor/
 
 ### STS ###
 .apt_generated
@@ -29,6 +30,5 @@ build
 
 ### OS X ###
 .DS_Store
-samples/
-git_hacker.py
+
 bin/
