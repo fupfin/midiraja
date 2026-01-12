@@ -11,11 +11,11 @@ This document chronicles the engineering journey to mathematically reconstruct t
 
 The original IBM PC internal speaker was a pure 1-bit physical device; it could only exist in two states: **0 (Off)** or **1 (On)** based on applied voltage. To play analog waveforms (PCM) through this binary device, RealSound hijacked the **Intel 8253 PIT (Programmable Interval Timer)**'s Timer 2 channel.
 
-*   **Carrier Frequency:** It divided the PIT's base clock of $1.193182 \text{ MHz}$ by 64, generating a fixed carrier wave at approximately **$18,643 \text{ Hz}$**.
-*   **Resolution:** By adjusting the proportion of time the speaker remained "On" during one cycle (Duty Cycle) between $0 \sim 63$, it effectively emulated a **6-Bit ($2^6 = 64$) DAC**.
-*   **Demodulation (Physical Reconstruction):** The stiff, 2.25-inch paper cone of the PC speaker lacked the mechanical inertia to physically vibrate at the $18.6 \text{ kHz}$ switching speed. Therefore, the speaker cone itself acted as a massive **Low-Pass Filter (LPF)**, ignoring the high-frequency toggling and settling at a physical position corresponding to the average voltage (the intended analog signal).
+*   **Carrier Frequency:** It divided the PIT's base clock of $1.193182 \text{ MHz}$ by a small integer. While literature often suggests a division by 64 ($\sim 18.6 \text{ kHz}$), our empirical FFT analysis of original 1980s RealSound `.wav` demos revealed a massive energy spike at **$15.2 \text{ kHz}$**. This indicates developers intentionally lowered the carrier to accommodate CPU interrupt overhead, resulting in a more audible, gritty "crunch".
+*   **Resolution:** By adjusting the proportion of time the speaker remained "On" during one cycle (Duty Cycle), it effectively emulated a rudimentary **6-Bit DAC**.
+*   **Demodulation (Physical Reconstruction):** The stiff, 2.25-inch paper cone of the PC speaker lacked the mechanical inertia to physically vibrate at the $15.2 \text{ kHz}$ switching speed. Therefore, the speaker cone itself acted as a massive **Low-Pass Filter (LPF)**, ignoring the high-frequency toggling and settling at a physical position corresponding to the average voltage (the intended analog signal).
 
-Our goal was to mathematically recreate this **18.6kHz PWM generator** and the **analog paper speaker's physical LPF** inside Java's 44.1kHz DSP environment without introducing digital aliasing.
+Our goal was to mathematically recreate this **15.2kHz PWM generator** and the **analog paper speaker's physical LPF** inside Java's 44.1kHz DSP environment without introducing digital aliasing.
 
 ---
 
@@ -37,19 +37,19 @@ Furthermore, when the input $x[n]$ was exactly $0.0$, the error accumulator woul
 
 ## 3. Trial 2: True Carrier PWM and Nyquist Aliasing
 
-We then moved to a **True Carrier PWM** approach, exactly mimicking the original hardware by generating an 18.6kHz sawtooth carrier and intersecting it with the input signal.
+We then moved to a **True Carrier PWM** approach, exactly mimicking the original hardware by generating an 15.2kHz sawtooth carrier and intersecting it with the input signal.
 
 ### Mathematical Model:
-$$ c[n] = (c[n-1] + \Delta f) \bmod 2.0 - 1.0 \quad \text{where} \quad \Delta f = \frac{18600}{44100} \times 2 $$
+$$ c[n] = (c[n-1] + \Delta f) \bmod 2.0 - 1.0 \quad \text{where} \quad \Delta f = \frac{15200}{44100} \times 2 $$
 $$ y[n] = \begin{cases} 1.0, & \text{if } x[n] > c[n] \\ -1.0, & \text{otherwise} \end{cases} $$
 
 ### The Problem: In-band Nyquist Fold-over
 While this works perfectly in analog circuitry, doing this in the discrete-time domain causes horrific **Aliasing**. 
-An $18.6 \text{ kHz}$ square wave contains infinite odd harmonics:
-*   3rd Harmonic: $18.6 \text{ kHz} \times 3 = 55.8 \text{ kHz}$
-*   5th Harmonic: $18.6 \text{ kHz} \times 5 = 93.0 \text{ kHz}$
+An $15.2 \text{ kHz}$ square wave contains infinite odd harmonics:
+*   3rd Harmonic: $15.2 \text{ kHz} \times 3 = 45.6 \text{ kHz}$
+*   5th Harmonic: $15.2 \text{ kHz} \times 5 = 76.0 \text{ kHz}$
 
-In a 44.1kHz environment, the Nyquist limit is $22.05 \text{ kHz}$. Harmonics exceeding this limit are violently folded back into the audible spectrum:
+In a 44.1kHz environment, the Nyquist limit is $22.05 \text{ kHz}$. Harmonics exceeding this limit are violently folded back into the audible spectrum.
 $$ 55.8 \text{ kHz} \rightarrow 55.8 - 44.1 = \mathbf{11.7 \text{ kHz}} $$
 $$ 93.0 \text{ kHz} \rightarrow 93.0 - (44.1 \times 2) = \mathbf{4.8 \text{ kHz}} $$
 

@@ -26,27 +26,27 @@ public class OneBitAcousticSimulator implements AudioProcessor {
         this.oneBitMode = oneBitMode.toLowerCase(java.util.Locale.ROOT);
         
         // Characteristic filters. Oversampling is universally 32x (~1.4MHz) 
-        // to match the original 1980s 1.19MHz PIT hardware precision.
+        // to match the original 1980s hardware switching speeds.
         this.oversampleFactor = 32; 
         
         if ("pwm".equals(this.oneBitMode)) {
-            // PWM reproduces the 18.6kHz carrier. The heavy 0.20 filter simulates 
-            // the sluggish physical inertia of a 1980s 2.25-inch paper cone speaker.
-            this.lpAlpha = 0.20; 
-            this.hpAlpha = 0.98; // Bass cut
+            // Empirical analysis of RealSound demos shows the carrier was actually ~15.2kHz,
+            // not 18.6kHz. This gives it that characteristic gritty "crunch".
+            // Furthermore, the original audio has significant bass and punch. 
+            // We open the filter up (0.75) to prevent the "muffled" sound.
+            this.lpAlpha = 0.75; 
+            this.hpAlpha = 0.995; // Allow more bass through
+            this.carrierStep = (15200.0 / sampleRate) * 2.0;
         } else if ("tdm".equals(this.oneBitMode)) {
-            // TDM random switching needs a moderate filter to cut broadband white noise
             this.lpAlpha = 0.15; 
             this.hpAlpha = 0.99;
+            this.carrierStep = (18600.0 / sampleRate) * 2.0;
         } else {
             // "dsd" or default
-            // Audiophile Hi-Fi 1-bit sound. Very light filter preserves treble, just kills 1.4MHz noise.
             this.lpAlpha = 0.85; 
-            this.hpAlpha = 0.999; // Deep bass preserved
+            this.hpAlpha = 0.999; 
+            this.carrierStep = (18600.0 / sampleRate) * 2.0;
         }
-        
-        // Apple II DAC522 style: ~18.6kHz (92 cycles/sample @ 1.023MHz)
-        this.carrierStep = (18600.0 / sampleRate) * 2.0;
     }
 
     @Override
