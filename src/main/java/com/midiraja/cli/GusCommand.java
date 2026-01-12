@@ -39,7 +39,7 @@ public class GusCommand implements Callable<Integer> {
   @Option(names = {"--1bit"}, description = "1-Bit acoustic modulation strategy ('pwm', 'dsd', 'tdm'). If omitted, outputs standard 16-bit PCM.")
   private @org.jspecify.annotations.Nullable String oneBitMode;
   
-  @Option(names = {"--realsound"}, description = "Authentic 1980s PC Speaker macro (Automatically applies --bits 6 and --1bit pwm).")
+  @Option(names = {"--realsound"}, description = "Authentic 1980s PC Speaker macro (Automatically applies --1bit pwm).")
   private boolean realSound = false;
 
   @Parameters(paramLabel = "<file>",
@@ -56,7 +56,7 @@ public class GusCommand implements Callable<Integer> {
     NativeAudioEngine audio = new NativeAudioEngine(audioLib);
     String dirPath = patchDir.map(File::getAbsolutePath).orElse(null);
 
-    int finalBits = realSound ? 6 : bits;
+    int finalBits = realSound ? 16 : bits; // PWM is inherently ~6-bit, do not pre-crush
     String finalOneBit = realSound ? "pwm" : oneBitMode; // oneBitMode can be null here
     var provider = new GusSynthProvider(audio, dirPath, finalBits, finalOneBit);
 

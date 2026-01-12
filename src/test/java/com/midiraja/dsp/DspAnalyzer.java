@@ -56,10 +56,10 @@ public class DspAnalyzer {
     
     // Example Entry Point
     public static void main(String[] args) throws Exception {
-        System.out.println("Testing the RealSound (6-Bit + PWM) Pipeline...");
+        System.out.println("Testing the RealSound (Pure PWM) Pipeline...");
         List<AudioProcessor> realSoundPipeline = List.of(
-            new NoiseShapedQuantizer(6),
-            new ReconstructionFilter(0.45),
+            // Pre-quantization is removed because 1.4MHz / 15.2kHz is inherently a 6.5-bit quantizer.
+            // Adding artificial noise shaping ruins the PWM phase stability.
             new OneBitAcousticSimulator(44100, "pwm")
         );
         runSineWaveTest(realSoundPipeline, "realsound_test.raw");

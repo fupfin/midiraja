@@ -32,9 +32,9 @@ public class OneBitAcousticSimulator implements AudioProcessor {
         if ("pwm".equals(this.oneBitMode)) {
             // Empirical analysis of RealSound demos shows the carrier was actually ~15.2kHz,
             // not 18.6kHz. This gives it that characteristic gritty "crunch".
-            // Furthermore, the original audio has significant bass and punch. 
-            // We open the filter up (0.75) to prevent the "muffled" sound.
-            this.lpAlpha = 0.75; 
+            // lpAlpha 0.40 strikes the perfect balance: it tames the piercing 15.2kHz whistle 
+            // to match the original 10% magnitude while preserving the punchy mid-bass.
+            this.lpAlpha = 0.40; 
             this.hpAlpha = 0.995; // Allow more bass through
             this.carrierStep = (15200.0 / sampleRate) * 2.0;
         } else if ("tdm".equals(this.oneBitMode)) {
