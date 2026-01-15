@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import com.midiraja.dsp.AudioProcessor;
+import com.midiraja.dsp.AutoFlushGate;
 import com.midiraja.dsp.OneBitAcousticSimulator;
 import org.jspecify.annotations.Nullable;
 
@@ -76,6 +77,7 @@ public class OpnMidiSynthProvider implements SoftSynthProvider
         if (this.oneBitMode != null)
         {
             dspPipeline.add(new OneBitAcousticSimulator(SAMPLE_RATE, this.oneBitMode));
+            dspPipeline.add(new AutoFlushGate(dspPipeline)); // Ensures silent output when paused
         }
     }
 
