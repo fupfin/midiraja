@@ -199,11 +199,15 @@ public class OpnMidiSynthProvider implements SoftSynthProvider
                         proc.process(left, right, FRAMES_PER_RENDER);
                     }
 
-                    // Convert back to short
+                    // Convert back to short using Soft Clipping (tanh)
+                    // This prevents hard "clicks" or "pops" when the IIR filter resonance 
+                    // causes the signal to exceed the -1.0 to 1.0 range.
                     for (int i = 0; i < FRAMES_PER_RENDER; i++)
                     {
-                        pcmBuffer[i * 2] = (short) (Math.max(-1.0f, Math.min(1.0f, left[i])) * 32767);
-                        pcmBuffer[i * 2 + 1] = (short) (Math.max(-1.0f, Math.min(1.0f, right[i])) * 32767);
+                        double softL = Math.tanh(left[i]);
+                        double softR = Math.tanh(right[i]);
+                        pcmBuffer[i * 2] = (short) (softL * 32767);
+                        pcmBuffer[i * 2 + 1] = (short) (softR * 32767);
                     }
                 }
 
