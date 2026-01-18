@@ -66,7 +66,11 @@ public class OneBitAcousticSimulator implements AudioProcessor {
             if (silentFrames > SILENCE_THRESHOLD) {
                 left[i] = 0.0f;
                 right[i] = 0.0f;
-                reset(); // Keep internal state zeroed
+                // Only reset the DSP state on the exact moment we cross the threshold,
+                // otherwise we create DC offset noise by constantly resetting phase to -1.0
+                if (silentFrames == SILENCE_THRESHOLD + 1) {
+                    reset();
+                }
                 continue;
             }
 
