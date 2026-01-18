@@ -180,40 +180,23 @@ public class AdlMidiSynthProvider implements SoftSynthProvider
                 // If 1-bit modulation is enabled, process through DSP pipeline
                 if (!dspPipeline.isEmpty())
                 {
-                    boolean isSilent = true;
-                    // Convert short buffer to float for DSP
                     for (int i = 0; i < FRAMES_PER_RENDER; i++)
                     {
                         left[i] = pcmBuffer[i * 2] / 32768.0f;
                         right[i] = pcmBuffer[i * 2 + 1] / 32768.0f;
-                        if (Math.abs(left[i]) > 1e-4f || Math.abs(right[i]) > 1e-4f) {
-                            isSilent = false;
-                        }
                     }
 
-                    if (isSilent) {
-                        // The synth generated a completely silent block (e.g. paused).
-                        // Reset DSP to kill carrier whine and skip processing to ensure dead silence.
-                        for (AudioProcessor proc : dspPipeline) {
-                            proc.reset();
-                        }
-                        // Arrays left/right remain 0.0
-                    } else {
-                        for (AudioProcessor proc : dspPipeline)
-                        {
-                            proc.process(left, right, FRAMES_PER_RENDER);
-                        }
+                    for (com.midiraja.dsp.AudioProcessor proc : dspPipeline)
+                    {
+                        proc.process(left, right, FRAMES_PER_RENDER);
                     }
 
-                    // Convert back to short using Soft Clipping (tanh)
-                    // This prevents hard "clicks" or "pops" when the IIR filter resonance 
-                    // causes the signal to exceed the -1.0 to 1.0 range.
                     for (int i = 0; i < FRAMES_PER_RENDER; i++)
                     {
-                        double softL = Math.tanh(left[i]);
-                        double softR = Math.tanh(right[i]);
-                        pcmBuffer[i * 2] = (short) (softL * 32767);
-                        pcmBuffer[i * 2 + 1] = (short) (softR * 32767);
+                        float clampL = Math.max(-1.0f, Math.min(1.0f, left[i]));
+                        float clampR = Math.max(-1.0f, Math.min(1.0f, right[i]));
+                        pcmBuffer[i * 2] = (short) (clampL * 32767);
+                        pcmBuffer[i * 2 + 1] = (short) (clampR * 32767);
                     }
                 }
 

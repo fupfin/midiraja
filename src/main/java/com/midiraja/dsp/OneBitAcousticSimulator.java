@@ -18,6 +18,8 @@ public class OneBitAcousticSimulator implements AudioProcessor {
     // Acoustic Filters
     private double lp1L = 0, lp1R = 0, lp2L = 0, lp2R = 0;
     private double hpL = 0, hpR = 0, prevL = 0, prevR = 0;
+    private int silentFrames = 0;
+    private static final int SILENCE_THRESHOLD = 4410; // 100ms at 44.1kHz
     
     private final double lpAlpha; // High-frequency paper cone attenuation
     private final double hpAlpha; // Low-frequency small diameter attenuation
@@ -34,7 +36,7 @@ public class OneBitAcousticSimulator implements AudioProcessor {
             // not 18.6kHz. This gives it that characteristic gritty "crunch".
             // lpAlpha 0.40 strikes the perfect balance: it tames the piercing 15.2kHz whistle 
             // to match the original 10% magnitude while preserving the punchy mid-bass.
-            this.lpAlpha = 0.40; 
+            this.lpAlpha = 0.30; // Slightly darker to tame the 15.2kHz carrier whine 
             this.hpAlpha = 0.995; // Allow more bass through
             this.carrierStep = (15200.0 / sampleRate) * 2.0;
         } else {
@@ -51,6 +53,22 @@ public class OneBitAcousticSimulator implements AudioProcessor {
         for (int i = 0; i < frames; i++) {
             double l = left[i];
             double r = right[i];
+
+            // Speaker Power-Off Simulation:
+            // If the digital synth is completely silent for 100ms, power off the PWM
+            // generator. This eliminates eternal carrier whine during pauses.
+            if (Math.abs(l) < 1e-5 && Math.abs(r) < 1e-5) {
+                silentFrames++;
+            } else {
+                silentFrames = 0;
+            }
+
+            if (silentFrames > SILENCE_THRESHOLD) {
+                left[i] = 0.0f;
+                right[i] = 0.0f;
+                reset(); // Keep internal state zeroed
+                continue;
+            }
 
             double sumL = 0.0;
             double sumR = 0.0;
