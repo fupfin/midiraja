@@ -17,6 +17,7 @@ public class SccChip implements TrackerSynthChip
     private final int sampleRate;
     private final double[] dacTable = new double[16];
     private final double vibratoDepth;
+    private final boolean sccRaw;
 
     private static class SccChannel
     {
@@ -85,8 +86,14 @@ public class SccChip implements TrackerSynthChip
 
     public SccChip(int sampleRate, double vibratoDepth)
     {
+        this(sampleRate, vibratoDepth, false);
+    }
+    
+    public SccChip(int sampleRate, double vibratoDepth, boolean sccRaw)
+    {
         this.sampleRate = sampleRate;
         this.vibratoDepth = Math.max(0.0, Math.min(100.0, vibratoDepth)) / 1000.0; // convert per mille
+        this.sccRaw = sccRaw;
         
         for (int i = 0; i < NUM_CHANNELS; i++) {
             channels[i] = new SccChannel();
@@ -166,26 +173,39 @@ public class SccChip implements TrackerSynthChip
                 c.phase -= 32.0;
             }
             
-            // Linear Interpolation for smooth, anti-aliased wavetable synthesis
-            int index0 = (int) c.phase;
-            int index1 = (index0 + 1) % 32;
-            double frac = c.phase - index0;
-            
-            double s0 = c.waveform[index0] / 128.0; // normalize to -1.0 ~ 1.0
-            double s1 = c.waveform[index1] / 128.0;
-            
-            double sample = s0 + frac * (s1 - s0);
+            double sample;
+            if (sccRaw) {
+                // Historically accurate aliased steps
+                int index = (int) c.phase;
+                sample = c.waveform[index] / 128.0;
+            } else {
+                // Linear Interpolation for smooth, anti-aliased wavetable synthesis
+                int index0 = (int) c.phase;
+                int index1 = (index0 + 1) % 32;
+                double frac = c.phase - index0;
+                
+                double s0 = c.waveform[index0] / 128.0; // normalize to -1.0 ~ 1.0
+                double s1 = c.waveform[index1] / 128.0;
+                
+                sample = s0 + frac * (s1 - s0);
+            }
             
             // Fake envelope decay based on active frames
             double envDecay = Math.max(0.0, 1.0 - (c.activeFrames / (double)(sampleRate * 2))); // 2 sec decay
             int currentVol15 = (int)(c.volume15 * envDecay);
             currentVol15 = Math.max(0, Math.min(15, currentVol15));
             
-            // Apply PSG-matched non-linear DAC curve.
-            // VOLUME COMPENSATION: Complex waveforms (Sine, Triangle, Saw) have much lower 
-            // RMS energy than a pure Square wave. We apply a ~1.75x volume boost (0.35 instead of 0.2) 
-            // so SCC instruments aren't drowned out by the harsh PSG square waves when played together.
-            sumOutput += sample * dacTable[currentVol15] * 0.35;
+            if (sccRaw) {
+                // Historically accurate volume calculation (from openMSX: SCC.cc)
+                // The sample (-128 to 127) is multiplied by volume (0-15), then bit-shifted right by 4.
+                int rawSample = c.waveform[(int) c.phase];
+                int shifted = (rawSample * currentVol15) >> 4;
+                // Convert back to -1.0 ~ 1.0 range, scaled for our audio engine
+                sumOutput += (shifted / 128.0) * dacTable[currentVol15] * 0.35;
+            } else {
+                // Modern continuous volume scaling
+                sumOutput += sample * dacTable[currentVol15] * 0.35;
+            }
         }
         
         return sumOutput;

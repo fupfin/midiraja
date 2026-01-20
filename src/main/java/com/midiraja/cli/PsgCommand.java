@@ -37,6 +37,9 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
     @Option(names = {"--scc"}, description = "Enable Konami SCC (K051649) Sound Cartridge emulation. Uses 32-byte custom wavetables for richer instruments instead of pure square waves.")
     private boolean useScc = false;
 
+    @Option(names = {"--scc-raw"}, description = "Disable linear interpolation in SCC mode. Produces historically accurate, aliased (stepped) waveforms instead of smooth modern ones.")
+    private boolean sccRaw = false;
+
     @Mixin private CommonOptions common = new CommonOptions();
 
     @Override public Integer call() throws Exception
@@ -52,7 +55,7 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
         
         String audioLib = AudioLibResolver.resolve();
         var audio = new NativeAudioEngine(audioLib);
-        var provider = new PsgSynthProvider(audio, finalChips, vibratoDepth, dutySweep, useScc);
+        var provider = new PsgSynthProvider(audio, finalChips, vibratoDepth, dutySweep, useScc, sccRaw);
 
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false);
         return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common);
