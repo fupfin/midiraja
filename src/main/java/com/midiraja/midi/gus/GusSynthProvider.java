@@ -190,10 +190,10 @@ public class GusSynthProvider implements SoftSynthProvider
 
                 for (int i = 0; i < framesToRender; i++)
                 {
-                    double l = Math.max(-1.0, Math.min(1.0, left[i]));
-                    double r = Math.max(-1.0, Math.min(1.0, right[i]));
-                    pcmBuffer[i * 2] = (short) (l * 32767);
-                    pcmBuffer[i * 2 + 1] = (short) (r * 32767);
+                    // GUS is already loud, no additional gain needed. 
+                    // Tanh ensures we never clip if polyphony gets crazy.
+                    pcmBuffer[i * 2] = (short) (Math.tanh(left[i]) * 32767);
+                    pcmBuffer[i * 2 + 1] = (short) (Math.tanh(right[i]) * 32767);
                 }
                 if (audio != null) audio.push(pcmBuffer);
             }

@@ -103,11 +103,8 @@ public class OneBitAcousticSimulator implements AudioProcessor {
             prevL = lp2L; prevR = lp2R;
 
             // Output safely scaled with soft-clipping
-            // OPL and OPN natively output slightly lower energy than GUS.
-            // We apply a slight makeup gain here (2.0x instead of 1.4x) before the 
-            // tanh limiter to keep the perceived volume punchy without hard clipping.
-            left[i] = (float) Math.tanh(hpL * 2.0);
-            right[i] = (float) Math.tanh(hpR * 2.0);
+            left[i] = (float) hpL;
+            right[i] = (float) hpR;
         }
     }
 
