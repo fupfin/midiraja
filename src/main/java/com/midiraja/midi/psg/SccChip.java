@@ -200,11 +200,13 @@ public class SccChip implements TrackerSynthChip
                 // The sample (-128 to 127) is multiplied by volume (0-15), then bit-shifted right by 4.
                 int rawSample = c.waveform[(int) c.phase];
                 int shifted = (rawSample * currentVol15) >> 4;
-                // Convert back to -1.0 ~ 1.0 range, scaled for our audio engine
-                sumOutput += (shifted / 128.0) * dacTable[currentVol15] * 0.35;
+                // Convert back to -1.0 ~ 1.0 range, scaled for our audio engine.
+                // We apply a ~2.6x volume boost (0.85 instead of 0.33 used by PSG) so SCC
+                // instruments aren't drowned out by the harsh PSG square waves.
+                sumOutput += (shifted / 128.0) * dacTable[currentVol15] * 0.85;
             } else {
                 // Modern continuous volume scaling
-                sumOutput += sample * dacTable[currentVol15] * 0.35;
+                sumOutput += sample * dacTable[currentVol15] * 0.85;
             }
         }
         
