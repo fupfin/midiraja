@@ -44,7 +44,7 @@ public class PsgSynthProvider implements SoftSynthProvider
         this(audio, systems, vibratoDepth, dutySweep, useScc, false);
     }
     
-    public PsgSynthProvider(AudioEngine audio, int systems, double vibratoDepth, double dutySweep, boolean useScc, boolean sccRaw)
+    public PsgSynthProvider(AudioEngine audio, int systems, double vibratoDepth, double dutySweep, boolean useScc, boolean smoothScc)
     {
         this.audio = audio;
         this.systems = Math.max(1, Math.min(16, systems));
@@ -56,7 +56,7 @@ public class PsgSynthProvider implements SoftSynthProvider
             // Pair Architecture: Each system is [1 PSG + 1 SCC]
             for (int i = 0; i < this.systems; i++) {
                 this.chips[i * 2] = new PsgChip(sampleRate, vibratoDepth, dutySweep); // Even: PSG
-                this.chips[i * 2 + 1] = new SccChip(sampleRate, vibratoDepth, sccRaw); // Odd: SCC
+                this.chips[i * 2 + 1] = new SccChip(sampleRate, vibratoDepth, smoothScc); // Odd: SCC
             }
         } else {
             // Standard Mode: N PSGs

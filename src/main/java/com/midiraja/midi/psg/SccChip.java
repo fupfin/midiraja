@@ -17,7 +17,7 @@ public class SccChip implements TrackerSynthChip
     private final int sampleRate;
     private final double[] dacTable = new double[16];
     private final double vibratoDepth;
-    private final boolean sccRaw;
+    private final boolean smoothScc;
 
     private static class SccChannel
     {
@@ -89,11 +89,11 @@ public class SccChip implements TrackerSynthChip
         this(sampleRate, vibratoDepth, false);
     }
     
-    public SccChip(int sampleRate, double vibratoDepth, boolean sccRaw)
+    public SccChip(int sampleRate, double vibratoDepth, boolean smoothScc)
     {
         this.sampleRate = sampleRate;
         this.vibratoDepth = Math.max(0.0, Math.min(100.0, vibratoDepth)) / 1000.0; // convert per mille
-        this.sccRaw = sccRaw;
+        this.smoothScc = smoothScc;
         
         for (int i = 0; i < NUM_CHANNELS; i++) {
             channels[i] = new SccChannel();
@@ -174,7 +174,7 @@ public class SccChip implements TrackerSynthChip
             }
             
             double sample;
-            if (sccRaw) {
+            if (!smoothScc) {
                 // Historically accurate aliased steps
                 int index = (int) c.phase;
                 sample = c.waveform[index] / 128.0;
@@ -195,7 +195,7 @@ public class SccChip implements TrackerSynthChip
             int currentVol15 = (int)(c.volume15 * envDecay);
             currentVol15 = Math.max(0, Math.min(15, currentVol15));
             
-            if (sccRaw) {
+            if (!smoothScc) {
                 // Historically accurate volume calculation (from openMSX: SCC.cc)
                 // The sample (-128 to 127) is multiplied by volume (0-15), then bit-shifted right by 4.
                 int rawSample = c.waveform[(int) c.phase];
