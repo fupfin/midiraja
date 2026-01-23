@@ -49,18 +49,24 @@ While the PSG is powerful when hacked, it remains limited by its pure square wav
 ### 3.1. MSX Pair Architecture (1x PSG + 1x SCC)
 * **The Concept:** The SCC lacks a noise generator and hardware envelopes, making it terrible for drums and aggressive bass. Historically, the SCC was *never* used alone; it was always plugged into an MSX machine containing a PSG.
 * **The Implementation:** When the `--scc` flag is enabled, the Midiraja engine instantiates chips in **Pairs**. `System 1` consists of `[Chip 0: PSG] + [Chip 1: SCC]`. 
-* **Smart Routing:**
-  * **Drums (Channel 10):** Forced onto the PSG (Chip 0) to utilize its Noise Generator for crisp snares and hi-hats.
-  * **Melody/Chords:** Routed to the SCC (Chip 1) to utilize its 5 custom wavetable channels for rich, lush sounds. Overflow drops back to the PSG's square waves.
+* **Strict Routing (Domain Isolation):**
+  * **Drums (Channel 10):** Exclusively confined to the PSG (Chip 0) to utilize its Noise Generator for crisp snares and hi-hats. Drums will never spill over to the SCC.
+  * **Melody/Chords:** Exclusively confined to the SCC (Chip 1) to utilize its 5 custom wavetable channels for rich, lush sounds. Melodies will never spill over to the harsh PSG square waves, preserving the aesthetic integrity of the lead track.
 
 ### 3.2. 32-Byte Procedural Wavetables & Interpolation
 * **The Hardware:** The SCC uses a tiny 32-byte RAM buffer per channel to define a custom waveform (-128 to +127).
 * **The Implementation:** Instead of violating copyright by dumping original Konami ROMs, Midiraja procedurally generates mathematically pure 32-byte waves based on the General MIDI instrument family (e.g., `sin(t)*0.8 + sin(3t)*0.2` for Strings/Pads, decaying Sawtooth for Pianos). 
-* **Anti-Aliasing:** To prevent harsh bit-crushing when reading only 32 samples, the engine uses **Linear Interpolation** across a double-precision phase accumulator, resulting in incredibly smooth analog-like output.
+* **Historical Accuracy (Aliasing):** By default, the SCC outputs raw, stepped waveforms without interpolation, perfectly reproducing the gritty quantization noise of the original 1980s hardware.
+* **Modern Enhancement (`--smooth`):** If the `--smooth` flag is passed, the engine activates floating-point Linear Interpolation across a double-precision phase accumulator, wiping out the aliasing for a clean "studio" synthesizer sound.
 
-### 3.3. Volume Compensation (RMS Matching)
-* **The Problem:** A pure square wave (PSG) has massive RMS energy compared to a sine or triangle wave (SCC). If played together at "max volume," the SCC melodies would be completely drowned out by the PSG drums.
-* **The Solution:** The SCC engine applies a **1.75x Volume Boost** and uses the exact same non-linear DAC mapping table as the PSG, ensuring perfect mixing balance between the two drastically different architectures.
+### 3.3. Integer Bit-Shifting & Volume Compensation
+* **Hardware Quirk (Volume Truncation):** Analysis of the original SCC logic reveals that it lacks a floating-point multiplier. Volume is applied by multiplying the 8-bit sample by the 4-bit volume, and then *bit-shifting right by 4* (`(sample * vol) >> 4`). This harsh truncation is faithfully emulated to generate the authentic Konami 'crunch'.
+* **The RMS Problem:** A pure square wave (PSG) has massive RMS energy compared to the complex dynamic curves of an SCC wavetable. If played together blindly, SCC melodies are completely drowned out by PSG percussion.
+* **The Solution:** We apply a massive **2.6x Volume Boost (0.85 multiplier vs PSG's 0.33)** specifically to the SCC output stage. This ensures that the delicate SCC leads slice cleanly through the dense, aggressive PSG rhythm section.
+
+### 3.5. Priority Voice Stealing (Eviction)
+* **The Problem:** Due to the strict isolation rule (3.1), the SCC only has 5 channels. If background chords consume all 5 channels, a highly important lead melody note might be dropped entirely.
+* **The Solution:** When a high-priority channel (MIDI channels 0-3) requests a note and the SCC is full, the engine scans all active SCC channels. It identifies the channel currently playing the *quietest* note (e.g., a decaying background pad). The engine ruthlessly terminates that background note, steals the hardware channel, and instantly reassigns it to play the new lead melody. This guarantees that critical tracks are never lost in dense mixes.
 
 ### 3.4. Smart Instrument-Matching Arpeggios
 * **The Enhancement:** Building on the Fast Arpeggio hack (2.1), the engine now intelligently handles polyphony overflow across both PSG and SCC.
@@ -86,11 +92,11 @@ While the PSG is powerful when hacked, it remains limited by its pure square wav
        │      └── Ch 2 (Square) + Noise Gen
        │
        └──► [ System 0: SCC (K051649) ]
-              ├── Ch 0 (32-Byte Wavetable + Linear Interpolation)
-              ├── Ch 1 (32-Byte Wavetable + Linear Interpolation)
-              ├── Ch 2 (32-Byte Wavetable + Linear Interpolation)
-              ├── Ch 3 (32-Byte Wavetable + Linear Interpolation)
-              └── Ch 4 (32-Byte Wavetable + Linear Interpolation)
+              ├── Ch 0 (32-Byte Wavetable + Bit-Shift Volume) <─ Steals channels if full
+              ├── Ch 1 (32-Byte Wavetable + Bit-Shift Volume)
+              ├── Ch 2 (32-Byte Wavetable + Bit-Shift Volume)
+              ├── Ch 3 (32-Byte Wavetable + Bit-Shift Volume)
+              └── Ch 4 (32-Byte Wavetable + Bit-Shift Volume)
                      │
                      ▼
 [ Volume Compensation & Non-Linear DAC Mixing ]
