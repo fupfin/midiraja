@@ -60,8 +60,9 @@ While the PSG is powerful when hacked, it remains limited by its pure square wav
 * **Historical Accuracy (Aliasing):** By default, the SCC outputs raw, stepped waveforms without interpolation, perfectly reproducing the gritty quantization noise of the original 1980s hardware.
 * **Modern Enhancement (`--smooth`):** If the `--smooth` flag is passed, the engine activates floating-point Linear Interpolation across a double-precision phase accumulator, wiping out the aliasing for a clean "studio" synthesizer sound.
 
-### 3.3. Integer Bit-Shifting & Volume Compensation
+### 3.3. Integer Bit-Shifting, 11-Bit DAC, & Volume Compensation
 * **Hardware Quirk (Volume Truncation):** Analysis of the original SCC logic reveals that it lacks a floating-point multiplier. Volume is applied by multiplying the 8-bit sample by the 4-bit volume, and then *bit-shifting right by 4* (`(sample * vol) >> 4`). This harsh truncation is faithfully emulated to generate the authentic Konami 'crunch'.
+* **The 11-bit DAC:** The original hardware outputs through an external 11-bit resistor network DAC (051650). Midiraja simulates the non-linear dB attenuation curve of this DAC by passing the bit-shifted integer through a pre-calculated non-linear `dacTable`, identical to the one used by the PSG.
 * **The RMS Problem:** A pure square wave (PSG) has massive RMS energy compared to the complex dynamic curves of an SCC wavetable. If played together blindly, SCC melodies are completely drowned out by PSG percussion.
 * **The Solution:** We apply a massive **2.6x Volume Boost (0.85 multiplier vs PSG's 0.33)** specifically to the SCC output stage. This ensures that the delicate SCC leads slice cleanly through the dense, aggressive PSG rhythm section.
 
@@ -100,7 +101,7 @@ While the PSG is powerful when hacked, it remains limited by its pure square wav
               └── Ch 4 (32-Byte Wavetable + Bit-Shift Volume)
                      │
                      ▼
-[ Volume Compensation & Non-Linear DAC Mixing ]
+[ Volume Compensation & 11-Bit Non-Linear DAC Mixing ]
        │
        ▼
 [ Audio Output (44.1kHz PCM) ]
