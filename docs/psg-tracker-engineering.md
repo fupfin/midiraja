@@ -106,3 +106,19 @@ While the PSG is powerful when hacked, it remains limited by its pure square wav
        ▼
 [ Audio Output (44.1kHz PCM) ]
 ```
+
+
+---
+
+## 5. References & Hardware Documentation
+
+The architectural decisions and DSP logic in this emulator were derived from analyzing historical documentation and open-source implementations of the MSX hardware:
+
+1. **openMSX (`SCC.cc`)**: Analysis of the openMSX emulator source code revealed the raw integer bit-shifting logic `(sample * vol) >> 4` used for volume attenuation, correcting our initial floating-point assumptions.
+   * *Source:* [openMSX GitHub Repository](https://github.com/openMSX/openMSX/blob/master/src/sound/SCC.cc)
+2. **ARM Assembly SCC Emulator (`SCC.s`)**: Review of highly optimized embedded code by FluBBaOfWard confirmed the severe hardware limitation of the original K051649 chip (channels 4 and 5 sharing a single waveform buffer).
+   * *Source:* [FluBBaOfWard/SCC GitHub Repository](https://github.com/FluBBaOfWard/SCC/blob/main/SCC.s)
+3. **Konami Sound Cartridge (SCC+) Tech Docs**: Detailed the memory mapping and the crucial architectural upgrade of the SCC+ (used in *SD Snatcher*), which finally separated all 5 waveform channels, validating our decision to emulate the "Plus" version by default.
+   * *Source:* [msxnet.org: Konami Sound Cartridge (SCC+)](http://bifi.msxnet.org/msxnet/tech/soundcartridge)
+4. **MSX.org Wiki (Konami SCC)**: Confirmed the existence and specifications of the external 11-bit parallel resistor network DAC (Konami 051650), which we simulate using our non-linear `dacTable`.
+   * *Source:* [MSX Wiki: Konami SCC](https://www.msx.org/wiki/Konami_SCC)
