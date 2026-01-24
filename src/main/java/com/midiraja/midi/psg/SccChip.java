@@ -10,6 +10,12 @@ package com.midiraja.midi.psg;
 /**
  * Emulates the Konami SCC (K051649) Sound Custom Chip.
  * Features 5 channels, each with a 32-byte custom waveform buffer.
+ * 
+ * NOTE ON HARDWARE ACCURACY:
+ * The original K051649 SCC forced channels 4 and 5 to share the same waveform memory. 
+ * This engine deliberately ignores that limitation and provides 5 strictly independent 
+ * channels, effectively emulating the upgraded "SCC+" (Sound Cartridge) hardware. 
+ * This prevents catastrophic instrument clashing during complex MIDI polyphony.
  */
 public class SccChip implements TrackerSynthChip
 {
