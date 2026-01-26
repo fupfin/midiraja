@@ -110,3 +110,10 @@ You can experience the results of this research by running Midiraja with the fol
     ```bash
     midra gus --1bit dsd <your_midi_file.mid>
     ```
+
+---
+
+## 7. References & Historical Documentation
+
+1. **Access Software, *RealSound***: The original commercial PC game technology that hijacked the Intel 8253 PIT to produce digitized speech and music via PWM on the IBM PC internal speaker.
+2. **Michael J. Mahon, *Real Sound for 8-bit Apple IIs***: KansasFest presentation detailing the fundamental mathematics of Time-Domain Quantization, proving that a ~1 MHz clock divided by an audio rate naturally produces ~6.5 bits of dynamic range resolution on a 1-bit speaker pin.

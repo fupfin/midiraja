@@ -91,8 +91,10 @@ Only two distinct acoustic paths were possible within the constraints of a 1MHz 
 1.  **The Synthesizer Path:** Generated via real-time CPU cycle-counting.
     *   **Generation:** Only pure Square Waves (`--synth square` - Default) were possible. LFO Vibrato and Duty Sweep were achievable by mathematically altering the delay loops.
     *   **Multiplexing:** Only Boolean XOR (`--mux xor` - Default) was possible, and strictly limited to 2 voices (e.g., *Electric Duet*). 
-2.  **The Sampler Path:** 
-    *   Pre-rendered 1-bit audio (essentially `--mux pwm` or PCM) could be played back, but *only as a static recording*. Real-time polyphonic MIDI synthesis using PWM was mathematically impossible because the 6502 CPU lacked the speed to perform real-time analog summing and high-frequency comparator logic simultaneously.
+2.  **The Sampler Path (The "Real Sound" Hack):** 
+    *   Pre-rendered 1-bit audio (essentially `--mux pwm` or PCM) could be played back. As documented by Michael J. Mahon in his seminal KansasFest presentations ("Real Sound for 8-bit Apple IIs"), by cycle-counting the 1.023 MHz 6502 CPU to drive the $C030 speaker pin at an ~11 kHz sample rate, the CPU effectively acted as a **Time-Domain DAC**.
+    *   $1.023 	ext{ MHz (CPU)} \div 11 	ext{ kHz (Sample Rate)} pprox \mathbf{93 	ext{ Steps}}$. This brilliant hack squeezed roughly 6.5 bits of dynamic range out of a 1-bit pin.
+    *   *Constraint:* Real-time polyphonic MIDI synthesis using PWM was mathematically impossible because the 6502 CPU lacked the speed to perform real-time analog summing and high-frequency comparator logic simultaneously while fetching new data.
 
 **What is a Modern "Cheat"?**
 *   **Phase Modulation (`--synth pm`):** Impossible. The 6502 had no floating-point unit (FPU) and lacked hardware multiplication/division, making real-time Sine wave generation and phase deviation impossible at audio rates.
@@ -148,3 +150,10 @@ Once each virtual unit has generated its 1-bit signal, the master bus finalizes 
 ## 4. Conclusion
 
 The `midra beep` engine is a testament to the power of constraint-driven engineering. By combining the brutal physical limitations of 1-bit audio with advanced DSP concepts—Phase Modulation, high-speed Time-Division Multiplexing, and Frequency-Weighted Bass Isolation—it successfully resurrects the electrifying, gritty sound of 1980s computer audio without sacrificing modern tempo stability or orchestral polyphonic clarity.
+
+---
+
+## 5. References & Historical Documentation
+
+1. **Paul Lutus, *Electric Duet* (1981)**: The foundational software that proved polyphonic (2-voice) music was possible on the 1-bit Apple II speaker using interleaved execution and Boolean logic.
+2. **Michael J. Mahon, *Real Sound for 8-bit Apple IIs***: A seminal presentation at KansasFest demonstrating how to achieve multi-bit digital-to-analog conversion (DAC) on a 1-bit speaker using CPU-bound Pulse Width Modulation (PWM), achieving 6.5-bit effective resolution.
