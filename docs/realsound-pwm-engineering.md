@@ -6,6 +6,10 @@
 This document chronicles the engineering journey to mathematically reconstruct the legendary **RealSound (PC Speaker PWM Audio)** technology—pioneered by Access Software in the late 1980s—within a modern 44.1kHz digital audio environment, ensuring zero aliasing and perfect historical accuracy.
 
 ---
+### Practical Demonstration
+To hear the original 1980s hardware that inspired this DSP implementation, we utilized the following recording as our primary acoustic reference:
+* **[PC Speaker RealSound: Mean Streets Intro (YouTube)](https://www.youtube.com/watch?v=havf3yw0qyw)** — A perfect example of the 15.2kHz carrier whistle and the gritty "crunch" of digitized speech through an IBM PC speaker.
+
 
 ## 1. The Hardware Context: The Illusion of RealSound
 
