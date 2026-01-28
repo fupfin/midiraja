@@ -11,7 +11,7 @@ The internal speaker of early 8-bit computers was a primitive 1-bit device, phys
 *   **IBM PC:** Utilized the **Intel 8253 PIT** hardware timer, which could automatically generate square waves at a specified frequency without constant CPU intervention.
 *   **Apple II:** Featured no dedicated sound hardware. To produce sound, the CPU had to manually toggle the speaker's memory-mapped I/O port at precise intervals using cycle-counted machine code. This "bit-banging" approach required 100% of the CPU's attention just to maintain a single steady pitch.
 
-Because of this extreme hardware poverty, the Apple II became the ultimate laboratory for software-driven audio innovation. In 1981, Paul Lutus released **"Electric Duet,"** utilizing interleaved execution and logical mixing to multiplex two distinct voices onto a single 1-bit speaker pin.
+Because of this extreme hardware poverty, the Apple II became the ultimate laboratory for software-driven audio innovation. In 1981, Paul Lutus released **"Electric Duet."** He achieved the impossible by utilizing strict cycle-counted [Time-Division Multiplexing](https://en.wikipedia.org/wiki/Time-division_multiplexing) and `EOR` (Exclusive-OR) logic to rapidly switch the speaker between two virtual square waves at ~8 kHz, successfully multiplexing two distinct voices onto a single 1-bit speaker pin.
 
 The `midra beep` engine pushes this philosophy to its absolute mathematical limit, simulating a dynamic cluster of 1-bit units capable of generating polyphonic 2-Operator FM synthesis through pure 1-bit pins.
 
@@ -40,7 +40,7 @@ Before any notes can be multiplexed together, the engine must generate their fun
 The most critical engineering challenge in 1-bit audio is mixing multiple polyphonic notes within a single, binary (On/Off) speaker pin. The engine documents the historical and mathematical evolution of this problem by providing four distinct multiplexing algorithms (`--mux`):
 
 **1. The 1981 Hack: XOR Logic Gate (`--mux xor` - Default)**
-*   Mimicking Paul Lutus's original "Electric Duet," this mode converts each analog sine wave into a discrete 1-bit [Pulse Width Modulated (PWM)](https://en.wikipedia.org/wiki/Pulse-width_modulation) stream, then crushes them together through a boolean Exclusive-OR (`^`) logic gate.
+*   Inspired by Paul Lutus's original "Electric Duet" (which used the 6502's `EOR` instruction to manage speaker phase toggling), this mode converts each analog sine wave into a discrete 1-bit [Pulse Width Modulated (PWM)](https://en.wikipedia.org/wiki/Pulse-width_modulation) stream, then crushes them together through a boolean Exclusive-OR (`^`) logic gate.
 *   **Acoustic Result:** Severe, authentic [Ring Modulation](https://en.wikipedia.org/wiki/Ring_modulation). Creates a highly gritty, buzzing chiptune texture.
 *   **Limitation:** XORing more than 2 voices causes catastrophic phase cancellation ($1 \oplus 1 = 0$), obliterating the fundamental pitch into white noise.
 
@@ -155,6 +155,6 @@ The `midra beep` engine is a testament to the power of constraint-driven enginee
 
 ## 5. References & Historical Documentation
 
-1. **Paul Lutus, *Electric Duet* (1981)**: The foundational software that proved polyphonic (2-voice) music was possible on the 1-bit Apple II speaker using interleaved execution and Boolean logic.
+1. **Paul Lutus, *Electric Duet* (1981)**: The foundational software that proved polyphonic (2-voice) music was possible on the 1-bit Apple II speaker. It utilized ~8kHz Time-Domain Multiplexing and perfectly balanced 6502 cycle-counting (using `NOP` padding) alongside `EOR` logic to toggle the speaker state without drifting out of tune. (Documented by arachnoid.com)
 2. **Michael J. Mahon, *Real Sound for 8-bit Apple IIs***: A seminal presentation at KansasFest demonstrating how to achieve multi-bit digital-to-analog conversion (DAC) on a 1-bit speaker using CPU-bound Pulse Width Modulation (PWM), achieving 6.5-bit effective resolution.
 3. **Michael J. Mahon, *RTSynth***: Documentation of an Apple II Real-Time Synthesizer utilizing Direct Digital Synthesis (DDS) via a 5-bit PWM DAC (DAC522). It serves as historical proof that generating high-fidelity wavetables on a 1MHz 6502 required dedicating 100% of the CPU to a rigid 92-cycle loop, strictly limiting the output to a single monophonic voice and validating our use of "modern cheats" to achieve polyphony.
