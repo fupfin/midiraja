@@ -166,7 +166,15 @@ If you want ultra-realistic modern audio or perfect emulation of specific high-e
 #### 1. FluidSynth (`fluidsynth`)
 * **What is it?** The industry standard for playing `.sf2` (SoundFont) files. SoundFonts are massive libraries of professionally recorded real instruments.
 * **Official Site:** [fluidsynth.org](https://www.fluidsynth.org/) - Please refer to their official documentation for detailed information on advanced tuning, internal settings, and driver support.
-* **Requirements:** You must download your own `.sf2` file.
+
+* **Installation:** FluidSynth is loaded dynamically at runtime. Install it via your package manager:
+  * macOS: `brew install fluid-synth`
+  * Ubuntu/Debian: `sudo apt install libfluidsynth3`
+  * Fedora/RHEL: `sudo dnf install fluidsynth`
+* **SoundFont Sources:** You must download an `.sf2` file. Good free options include:
+  * *GeneralUser GS* (`generaluser.sf2`)
+  * *MuseScore General* (Bundled with MuseScore 4)
+  * *FluidR3 GM* (Ubuntu: `sudo apt install fluid-soundfont-gm`)
 * **How to use it:** `midra fluidsynth /path/to/my_piano.sf2 song.mid`
 * **🎛️ Advanced Options:**
   * `--driver <name>`: Override the audio driver used by FluidSynth (e.g., `coreaudio`, `pulseaudio`, `dsound`) if the default fails on your machine.
@@ -175,7 +183,12 @@ If you want ultra-realistic modern audio or perfect emulation of specific high-e
 #### 2. Roland MT-32 (`mt32`)
 * **What is it?** The "Holy Grail" of early 90s adventure game audio. If you ever played Monkey Island or King's Quest, this is the magical synthesizer that originally powered them.
 * **Official Site:** [Munt (MT-32 Emulator)](https://github.com/munt/munt) - Visit their repository for in-depth information on installation, ROM requirements, and compatibility lists.
-* **Requirements:** Because of copyright laws, you must legally acquire your own "MT-32 ROM" files and place them in a folder. You also need to install the `munt` emulator via Homebrew.
+
+* **Installation:** Munt is an open-source emulator loaded dynamically at runtime. Install it via your package manager:
+  * macOS: `brew install munt`
+  * Ubuntu/Debian: `sudo apt install libmt32emu3`
+  * Fedora/RHEL: `sudo dnf install munt`
+* **ROM Requirements:** You must legally acquire MT-32 ROM files and place them in a single directory (e.g., `MT32_CONTROL.ROM` and `MT32_PCM.ROM`). ROMs from CM-32L and LAPC-I variants are also supported.
 * **How to use it:** `midra mt32 ~/my_rom_folder/ monkey_island.mid`
 
 ---
@@ -192,6 +205,7 @@ Midiraja stands on the shoulders of giants. While our UI, rendering pipelines, a
 
 ### Technical Documentation
 If you are an audio engineer or a hardcore retro programming enthusiast, you might enjoy reading our deep-dive technical papers on how we built our custom engines:
-* **[🤖 The 1-Bit Audio Engineering Whitepaper](beep-1bit-audio-engineering.md)**: Discover the strict integer mathematics, fixed-point logic, and AI-driven DSP algorithms that power our zero-dependency  engine.
-* **[👾 The PSG Tracker Hacks Whitepaper](psg-tracker-engineering.md)**: The architectural blueprint for our upcoming Programmable Sound Generator engine, detailing the legendary software tricks (Fast Arpeggios, Envelope Buzzer) used by MSX and ZX Spectrum hackers.: Discover the strict integer mathematics, fixed-point logic, and AI-driven DSP algorithms that power our zero-dependency `beep` engine.
-* **[🎹 Soft Synth Setup Guide](soft-synth-guide.md)**: Detailed configuration instructions and environment variable settings for integrating external libraries like FluidSynth and Munt.
+* **[🤖 The 1-Bit Audio Engineering Whitepaper](beep-1bit-audio-engineering.md)**: Discover the strict integer mathematics, fixed-point logic, and AI-driven DSP algorithms that power our zero-dependency `beep` engine.
+* **[👾 The PSG Tracker Hacks Whitepaper](psg-tracker-engineering.md)**: The architectural blueprint for our Programmable Sound Generator (`psg`) engine, detailing the legendary software tricks (Fast Arpeggios, Envelope Buzzer) used by MSX and ZX Spectrum hackers.
+* **[📻 The RealSound PWM Whitepaper](realsound-pwm-engineering.md)**: A deep dive into time-domain quantization and how we accurately recreated the legendary 1980s PC Speaker "RealSound" output using Delta-Sigma modulation.
+* **[💾 The FM Synthesis Whitepaper](fm-synthesis-engineering.md)**: Details the architectural lock-free design and DSP volume normalization required to accurately render Yamaha OPL and OPN chips.
