@@ -11,6 +11,7 @@ def generatedVersionDir = layout.buildDirectory.dir("generated/sources/version/j
 
 task generateVersionClass {
     def outputDir = generatedVersionDir.get().asFile
+    def projVersion = project.version.toString()
     outputs.dir(outputDir)
     doLast {
         def pkgDir = new File(outputDir, "com/midiraja")
@@ -18,7 +19,7 @@ task generateVersionClass {
         new File(pkgDir, "Version.java").text = """package com.midiraja;
 
 public final class Version {
-    public static final String VERSION = "${project.version}";
+    public static final String VERSION = "${projVersion}";
     private Version() {}
 }
 """
