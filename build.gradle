@@ -216,9 +216,10 @@ graalvmNative {
                 buildArgs.add("-H:NativeLinkerOption=-lc++")
             } else if (org.gradle.internal.os.OperatingSystem.current().isLinux()) {
                 // GNU ld: equivalent of -force_load
-                buildArgs.add("-H:NativeLinkerOption=--whole-archive")
+                // GraalVM passes these to gcc, so we must wrap them with -Wl,
+                buildArgs.add("-H:NativeLinkerOption=-Wl,--whole-archive")
                 buildArgs.add("-H:NativeLinkerOption=${adlLib}")
-                buildArgs.add("-H:NativeLinkerOption=--no-whole-archive")
+                buildArgs.add("-H:NativeLinkerOption=-Wl,--no-whole-archive")
                 // libADLMIDI is C++; link against GNU C++ stdlib
                 buildArgs.add("-H:NativeLinkerOption=-lstdc++")
             }
@@ -230,9 +231,9 @@ graalvmNative {
                 buildArgs.add("-H:NativeLinkerOption=${opnLib}")
                 // -lc++ already added for libADLMIDI above
             } else if (org.gradle.internal.os.OperatingSystem.current().isLinux()) {
-                buildArgs.add("-H:NativeLinkerOption=--whole-archive")
+                buildArgs.add("-H:NativeLinkerOption=-Wl,--whole-archive")
                 buildArgs.add("-H:NativeLinkerOption=${opnLib}")
-                buildArgs.add("-H:NativeLinkerOption=--no-whole-archive")
+                buildArgs.add("-H:NativeLinkerOption=-Wl,--no-whole-archive")
                 // -lstdc++ already added for libADLMIDI above
             }
         }
