@@ -18,10 +18,6 @@ echo "🚀 Running Linux Native Compilation inside Docker..."
 # Ensure git submodules are actually checked out (empty ext/libADLMIDI causes CMake to fail)
 git submodule update --init --recursive
 
-# Clean up CMakeCache to prevent path conflicts between macOS host and Linux container
-rm -f src/main/c/adlmidi/CMakeCache.txt
-rm -f src/main/c/opnmidi/CMakeCache.txt
-
 # The ext submodules might not be checked out if we just cloned.
 # But since this is a local volume mount, they should be there.
 

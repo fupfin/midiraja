@@ -16,10 +16,6 @@ docker build --platform linux/amd64 -t "${IMAGE_NAME}" -f Dockerfile.linux .
 echo "🚀 Running Linux x86_64 Native Compilation inside Docker..."
 git submodule update --init --recursive
 
-# Clean up macOS/ARM64 CMakeCache
-rm -f src/main/c/adlmidi/CMakeCache.txt
-rm -f src/main/c/opnmidi/CMakeCache.txt
-
 # Force the container to run in amd64 mode
 docker run --rm --platform linux/amd64 -v "$(pwd)":/app -w /app "${IMAGE_NAME}" ./gradlew clean buildAdlMidiLib buildOpnMidiLib buildMiniaudioLib nativeCompile --no-daemon
 
