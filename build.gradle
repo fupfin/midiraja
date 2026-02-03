@@ -220,20 +220,21 @@ graalvmNative {
                 buildArgs.add("-H:NativeLinkerOption=-Wl,--whole-archive")
                 buildArgs.add("-H:NativeLinkerOption=${adlLib}")
                 buildArgs.add("-H:NativeLinkerOption=-Wl,--no-whole-archive")
-                // libADLMIDI is C++; link against GNU C++ stdlib
+                // libADLMIDI is C++; link against GNU C++ stdlib and math lib
                 buildArgs.add("-H:NativeLinkerOption=-lstdc++")
+                buildArgs.add("-H:NativeLinkerOption=-lm")
             }
 
             // Statically link libOPNMIDI: --opn works without distributing a .dylib/.so
             def opnLib = "${projectDir}/src/main/c/opnmidi/libOPNMIDI.a"
             if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
-                buildArgs.add("-H:NativeLinkerOption=-force_load")
+                // Do not force_load opnLib on Mac either, to avoid duplicate symbols with adlLib (ymfm backend)
                 buildArgs.add("-H:NativeLinkerOption=${opnLib}")
                 // -lc++ already added for libADLMIDI above
             } else if (org.gradle.internal.os.OperatingSystem.current().isLinux()) {
-                buildArgs.add("-H:NativeLinkerOption=-Wl,--whole-archive")
+                // Do NOT use --whole-archive for libOPNMIDI. Both libraries embed the `ymfm` emulation core,
+                // which causes "multiple definition" linker errors if we force load both.
                 buildArgs.add("-H:NativeLinkerOption=${opnLib}")
-                buildArgs.add("-H:NativeLinkerOption=-Wl,--no-whole-archive")
                 // -lstdc++ already added for libADLMIDI above
             }
         }
