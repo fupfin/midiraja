@@ -30,16 +30,20 @@ public class PlaybackEngine {
 
   private final Sequence sequence;
   private final MidiOutProvider provider;
+  private final com.midiraja.midi.MidiSink pipelineRoot;
+  private final com.midiraja.midi.TransposeFilter transposeFilter;
+  private final com.midiraja.midi.VolumeFilter volumeFilter;
+  private final com.midiraja.midi.SysexFilter sysexFilter;
 
   private volatile long currentMicroseconds = 0;
   private volatile long seekTarget = -1;
   private volatile float currentBpm = 120.0f;
   private volatile double currentSpeed = 1.0;
-  private volatile int currentTranspose = 0;
-  private volatile double volumeScale = 1.0;
+  
+  
   private volatile boolean isPlaying = false;
   private volatile boolean isPaused = false;
-  private volatile boolean ignoreSysex = false;
+  
   private volatile boolean holdAtEnd = false;
   private volatile PlaybackStatus endStatus = PlaybackStatus.FINISHED;
   private volatile boolean playbackActuallyStarted = false;
@@ -50,7 +54,7 @@ public class PlaybackEngine {
   }
 
   public void setIgnoreSysex(boolean ignoreSysex) {
-    this.ignoreSysex = ignoreSysex;
+    sysexFilter.setIgnoreSysex(ignoreSysex);
   }
 
   public void setInitialResetType(Optional<String> resetType) {
@@ -82,9 +86,13 @@ public class PlaybackEngine {
                         Optional<Integer> initialTranspose) {
     this.sequence = sequence;
     this.provider = provider;
-    this.volumeScale = initialVolumePercent / 100.0;
+    
     this.currentSpeed = initialSpeed;
-    this.currentTranspose = initialTranspose.orElse(0);
+    double initVol = Math.max(0, Math.min(100, initialVolumePercent)) / 100.0;
+      this.sysexFilter = new com.midiraja.midi.SysexFilter(provider, false);
+      this.volumeFilter = new com.midiraja.midi.VolumeFilter(this.sysexFilter, initVol);
+      this.transposeFilter = new com.midiraja.midi.TransposeFilter(this.volumeFilter, initialTranspose.orElse(0));
+      this.pipelineRoot = this.transposeFilter;
     this.resolution = sequence.getResolution();
     this.context = context;
 
@@ -238,7 +246,7 @@ public class PlaybackEngine {
 
     if (payload != null) {
       try {
-        provider.sendMessage(payload);
+        pipelineRoot.sendMessage(payload);
         Thread.sleep(50); // Give the hardware synthesizer 50ms to process the
                           // reset before slamming it with notes
       } catch (Exception ignored) {
@@ -439,9 +447,9 @@ public class PlaybackEngine {
     }
 
     // Forward SysEx during chase (e.g. MT-32 initialization at song start)
-    if (status == 0xF0 && !ignoreSysex) {
+    if (status == 0xF0) {
       try {
-        provider.sendMessage(raw);
+        pipelineRoot.sendMessage(raw);
       } catch (Exception ignored) {
         /* Ignore */
       }
@@ -453,13 +461,9 @@ public class PlaybackEngine {
       // CHASE ONLY: Program Change(0xC0), Control Change(0xB0), Pitch
       // Bend(0xE0)
       if (cmd == 0xC0 || cmd == 0xB0 || cmd == 0xE0) {
-        // Apply volume scaling if it's CC 7
-        if (cmd == 0xB0 && raw.length >= 3 && raw[1] == 7) {
-          int vol = (int)((raw[2] & 0xFF) * volumeScale);
-          raw[2] = (byte)Math.max(0, Math.min(127, vol));
-        }
+
         try {
-          provider.sendMessage(raw);
+          pipelineRoot.sendMessage(raw);
         } catch (Exception ignored) {
           /* Ignore */
         }
@@ -472,9 +476,7 @@ public class PlaybackEngine {
       return;
     var msg = event.getMessage();
 
-    if (ignoreSysex && msg instanceof javax.sound.midi.SysexMessage) {
-      return;
-    }
+    
 
     var raw = msg.getMessage();
     int status = raw[0] & 0xFF;
@@ -493,7 +495,7 @@ public class PlaybackEngine {
     // messages)
     if (status == 0xF0) {
       try {
-        provider.sendMessage(raw);
+        pipelineRoot.sendMessage(raw);
       } catch (Exception e) {
         // ignore
       }
@@ -508,16 +510,11 @@ public class PlaybackEngine {
         channelPrograms[ch] = raw[1] & 0xFF;
       }
 
-      // Transpose Note On (0x90) and Note Off (0x80), but skip channel 10
-      // (drums, index 9)
-      if (ch != 9 && (cmd == 0x90 || cmd == 0x80)) {
-        int note = (raw[1] & 0xFF) + currentTranspose;
-        raw[1] = (byte)Math.max(0, Math.min(127, note));
-      }
+
 
       if (cmd == 0xB0 && raw.length >= 3 && raw[1] == 7) {
-        int vol = (int)((raw[2] & 0xFF) * volumeScale);
-        raw[2] = (byte)Math.max(0, Math.min(127, vol));
+        // REMOVED
+        // REMOVED
       }
 
       if (cmd == 0x90 && raw.length >= 3 && (raw[2] & 0xFF) > 0) {
@@ -537,7 +534,7 @@ public class PlaybackEngine {
       }
 
       try {
-        provider.sendMessage(raw);
+        pipelineRoot.sendMessage(raw);
       } catch (Exception e) {
         // err.println("MIDI Error: " + e.getMessage());
       }
@@ -561,9 +558,9 @@ public class PlaybackEngine {
 
   public double getCurrentSpeed() { return currentSpeed; }
 
-  public int getCurrentTranspose() { return currentTranspose; }
+  public int getCurrentTranspose() { return transposeFilter.getSemitones(); }
 
-  public double getVolumeScale() { return volumeScale; }
+  public double getVolumeScale() { return volumeFilter.getVolumeScale(); }
 
   public boolean isPlaying() { return isPlaying; }
 
@@ -573,11 +570,11 @@ public class PlaybackEngine {
   }
 
   public void adjustVolume(double delta) {
-    volumeScale = Math.max(0.0, Math.min(1.0, volumeScale + delta));
+    volumeFilter.adjust(delta);
     for (int ch = 0; ch < 16; ch++) {
-      byte[] msg = new byte[] {(byte)(0xB0 | ch), 7, (byte)(100 * volumeScale)};
+      byte[] msg = new byte[] {(byte)(0xB0 | ch), 7, (byte) 100};
       try {
-        provider.sendMessage(msg);
+        pipelineRoot.sendMessage(msg);
       } catch (Exception ignored) { /* Ignore */
       }
     }
@@ -608,7 +605,7 @@ public class PlaybackEngine {
   public boolean isPaused() { return isPaused; }
 
   public synchronized void adjustTranspose(int delta) {
-    currentTranspose += delta;
+    transposeFilter.adjust(delta);
     try {
       provider.panic();
     } catch (Exception ignored) { /* Ignore */

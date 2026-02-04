@@ -13,7 +13,7 @@ import java.util.List;
  * Abstraction layer for native OS MIDI capabilities. Decouples the playback engine from operating
  * system specifics (ALSA, WinMM, CoreMIDI).
  */
-public interface MidiOutProvider
+public interface MidiOutProvider extends MidiSink
 {
     /**
      * Returns an immutable list of available MIDI output devices on the host OS.
@@ -28,7 +28,7 @@ public interface MidiOutProvider
     /**
      * Transmits a raw MIDI byte array directly to the native synthesizer.
      */
-    void sendMessage(byte[] data) throws Exception;
+    @Override void sendMessage(byte[] data) throws Exception;
 
     /**
      * Safely tears down the connection and releases native resources.
