@@ -30,7 +30,7 @@ public class PlaybackEngine {
 
   private final Sequence sequence;
   private final MidiOutProvider provider;
-  private final com.midiraja.midi.MidiSink pipelineRoot;
+  private final com.midiraja.midi.MidiProcessor pipelineRoot;
   private final com.midiraja.midi.TransposeFilter transposeFilter;
   private final com.midiraja.midi.VolumeFilter volumeFilter;
   private final com.midiraja.midi.SysexFilter sysexFilter;

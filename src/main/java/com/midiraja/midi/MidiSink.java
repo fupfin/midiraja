@@ -1,11 +1,8 @@
 package com.midiraja.midi;
 
 /**
- * A destination or processor for raw MIDI messages.
+ * A marker interface indicating that this node is the terminal end of a MIDI processing pipeline.
+ * It consumes MIDI events but does not pass them on to any further processors.
  */
-public interface MidiSink {
-    /**
-     * Processes, modifies, or consumes a raw MIDI message.
-     */
-    void sendMessage(byte[] data) throws Exception;
+public interface MidiSink extends MidiProcessor {
 }

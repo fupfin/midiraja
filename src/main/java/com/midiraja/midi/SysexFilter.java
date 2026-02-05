@@ -8,7 +8,7 @@ import javax.sound.midi.SysexMessage;
 public class SysexFilter extends MidiFilter {
     private volatile boolean ignoreSysex;
 
-    public SysexFilter(MidiSink next, boolean initialIgnoreSysex) {
+    public SysexFilter(MidiProcessor next, boolean initialIgnoreSysex) {
         super(next);
         this.ignoreSysex = initialIgnoreSysex;
     }

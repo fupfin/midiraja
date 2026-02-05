@@ -7,11 +7,11 @@ package com.midiraja.midi;
 public class TransposeFilter extends MidiFilter {
     private volatile int semitones = 0;
 
-    public TransposeFilter(MidiSink next) {
+    public TransposeFilter(MidiProcessor next) {
         super(next);
     }
     
-    public TransposeFilter(MidiSink next, int initialSemitones) {
+    public TransposeFilter(MidiProcessor next, int initialSemitones) {
         super(next);
         this.semitones = initialSemitones;
     }

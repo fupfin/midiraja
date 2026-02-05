@@ -6,7 +6,7 @@ package com.midiraja.midi;
 public class VolumeFilter extends MidiFilter {
     private volatile double volumeScale;
 
-    public VolumeFilter(MidiSink next, double initialVolumeScale) {
+    public VolumeFilter(MidiProcessor next, double initialVolumeScale) {
         super(next);
         this.volumeScale = Math.max(0.0, Math.min(1.0, initialVolumeScale));
     }
