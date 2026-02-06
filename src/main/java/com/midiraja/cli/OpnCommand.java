@@ -47,6 +47,9 @@ public class OpnCommand implements Callable<Integer>
 
     @Mixin private CommonOptions common = new CommonOptions();
 
+    @Option(names = {"--tube"}, description = "Apply analog vacuum tube saturation. (Recommended: 1.5 - 2.0).")
+    private Optional<Float> tubeDrive = Optional.empty();
+
     @Override public Integer call() throws Exception
     {
         var p = java.util.Objects.requireNonNull(parent);
@@ -55,10 +58,19 @@ public class OpnCommand implements Callable<Integer>
         var audio = new com.midiraja.midi.NativeAudioEngine(audioLib);
         audio.init(44100, 2, 4096);
         com.midiraja.dsp.AudioProcessor pipeline = new com.midiraja.dsp.FloatToShortSink(audio);
-        if (fmOptions.oneBitMode != null) {
-            pipeline = new com.midiraja.dsp.ShortToFloatFilter(
-                new com.midiraja.dsp.LegacyProcessorSink(pipeline, 
-                    java.util.List.of(new com.midiraja.dsp.OneBitAcousticSimulator(44100, fmOptions.oneBitMode))));
+        
+        if (tubeDrive.isPresent()) {
+            pipeline = new com.midiraja.dsp.TubeSaturationFilter(pipeline, tubeDrive.get());
+        }
+        
+        if (tubeDrive.isPresent() || fmOptions.oneBitMode != null) {
+            if (fmOptions.oneBitMode != null) {
+                pipeline = new com.midiraja.dsp.ShortToFloatFilter(
+                    new com.midiraja.dsp.LegacyProcessorSink(pipeline, 
+                        java.util.List.of(new com.midiraja.dsp.OneBitAcousticSimulator(44100, fmOptions.oneBitMode))));
+            } else {
+                pipeline = new com.midiraja.dsp.ShortToFloatFilter(pipeline);
+            }
         }
         var bridge = new com.midiraja.midi.FFMOpnMidiNativeBridge();
         var provider = new com.midiraja.midi.OpnMidiSynthProvider(

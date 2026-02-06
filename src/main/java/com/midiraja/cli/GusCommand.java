@@ -39,6 +39,9 @@ public class GusCommand implements Callable<Integer> {
   @Option(names = {"--realsound"}, description = "Authentic 1980s PC Speaker macro (Automatically applies --1bit pwm).")
   private boolean realSound = false;
 
+  @Option(names = {"--tube"}, description = "Apply analog vacuum tube saturation. (Recommended: 1.5 - 2.0).")
+  private Optional<Float> tubeDrive = Optional.empty();
+
   @Parameters(paramLabel = "<file>",
               description = "MIDI files or M3U playlists to play")
   private List<File> files = new java.util.ArrayList<>();
@@ -51,6 +54,12 @@ public class GusCommand implements Callable<Integer> {
     NativeAudioEngine audio = new NativeAudioEngine(audioLib);
     audio.init(44100, 2, 4096);
     com.midiraja.dsp.AudioProcessor pipeline = new com.midiraja.dsp.FloatToShortSink(audio);
+    
+    // Global Tube Saturation
+    if (tubeDrive.isPresent()) {
+        pipeline = new com.midiraja.dsp.TubeSaturationFilter(pipeline, tubeDrive.get());
+        pipeline = new com.midiraja.dsp.ShortToFloatFilter(pipeline);
+    }
     
     String dirPath = patchDir.map(File::getAbsolutePath).orElse(null);
 

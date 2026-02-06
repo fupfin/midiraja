@@ -42,6 +42,9 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
 
     @Mixin private CommonOptions common = new CommonOptions();
 
+    @Option(names = {"--tube"}, description = "Apply analog vacuum tube saturation. (Recommended: 1.5 - 2.0).")
+    private Optional<Float> tubeDrive = Optional.empty();
+
     @Override public Integer call() throws Exception
     {
         var p = java.util.Objects.requireNonNull(parent);
@@ -57,6 +60,13 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
         var audio = new NativeAudioEngine(audioLib);
         audio.init(44100, 1, 4096);
         com.midiraja.dsp.AudioProcessor pipeline = new com.midiraja.dsp.FloatToShortSink(audio, 1);
+        
+        // Global Tube Saturation
+        if (tubeDrive.isPresent()) {
+            pipeline = new com.midiraja.dsp.TubeSaturationFilter(pipeline, tubeDrive.get());
+            pipeline = new com.midiraja.dsp.ShortToFloatFilter(pipeline);
+        }
+        
         var provider = new PsgSynthProvider(pipeline, finalChips, vibratoDepth, dutySweep, useScc, smooth);
 
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false);
