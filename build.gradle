@@ -277,3 +277,12 @@ task buildMiniaudioLib(type: Exec) {
 tasks.named('nativeCompile').configure {
     dependsOn buildAdlMidiLib, buildOpnMidiLib, buildMiniaudioLib
 }
+
+// Make local dev builds also compile the C libraries automatically
+tasks.named('installDist').configure {
+    dependsOn buildMiniaudioLib, buildAdlMidiLib, buildOpnMidiLib
+}
+
+tasks.named('test').configure {
+    dependsOn buildMiniaudioLib, buildAdlMidiLib, buildOpnMidiLib
+}

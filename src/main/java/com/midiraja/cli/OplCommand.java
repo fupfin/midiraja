@@ -46,6 +46,9 @@ public class OplCommand implements Callable<Integer>
 
     @Mixin private FmSynthOptions fmOptions = new FmSynthOptions();
 
+    @Option(names = {"--tube"}, description = "Apply analog vacuum tube saturation. Adds warm odd-harmonics to digital FM synths. (Range: 1.0 to 10.0, Recommended for warmth: 1.5 - 2.0, for punch: 3.0 - 4.0).")
+    private Optional<Float> tubeDrive = Optional.empty();
+
     @Mixin private CommonOptions common = new CommonOptions();
 
     @Override public Integer call() throws Exception
@@ -57,10 +60,21 @@ public class OplCommand implements Callable<Integer>
         audio.init(44100, 2, 4096);
         
         com.midiraja.dsp.AudioProcessor pipeline = new com.midiraja.dsp.FloatToShortSink(audio);
-        if (fmOptions.oneBitMode != null) {
-            pipeline = new com.midiraja.dsp.ShortToFloatFilter(
-                new com.midiraja.dsp.LegacyProcessorSink(pipeline, 
-                    java.util.List.of(new com.midiraja.dsp.OneBitAcousticSimulator(44100, fmOptions.oneBitMode))));
+        
+        // 1. Global Tube Saturation
+        if (tubeDrive.isPresent()) {
+            pipeline = new com.midiraja.dsp.TubeSaturationFilter(pipeline, tubeDrive.get());
+        }
+        
+        // 2. Format conversion if any float filter is applied
+        if (tubeDrive.isPresent() || fmOptions.oneBitMode != null) {
+            if (fmOptions.oneBitMode != null) {
+                pipeline = new com.midiraja.dsp.ShortToFloatFilter(
+                    new com.midiraja.dsp.LegacyProcessorSink(pipeline, 
+                        java.util.List.of(new com.midiraja.dsp.OneBitAcousticSimulator(44100, fmOptions.oneBitMode))));
+            } else {
+                pipeline = new com.midiraja.dsp.ShortToFloatFilter(pipeline);
+            }
         } else {
             // If no Float processing is needed, FloatToShortSink acts as a passthrough for interleaved shorts
         }
