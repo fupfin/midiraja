@@ -4,6 +4,8 @@ Welcome to the official user guide for **Midiraja**! This manual will walk you t
 
 ---
 
+
+
 ## Chapter 1. Introduction
 
 Midiraja (`midra`) is the ultimate **Terminal-Native** MIDI player. It is designed to bring a deeply interactive, visually rich audio experience directly into your command line—without ever touching a mouse.
@@ -88,6 +90,31 @@ Once the music starts, your terminal becomes an interactive dashboard. You don't
 | **`q`** | Stop the music and safely quit the program. |
 
 ---
+
+### 3.4. Global Audio Effects (DSP Rack)
+Midiraja features a modular audio processing pipeline. You can apply high-quality global effects to the built-in synthesizers (`opl`, `opn`, `psg`, `gus`) by simply adding flags to your launch command. All effect intensities are controlled via intuitive percentages (0-100%).
+
+**1. Analog Tube Saturation (`--tube <0-100>`)**
+Adds harmonic distortion and warmth by simulating an overdriven vacuum tube amplifier (using a `Math.tanh` waveshaper and auto-gain compensation).
+* *Recommended for Warmth:* `--tube 15` (Rounds off harsh digital edges)
+* *Recommended for Punch:* `--tube 40` (Fattens up drum kicks and basslines)
+* *Example:* `midra opl --tube 20 song.mid`
+
+**2. Stereo Chorus (`--chorus <0-100>`)**
+Thickens the sound and spreads it across the stereo field using modulated delay lines. Perfect for 80s synth-pop vibes.
+* *Example:* `midra opn --chorus 50 song.mid`
+
+**3. Algorithmic Reverb (`--reverb <preset>`)**
+Places the synthesizer inside a simulated 3D acoustic space (based on the legendary Freeverb algorithm).
+* **Presets:** `room` (small/punchy), `chamber` (warm/dense studio), `hall` (lush/orchestral), `plate` (bright/metallic), `spring` (bouncy vintage amp), `cave` (massive/ambient).
+* **Intensity:** Control the wet/dry mix using `--reverb-level <0-100>` (Default is 50).
+* *Example:* `midra psg --reverb chamber --reverb-level 70 song.mid`
+
+**4. 3-Band EQ & Filters**
+Sculpt the frequency response using precision RBJ Biquad filters.
+* **EQ (0-100%):** `--bass`, `--mid`, `--treble` (Default is 50 for neutral. Set to 100 for maximum boost, 0 to cut completely).
+* **Cutoffs (Hz):** `--lpf <freq>` (Low-pass, cuts high frequencies), `--hpf <freq>` (High-pass, cuts low frequencies).
+* *Example:* `midra opl --bass 80 --treble 70 --hpf 300 song.mid` (Boosts lows/highs but cuts extreme sub-bass rumble).
 
 ## Chapter 4. The 3 Ways to Play (Synthesizer Engines)
 

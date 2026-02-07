@@ -20,6 +20,13 @@ Experience your music with three adaptive Terminal UI modes:
 ## 🎛️ Live Playback Control
 Change the playback speed, transpose the musical key, or tweak the master volume *while* the music is playing—and keep those settings persistent across an entire folder of files!
 
+## 🎚️ Global Audio Effects (DSP)
+Midiraja features a built-in, modular DSP effect rack that can be applied to almost any built-in synthesizer (`opl`, `opn`, `psg`, `gus`). Sculpt your sound before it reaches your speakers:
+* **Tube Saturation (`--tube`)**: Adds analog warmth, harmonic distortion, and punch using mathematical waveshaping. (e.g. `--tube 20`)
+* **Stereo Chorus (`--chorus`)**: Spreads the sound wide across the stereo field with swirling 80s detuning. (e.g. `--chorus 50`)
+* **Algorithmic Reverb (`--reverb`)**: Places your retro synths in realistic 3D spaces (`room`, `hall`, `plate`, `chamber`, `spring`, `cave`). (e.g. `--reverb hall --reverb-level 80`)
+* **3-Band EQ & Cutoffs**: Sculpt the frequencies with precision Biquad filters (`--bass`, `--mid`, `--treble`, `--lpf`, `--hpf`).
+
 ---
 
 ## 🚀 Quick Install (macOS & Linux)
