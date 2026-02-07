@@ -232,6 +232,7 @@ Midiraja stands on the shoulders of giants. While our UI, rendering pipelines, a
 
 ### Technical Documentation
 If you are an audio engineer or a hardcore retro programming enthusiast, you might enjoy reading our deep-dive technical papers on how we built our custom engines:
+* **[🎛️ The Global DSP Pipeline Architecture](dsp-pipeline-engineering.md)**: Explains the math and architecture behind our zero-allocation audio effect rack (Reverb, Chorus, Tube Saturation, EQ).
 * **[🤖 The 1-Bit Audio Engineering Whitepaper](beep-1bit-audio-engineering.md)**: Discover the strict integer mathematics, fixed-point logic, and AI-driven DSP algorithms that power our zero-dependency `beep` engine.
 * **[👾 The PSG Tracker Hacks Whitepaper](psg-tracker-engineering.md)**: The architectural blueprint for our Programmable Sound Generator (`psg`) engine, detailing the legendary software tricks (Fast Arpeggios, Envelope Buzzer) used by MSX and ZX Spectrum hackers.
 * **[📻 The RealSound PWM Whitepaper](realsound-pwm-engineering.md)**: A deep dive into time-domain quantization and how we accurately recreated the legendary 1980s PC Speaker "RealSound" output using Delta-Sigma modulation.

@@ -52,6 +52,7 @@ Ready to make some noise? Check out our user manuals:
 
 * **[🚀 Getting Started Guide](docs/user_guide.md)**: Learn how to play your first song in 10 seconds, master the TUI live controls, and discover all the built-in retro synthesizer engines.
 * **[🤖 1-Bit Audio Engineering Whitepaper](docs/beep-1bit-audio-engineering.md)**: A deep dive into the purist mathematics and historical hardware constraints behind our flagship `1bit` engine.
+* **[🎛️ The Global DSP Pipeline Architecture](docs/dsp-pipeline-engineering.md)**: Explains the math and architecture behind our zero-allocation audio effect rack (Reverb, Chorus, Tube Saturation, EQ).
 * **[🎹 Soft Synth Guide](docs/soft-synth-guide.md)**: Detailed configuration instructions for FluidSynth and MT-32 emulators.
 
 ---

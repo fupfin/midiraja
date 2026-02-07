@@ -1,0 +1,80 @@
+# The Global DSP Pipeline Architecture
+
+This whitepaper details the architectural design and mathematical principles behind Midiraja's Global DSP (Digital Signal Processing) Effect Rack.
+
+---
+
+## 1. Architectural Foundation
+
+To allow users to sculpt the audio output of any synthesizer (OPL, PSG, GUS, etc.) uniformly, Midiraja utilizes a highly modular, **In-place Processing Pipeline**. 
+
+By applying the Dependency Inversion Principle, the core synthesizers are decoupled from audio post-processing. The CLI commands dynamically assemble a chain of `AudioFilter` nodes and inject the "head" of this pipeline into the synthesizer. This architecture makes it incredibly trivial to plug in new custom effects.
+
+**The Zero-Allocation Philosophy:**
+In the extreme low-level domain of audio processing (e.g., rendering 512 frames at 44,100Hz), creating new array objects for every filter step would generate massive garbage collection (GC) overhead, leading to audio dropouts (glitches). Therefore, our `AudioProcessor` interfaces strictly utilize **In-place processing**:
+`void process(float[] left, float[] right, int frames);`
+Filters mathematically mutate the `left` and `right` arrays directly, ensuring a completely **zero-allocation** footprint during the critical audio render loop.
+
+---
+
+## 2. The Effector Algorithms
+
+Midiraja implements four studio-grade global effects, built entirely from scratch using pure mathematics.
+
+### 2.1 Tube Saturation (Waveshaping)
+Digital clipping produces harsh, unpleasant square waves. Analog vacuum tubes and magnetic tape, however, exhibit "soft clipping"—they gradually compress the waveform as it approaches the maximum limit, generating warm, odd-order harmonics.
+
+**Implementation:**
+We simulate this using a Hyperbolic Tangent waveshaper:
+```java
+float out = (float) Math.tanh(in * drive);
+```
+As the `drive` increases (mapped from the user's 0-100% input), the signal is pushed harder into the flattened curve of the `tanh` function. This smoothly rounds off the peaks, creating an audibly thicker, "punchier" sound without digital tearing.
+
+**Auto-Gain Compensation:**
+Squaring off a waveform drastically increases its overall RMS energy (perceived loudness). To prevent blowing out the user's speakers when increasing the drive, we apply an inverse square-root makeup gain:
+```java
+float outLevel = 1.0f / (float) Math.sqrt(drive);
+```
+
+### 2.2 Stereo Chorus
+A chorus effect fakes the sound of multiple instruments playing the same note simultaneously by blending the original signal with a slightly delayed, pitch-wobbled copy.
+
+**Implementation:**
+1. **Delay Line:** A circular buffer holding ~100ms of audio history.
+2. **LFO (Low Frequency Oscillator):** A `Math.sin()` wave oscillating at a slow rate (0.8Hz).
+3. **Modulation:** The read-head of the delay buffer constantly sweeps back and forth between 15ms and 25ms, driven by the LFO. This changing delay time causes the pitch to slightly shift up and down (the Doppler effect).
+4. **Fractional Interpolation:** Because the LFO asks for delay times that fall *between* discrete sample indices (e.g., 14.5 samples ago), we use Linear Interpolation to calculate the exact amplitude, preventing digital aliasing noise.
+5. **Stereo Spread:** The true magic of our chorus is the stereo width. The Right channel's LFO is phase-shifted by 90 degrees (`Math.PI / 2.0`) relative to the Left channel. This out-of-phase wobbling pushes the sound completely outside the center, creating a massive, swirling stereo image out of a mono synthesizer.
+
+### 2.3 Algorithmic Reverb (Freeverb)
+We implemented the legendary Schroeder/Moorer algorithmic reverb model, commonly known as "Freeverb".
+
+**Architecture:**
+1. **Parallel Comb Filters (8 per channel):** The audio is fed into 8 differently tuned feedback delay loops. This simulates the initial reflections of sound bouncing off the walls of a room.
+2. **Series Allpass Filters (4 per channel):** The output of the Combs is fed sequentially through 4 Allpass filters. Allpass filters smear the phase of the sound without altering its frequency response. This "diffusion" turns a series of discrete, metallic echoes into a smooth, dense "wash" of reverberation.
+
+**Acoustic Presets:**
+Instead of exposing complex mathematical damping coefficients to the user, we expose highly tuned architectural presets:
+* `ROOM`: Short decay, punchy response.
+* `HALL`: Long decay, medium damping for natural orchestral spaces.
+* `CHAMBER`: High damping, yielding a warm, dense, thick tail characteristic of 1960s studio echo chambers.
+* `PLATE`: Extremely low damping resulting in bright, metallic reflections.
+* `SPRING`: Short, bouncy delay times simulating physical spring tanks found in vintage synthesizers.
+* `CAVE`: Massive feedback, highly washed out for ambient soundscapes.
+
+### 2.4 3-Band EQ & Cutoffs (RBJ Biquad Filters)
+For frequency sculpting, we utilize industry-standard Robert Bristow-Johnson (RBJ) Biquad IIR (Infinite Impulse Response) filters.
+
+**Architecture:**
+A biquad filter calculates the current output sample based on the current input, two previous inputs, and two previous outputs:
+`y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2] - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]`
+
+We implemented five distinct mathematical biquad configurations to create a full mastering rack:
+1. **Low-Shelf:** Boosts or cuts everything below 250Hz (Bass weight).
+2. **Peaking:** Boosts or cuts a bell-shaped curve around 1kHz (Mid presence).
+3. **High-Shelf:** Boosts or cuts everything above 4kHz (Treble air/clarity).
+4. **Low-Pass (LPF):** Completely attenuates frequencies above the cutoff point (useful for Lo-Fi or muffled sounds).
+5. **High-Pass (HPF):** Completely attenuates frequencies below the cutoff point (useful for "telephone" style EQ).
+
+By chaining these lightweight mathematical filters together within the zero-allocation pipeline, Midiraja provides a zero-latency, mastering-grade equalizer tailored specifically for retro audio enhancement.
