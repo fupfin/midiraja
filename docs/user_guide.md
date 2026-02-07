@@ -92,7 +92,12 @@ Once the music starts, your terminal becomes an interactive dashboard. You don't
 ---
 
 ### 3.4. Global Audio Effects (DSP Rack)
-Midiraja features a modular audio processing pipeline. You can apply high-quality global effects to the built-in synthesizers (`opl`, `opn`, `psg`, `gus`) by simply adding flags to your launch command. All effect intensities are controlled via intuitive percentages (0-100%).
+Midiraja features a modular audio processing pipeline. You can apply high-quality global effects to the built-in pure-math synthesizers (`opl`, `opn`, `psg`, `1bit`, `gus`) by simply adding flags to your launch command.
+
+> ⚠️ **Important Note on Compatibility:**
+> Global DSP Effects are *only* available for Midiraja's internal synthesis engines. They cannot be applied when routing audio to external hardware (`device` command) or when using dynamically linked external engines (`fluidsynth` or `mt32`), because in those cases, the audio generation happens outside of Midiraja's DSP control loop.
+
+All effect intensities are controlled via intuitive percentages (0-100%).
 
 **1. Analog Tube Saturation (`--tube <0-100>`)**
 Adds harmonic distortion and warmth by simulating an overdriven vacuum tube amplifier (using a `Math.tanh` waveshaper and auto-gain compensation).
