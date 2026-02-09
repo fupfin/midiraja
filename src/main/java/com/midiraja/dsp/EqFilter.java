@@ -25,7 +25,7 @@ public class EqFilter extends AudioFilter {
         hpfL = new Biquad(); hpfR = new Biquad();
         
         // Initial setup at 100% (Neutral)
-        setParams(100, 100, 100);
+        setParams(50, 50, 50);
     }
 
     public void setParams(float bassPct, float midPct, float treblePct) {
@@ -64,7 +64,7 @@ public class EqFilter extends AudioFilter {
     private float pctToDb(float pct) {
         if (pct <= 0) return -60.0f; // Mute
         // 100% -> 0dB, 200% -> +12dB, 50% -> -6dB
-        return (float) (20.0 * Math.log10(pct / 100.0));
+        return (float) (20.0 * Math.log10(pct / 50.0));
     }
 
     @Override

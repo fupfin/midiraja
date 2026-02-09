@@ -42,13 +42,13 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
 
     @Mixin private CommonOptions common = new CommonOptions();
 
-        @Option(names = {"--bass"}, defaultValue = "100", description = "Adjust bass gain (0-200%%). Default: 100.")
+        @Option(names = {"--bass"}, defaultValue = "50", description = "Adjust bass gain (0-100%%). Default: 50 (neutral).")
     private float eqBass = 100;
 
-    @Option(names = {"--mid"}, defaultValue = "100", description = "Adjust mid gain (0-200%%). Default: 100.")
+    @Option(names = {"--mid"}, defaultValue = "50", description = "Adjust mid gain (0-100%%). Default: 50 (neutral).")
     private float eqMid = 100;
 
-    @Option(names = {"--treble"}, defaultValue = "100", description = "Adjust treble gain (0-200%%). Default: 100.")
+    @Option(names = {"--treble"}, defaultValue = "50", description = "Adjust treble gain (0-100%%). Default: 50 (neutral).")
     private float eqTreble = 100;
 
         @Option(names = {"--lpf"}, description = "Low-Pass Filter cutoff frequency in Hz (e.g. 2000). Cuts off high frequencies.")
@@ -57,14 +57,14 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
     @Option(names = {"--hpf"}, description = "High-Pass Filter cutoff frequency in Hz (e.g. 500). Cuts off low frequencies.")
     private Optional<Float> hpfFreq = Optional.empty();
 
-    @Option(names = {"--chorus"}, description = "Apply classic stereo chorus effect. (Intensity: 0-200%%, Recommended: 50-100).")
+    @Option(names = {"--chorus"}, description = "Apply classic stereo chorus effect. (Intensity: 0-100%%, Recommended: 30-70).")
     private Optional<Float> chorus = Optional.empty();
 
     @Option(names = {"--reverb"}, description = "Apply algorithmic reverb preset. (Options: room, chamber, hall, plate, spring, cave).")
     private Optional<String> reverb = Optional.empty();
 
-    @Option(names = {"--reverb-level"}, defaultValue = "100", description = "Reverb wet level intensity (0-200%%). Default: 100.")
-    private float reverbLevel = 100;
+    @Option(names = {"--reverb-level"}, defaultValue = "50", description = "Reverb wet level intensity (0-100%%). Default: 50 (neutral).")
+    private float reverbLevel = 50;
 
     @Option(names = {"--tube"}, description = "Apply analog vacuum tube saturation. (Range: 0-100%%, Recommended: 10-20).")
     private Optional<Float> tubeDrive = Optional.empty();
@@ -86,7 +86,7 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
         
         com.midiraja.dsp.AudioProcessor pipeline = new com.midiraja.dsp.FloatToShortSink(audio, 1);
         
-        if (eqBass != 100 || eqMid != 100 || eqTreble != 100 || lpfFreq.isPresent() || hpfFreq.isPresent()) {
+        if (eqBass != 50 || eqMid != 50 || eqTreble != 50 || lpfFreq.isPresent() || hpfFreq.isPresent()) {
             var eq = new com.midiraja.dsp.EqFilter(pipeline);
             eq.setParams(eqBass, eqMid, eqTreble);
             if (lpfFreq.isPresent()) eq.setLpf(lpfFreq.get());
@@ -111,7 +111,7 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
             }
         }
         
-        if (eqBass != 100 || eqMid != 100 || eqTreble != 100 || tubeDrive.isPresent() || chorus.isPresent() || reverb.isPresent()) {
+        if (eqBass != 50 || eqMid != 50 || eqTreble != 50 || tubeDrive.isPresent() || chorus.isPresent() || reverb.isPresent()) {
             pipeline = new com.midiraja.dsp.ShortToFloatFilter(pipeline);
         }
         

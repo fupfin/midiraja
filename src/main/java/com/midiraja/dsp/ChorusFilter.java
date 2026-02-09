@@ -36,7 +36,7 @@ public class ChorusFilter extends AudioFilter {
     }
 
     public void setIntensity(float pct) {
-        float normalized = Math.max(0.0f, Math.min(200.0f, pct)) / 100.0f;
+        float normalized = Math.max(0.0f, Math.min(100.0f, pct)) / 50.0f;
         
         // At 100%, we want the classic aggressive sound: 50/50 mix, 6ms depth
         // At 50%, we want a subtle thickener: 25% wet, 3ms depth
