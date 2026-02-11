@@ -14,6 +14,7 @@ class PsgSynthProviderTest {
     private class DummyAudioEngine implements AudioEngine {
         @Override public void init(int sampleRate, int channels, int bufferSize) throws Exception {}
         @Override public int push(short[] pcm) { return pcm.length; }
+            @Override public int push(short[] pcm, int offset, int length) { return length; }
         @Override public int getQueuedFrames() { return 0; }
         @Override public int getBufferCapacityFrames() { return 4096; }
         @Override public int getDeviceLatencyFrames() { return 0; }

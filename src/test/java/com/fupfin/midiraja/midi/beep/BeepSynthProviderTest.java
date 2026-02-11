@@ -20,7 +20,8 @@ class BeepSynthProviderTest
         mockAudio = new AudioEngine()
         {
             @Override public void init(int sampleRate, int channels, int bufferSize) {}
-            @Override public int push(short[] pcm) { pushCallCount.incrementAndGet(); return pcm.length; }
+            @Override public int push(short[] pcm) { return push(pcm, 0, pcm.length); }
+            @Override public int push(short[] pcm, int offset, int length) { pushCallCount.incrementAndGet(); return length; }
             @Override public int getQueuedFrames() { return 0; }
         @Override public int getBufferCapacityFrames() { return 4096; }
             @Override public int getDeviceLatencyFrames() { return 0; }

@@ -32,7 +32,12 @@ class DspPipelineTest {
 
         FloatToShortSink f2s = new FloatToShortSink(new com.fupfin.midiraja.midi.AudioEngine() {
             public void init(int sr, int ch, int buf) {}
-            public int push(short[] pcm) { dummyNext.processInterleaved(pcm, 2, 2); return pcm.length; }
+            public int push(short[] pcm) { return push(pcm, 0, pcm.length); }
+            @Override public int push(short[] pcm, int offset, int length) {
+                short[] slice = java.util.Arrays.copyOfRange(pcm, offset, offset + length);
+                dummyNext.processInterleaved(slice, length/2, 2);
+                return length;
+            }
             public int getQueuedFrames() { return 0; }
         @Override public int getBufferCapacityFrames() { return 4096; }
             public int getDeviceLatencyFrames() { return 0; }

@@ -28,20 +28,21 @@ public class HeadlessRenderer {
             FileOutputStream fos = new FileOutputStream("render_dump.raw");
             int framesWritten = 0;
             @Override public void init(int rate, int ch, int buf) {}
-            @Override public int push(short[] pcm) {
+            @Override public int push(short[] pcm) { return push(pcm, 0, pcm.length); }
+            @Override public int push(short[] pcm, int offset, int length) {
                 try {
-                    for (short s : pcm) {
-                        fos.write(s & 0xFF);
-                        fos.write((s >> 8) & 0xFF);
+                    byte[] buf = new byte[length * 2];
+                    for (int i = 0; i < length; i++) {
+                        short s = pcm[offset + i];
+                        buf[i*2] = (byte)(s & 0xFF);
+                        buf[i*2+1] = (byte)((s >> 8) & 0xFF);
                     }
-                    framesWritten += pcm.length;
-                    // Auto-exit after approx 1 second of audio (44100 samples)
-                    if (framesWritten >= 44100) {
-                        fos.close();
-                        System.exit(0);
-                    }
-                } catch(Exception e) {}
-                return pcm.length;
+                    fos.write(buf);
+                    framesWritten += length;
+                    return length;
+                } catch(Exception e) {
+                    return -1;
+                }
             }
             @Override public void close() {}
         };

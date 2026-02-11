@@ -18,6 +18,7 @@ public interface AudioEngine extends AutoCloseable
      * @param pcm Array of short PCM samples.
      */
     int push(short[] pcm);
+    int push(short[] pcm, int offset, int length);
     int getBufferCapacityFrames();
     int getQueuedFrames();
     int getDeviceLatencyFrames();

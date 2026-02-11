@@ -142,10 +142,15 @@ public class OpnMidiSynthProvider implements SoftSynthProvider
             short[] pcmBuffer = new short[FRAMES_PER_RENDER * 2];
             
 
+            long lastHeartbeat = System.currentTimeMillis();
             while (running)
             {
                 // Spin while prepareForNewTrack() is cycling synth state.
-                if (renderPaused)
+                if (System.currentTimeMillis() - lastHeartbeat > 5000) {
+                        System.err.println("[Diagnostic] RenderThread heartbeat - Thread is alive. renderPaused=" + renderPaused);
+                        lastHeartbeat = System.currentTimeMillis();
+                    }
+                    if (renderPaused)
                 {
                     try
                     {
@@ -167,7 +172,12 @@ public class OpnMidiSynthProvider implements SoftSynthProvider
                 }
 
                 // Pull rendered PCM from libOPNMIDI
-                bridge.generate(pcmBuffer, FRAMES_PER_RENDER);
+                long t0 = System.nanoTime();
+                    bridge.generate(pcmBuffer, FRAMES_PER_RENDER);
+                    long durationMs = (System.nanoTime() - t0) / 1_000_000;
+                    if (durationMs > 100) {
+                        System.err.println("[Diagnostic] bridge.generate took " + durationMs + "ms! (Performance glitch or C-level blocking)");
+                    }
 
                 if (audioOut != null) {
                     audioOut.processInterleaved(pcmBuffer, FRAMES_PER_RENDER, 2);

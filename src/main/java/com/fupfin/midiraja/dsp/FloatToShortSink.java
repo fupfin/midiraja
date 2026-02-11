@@ -26,12 +26,18 @@ public class FloatToShortSink implements AudioSink {
         if (engine != null) {
             int totalSamples = frames * channels;
             int offset = 0;
+            int stuckCount = 0;
             while (offset < totalSamples) {
-                int written = engine.push(java.util.Arrays.copyOfRange(interleavedPcm, offset, totalSamples));
+                int written = engine.push(interleavedPcm, offset, totalSamples - offset);
                 if (written > 0) {
                     offset += written;
+                    stuckCount = 0;
+                } else if (written < 0) {
+                    break; // C-layer error, abort frame to save thread
                 } else {
-                    java.util.concurrent.locks.LockSupport.parkNanos(1000000); // 1ms backpressure sleep
+                    stuckCount++;
+                    
+                    java.util.concurrent.locks.LockSupport.parkNanos(1000000); // 1ms sleep to match consumption rate
                 }
             }
         }
@@ -62,12 +68,18 @@ public class FloatToShortSink implements AudioSink {
 
         int totalSamples = frames * outputChannels;
         int offset = 0;
+        int stuckCount = 0;
         while (offset < totalSamples) {
-            int written = engine.push(java.util.Arrays.copyOfRange(pcmBuffer, offset, totalSamples));
+            int written = engine.push(pcmBuffer, offset, totalSamples - offset);
             if (written > 0) {
                 offset += written;
+                stuckCount = 0;
+            } else if (written < 0) {
+                break; // C-layer error, abort frame
             } else {
-                java.util.concurrent.locks.LockSupport.parkNanos(1000000); // 1ms backpressure sleep
+                stuckCount++;
+                
+                java.util.concurrent.locks.LockSupport.parkNanos(1000000); // 1ms sleep to match consumption rate
             }
         }
     }
