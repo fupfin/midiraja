@@ -53,8 +53,8 @@ public final class AudioLibResolver
                         return p;
                     }
                 }
-                catch (Exception ignored)
-                {
+                catch (Exception ignored) {
+            System.err.println("[Error in " + "AudioLibResolver" + "] " + ignored.getMessage());
                     // try next candidate
                 }
             }

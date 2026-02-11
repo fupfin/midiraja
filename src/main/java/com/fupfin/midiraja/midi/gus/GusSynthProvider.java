@@ -151,7 +151,8 @@ public class GusSynthProvider implements SoftSynthProvider
             {
                 if (in != null) engine.loadPatch(engineId, GusPatchReader.read(in));
             }
-            catch (Exception e) { /* ignored */ }
+            catch (Exception e) {
+            System.err.println("[NativeBridge Error] " + e.getMessage()); /* ignored */ }
         });
     }
 
@@ -272,7 +273,8 @@ public class GusSynthProvider implements SoftSynthProvider
                     if (in != null) engine.loadPatch(engineId, GusPatchReader.read(in));
                     else failedPatches.add(engineId);
                 }
-                catch (Exception e) { failedPatches.add(engineId); }
+                catch (Exception e) {
+            System.err.println("[NativeBridge Error] " + e.getMessage()); failedPatches.add(engineId); }
             }, () -> failedPatches.add(engineId));
         }
     }

@@ -33,6 +33,7 @@ public class AlsaProvider implements MidiOutProvider {
       lookup = SymbolLookup.libraryLookup("libasound.so.2", Arena.global());
       available = true;
     } catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
       // libasound.so.2 not found, probably not on a Linux desktop with ALSA
     }
     ALSA_LOOKUP = lookup;
@@ -253,6 +254,7 @@ public class AlsaProvider implements MidiOutProvider {
         int _dummy5 = (int)snd_seq_close.invoke(seq);
       }
     } catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
       err.println("ALSA Query Error: " + t.getMessage());
     }
 
@@ -299,6 +301,7 @@ public class AlsaProvider implements MidiOutProvider {
       // snd_seq_event_t)
       eventBuffer = sessionArena.allocate(64, 8);
     } catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
       if (sessionArena != null)
         sessionArena.close();
       throw new Exception("Failed to open ALSA port via FFM", t);
@@ -342,6 +345,7 @@ public class AlsaProvider implements MidiOutProvider {
         }
       }
     } catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
       throw new Exception("Error sending ALSA MIDI message", t);
     }
   }
@@ -356,7 +360,8 @@ public class AlsaProvider implements MidiOutProvider {
       if (seqHandle != null && snd_seq_close != null) {
         int _dummy = (int)snd_seq_close.invokeExact(seqHandle);
       }
-    } catch (Throwable _) {
+    } catch (Throwable e) {
+            System.err.println("[NativeBridge Error] " + e.getMessage());
       // ignore
     } finally {
       midiEventParser = null;

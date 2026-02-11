@@ -182,8 +182,8 @@ public class PlaylistParser
             logVerbose("Loaded playlist: " + playlistFile.getName() + " (" + lines.size()
                 + " lines parsed)");
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
+            System.err.println("[Error in " + getClass().getSimpleName() + "] " + e.getMessage());
             err.println(
                 "Error reading playlist file '" + playlistFile.getName() + "': " + e.getMessage());
             if (verbose)
@@ -207,8 +207,8 @@ public class PlaylistParser
                     .forEach(playlist::add);
             }
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
+            System.err.println("[Error in " + getClass().getSimpleName() + "] " + e.getMessage());
             err.println("Error reading directory '" + dir.getName() + "': " + e.getMessage());
             if (verbose)
                 e.printStackTrace(err);

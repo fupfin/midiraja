@@ -54,8 +54,8 @@ public class PlaylistPanel implements Panel
                                 titleCache.put(file, ""); // Empty string means no title
                             }
                         }
-                        catch (Exception ignored)
-                        {
+                        catch (Exception ignored) {
+            System.err.println("[Error in " + getClass().getSimpleName() + "] " + ignored.getMessage());
                             titleCache.put(file, "");
                         }
                     });

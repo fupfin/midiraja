@@ -81,8 +81,8 @@ public interface MidiOutProvider extends MidiSink
             {
                 sendMessage(new byte[] {(byte) (0xB0 | ch), 7, (byte) volume});
             }
-            catch (Exception ignored)
-            { /* Ignore during panic */
+            catch (Exception ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage()); /* Ignore during panic */
             }
         }
     }
@@ -110,8 +110,8 @@ public interface MidiOutProvider extends MidiSink
                     sendMessage(new byte[] {(byte) (0x80 | ch), (byte) note, 0});
                 }
             }
-            catch (Exception ignored)
-            { /* Ignore during panic */
+            catch (Exception ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage()); /* Ignore during panic */
             }
         }
         // Increase flush window for the heavy Note Off barrage
@@ -122,8 +122,8 @@ public interface MidiOutProvider extends MidiSink
             {
                 Thread.sleep(Math.max(1, endWait - System.currentTimeMillis()));
             }
-            catch (Exception ignored)
-            { /* force wait */
+            catch (Exception ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage()); /* force wait */
             }
         }
     }

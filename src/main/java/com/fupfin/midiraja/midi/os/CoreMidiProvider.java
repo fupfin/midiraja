@@ -136,6 +136,7 @@ public class CoreMidiProvider implements MidiOutProvider {
       }
       CFRelease.invokeExact(kMIDIPropertyName);
     } catch (Throwable e) {
+            System.err.println("[NativeBridge Error] " + e.getMessage());
       // FFM API throws Throwable, handle gracefully
       err.println("Error enumerating Mac MIDI ports: " + e.getMessage());
     }
@@ -175,6 +176,7 @@ public class CoreMidiProvider implements MidiOutProvider {
 
       pktListMem = sessionArena.allocate(512, 1); // Buffer for MIDI packets
     } catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
       throw new Exception("Failed to open Mac MIDI port via FFM", t);
     }
   }
@@ -206,6 +208,7 @@ public class CoreMidiProvider implements MidiOutProvider {
         }
       }
     } catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
       throw new Exception("Error sending MIDI message: " + t.getMessage(), t);
     }
   }
@@ -217,7 +220,8 @@ public class CoreMidiProvider implements MidiOutProvider {
         CFRelease.invokeExact(clientName);
       if (portName != null)
         CFRelease.invokeExact(portName);
-    } catch (Throwable _) {
+    } catch (Throwable e) {
+            System.err.println("[NativeBridge Error] " + e.getMessage());
       // ignored
     } finally {
       clientName = null;

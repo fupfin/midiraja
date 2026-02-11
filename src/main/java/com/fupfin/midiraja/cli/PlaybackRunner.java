@@ -171,8 +171,8 @@ public class PlaybackRunner
         try
         {
           activeIO.close();
-        } catch (Exception _)
-        {
+        } catch (Exception e) {
+            System.err.println("[Error] " + e.getMessage());
         }
         out.print(safeRestore);
         out.flush();
@@ -187,14 +187,14 @@ public class PlaybackRunner
               try
               {
                 Thread.sleep(Math.max(1, endWait - System.currentTimeMillis()));
-              } catch (Exception ignored)
-              {
+              } catch (Exception ignored) {
+            System.err.println("[Error] " + ignored.getMessage());
               }
             }
             provider.closePort();
           }
-        } catch (Exception _)
-        {
+        } catch (Exception e) {
+            System.err.println("[Error] " + e.getMessage());
         }
       }));
 
@@ -316,8 +316,8 @@ public class PlaybackRunner
           out.flush();
         }
       }
-    } catch (Exception e)
-    {
+    } catch (Exception e) {
+            System.err.println("[Error] " + e.getMessage());
       err.println("Error during playback: " + e.getMessage());
       if (common.verbose)
         e.printStackTrace(err);
@@ -333,8 +333,8 @@ public class PlaybackRunner
           try
           {
             Thread.sleep(Math.max(1, endWait - System.currentTimeMillis()));
-          } catch (Exception ignored)
-          {
+          } catch (Exception ignored) {
+            System.err.println("[Error] " + ignored.getMessage());
           }
         }
         provider.closePort();

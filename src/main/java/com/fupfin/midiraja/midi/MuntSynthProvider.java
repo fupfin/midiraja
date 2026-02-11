@@ -123,8 +123,8 @@ import java.util.List;
                     sendMessage(new byte[] {(byte) (0x80 | ch), (byte) note, 0});
                 }
             }
-            catch (Exception ignored)
-            {
+            catch (Exception ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
             }
         }
         // No sleep needed: note-offs have future timestamps and are processed by the render

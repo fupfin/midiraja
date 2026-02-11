@@ -239,8 +239,8 @@ public class AdlMidiSynthProvider implements SoftSynthProvider
                 eventQueue.offer(new byte[] {(byte) (0xB0 | ch), 120, 0}); // All Sound Off
                 eventQueue.offer(new byte[] {(byte) (0xB0 | ch), 121, 0}); // Reset All Controllers
             }
-            catch (Exception ignored)
-            {
+            catch (Exception ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
             }
         }
         if (audioOut != null)
