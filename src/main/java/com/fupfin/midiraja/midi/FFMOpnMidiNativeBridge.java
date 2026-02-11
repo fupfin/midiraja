@@ -37,9 +37,8 @@ import java.util.List;
  * details; the same rules apply here.
  */
 @SuppressWarnings({"EmptyCatch", "UnusedVariable"})
-public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
+public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidiNativeBridge
 {
-    private final Arena arena;
     private MemorySegment device = MemorySegment.NULL;
 
     /**
@@ -106,90 +105,77 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
 
     public FFMOpnMidiNativeBridge() throws Exception
     {
-        this.arena = Arena.ofShared();
+        this(Arena.ofShared());
+    }
 
-        SymbolLookup lib = findOpnMidiSymbols();
-        Linker linker = Linker.nativeLinker();
+    private FFMOpnMidiNativeBridge(Arena arena) throws Exception
+    {
+        super(arena, tryLoadLibrary(arena, "opnmidi", "libOPNMIDI.dylib", "libOPNMIDI.so", "libOPNMIDI.dll"));
 
         // OPN2_MIDIPlayer* opn2_init(long sample_rate)
-        opn2_init = linker.downcallHandle(lib.find("opn2_init").orElseThrow(),
+        opn2_init = downcall("opn2_init", 
             FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
 
         // void opn2_close(struct OPN2_MIDIPlayer *device)
-        opn2_close = linker.downcallHandle(
-            lib.find("opn2_close").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        opn2_close = downcall("opn2_close", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
 
         // int opn2_openBankFile(struct OPN2_MIDIPlayer *device, const char *filePath)
-        opn2_openBankFile = linker.downcallHandle(lib.find("opn2_openBankFile").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        opn2_openBankFile = downcall("opn2_openBankFile", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 
         // int opn2_openBankData(struct OPN2_MIDIPlayer *device, const void *mem, unsigned long
         // size)
-        opn2_openBankData = linker.downcallHandle(lib.find("opn2_openBankData").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+        opn2_openBankData = downcall("opn2_openBankData", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
                 ValueLayout.JAVA_LONG));
 
         // int opn2_setNumChips(struct OPN2_MIDIPlayer *device, int numChips)
-        opn2_setNumChips = linker.downcallHandle(lib.find("opn2_setNumChips").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+        opn2_setNumChips = downcall("opn2_setNumChips", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
         // int opn2_switchEmulator(struct OPN2_MIDIPlayer *device, int emulatorId)
-        opn2_switchEmulator = linker.downcallHandle(lib.find("opn2_switchEmulator").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+        opn2_switchEmulator = downcall("opn2_switchEmulator", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
         // void opn2_reset(struct OPN2_MIDIPlayer *device)
-        opn2_reset = linker.downcallHandle(
-            lib.find("opn2_reset").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        opn2_reset = downcall("opn2_reset", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
 
         // void opn2_panic(struct OPN2_MIDIPlayer *device)
-        opn2_panic = linker.downcallHandle(
-            lib.find("opn2_panic").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        opn2_panic = downcall("opn2_panic", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
 
         // int opn2_generate(struct OPN2_MIDIPlayer *device, int numSamples, short *out)
-        opn2_generate = linker.downcallHandle(lib.find("opn2_generate").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
+        opn2_generate = downcall("opn2_generate", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
                 ValueLayout.ADDRESS));
 
         // int opn2_rt_noteOn(struct OPN2_MIDIPlayer *device, OPN2_UInt8 channel, OPN2_UInt8 note,
         // OPN2_UInt8 velocity)
-        opn2_rt_noteOn = linker.downcallHandle(lib.find("opn2_rt_noteOn").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
+        opn2_rt_noteOn = downcall("opn2_rt_noteOn", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
                 ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE));
 
         // void opn2_rt_noteOff(struct OPN2_MIDIPlayer *device, OPN2_UInt8 channel, OPN2_UInt8 note)
-        opn2_rt_noteOff = linker.downcallHandle(lib.find("opn2_rt_noteOff").orElseThrow(),
-            FunctionDescriptor.ofVoid(
+        opn2_rt_noteOff = downcall("opn2_rt_noteOff", FunctionDescriptor.ofVoid(
                 ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE));
 
         // void opn2_rt_controllerChange(struct OPN2_MIDIPlayer *device, OPN2_UInt8 channel,
         // OPN2_UInt8 type, OPN2_UInt8 value)
         opn2_rt_controllerChange =
-            linker.downcallHandle(lib.find("opn2_rt_controllerChange").orElseThrow(),
-                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
+            downcall("opn2_rt_controllerChange", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
                     ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE));
 
         // void opn2_rt_patchChange(struct OPN2_MIDIPlayer *device, OPN2_UInt8 channel, OPN2_UInt8
         // patch)
-        opn2_rt_patchChange = linker.downcallHandle(lib.find("opn2_rt_patchChange").orElseThrow(),
-            FunctionDescriptor.ofVoid(
+        opn2_rt_patchChange = downcall("opn2_rt_patchChange", FunctionDescriptor.ofVoid(
                 ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE));
 
         // void opn2_rt_pitchBend(struct OPN2_MIDIPlayer *device, OPN2_UInt8 channel, OPN2_UInt16
         // pitch)
-        opn2_rt_pitchBend = linker.downcallHandle(lib.find("opn2_rt_pitchBend").orElseThrow(),
-            FunctionDescriptor.ofVoid(
+        opn2_rt_pitchBend = downcall("opn2_rt_pitchBend", FunctionDescriptor.ofVoid(
                 ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE, ValueLayout.JAVA_SHORT));
 
         // int opn2_rt_systemExclusive(struct OPN2_MIDIPlayer *device, const OPN2_UInt8 *msg, size_t
         // size)
         opn2_rt_systemExclusive =
-            linker.downcallHandle(lib.find("opn2_rt_systemExclusive").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+            downcall("opn2_rt_systemExclusive", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                     ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
 
         // const char* opn2_errorInfo(struct OPN2_MIDIPlayer *device)
-        opn2_errorInfo = linker.downcallHandle(lib.find("opn2_errorInfo").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        opn2_errorInfo = downcall("opn2_errorInfo", FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
     }
 
     /**
@@ -197,57 +183,7 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
      * {@code loaderLookup()} finds those symbols directly without any dlopen.
      * In JVM mode, we fall back to loading the shared library from disk.
      */
-    private SymbolLookup findOpnMidiSymbols()
-    {
-        if (SymbolLookup.loaderLookup().find("opn2_init").isPresent())
-        {
-            return SymbolLookup.loaderLookup();
-        }
-        return tryLoadSharedLibrary(arena, "libOPNMIDI.dylib", "libOPNMIDI.so");
-    }
 
-    private SymbolLookup tryLoadSharedLibrary(Arena arena, String... paths)
-    {
-        List<String> failedPaths = new ArrayList<>();
-        String projectRoot = new File("").getAbsolutePath();
-        String devPathMac = projectRoot + "/src/main/c/opnmidi/libOPNMIDI.dylib";
-        String devPathLinux = projectRoot + "/src/main/c/opnmidi/libOPNMIDI.so";
-
-        String[] allPaths = new String[paths.length + 2];
-        System.arraycopy(paths, 0, allPaths, 0, paths.length);
-        allPaths[paths.length] = devPathMac;
-        allPaths[paths.length + 1] = devPathLinux;
-
-        for (String path : allPaths)
-        {
-            try
-            {
-                if (path.startsWith("/"))
-                {
-                    File f = new File(path);
-                    if (f.exists())
-                    {
-                        return SymbolLookup.libraryLookup(f.toPath(), arena);
-                    }
-                    else
-                    {
-                        failedPaths.add(path + " (not found)");
-                    }
-                }
-                else
-                {
-                    return SymbolLookup.libraryLookup(path, arena);
-                }
-            }
-            catch (IllegalArgumentException e)
-            {
-                failedPaths.add(path);
-            }
-        }
-        throw new IllegalArgumentException(
-            "Cannot open libOPNMIDI. Build it first with: ./scripts/build-native-libs.sh\n"
-            + "Searched paths: " + String.join(", ", failedPaths));
-    }
 
     @Override public void init(int sampleRate) throws Exception
     {
@@ -260,8 +196,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
                     "opn2_init returned NULL (out of memory or invalid sample rate)");
             }
         }
-        catch (Throwable t)
-        {
+        catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
             throw new Exception("Error initializing libOPNMIDI", t);
         }
     }
@@ -279,12 +215,12 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
                 throw new Exception("opn2_openBankFile failed (rc=" + rc + "): " + path);
             }
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
+            System.err.println("[NativeBridge Error] " + e.getMessage());
             throw e;
         }
-        catch (Throwable t)
-        {
+        catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
             throw new Exception("Error loading WOPN bank file: " + path, t);
         }
     }
@@ -302,12 +238,12 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
                 throw new Exception("opn2_openBankData failed (rc=" + rc + ")");
             }
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
+            System.err.println("[NativeBridge Error] " + e.getMessage());
             throw e;
         }
-        catch (Throwable t)
-        {
+        catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
             throw new Exception("Error loading WOPN bank data", t);
         }
     }
@@ -320,8 +256,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
         {
             int ignored = (int) opn2_setNumChips.invokeExact(device, numChips);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -333,8 +269,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
         {
             int ignored = (int) opn2_switchEmulator.invokeExact(device, emulatorId);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -346,8 +282,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
         {
             opn2_reset.invokeExact(device);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -359,8 +295,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
         {
             opn2_panic.invokeExact(device);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -373,8 +309,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
             int ignored = (int) opn2_rt_noteOn.invokeExact(
                 device, (byte) channel, (byte) note, (byte) velocity);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -386,8 +322,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
         {
             opn2_rt_noteOff.invokeExact(device, (byte) channel, (byte) note);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -399,8 +335,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
         {
             opn2_rt_controllerChange.invokeExact(device, (byte) channel, (byte) type, (byte) value);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -412,8 +348,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
         {
             opn2_rt_patchChange.invokeExact(device, (byte) channel, (byte) patch);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -426,8 +362,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
         {
             opn2_rt_pitchBend.invokeExact(device, (byte) channel, (short) pitch);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -441,8 +377,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
             int ignored =
                 (int) opn2_rt_systemExclusive.invokeExact(device, seg, (long) data.length);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -463,8 +399,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
                 renderBuffer = arena.allocate(requiredBytes);
                 currentRenderBufferSize = requiredBytes;
             }
-            catch (Throwable ignored)
-            {
+            catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
                 return;
             }
         }
@@ -475,8 +411,8 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
             int ignored = (int) opn2_generate.invokeExact(device, buffer.length, renderBuffer);
             MemorySegment.copy(renderBuffer, ValueLayout.JAVA_SHORT, 0, buffer, 0, buffer.length);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -488,14 +424,12 @@ public class FFMOpnMidiNativeBridge implements OpnMidiNativeBridge
             {
                 opn2_close.invokeExact(device);
             }
-            catch (Throwable ignored)
-            {
+            catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
             }
             device = MemorySegment.NULL;
         }
-        if (arena.scope().isAlive())
-        {
-            arena.close();
-        }
+        try { super.close(); } catch(Exception e) {
+            System.err.println("[NativeBridge Error] " + e.getMessage());}
     }
 }

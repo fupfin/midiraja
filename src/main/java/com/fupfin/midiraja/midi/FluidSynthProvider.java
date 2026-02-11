@@ -78,13 +78,13 @@ public class FluidSynthProvider implements SoftSynthProvider {
       String os =
           System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT);
       if (os.contains("mac")) {
-        lib = tryLoadLibrary(arena, "libfluidsynth.dylib",
+        lib = AbstractFFMBridge.tryLoadLibrary(arena, "", "libfluidsynth.dylib",
                              "/opt/homebrew/lib/libfluidsynth.dylib",
                              "/usr/local/lib/libfluidsynth.dylib");
       } else if (os.contains("win")) {
-        lib = tryLoadLibrary(arena, "libfluidsynth.dll");
+        lib = AbstractFFMBridge.tryLoadLibrary(arena, "", "libfluidsynth.dll");
       } else {
-        lib = tryLoadLibrary(arena, "libfluidsynth.so", "libfluidsynth.so.3",
+        lib = AbstractFFMBridge.tryLoadLibrary(arena, "", "libfluidsynth.so", "libfluidsynth.so.3",
                              "/usr/lib/x86_64-linux-gnu/libfluidsynth.so.3");
       }
     } catch (IllegalArgumentException e) {
@@ -214,25 +214,6 @@ public class FluidSynthProvider implements SoftSynthProvider {
         FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
   }
 
-  private SymbolLookup tryLoadLibrary(Arena arena, String... paths) {
-    java.util.List<String> failedPaths = new java.util.ArrayList<>();
-    for (String path : paths) {
-      try {
-        if (path.startsWith("/")) {
-          java.io.File f = new java.io.File(path);
-          if (f.exists()) {
-            return SymbolLookup.libraryLookup(f.toPath(), arena);
-          }
-        } else {
-          return SymbolLookup.libraryLookup(path, arena);
-        }
-      } catch (IllegalArgumentException e) {
-        failedPaths.add(path);
-      }
-    }
-    throw new IllegalArgumentException("Cannot open library. Searched paths: " +
-                                       String.join(", ", failedPaths));
-  }
 
   @Override
   public List<MidiPort> getOutputPorts() {
@@ -278,6 +259,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
         throw new Exception("Failed to initialize FluidSynth audio driver.");
       }
     } catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
       throw new Exception(
           "Failed to open FluidSynth engine via FFM: " + t.getMessage(), t);
     }
@@ -300,6 +282,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
         }
       }
     } catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
       throw new Exception("Failed to load soundbank via FFM: " + t.getMessage(),
                           t);
     }
@@ -354,6 +337,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
       int _dummy =
           (int)fluid_synth_noteon_mh.invokeExact(synth, channel, key, velocity);
     } catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
     }
   }
 
@@ -363,6 +347,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
     try {
       int _dummy = (int)fluid_synth_noteoff_mh.invokeExact(synth, channel, key);
     } catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
     }
   }
 
@@ -372,6 +357,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
     try {
       int _dummy = (int)fluid_synth_cc_mh.invokeExact(synth, channel, num, val);
     } catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
     }
   }
 
@@ -382,6 +368,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
       int _dummy = (int)fluid_synth_program_change_mh.invokeExact(
           synth, channel, program);
     } catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
     }
   }
 
@@ -392,6 +379,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
       int _dummy =
           (int)fluid_synth_pitch_bend_mh.invokeExact(synth, channel, val);
     } catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
     }
   }
 
@@ -406,6 +394,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
           synth, dataSeg, data.length, MemorySegment.NULL, MemorySegment.NULL,
           MemorySegment.NULL, 0);
     } catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
     }
   }
 
@@ -425,6 +414,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
           sendMessage(new byte[] {(byte)(0x80 | ch), (byte)note, 0});
         }
       } catch (Exception ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
       }
     }
   }
@@ -451,6 +441,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
         settings = MemorySegment.NULL;
       }
     } catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
       err.println("Error closing FluidSynth via FFM: " + t.getMessage());
     } finally {
       if (arena != null && arena.scope().isAlive()) {

@@ -34,9 +34,8 @@ import java.util.List;
  * details; the same rules apply here.
  */
 @SuppressWarnings({"EmptyCatch", "UnusedVariable"})
-public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
+public class FFMAdlMidiNativeBridge extends AbstractFFMBridge implements AdlMidiNativeBridge
 {
-    private final Arena arena;
     private MemorySegment device = MemorySegment.NULL;
 
     /**
@@ -104,91 +103,77 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
 
     public FFMAdlMidiNativeBridge() throws Exception
     {
-        this.arena = Arena.ofShared();
+        this(Arena.ofShared());
+    }
 
-        SymbolLookup lib = findAdlMidiSymbols();
-        Linker linker = Linker.nativeLinker();
+    private FFMAdlMidiNativeBridge(Arena arena) throws Exception
+    {
+        super(arena, tryLoadLibrary(arena, "adlmidi", "libADLMIDI.dylib", "libADLMIDI.so", "libADLMIDI.dll"));
 
         // ADL_MIDIPlayer* adl_init(long sample_rate)
-        adl_init = linker.downcallHandle(lib.find("adl_init").orElseThrow(),
+        adl_init = downcall("adl_init", 
             FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
 
         // void adl_close(struct ADL_MIDIPlayer *device)
-        adl_close = linker.downcallHandle(
-            lib.find("adl_close").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        adl_close = downcall("adl_close", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
 
         // int adl_setBank(struct ADL_MIDIPlayer *device, int bank)
-        adl_setBank = linker.downcallHandle(lib.find("adl_setBank").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+        adl_setBank = downcall("adl_setBank", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
         // int adl_openBankFile(struct ADL_MIDIPlayer *device, const char *filePath)
-        adl_openBankFile = linker.downcallHandle(lib.find("adl_openBankFile").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        adl_openBankFile = downcall("adl_openBankFile", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 
         // int adl_setNumChips(struct ADL_MIDIPlayer *device, int numChips)
-        adl_setNumChips = linker.downcallHandle(lib.find("adl_setNumChips").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+        adl_setNumChips = downcall("adl_setNumChips", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
         // int adl_switchEmulator(struct ADL_MIDIPlayer *device, int emulatorId)
-        adl_switchEmulator = linker.downcallHandle(lib.find("adl_switchEmulator").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+        adl_switchEmulator = downcall("adl_switchEmulator", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
         // void adl_reset(struct ADL_MIDIPlayer *device)
-        adl_reset = linker.downcallHandle(
-            lib.find("adl_reset").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        adl_reset = downcall("adl_reset", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
 
         // void adl_panic(struct ADL_MIDIPlayer *device)
-        adl_panic = linker.downcallHandle(
-            lib.find("adl_panic").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        adl_panic = downcall("adl_panic", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
 
         // int adl_generate(struct ADL_MIDIPlayer *device, int numSamples, short *out)
-        adl_generate = linker.downcallHandle(lib.find("adl_generate").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
+        adl_generate = downcall("adl_generate", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
                 ValueLayout.ADDRESS));
 
         // int adl_rt_noteOn(struct ADL_MIDIPlayer *device, ADL_UInt8 channel, ADL_UInt8 note,
         // ADL_UInt8 velocity)
-        adl_rt_noteOn = linker.downcallHandle(lib.find("adl_rt_noteOn").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
+        adl_rt_noteOn = downcall("adl_rt_noteOn", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
                 ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE));
 
         // void adl_rt_noteOff(struct ADL_MIDIPlayer *device, ADL_UInt8 channel, ADL_UInt8 note)
-        adl_rt_noteOff = linker.downcallHandle(lib.find("adl_rt_noteOff").orElseThrow(),
-            FunctionDescriptor.ofVoid(
+        adl_rt_noteOff = downcall("adl_rt_noteOff", FunctionDescriptor.ofVoid(
                 ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE));
 
         // void adl_rt_controllerChange(struct ADL_MIDIPlayer *device, ADL_UInt8 channel, ADL_UInt8
         // type, ADL_UInt8 value)
         adl_rt_controllerChange =
-            linker.downcallHandle(lib.find("adl_rt_controllerChange").orElseThrow(),
-                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
+            downcall("adl_rt_controllerChange", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
                     ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE));
 
         // void adl_rt_patchChange(struct ADL_MIDIPlayer *device, ADL_UInt8 channel, ADL_UInt8
         // patch)
-        adl_rt_patchChange = linker.downcallHandle(lib.find("adl_rt_patchChange").orElseThrow(),
-            FunctionDescriptor.ofVoid(
+        adl_rt_patchChange = downcall("adl_rt_patchChange", FunctionDescriptor.ofVoid(
                 ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE));
 
         // void adl_rt_pitchBend(struct ADL_MIDIPlayer *device, ADL_UInt8 channel, ADL_SInt16 pitch)
-        adl_rt_pitchBend = linker.downcallHandle(lib.find("adl_rt_pitchBend").orElseThrow(),
-            FunctionDescriptor.ofVoid(
+        adl_rt_pitchBend = downcall("adl_rt_pitchBend", FunctionDescriptor.ofVoid(
                 ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE, ValueLayout.JAVA_SHORT));
 
         // int adl_rt_systemExclusive(struct ADL_MIDIPlayer *device, const ADL_UInt8 *msg, size_t
         // size)
         adl_rt_systemExclusive =
-            linker.downcallHandle(lib.find("adl_rt_systemExclusive").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+            downcall("adl_rt_systemExclusive", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                     ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
 
         // int adl_getBanksCount()
-        adl_getBanksCount = linker.downcallHandle(lib.find("adl_getBanksCount").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT));
+        adl_getBanksCount = downcall("adl_getBanksCount", FunctionDescriptor.of(ValueLayout.JAVA_INT));
 
         // const char* adl_errorInfo(struct ADL_MIDIPlayer *device)
-        adl_errorInfo = linker.downcallHandle(lib.find("adl_errorInfo").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        adl_errorInfo = downcall("adl_errorInfo", FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
     }
 
     /**
@@ -196,57 +181,7 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
      * {@code loaderLookup()} finds those symbols directly without any dlopen.
      * In JVM mode, we fall back to loading the shared library from disk.
      */
-    private SymbolLookup findAdlMidiSymbols()
-    {
-        if (SymbolLookup.loaderLookup().find("adl_init").isPresent())
-        {
-            return SymbolLookup.loaderLookup();
-        }
-        return tryLoadSharedLibrary(arena, "libADLMIDI.dylib", "libADLMIDI.so");
-    }
 
-    private SymbolLookup tryLoadSharedLibrary(Arena arena, String... paths)
-    {
-        List<String> failedPaths = new ArrayList<>();
-        String projectRoot = new File("").getAbsolutePath();
-        String devPathMac = projectRoot + "/src/main/c/adlmidi/libADLMIDI.dylib";
-        String devPathLinux = projectRoot + "/src/main/c/adlmidi/libADLMIDI.so";
-
-        String[] allPaths = new String[paths.length + 2];
-        System.arraycopy(paths, 0, allPaths, 0, paths.length);
-        allPaths[paths.length] = devPathMac;
-        allPaths[paths.length + 1] = devPathLinux;
-
-        for (String path : allPaths)
-        {
-            try
-            {
-                if (path.startsWith("/"))
-                {
-                    File f = new File(path);
-                    if (f.exists())
-                    {
-                        return SymbolLookup.libraryLookup(f.toPath(), arena);
-                    }
-                    else
-                    {
-                        failedPaths.add(path + " (not found)");
-                    }
-                }
-                else
-                {
-                    return SymbolLookup.libraryLookup(path, arena);
-                }
-            }
-            catch (IllegalArgumentException e)
-            {
-                failedPaths.add(path);
-            }
-        }
-        throw new IllegalArgumentException(
-            "Cannot open libADLMIDI. Build it first with: ./scripts/build-native-libs.sh\n"
-            + "Searched paths: " + String.join(", ", failedPaths));
-    }
 
     @Override public void init(int sampleRate) throws Exception
     {
@@ -259,8 +194,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
                     "adl_init returned NULL (out of memory or invalid sample rate)");
             }
         }
-        catch (Throwable t)
-        {
+        catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
             throw new Exception("Error initializing libADLMIDI", t);
         }
     }
@@ -273,8 +208,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
         {
             int ignored = (int) adl_setBank.invokeExact(device, bankNumber);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -291,12 +226,12 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
                 throw new Exception("adl_openBankFile failed (rc=" + rc + "): " + path);
             }
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
+            System.err.println("[NativeBridge Error] " + e.getMessage());
             throw e;
         }
-        catch (Throwable t)
-        {
+        catch (Throwable t) {
+            System.err.println("[NativeBridge Error] " + t.getMessage());
             throw new Exception("Error loading WOPL bank file: " + path, t);
         }
     }
@@ -309,8 +244,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
         {
             int ignored = (int) adl_setNumChips.invokeExact(device, numChips);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -322,8 +257,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
         {
             int ignored = (int) adl_switchEmulator.invokeExact(device, emulatorId);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -335,8 +270,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
         {
             adl_reset.invokeExact(device);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -348,8 +283,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
         {
             adl_panic.invokeExact(device);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -362,8 +297,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
             int ignored = (int) adl_rt_noteOn.invokeExact(
                 device, (byte) channel, (byte) note, (byte) velocity);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -375,8 +310,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
         {
             adl_rt_noteOff.invokeExact(device, (byte) channel, (byte) note);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -388,8 +323,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
         {
             adl_rt_controllerChange.invokeExact(device, (byte) channel, (byte) type, (byte) value);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -401,8 +336,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
         {
             adl_rt_patchChange.invokeExact(device, (byte) channel, (byte) patch);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -415,8 +350,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
         {
             adl_rt_pitchBend.invokeExact(device, (byte) channel, (short) pitch);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -429,8 +364,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
             MemorySegment seg = temp.allocateFrom(ValueLayout.JAVA_BYTE, data);
             int ignored = (int) adl_rt_systemExclusive.invokeExact(device, seg, (long) data.length);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -451,8 +386,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
                 renderBuffer = arena.allocate(requiredBytes);
                 currentRenderBufferSize = requiredBytes;
             }
-            catch (Throwable ignored)
-            {
+            catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
                 return;
             }
         }
@@ -465,8 +400,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
             int ignored = (int) adl_generate.invokeExact(device, buffer.length, renderBuffer);
             MemorySegment.copy(renderBuffer, ValueLayout.JAVA_SHORT, 0, buffer, 0, buffer.length);
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
         }
     }
 
@@ -476,8 +411,8 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
         {
             return (int) adl_getBanksCount.invokeExact();
         }
-        catch (Throwable ignored)
-        {
+        catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
             return 0;
         }
     }
@@ -490,14 +425,12 @@ public class FFMAdlMidiNativeBridge implements AdlMidiNativeBridge
             {
                 adl_close.invokeExact(device);
             }
-            catch (Throwable ignored)
-            {
+            catch (Throwable ignored) {
+            System.err.println("[NativeBridge Error] " + ignored.getMessage());
             }
             device = MemorySegment.NULL;
         }
-        if (arena.scope().isAlive())
-        {
-            arena.close();
-        }
+        try { super.close(); } catch(Exception e) {
+            System.err.println("[NativeBridge Error] " + e.getMessage());}
     }
 }
