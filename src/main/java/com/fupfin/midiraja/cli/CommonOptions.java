@@ -54,6 +54,13 @@ public class CommonOptions
                       + "like F0...F7).")
     public Optional<String> resetType = Optional.empty();
 
+    
+    @Option(names = {"--1bit"}, description = "1-Bit acoustic modulation strategy ('pwm' or 'dsd'). If omitted, outputs standard 16-bit PCM.")
+    public Optional<String> oneBitMode = Optional.empty();
+
+    @Option(names = {"--8bit"}, description = "8-Bit DAC quantization strategy. Simulates the sound of early Macintosh and Amiga sound chips.")
+    public boolean eightBitMode;
+
     @ArgGroup(exclusive = true, multiplicity = "0..1")
     public UiModeOptions uiOptions = new UiModeOptions();
 }

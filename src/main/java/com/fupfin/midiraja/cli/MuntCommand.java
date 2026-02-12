@@ -47,6 +47,12 @@ public class MuntCommand implements Callable<Integer>
         var audio = new com.fupfin.midiraja.midi.NativeAudioEngine(audioLib);
         audio.init(32000, 2, 4096);
         com.fupfin.midiraja.dsp.AudioProcessor pipeline = new com.fupfin.midiraja.dsp.FloatToShortSink(audio);
+        if (common != null && common.oneBitMode.isPresent()) {
+            pipeline = new com.fupfin.midiraja.dsp.OneBitAcousticSimulatorFilter(true, common.oneBitMode.get(), pipeline);
+        }
+        if (common != null && common.eightBitMode) {
+            pipeline = new com.fupfin.midiraja.dsp.EightBitQuantizerFilter(true, pipeline);
+        }
         var bridge = new com.fupfin.midiraja.midi.FFMMuntNativeBridge();
         var provider = new com.fupfin.midiraja.midi.MuntSynthProvider(bridge, pipeline);
 

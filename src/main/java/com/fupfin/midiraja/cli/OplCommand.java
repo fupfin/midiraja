@@ -84,6 +84,12 @@ public class OplCommand implements Callable<Integer>
         audio.init(44100, 2, 4096);
         
         com.fupfin.midiraja.dsp.AudioProcessor pipeline = new com.fupfin.midiraja.dsp.FloatToShortSink(audio);
+        if (common != null && common.oneBitMode.isPresent()) {
+            pipeline = new com.fupfin.midiraja.dsp.OneBitAcousticSimulatorFilter(true, common.oneBitMode.get(), pipeline);
+        }
+        if (common != null && common.eightBitMode) {
+            pipeline = new com.fupfin.midiraja.dsp.EightBitQuantizerFilter(true, pipeline);
+        }
         
         if (eqBass != 50 || eqMid != 50 || eqTreble != 50 || lpfFreq.isPresent() || hpfFreq.isPresent()) {
             var eq = new com.fupfin.midiraja.dsp.EqFilter(pipeline);
@@ -110,17 +116,17 @@ public class OplCommand implements Callable<Integer>
             }
         }
         
-        if (eqBass != 50 || eqMid != 50 || eqTreble != 50 || tubeDrive.isPresent() || chorus.isPresent() || reverb.isPresent() || fmOptions.oneBitMode != null) {
-            if (fmOptions.oneBitMode != null) {
+        if (eqBass != 50 || eqMid != 50 || eqTreble != 50 || tubeDrive.isPresent() || chorus.isPresent() || reverb.isPresent() || common.oneBitMode.isPresent()) {
+            if (common != null && common.oneBitMode.isPresent()) {
                 pipeline = new com.fupfin.midiraja.dsp.LegacyProcessorSink(pipeline, 
-                    java.util.List.of(new com.fupfin.midiraja.dsp.OneBitAcousticSimulator(44100, fmOptions.oneBitMode)));
+                    java.util.List.of(new com.fupfin.midiraja.dsp.OneBitAcousticSimulator(44100, common.oneBitMode.orElse("pwm"))));
             }
             pipeline = new com.fupfin.midiraja.dsp.ShortToFloatFilter(pipeline);
         }
         
         var bridge = new com.fupfin.midiraja.midi.FFMAdlMidiNativeBridge();
         var provider = new com.fupfin.midiraja.midi.AdlMidiSynthProvider(
-            bridge, pipeline, emulator, fmOptions.chips, fmOptions.oneBitMode);
+            bridge, pipeline, emulator, fmOptions.chips, common.oneBitMode.orElse("pwm"));
 
         // Resolve bank argument: "" → "bank:0", "14" → "bank:14", path → path
         String soundbankArg =

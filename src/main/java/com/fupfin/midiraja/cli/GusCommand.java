@@ -33,9 +33,6 @@ public class GusCommand implements Callable<Integer> {
   @Option(names = {"-p", "--patch-dir"}, description = "Directory containing GUS .pat files and gus.cfg (or timidity.cfg)")
   private Optional<File> patchDir = Optional.empty();
 
-  @Option(names = {"--1bit"}, description = "1-Bit acoustic modulation strategy (\"pwm\" or \"dsd\"). If omitted, outputs standard 16-bit PCM.")
-  private @org.jspecify.annotations.Nullable String oneBitMode;
-  
   @Option(names = {"--realsound"}, description = "Authentic 1980s PC Speaker macro (Automatically applies --1bit pwm).")
   private boolean realSound = false;
 
@@ -79,6 +76,12 @@ public class GusCommand implements Callable<Integer> {
     audio.init(44100, 2, 4096);
     
     com.fupfin.midiraja.dsp.AudioProcessor pipeline = new com.fupfin.midiraja.dsp.FloatToShortSink(audio);
+        if (common != null && common.oneBitMode.isPresent()) {
+            pipeline = new com.fupfin.midiraja.dsp.OneBitAcousticSimulatorFilter(true, common.oneBitMode.get(), pipeline);
+        }
+        if (common != null && common.eightBitMode) {
+            pipeline = new com.fupfin.midiraja.dsp.EightBitQuantizerFilter(true, pipeline);
+        }
     
     if (eqBass != 50 || eqMid != 50 || eqTreble != 50 || lpfFreq.isPresent() || hpfFreq.isPresent()) {
         var eq = new com.fupfin.midiraja.dsp.EqFilter(pipeline);
@@ -111,7 +114,7 @@ public class GusCommand implements Callable<Integer> {
     
     String dirPath = patchDir.map(File::getAbsolutePath).orElse(null);
 
-    String finalOneBit = realSound ? "pwm" : oneBitMode; 
+    String finalOneBit = realSound ? "pwm" : (common != null && common.oneBitMode.isPresent() ? common.oneBitMode.get() : "pwm"); 
     var provider = new GusSynthProvider(pipeline, dirPath, finalOneBit);
 
     var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(),
