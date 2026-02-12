@@ -61,6 +61,9 @@ public class CommonOptions
     @Option(names = {"--8bit"}, description = "8-Bit DAC quantization strategy. Simulates the sound of early Macintosh and Amiga sound chips.")
     public boolean eightBitMode;
 
+        @Option(names = {"--mac128k"}, description = "Macintosh 128k audio simulation. Zero-order holds audio to 22.25kHz, applies 8-bit quantization, and simulates the internal speaker acoustics.")
+    public boolean mac128kMode;
+
     @ArgGroup(exclusive = true, multiplicity = "0..1")
     public UiModeOptions uiOptions = new UiModeOptions();
 }

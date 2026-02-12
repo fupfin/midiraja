@@ -87,6 +87,9 @@ public class OplCommand implements Callable<Integer>
         if (common != null && common.oneBitMode.isPresent()) {
             pipeline = new com.fupfin.midiraja.dsp.OneBitAcousticSimulatorFilter(true, common.oneBitMode.get(), pipeline);
         }
+        if (common != null && common.mac128kMode) {
+            pipeline = new com.fupfin.midiraja.dsp.Mac128kSimulatorFilter(true, pipeline);
+        }
         if (common != null && common.eightBitMode) {
             pipeline = new com.fupfin.midiraja.dsp.EightBitQuantizerFilter(true, pipeline);
         }
