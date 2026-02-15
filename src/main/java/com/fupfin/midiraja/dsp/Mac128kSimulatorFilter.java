@@ -8,31 +8,42 @@ package com.fupfin.midiraja.dsp;
  * flyback frequency: exactly 22.25 kHz.
  * 
  * This filter performs:
- * 1. Resampling to 22.25 kHz with linear interpolation.
- * 2. 8-bit quantization of the signal at that rate.
- * 3. Outputting to the audio line out without an internal speaker EQ.
+ * 1. Event-Driven Analytical Integration of the 1-bit PWM pulse train.
+ * 2. Simulates the physical RC filter charging and discharging at sub-microsecond precision.
+ * 3. Eliminates ZOH aliasing (the "siren" tone) mathematically without oversampling.
  */
 public class Mac128kSimulatorFilter implements AudioProcessor {
-private final boolean enabled;
+    private final boolean enabled;
     private final AudioProcessor next;
 
-    private boolean holdNext = false;
-    private float heldL = 0;
-    private float heldR = 0;
+    // Timing constants
+    private final double outputSampleTimeUs = 1000000.0 / 44100.0; // ~22.6757 us per 44.1k sample
+    private final double macSampleTimeUs = 1000000.0 / 22254.5;    // ~44.9347 us per Mac sample
+    
+    // RC Filter time constant (Tau)
+    // Cutoff frequency Fc = 1 / (2 * PI * Tau)
+    // If we want Fc = 7000 Hz, Tau = 1 / (2 * PI * 7000) = 22.7 us
+    private final double tauUs = 22.7; 
 
-    // Analog Line-Out circuitry simulation
-    // We use a 2-pole Butterworth low-pass filter at ~8kHz.
-    // This represents the combined roll-off of the Mac's RC filter and the cheap internal speaker.
-    // It keeps the 8-bit staircase crunch at lower frequencies but kills the 21kHz "siren" ZOH aliasing.
-    private float x1L = 0, x2L = 0, y1L = 0, y2L = 0;
-    private float x1R = 0, x2R = 0, y1R = 0, y2R = 0;
-
-    // 2-pole LPF coefficients (Fc=8000Hz, Fs=44100Hz)
-    private static final float b0 = 0.20657f;
-    private static final float b1 = 0.41314f;
-    private static final float b2 = 0.20657f;
-    private static final float a1 = -0.36953f;
-    private static final float a2 = 0.19582f;
+    // Simulation state
+    private double currentTimeUs = 0.0;
+    private double nextMacSampleTimeUs = 0.0;
+    
+    // Analog filter state (voltage across capacitor)
+    private double xL = 0.0;
+    private double xR = 0.0;
+    
+    // Current Duty Cycle state (0.0 to 1.0)
+    private double dutyL = 0.5;
+    private double dutyR = 0.5;
+    
+    // Are we currently in the "HIGH" (1) or "LOW" (-1) part of the PWM pulse?
+    private boolean isHighL = false;
+    private boolean isHighR = false;
+    
+    // When does the PWM transition happen for the CURRENT Mac sample?
+    private double transitionTimeLUs = 0.0;
+    private double transitionTimeRUs = 0.0;
 
     public Mac128kSimulatorFilter(boolean enabled, AudioProcessor next) {
         this.enabled = enabled;
@@ -47,37 +58,82 @@ private final boolean enabled;
         }
 
         for (int i = 0; i < frames; i++) {
-            if (!holdNext) {
-                // 1. CPU fetches an 8-bit sample exactly at ~22.05kHz
-                // Map to -1.0 to 1.0 range
-                heldL = ((int) (left[i] * 127.0f)) / 127.0f; 
-                heldR = ((int) (right[i] * 127.0f)) / 127.0f;
+            double targetOutputTimeUs = currentTimeUs + outputSampleTimeUs;
+            
+            // Advance physical simulation until we reach the target output time
+            while (currentTimeUs < targetOutputTimeUs) {
                 
-                holdNext = true;
-            } else {
-                // ZOH: Repeat the exact same value for the second frame (22.05kHz hold)
-                holdNext = false;
+                // 1. Is it time for a new Mac sample?
+                if (currentTimeUs >= nextMacSampleTimeUs) {
+                    // Fetch new 8-bit sample from input buffer
+                    // Map -1.0..1.0 to 0.0..1.0 duty cycle (int 0..255)
+                    int intL = (int) (left[i] * 127.0f);
+                    int intR = (int) (right[i] * 127.0f);
+                    
+                    dutyL = (intL + 128) / 255.0; 
+                    dutyR = (intR + 128) / 255.0;
+                    
+                    // PWM cycle starts HIGH
+                    isHighL = true;
+                    isHighR = true;
+                    
+                    // Calculate when the pulse drops LOW within this Mac cycle
+                    transitionTimeLUs = nextMacSampleTimeUs + (dutyL * macSampleTimeUs);
+                    transitionTimeRUs = nextMacSampleTimeUs + (dutyR * macSampleTimeUs);
+                    
+                    nextMacSampleTimeUs += macSampleTimeUs;
+                }
+                
+                // 2. Find the next physical event that will happen FIRST
+                // It could be: Target Output time, L transition, R transition, or Next Mac Sample
+                double nextEventUs = targetOutputTimeUs;
+                if (nextEventUs > nextMacSampleTimeUs) {
+                    nextEventUs = nextMacSampleTimeUs;
+                }
+                
+                if (isHighL && nextEventUs > transitionTimeLUs) {
+                    nextEventUs = transitionTimeLUs;
+                }
+                if (isHighR && nextEventUs > transitionTimeRUs) {
+                    nextEventUs = transitionTimeRUs;
+                }
+                
+                // 3. Evolve the analog RC circuit analytically to the next event
+                double deltaT = nextEventUs - currentTimeUs;
+                if (deltaT > 0) {
+                    double expDecay = Math.exp(-deltaT / tauUs);
+                    
+                    // Input voltage: +1.0 for High, -1.0 for Low
+                    double uL = isHighL ? 1.0 : -1.0;
+                    double uR = isHighR ? 1.0 : -1.0;
+                    
+                    // Analytical solution: x(t2) = u + (x(t1) - u) * exp(-dt/Tau)
+                    xL = uL + (xL - uL) * expDecay;
+                    xR = uR + (xR - uR) * expDecay;
+                    
+                    currentTimeUs = nextEventUs;
+                }
+                
+                // 4. If we hit a transition point, apply the state change
+                if (isHighL && currentTimeUs >= transitionTimeLUs) {
+                    isHighL = false;
+                }
+                if (isHighR && currentTimeUs >= transitionTimeRUs) {
+                    isHighR = false;
+                }
             }
             
-            // 2. Analog Reconstruction Filter (8kHz 2-pole LPF)
-            // This is crucial. Without it, the 22kHz ZOH creates a loud 21kHz "siren" mirror frequency.
-            // The original Mac hardware didn't output 44.1kHz discrete steps to a modern hi-fi DAC; 
-            // it went through an analog RC circuit and a very limited physical speaker.
-            float outL = b0 * heldL + b1 * x1L + b2 * x2L - a1 * y1L - a2 * y2L;
-            float outR = b0 * heldR + b1 * x1R + b2 * x2R - a1 * y1R - a2 * y2R;
-            
-            x2L = x1L; x1L = heldL;
-            y2L = y1L; y1L = outL;
-            
-            x2R = x1R; x1R = heldR;
-            y2R = y1R; y1R = outR;
-            
-            // Prevent denormalization
-            if (Math.abs(y1L) < 1e-6f) y1L = 0;
-            if (Math.abs(y1R) < 1e-6f) y1R = 0;
-
-            left[i] = outL;
-            right[i] = outR;
+            // Output the continuous analog voltage sampled at this 44.1kHz point
+            left[i] = (float) xL;
+            right[i] = (float) xR;
+        }
+        
+        // Prevent currentTimeUs from growing to infinity and losing float precision
+        if (currentTimeUs > 1000000.0) {
+            currentTimeUs -= 1000000.0;
+            nextMacSampleTimeUs -= 1000000.0;
+            transitionTimeLUs -= 1000000.0;
+            transitionTimeRUs -= 1000000.0;
         }
         
         next.process(left, right, frames);
@@ -91,8 +147,11 @@ private final boolean enabled;
     @Override
     public void reset() {
         next.reset();
-        holdNext = false;
-        heldL = 0;
-        heldR = 0;
+        currentTimeUs = 0.0;
+        nextMacSampleTimeUs = 0.0;
+        xL = 0.0;
+        xR = 0.0;
+        isHighL = false;
+        isHighR = false;
     }
 }
