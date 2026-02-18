@@ -92,7 +92,7 @@ class RetroFiltersTest {
 
     @Test
     void testAcousticSpeakerProfile() {
-        AcousticSpeakerFilter filter = new AcousticSpeakerFilter(true, AcousticSpeakerFilter.Profile.VINTAGE_PC, mock);
+        AcousticSpeakerFilter filter = new AcousticSpeakerFilter(true, AcousticSpeakerFilter.Profile.TIN_CAN, mock);
         
         // 10Hz sine wave (subsonic, should be killed by 400Hz HPF)
         float[] left = new float[1000];

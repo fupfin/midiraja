@@ -7,8 +7,8 @@ package com.fupfin.midiraja.dsp;
 public class AcousticSpeakerFilter implements AudioProcessor {
     public enum Profile {
         NONE,
-        VINTAGE_PC,
-        MAC_INTERNAL
+        TIN_CAN,
+        WARM_RADIO
     }
 
     private final boolean enabled;
@@ -28,14 +28,14 @@ public class AcousticSpeakerFilter implements AudioProcessor {
 
     private void setupFilters() {
         float fs = 44100.0f;
-        if (profile == Profile.VINTAGE_PC) {
+        if (profile == Profile.TIN_CAN) {
             hpfL.setHighPass(fs, 400.0f, 0.707f);
             hpfR.setHighPass(fs, 400.0f, 0.707f);
             lpfL.setLowPass(fs, 6000.0f, 0.707f);
             lpfR.setLowPass(fs, 6000.0f, 0.707f);
             peakL.setPeaking(fs, 2500.0f, 2.0f, 12.0f);
             peakR.setPeaking(fs, 2500.0f, 2.0f, 12.0f);
-        } else if (profile == Profile.MAC_INTERNAL) {
+        } else if (profile == Profile.WARM_RADIO) {
             // Macintosh 128k speaker inertia (~12kHz soft roll-off)
             lpfL.setLowPass(fs, 12000.0f, 0.5f);
             lpfR.setLowPass(fs, 12000.0f, 0.5f);
@@ -50,10 +50,10 @@ public class AcousticSpeakerFilter implements AudioProcessor {
         }
         for (int i = 0; i < frames; i++) {
             float l = left[i], r = right[i];
-            if (profile == Profile.VINTAGE_PC) {
+            if (profile == Profile.TIN_CAN) {
                 l = lpfL.process(hpfL.process(peakL.process(l)));
                 r = lpfR.process(hpfR.process(peakR.process(r)));
-            } else if (profile == Profile.MAC_INTERNAL) {
+            } else if (profile == Profile.WARM_RADIO) {
                 l = lpfL.process(l);
                 r = lpfR.process(r);
             }
@@ -72,15 +72,15 @@ public class AcousticSpeakerFilter implements AudioProcessor {
         for (int i = 0; i < frames; i++) {
             int lIdx = i * channels;
             float l = interleavedPcm[lIdx] / 32768.0f;
-            if (profile == Profile.VINTAGE_PC) l = lpfL.process(hpfL.process(peakL.process(l)));
-            else if (profile == Profile.MAC_INTERNAL) l = lpfL.process(l);
+            if (profile == Profile.TIN_CAN) l = lpfL.process(hpfL.process(peakL.process(l)));
+            else if (profile == Profile.WARM_RADIO) l = lpfL.process(l);
             interleavedPcm[lIdx] = (short) (l * 32767.0f);
 
             if (channels > 1) {
                 int rIdx = lIdx + 1;
                 float r = interleavedPcm[rIdx] / 32768.0f;
-                if (profile == Profile.VINTAGE_PC) r = lpfR.process(hpfR.process(peakR.process(r)));
-                else if (profile == Profile.MAC_INTERNAL) r = lpfR.process(r);
+                if (profile == Profile.TIN_CAN) r = lpfR.process(hpfR.process(peakR.process(r)));
+                else if (profile == Profile.WARM_RADIO) r = lpfR.process(r);
                 interleavedPcm[rIdx] = (short) (r * 32767.0f);
             }
         }
