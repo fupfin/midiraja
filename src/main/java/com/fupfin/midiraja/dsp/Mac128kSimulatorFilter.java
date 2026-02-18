@@ -1,26 +1,23 @@
 package com.fupfin.midiraja.dsp;
 
 /**
- * Simulates the unique audio hardware of the original Macintosh 128k (1984).
- * The Mac used a custom Sony sound chip (or SWIM later) but initially relied on 
- * the 68000 CPU stuffing 8-bit values into a PWM generator built from two 74LS161
- * 4-bit counters. The sample rate was strictly tied to the horizontal video 
- * flyback frequency: exactly 22.25 kHz.
+ * Approximates the original compact Macintosh PWM-based mono audio path.
  * 
- * This filter performs:
- * 1. Event-Driven Analytical Integration of the 1-bit PWM pulse train.
- * 2. Simulates the physical RC filter charging and discharging at sub-microsecond precision.
- * 3. Eliminates ZOH aliasing (the "siren" tone) mathematically without oversampling.
+ * Model:
+ * - 8-bit sample updates at ~22.2545 kHz
+ * - 1-bit PWM pulse generation
+ * - analytical 1-pole RC integration
+ * - optional additional speaker smoothing
  */
 public class Mac128kSimulatorFilter implements AudioProcessor {
-private final boolean enabled;
+    private final boolean enabled;
     private final AudioProcessor next;
 
     // Timing constants
     private final double outputSampleTimeUs = 1000000.0 / 44100.0;
     private final double macSampleTimeUs = 1000000.0 / 22254.5;
     
-    // RC Filter time constant (Tau)
+    // RC Filter time constant (Tau) for approx 7kHz physical roll-off
     private final double tauUs = 22.7; 
 
     // Simulation state
@@ -39,11 +36,13 @@ private final boolean enabled;
     private double transitionTimeLUs = 0.0;
     private double transitionTimeRUs = 0.0;
     
-    // Physical speaker cone inertia (Additional gentle LPF to kill the 21.8kHz whine)
-    // alpha = 0.5 acts as a 7kHz LPF
     private float speakerL = 0.0f;
     private float speakerR = 0.0f;
-    private final float speakerAlpha = 0.15f; // Lower = more muffled, kills the whine better
+    
+    // Calculate alpha for ~12kHz cutoff to gently tame the carrier without muffling the sound too much
+    // fc = -ln(1-alpha) * fs / 2PI => alpha = 1 - exp(-2PI * fc / fs)
+    // alpha for 12kHz @ 44.1k is approx 0.81
+    private final float speakerAlpha = 0.8f; 
 
     public Mac128kSimulatorFilter(boolean enabled, AudioProcessor next) {
         this.enabled = enabled;
@@ -53,20 +52,25 @@ private final boolean enabled;
     @Override
     public void process(float[] left, float[] right, int frames) {
         if (!enabled) {
-    
+            next.process(left, right, frames);
             return;
         }
+
+        // Pull architecture: fill buffers from upstream source first
+        next.process(left, right, frames);
 
         for (int i = 0; i < frames; i++) {
             double targetOutputTimeUs = currentTimeUs + outputSampleTimeUs;
             
             while (currentTimeUs < targetOutputTimeUs) {
                 if (currentTimeUs >= nextMacSampleTimeUs) {
-                    int intL = (int) (left[i] * 127.0f);
-                    int intR = (int) (right[i] * 127.0f);
+                    // Nearest-neighbor resampling to Mac clock. 
+                    // Map -1.0..1.0 cleanly to 0..255 with proper rounding.
+                    int u8L = Math.max(0, Math.min(255, Math.round((left[i] * 0.5f + 0.5f) * 255.0f)));
+                    int u8R = Math.max(0, Math.min(255, Math.round((right[i] * 0.5f + 0.5f) * 255.0f)));
                     
-                    dutyL = (intL + 128) / 255.0; 
-                    dutyR = (intR + 128) / 255.0;
+                    dutyL = u8L / 255.0; 
+                    dutyR = u8R / 255.0;
                     
                     isHighL = true;
                     isHighR = true;
@@ -83,7 +87,7 @@ private final boolean enabled;
                 if (isHighR && nextEventUs > transitionTimeRUs) nextEventUs = transitionTimeRUs;
                 
                 double deltaT = nextEventUs - currentTimeUs;
-                if (deltaT > 0) {
+                if (deltaT > 1e-9) { // Epsilon safety check
                     double expDecay = Math.exp(-deltaT / tauUs);
                     
                     double uL = isHighL ? 1.0 : -1.0;
@@ -93,38 +97,113 @@ private final boolean enabled;
                     xR = uR + (xR - uR) * expDecay;
                     
                     currentTimeUs = nextEventUs;
+                } else {
+                    currentTimeUs = nextEventUs;
                 }
                 
                 if (isHighL && currentTimeUs >= transitionTimeLUs) isHighL = false;
                 if (isHighR && currentTimeUs >= transitionTimeRUs) isHighR = false;
             }
             
-            // Apply speaker inertia (gentle 1-pole LPF) to suppress the 22kHz carrier whine
+            // Apply gentle speaker inertia
             speakerL += speakerAlpha * ((float) xL - speakerL);
             speakerR += speakerAlpha * ((float) xR - speakerR);
             
-            // Prevent denormalization
             if (Math.abs(speakerL) < 1e-10f) speakerL = 0;
             if (Math.abs(speakerR) < 1e-10f) speakerR = 0;
 
+            // Output the simulated analog voltage
             left[i] = speakerL;
             right[i] = speakerR;
         }
-        next.process(left, right, frames);
         
-        if (currentTimeUs > 1000000.0) {
+        // Prevent currentTimeUs from growing to infinity and losing float precision
+        while (currentTimeUs > 1000000.0) {
             currentTimeUs -= 1000000.0;
             nextMacSampleTimeUs -= 1000000.0;
             transitionTimeLUs -= 1000000.0;
             transitionTimeRUs -= 1000000.0;
         }
-        
-
     }
     
     @Override
     public void processInterleaved(short[] interleavedPcm, int frames, int channels) {
+        if (!enabled) {
+            next.processInterleaved(interleavedPcm, frames, channels);
+            return;
+        }
+        
+        // Pull architecture
+        next.processInterleaved(interleavedPcm, frames, channels);
+        
+        for (int i = 0; i < frames; i++) {
+            int leftIdx = i * channels;
+            int rightIdx = channels > 1 ? leftIdx + 1 : leftIdx;
+            
+            float inL = interleavedPcm[leftIdx] / 32768.0f;
+            float inR = interleavedPcm[rightIdx] / 32768.0f;
+            
+            double targetOutputTimeUs = currentTimeUs + outputSampleTimeUs;
+            
+            while (currentTimeUs < targetOutputTimeUs) {
+                if (currentTimeUs >= nextMacSampleTimeUs) {
+                    int u8L = Math.max(0, Math.min(255, Math.round((inL * 0.5f + 0.5f) * 255.0f)));
+                    int u8R = Math.max(0, Math.min(255, Math.round((inR * 0.5f + 0.5f) * 255.0f)));
+                    
+                    dutyL = u8L / 255.0; 
+                    dutyR = u8R / 255.0;
+                    
+                    isHighL = true;
+                    isHighR = true;
+                    
+                    transitionTimeLUs = nextMacSampleTimeUs + (dutyL * macSampleTimeUs);
+                    transitionTimeRUs = nextMacSampleTimeUs + (dutyR * macSampleTimeUs);
+                    
+                    nextMacSampleTimeUs += macSampleTimeUs;
+                }
+                
+                double nextEventUs = targetOutputTimeUs;
+                if (nextEventUs > nextMacSampleTimeUs) nextEventUs = nextMacSampleTimeUs;
+                if (isHighL && nextEventUs > transitionTimeLUs) nextEventUs = transitionTimeLUs;
+                if (isHighR && nextEventUs > transitionTimeRUs) nextEventUs = transitionTimeRUs;
+                
+                double deltaT = nextEventUs - currentTimeUs;
+                if (deltaT > 1e-9) {
+                    double expDecay = Math.exp(-deltaT / tauUs);
+                    
+                    double uL = isHighL ? 1.0 : -1.0;
+                    double uR = isHighR ? 1.0 : -1.0;
+                    
+                    xL = uL + (xL - uL) * expDecay;
+                    xR = uR + (xR - uR) * expDecay;
+                    
+                    currentTimeUs = nextEventUs;
+                } else {
+                    currentTimeUs = nextEventUs;
+                }
+                
+                if (isHighL && currentTimeUs >= transitionTimeLUs) isHighL = false;
+                if (isHighR && currentTimeUs >= transitionTimeRUs) isHighR = false;
+            }
+            
+            speakerL += speakerAlpha * ((float) xL - speakerL);
+            speakerR += speakerAlpha * ((float) xR - speakerR);
+            
+            if (Math.abs(speakerL) < 1e-10f) speakerL = 0;
+            if (Math.abs(speakerR) < 1e-10f) speakerR = 0;
 
+            interleavedPcm[leftIdx] = (short) Math.max(-32768, Math.min(32767, speakerL * 32768.0f));
+            if (channels > 1) {
+                interleavedPcm[rightIdx] = (short) Math.max(-32768, Math.min(32767, speakerR * 32768.0f));
+            }
+        }
+        
+        while (currentTimeUs > 1000000.0) {
+            currentTimeUs -= 1000000.0;
+            nextMacSampleTimeUs -= 1000000.0;
+            transitionTimeLUs -= 1000000.0;
+            transitionTimeRUs -= 1000000.0;
+        }
     }
 
     @Override
@@ -134,7 +213,13 @@ private final boolean enabled;
         nextMacSampleTimeUs = 0.0;
         xL = 0.0;
         xR = 0.0;
+        speakerL = 0.0f;
+        speakerR = 0.0f;
+        dutyL = 0.5;
+        dutyR = 0.5;
         isHighL = false;
         isHighR = false;
+        transitionTimeLUs = 0.0;
+        transitionTimeRUs = 0.0;
     }
 }
