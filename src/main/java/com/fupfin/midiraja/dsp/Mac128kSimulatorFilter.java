@@ -64,13 +64,15 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
             
             while (currentTimeUs < targetOutputTimeUs) {
                 if (currentTimeUs >= nextMacSampleTimeUs) {
-                    // Nearest-neighbor resampling to Mac clock. 
-                    // Map -1.0..1.0 cleanly to 0..255 with proper rounding.
-                    int u8L = Math.max(0, Math.min(255, Math.round((left[i] * 0.5f + 0.5f) * 255.0f)));
-                    int u8R = Math.max(0, Math.min(255, Math.round((right[i] * 0.5f + 0.5f) * 255.0f)));
+                    // Reverted back to asymmetrical truncation for gritty texture.
+                    // This mathematically introduces a harsh, sand-like non-linear distortion 
+                    // around the zero-crossing, characteristic of naive early digital conversions.
+                    int intL = (int) (left[i] * 127.0f);
+                    int intR = (int) (right[i] * 127.0f);
                     
-                    dutyL = u8L / 255.0; 
-                    dutyR = u8R / 255.0;
+                    dutyL = (intL + 128) / 255.0; 
+                    dutyR = (intR + 128) / 255.0;
+
                     
                     isHighL = true;
                     isHighR = true;
@@ -147,11 +149,15 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
             
             while (currentTimeUs < targetOutputTimeUs) {
                 if (currentTimeUs >= nextMacSampleTimeUs) {
-                    int u8L = Math.max(0, Math.min(255, Math.round((inL * 0.5f + 0.5f) * 255.0f)));
-                    int u8R = Math.max(0, Math.min(255, Math.round((inR * 0.5f + 0.5f) * 255.0f)));
+                    // Reverted back to asymmetrical truncation for gritty texture.
+                    // This mathematically introduces a harsh, sand-like non-linear distortion 
+                    // around the zero-crossing, characteristic of naive early digital conversions.
+                    int intL = (int) (inL * 127.0f);
+                    int intR = (int) (inR * 127.0f);
                     
-                    dutyL = u8L / 255.0; 
-                    dutyR = u8R / 255.0;
+                    dutyL = (intL + 128) / 255.0; 
+                    dutyR = (intR + 128) / 255.0;
+
                     
                     isHighL = true;
                     isHighR = true;
