@@ -57,9 +57,6 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
             return;
         }
 
-        // Pull architecture: Fill buffer from upstream first!
-        next.process(left, right, frames);
-
         for (int i = 0; i < frames; i++) {
             double targetOutputTimeUs = currentTimeUs + outputSampleTimeUs;
             
@@ -125,6 +122,7 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
             transitionTimeLUs -= 1000000.0;
             transitionTimeRUs -= 1000000.0;
         }
+        next.process(left, right, frames);
     }
     
     @Override
@@ -205,6 +203,7 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
             transitionTimeLUs -= 1000000.0;
             transitionTimeRUs -= 1000000.0;
         }
+        next.processInterleaved(interleavedPcm, frames, channels);
     }
 
     @Override
