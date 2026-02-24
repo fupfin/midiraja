@@ -13,7 +13,7 @@ package com.fupfin.midiraja.dsp;
  * 3. Eliminates ZOH aliasing (the "siren" tone) mathematically without oversampling.
  */
 public class Mac128kSimulatorFilter implements AudioProcessor {
-    private final boolean enabled;
+private final boolean enabled;
     private final AudioProcessor next;
 
     // Timing constants
@@ -21,7 +21,9 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
     private final double macSampleTimeUs = 1000000.0 / 22254.5;
     
     // RC Filter time constant (Tau)
-    private final double tauUs = 22.7; 
+    // The authentic Mac Plus capture shows a steep roll-off starting around 5kHz and hitting -83dB at 10kHz.
+    // This requires a Tau of roughly 30.0 us to match the analog integration curve perfectly.
+    private final double tauUs = 30.0; 
 
     // Simulation state
     private double currentTimeUs = 0.0;
@@ -38,12 +40,6 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
     
     private double transitionTimeLUs = 0.0;
     private double transitionTimeRUs = 0.0;
-    
-    // Physical speaker cone inertia (Additional gentle LPF to kill the 21.8kHz whine)
-    // alpha = 0.5 acts as a 7kHz LPF
-    private float speakerL = 0.0f;
-    private float speakerR = 0.0f;
-    private final float speakerAlpha = 0.15f; // Lower = more muffled, kills the whine better
 
     public Mac128kSimulatorFilter(boolean enabled, AudioProcessor next) {
         this.enabled = enabled;
@@ -57,19 +53,22 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
             return;
         }
 
+        // Pull architecture
+        next.process(left, right, frames);
+
         for (int i = 0; i < frames; i++) {
             double targetOutputTimeUs = currentTimeUs + outputSampleTimeUs;
             
             while (currentTimeUs < targetOutputTimeUs) {
                 if (currentTimeUs >= nextMacSampleTimeUs) {
-                    // HERE IS THE MAGIC TEXTURE:
-                    // Do NOT use Math.round(). We MUST use (int) truncation to preserve
-                    // the gritty zero-crossing asymmetry that gives the raw PWM texture!
-                    int intL = (int) (left[i] * 127.0f);
-                    int intR = (int) (right[i] * 127.0f);
+                    // Authentic 8-bit Quantization
+                    // The capture proves the Mac successfully isolated the 8-bit steps.
+                    // We use standard symmetrical clamping to represent the clean digital buffer.
+                    int u8L = Math.max(0, Math.min(255, Math.round((left[i] * 0.5f + 0.5f) * 255.0f)));
+                    int u8R = Math.max(0, Math.min(255, Math.round((right[i] * 0.5f + 0.5f) * 255.0f)));
                     
-                    dutyL = (intL + 128) / 255.0; 
-                    dutyR = (intR + 128) / 255.0;
+                    dutyL = u8L / 255.0; 
+                    dutyR = u8R / 255.0;
                     
                     isHighL = true;
                     isHighR = true;
@@ -104,16 +103,8 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
                 if (isHighR && currentTimeUs >= transitionTimeRUs) isHighR = false;
             }
             
-            // Apply speaker inertia (gentle 1-pole LPF) to suppress the 22kHz carrier whine
-            speakerL += speakerAlpha * ((float) xL - speakerL);
-            speakerR += speakerAlpha * ((float) xR - speakerR);
-            
-            // Prevent denormalization
-            if (Math.abs(speakerL) < 1e-10f) speakerL = 0;
-            if (Math.abs(speakerR) < 1e-10f) speakerR = 0;
-
-            left[i] = speakerL;
-            right[i] = speakerR;
+            left[i] = (float) xL;
+            right[i] = (float) xR;
         }
         
         while (currentTimeUs > 1000000.0) {
@@ -122,7 +113,6 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
             transitionTimeLUs -= 1000000.0;
             transitionTimeRUs -= 1000000.0;
         }
-        next.process(left, right, frames);
     }
     
     @Override
@@ -132,7 +122,6 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
             return;
         }
         
-        // Pull architecture
         next.processInterleaved(interleavedPcm, frames, channels);
         
         for (int i = 0; i < frames; i++) {
@@ -146,11 +135,11 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
             
             while (currentTimeUs < targetOutputTimeUs) {
                 if (currentTimeUs >= nextMacSampleTimeUs) {
-                    int intL = (int) (inL * 127.0f);
-                    int intR = (int) (inR * 127.0f);
+                    int u8L = Math.max(0, Math.min(255, Math.round((inL * 0.5f + 0.5f) * 255.0f)));
+                    int u8R = Math.max(0, Math.min(255, Math.round((inR * 0.5f + 0.5f) * 255.0f)));
                     
-                    dutyL = (intL + 128) / 255.0; 
-                    dutyR = (intR + 128) / 255.0;
+                    dutyL = u8L / 255.0; 
+                    dutyR = u8R / 255.0;
                     
                     isHighL = true;
                     isHighR = true;
@@ -185,15 +174,9 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
                 if (isHighR && currentTimeUs >= transitionTimeRUs) isHighR = false;
             }
 
-            speakerL += speakerAlpha * ((float) xL - speakerL);
-            speakerR += speakerAlpha * ((float) xR - speakerR);
-            
-            if (Math.abs(speakerL) < 1e-10f) speakerL = 0;
-            if (Math.abs(speakerR) < 1e-10f) speakerR = 0;
-
-            interleavedPcm[leftIdx] = (short) Math.max(-32768, Math.min(32767, speakerL * 32768.0));
+            interleavedPcm[leftIdx] = (short) Math.max(-32768, Math.min(32767, xL * 32768.0));
             if (channels > 1) {
-                interleavedPcm[rightIdx] = (short) Math.max(-32768, Math.min(32767, speakerR * 32768.0));
+                interleavedPcm[rightIdx] = (short) Math.max(-32768, Math.min(32767, xR * 32768.0));
             }
         }
         
@@ -203,7 +186,6 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
             transitionTimeLUs -= 1000000.0;
             transitionTimeRUs -= 1000000.0;
         }
-        next.processInterleaved(interleavedPcm, frames, channels);
     }
 
     @Override
@@ -213,8 +195,6 @@ public class Mac128kSimulatorFilter implements AudioProcessor {
         nextMacSampleTimeUs = 0.0;
         xL = 0.0;
         xR = 0.0;
-        speakerL = 0.0f;
-        speakerR = 0.0f;
         dutyL = 0.5;
         dutyR = 0.5;
         isHighL = false;
