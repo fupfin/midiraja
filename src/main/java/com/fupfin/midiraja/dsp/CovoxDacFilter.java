@@ -15,7 +15,7 @@ import java.util.Random;
  *    present in Covox circuits to tame the 8-bit steps.
  */
 public class CovoxDacFilter implements AudioProcessor {
-private final boolean enabled;
+    private final boolean enabled;
     private final AudioProcessor next;
 
     private final float[] dacLut = new float[256];
