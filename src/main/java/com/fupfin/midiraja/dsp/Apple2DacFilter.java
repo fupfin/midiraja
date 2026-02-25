@@ -31,7 +31,7 @@ public class Apple2DacFilter implements AudioProcessor {
             double monoIn = (left[i] + right[i]) * 0.5;
             double duty = Math.max(0.0, Math.min(1.0, (monoIn + 1.0) * 0.5));
             
-            float out = (carrierPhase < duty) ? 1.0f : -1.0f;
+            float out = (float) integratePwm(carrierPhase, carrierStep, duty);
             carrierPhase = (carrierPhase + carrierStep) % 1.0;
             
             left[i] = out;
@@ -58,7 +58,7 @@ public class Apple2DacFilter implements AudioProcessor {
             double monoIn = (l + r) * 0.5;
             double duty = Math.max(0.0, Math.min(1.0, (monoIn + 1.0) * 0.5));
             
-            double out = (carrierPhase < duty) ? 1.0 : -1.0;
+            double out = integratePwm(carrierPhase, carrierStep, duty);
             carrierPhase = (carrierPhase + carrierStep) % 1.0;
             
             short outPcm = (short) Math.max(-32768, Math.min(32767, out * 32767.0));
@@ -71,6 +71,27 @@ public class Apple2DacFilter implements AudioProcessor {
         next.processInterleaved(interleavedPcm, frames, channels);
     }
 
+    private double integratePwm(double startPhase, double step, double duty) {
+        double endPhase = startPhase + step;
+        double highTime = 0.0;
+        
+        if (endPhase > 1.0) {
+            if (startPhase < duty) highTime += (duty - startPhase);
+            double remainder = endPhase - 1.0;
+            if (remainder > duty) highTime += duty;
+            else highTime += remainder;
+        } else {
+            if (endPhase <= duty) highTime = step;
+            else if (startPhase >= duty) highTime = 0.0;
+            else highTime = duty - startPhase;
+        }
+        
+        return ((highTime / step) * 2.0) - 1.0;
+    }
 
-
+    @Override
+    public void reset() {
+        carrierPhase = 0.0;
+        next.reset();
+    }
 }

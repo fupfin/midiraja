@@ -45,7 +45,7 @@ public class IbmPcDacFilter implements AudioProcessor {
             } else {
                 // Analytical PWM Integration (Area under the curve)
                 double duty = Math.max(0.0, Math.min(1.0, (monoIn + 1.0) * 0.5));
-                out = (carrierPhase < duty) ? 1.0 : -1.0;
+                out = integratePwm(carrierPhase, carrierStep, duty);
                 carrierPhase = (carrierPhase + carrierStep) % 1.0;
             }
             
@@ -79,7 +79,7 @@ public class IbmPcDacFilter implements AudioProcessor {
                 dsdErr -= out;
             } else {
                 double duty = Math.max(0.0, Math.min(1.0, (monoIn + 1.0) * 0.5));
-                out = (carrierPhase < duty) ? 1.0 : -1.0;
+                out = integratePwm(carrierPhase, carrierStep, duty);
                 carrierPhase = (carrierPhase + carrierStep) % 1.0;
             }
             
@@ -93,6 +93,28 @@ public class IbmPcDacFilter implements AudioProcessor {
         next.processInterleaved(interleavedPcm, frames, channels);
     }
 
+    private double integratePwm(double startPhase, double step, double duty) {
+        double endPhase = startPhase + step;
+        double highTime = 0.0;
+        
+        if (endPhase > 1.0) {
+            if (startPhase < duty) highTime += (duty - startPhase);
+            double remainder = endPhase - 1.0;
+            if (remainder > duty) highTime += duty;
+            else highTime += remainder;
+        } else {
+            if (endPhase <= duty) highTime = step;
+            else if (startPhase >= duty) highTime = 0.0;
+            else highTime = duty - startPhase;
+        }
+        
+        return ((highTime / step) * 2.0) - 1.0;
+    }
 
-
+    @Override
+    public void reset() {
+        carrierPhase = 0.0;
+        dsdErr = 0;
+        next.reset();
+    }
 }
