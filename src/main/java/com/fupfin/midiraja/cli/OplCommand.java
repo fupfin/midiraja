@@ -107,8 +107,8 @@ public class OplCommand implements Callable<Integer>
         }
 
         // 2. Retro DAC Conversion
-        if (common != null && common.retroHw.isPresent()) {
-            String mode = common.retroHw.get().toLowerCase(java.util.Locale.ROOT);
+        if (common != null && common.retroMode.isPresent()) {
+            String mode = common.retroMode.get().toLowerCase(java.util.Locale.ROOT);
             switch (mode) {
                 case "mac128k":
                     // mac128k is a monolithic filter combining DAC and Speaker for now
@@ -162,13 +162,13 @@ public class OplCommand implements Callable<Integer>
             }
         }
         
-        if (eqBass != 50 || eqMid != 50 || eqTreble != 50 || tubeDrive.isPresent() || chorus.isPresent() || reverb.isPresent() || (common != null && (common.retroHw.isPresent() || common.speakerProfile.isPresent()))) {
+        if (eqBass != 50 || eqMid != 50 || eqTreble != 50 || tubeDrive.isPresent() || chorus.isPresent() || reverb.isPresent() || (common != null && (common.retroMode.isPresent() || common.speakerProfile.isPresent()))) {
             pipeline = new com.fupfin.midiraja.dsp.ShortToFloatFilter(pipeline);
         }
         
         var bridge = new com.fupfin.midiraja.midi.FFMAdlMidiNativeBridge();
         var provider = new com.fupfin.midiraja.midi.AdlMidiSynthProvider(
-            bridge, pipeline, emulator, fmOptions.chips, common.retroHw.orElse(null));
+            bridge, pipeline, emulator, fmOptions.chips, common.retroMode.orElse(null));
 
         // Resolve bank argument: "" → "bank:0", "14" → "bank:14", path → path
         String soundbankArg =

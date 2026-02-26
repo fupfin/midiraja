@@ -57,8 +57,8 @@ public class CommonOptions
     @Option(names = {"--dump-wav"}, description = "Dump the real-time audio output to a specified WAV file.")
     public Optional<String> dumpWav = Optional.empty();
 
-    @Option(names = {"--retro-hw"}, description = "Retro hardware physical acoustic simulation (mac128k, realsound, ibmpc, apple2, covox, disneysound, amiga)")
-    public Optional<String> retroHw = Optional.empty();
+    @Option(names = {"--retro"}, description = "Retro hardware physical acoustic simulation (mac128k, realsound, ibmpc, apple2, covox, disneysound, amiga)")
+    public Optional<String> retroMode = Optional.empty();
 
     @Option(names = {"--speaker"}, description = "Vintage speaker acoustic simulation (tin-can, warm-radio, none)")
     public Optional<String> speakerProfile = Optional.empty();

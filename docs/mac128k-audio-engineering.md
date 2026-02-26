@@ -88,10 +88,10 @@ The `--mac128k` simulator is a "Digital Twin" of the physical Mac Plus audio pat
 
 ## 8. Other Retro DAC Models
 
-### 8.1 Covox Speech Thing (`--retro-hw covox`)
+### 8.1 Covox Speech Thing (`--retro covox`)
 - **Resistor Tolerance:** Simulates R-2R ladder variance (+/- 3%) for authentic harmonic distortion.
 - **ZOH Smoothing:** Mimics the ~11kHz Zero-Order Hold bottleneck of old LPT ports.
 
-### 8.2 IBM PC Speaker (`--retro-hw ibmpc`)
+### 8.2 IBM PC Speaker (`--retro ibmpc`)
 - **PWM Carrier:** 18.6kHz analytical area integration.
 - **Gritty Texture:** Unlike the Mac, the PC speaker lacks sophisticated analog filtering, allowing the raw PWM ripple to reach the speaker cone.
