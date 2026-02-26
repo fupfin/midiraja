@@ -13,6 +13,12 @@ public class Apple2DacFilter implements AudioProcessor {
     // Software PWM carrier state (11kHz typical for Apple II software)
     private double carrierPhase = 0.0;
     private final double carrierStep = 11025.0 / 44100.0;
+    
+    // Analog bypass capacitor smoothing
+    private float smoothL = 0.0f;
+    // A very gentle RC filter (Alpha 0.6 = ~10kHz roll-off) 
+    // to simulate basic parasitic capacitance or a tiny noise-reduction capacitor.
+    private final float smoothAlpha = 0.6f;
 
     public Apple2DacFilter(boolean enabled, AudioProcessor next) {
         this.enabled = enabled;
@@ -34,8 +40,12 @@ public class Apple2DacFilter implements AudioProcessor {
             float out = (float) integratePwm(carrierPhase, carrierStep, duty);
             carrierPhase = (carrierPhase + carrierStep) % 1.0;
             
-            left[i] = out;
-            right[i] = out;
+            // Apply gentle analog smoothing
+            smoothL += smoothAlpha * (out - smoothL);
+            if (Math.abs(smoothL) < 1e-10f) smoothL = 0;
+            
+            left[i] = smoothL;
+            right[i] = smoothL;
         }
         
         // Push architecture
@@ -61,7 +71,11 @@ public class Apple2DacFilter implements AudioProcessor {
             double out = integratePwm(carrierPhase, carrierStep, duty);
             carrierPhase = (carrierPhase + carrierStep) % 1.0;
             
-            short outPcm = (short) Math.max(-32768, Math.min(32767, out * 32767.0));
+            // Apply gentle analog smoothing
+            smoothL += smoothAlpha * ((float) out - smoothL);
+            if (Math.abs(smoothL) < 1e-10f) smoothL = 0;
+            
+            short outPcm = (short) Math.max(-32768, Math.min(32767, smoothL * 32768.0));
             interleavedPcm[lIdx] = outPcm;
             if (channels > 1) {
                 interleavedPcm[lIdx + 1] = outPcm;
@@ -92,6 +106,7 @@ public class Apple2DacFilter implements AudioProcessor {
     @Override
     public void reset() {
         carrierPhase = 0.0;
+        smoothL = 0.0f;
         next.reset();
     }
 }
