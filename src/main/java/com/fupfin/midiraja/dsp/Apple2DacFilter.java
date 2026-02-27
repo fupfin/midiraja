@@ -29,8 +29,13 @@ public class Apple2DacFilter implements AudioProcessor {
             double monoIn = (left[i] + right[i]) * 0.5;
             double duty = Math.max(0.0, Math.min(1.0, (monoIn + 1.0) * 0.5));
             
-            float out = (float) integratePwm(carrierPhase, carrierStep, duty);
-            carrierPhase = (carrierPhase + carrierStep) % 1.0;
+            float out;
+            if (Math.abs(monoIn) < 1e-4) {
+                out = 0.0f;
+            } else {
+                out = (float) integratePwm(carrierPhase, carrierStep, duty);
+                carrierPhase = (carrierPhase + carrierStep) % 1.0;
+            }
             
             smoothL += smoothAlpha * (out - smoothL);
             if (Math.abs(smoothL) < 1e-10f) smoothL = 0;
@@ -56,8 +61,13 @@ public class Apple2DacFilter implements AudioProcessor {
             double monoIn = (l + r) * 0.5;
             double duty = Math.max(0.0, Math.min(1.0, (monoIn + 1.0) * 0.5));
             
-            double out = integratePwm(carrierPhase, carrierStep, duty);
-            carrierPhase = (carrierPhase + carrierStep) % 1.0;
+            double out;
+            if (Math.abs(monoIn) < 1e-4) {
+                out = 0.0;
+            } else {
+                out = integratePwm(carrierPhase, carrierStep, duty);
+                carrierPhase = (carrierPhase + carrierStep) % 1.0;
+            }
             
             smoothL += smoothAlpha * ((float) out - smoothL);
             if (Math.abs(smoothL) < 1e-10f) smoothL = 0;

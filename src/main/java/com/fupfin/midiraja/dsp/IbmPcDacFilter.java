@@ -35,7 +35,9 @@ public class IbmPcDacFilter implements AudioProcessor {
             double monoIn = (left[i] + right[i]) * 0.5;
             double out;
             
-            if ("dsd".equals(mode)) {
+            if (Math.abs(monoIn) < 1e-4) {
+                out = 0.0;
+            } else if ("dsd".equals(mode)) {
                 dsdErr += monoIn + (rand.nextDouble() - 0.5) * 0.1;
                 out = dsdErr > 0.0 ? 1.0 : -1.0;
                 dsdErr -= out;
@@ -71,7 +73,9 @@ public class IbmPcDacFilter implements AudioProcessor {
             double monoIn = (l + r) * 0.5;
             double out;
             
-            if ("dsd".equals(mode)) {
+            if (Math.abs(monoIn) < 1e-4) {
+                out = 0.0;
+            } else if ("dsd".equals(mode)) {
                 dsdErr += monoIn + (rand.nextDouble() - 0.5) * 0.1;
                 out = dsdErr > 0.0 ? 1.0 : -1.0;
                 dsdErr -= out;
