@@ -68,4 +68,54 @@ public class CommonOptions
 
     @ArgGroup(exclusive = true, multiplicity = "0..1")
     public UiModeOptions uiOptions = new UiModeOptions();
+
+    public com.fupfin.midiraja.dsp.AudioProcessor wrapRetroPipeline(com.fupfin.midiraja.dsp.AudioProcessor sink) {
+        com.fupfin.midiraja.dsp.AudioProcessor pipeline = sink;
+        
+        // 1. Acoustic Speaker Simulation (Applied BEFORE final DAC to shape the signal)
+        if (speakerProfile.isPresent()) {
+            String profileStr = speakerProfile.get().toUpperCase(java.util.Locale.ROOT).replace("-", "_");
+            try {
+                com.fupfin.midiraja.dsp.AcousticSpeakerFilter.Profile profile = 
+                    com.fupfin.midiraja.dsp.AcousticSpeakerFilter.Profile.valueOf(profileStr);
+                pipeline = new com.fupfin.midiraja.dsp.AcousticSpeakerFilter(true, profile, pipeline);
+            } catch (IllegalArgumentException e) {
+                System.err.println("Warning: Unknown speaker profile '" + profileStr + "'. Ignoring.");
+            }
+        }
+
+        // 2. Retro DAC Conversion
+        if (retroMode.isPresent()) {
+            String mode = retroMode.get().toLowerCase(java.util.Locale.ROOT);
+            switch (mode) {
+                case "mac128k":
+                    pipeline = new com.fupfin.midiraja.dsp.Mac128kSimulatorFilter(true, pipeline);
+                    break;
+                case "ibmpc":
+                case "1bit":
+                case "realsound": 
+                    pipeline = new com.fupfin.midiraja.dsp.OneBitHardwareFilter(true, "pwm", 18600.0, 64.0, 0.45f, pipeline);
+                    break;
+                case "covox":
+                case "8bit":
+                    pipeline = new com.fupfin.midiraja.dsp.CovoxDacFilter(true, pipeline);
+                    break;
+                case "apple2":
+                    pipeline = new com.fupfin.midiraja.dsp.OneBitHardwareFilter(true, "pwm", 11025.0, 93.0, 0.35f, pipeline);
+                    break;
+                case "spectrum":
+                    pipeline = new com.fupfin.midiraja.dsp.OneBitHardwareFilter(true, "pwm", 17500.0, 200.0, 0.50f, pipeline);
+                    break;
+                case "amiga":
+                case "disneysound":
+                    pipeline = new com.fupfin.midiraja.dsp.CovoxDacFilter(true, pipeline);
+                    break;
+                default:
+                    System.err.println("Warning: Unknown retro hardware mode '" + mode + "'. Falling back to clean output.");
+                    break;
+            }
+        }
+        return pipeline;
+    }
+
 }
