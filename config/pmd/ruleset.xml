@@ -27,7 +27,7 @@
 
     <!-- Error Prone -->
     <rule ref="category/java/errorprone.xml">
-        <exclude name="DataflowAnomalyAnalysis"/>
+        
         <exclude name="NullAssignment"/>
     </rule>
 
