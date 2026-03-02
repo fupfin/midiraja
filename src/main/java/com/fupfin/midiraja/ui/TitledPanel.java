@@ -12,7 +12,7 @@ public class TitledPanel implements Panel
     private final String title;
     private final Panel content;
     private LayoutConstraints constraints = new LayoutConstraints(80, 0, false, false);
-    private boolean noBottomBorder;
+    private final boolean noBottomBorder;
 
     public TitledPanel(String title, Panel content)
     {

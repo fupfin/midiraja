@@ -91,7 +91,7 @@ public class MidirajaCommand implements Callable<Integer>
           description = "MIDI output port index or partial name.")
   private Optional<String> port = Optional.empty();
 
-  @Mixin private CommonOptions common = new CommonOptions();
+  @Mixin private final CommonOptions common = new CommonOptions();
 
   // ── Deprecated legacy options (hidden, for backwards compatibility) ───────
 

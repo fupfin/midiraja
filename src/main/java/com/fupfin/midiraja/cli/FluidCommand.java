@@ -30,7 +30,7 @@ public class FluidCommand implements Callable<Integer>
     @ParentCommand @Nullable private MidirajaCommand parent;
 
     @Parameters(index = "0", description = "Path to the SoundFont (.sf2) file.")
-    private File soundfont = new File("");
+    private final File soundfont = new File("");
 
     @Parameters(index = "1..*", arity = "1..*",
         description = "MIDI files, directories, or .m3u playlists to play.")
@@ -40,7 +40,7 @@ public class FluidCommand implements Callable<Integer>
         description = "Override the audio driver (e.g. coreaudio, dsound, alsa).")
     private Optional<String> driver = Optional.empty();
 
-    @Mixin private CommonOptions common = new CommonOptions();
+    @Mixin private final CommonOptions common = new CommonOptions();
 
     @Override public Integer call() throws Exception
     {

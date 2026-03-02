@@ -40,7 +40,7 @@ public class PsgCommand implements java.util.concurrent.Callable<Integer>
     @Option(names = {"--smooth"}, description = "Enable linear interpolation and continuous volume scaling for the SCC emulator. Produces a smooth, modern 'studio' sound instead of the historically accurate gritty hardware sound.")
     private boolean smooth = false;
 
-    @Mixin private CommonOptions common = new CommonOptions();
+    @Mixin private final CommonOptions common = new CommonOptions();
 
         @Option(names = {"--bass"}, defaultValue = "50", description = "Adjust bass gain (0-100%%). Default: 50 (neutral).")
     private float eqBass = 100;

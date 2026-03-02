@@ -31,13 +31,13 @@ public class MuntCommand implements Callable<Integer>
 
     @Parameters(
         index = "0", description = "Directory containing MT32_CONTROL.ROM and MT32_PCM.ROM.")
-    private File romDir = new File("");
+    private final File romDir = new File("");
 
     @Parameters(index = "1..*", arity = "1..*",
         description = "MIDI files, directories, or .m3u playlists to play.")
     private List<File> files = new ArrayList<>();
 
-    @Mixin private CommonOptions common = new CommonOptions();
+    @Mixin private final CommonOptions common = new CommonOptions();
 
     @Override public Integer call() throws Exception
     {

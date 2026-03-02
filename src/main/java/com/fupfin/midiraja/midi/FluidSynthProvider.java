@@ -44,7 +44,7 @@ public class FluidSynthProvider implements SoftSynthProvider {
   private MemorySegment settings = MemorySegment.NULL;
   private MemorySegment synth = MemorySegment.NULL;
   private MemorySegment adriver = MemorySegment.NULL;
-  private String soundbankName = "None";
+  private final String soundbankName = "None";
 
   public FluidSynthProvider(@Nullable String explicitDriver) throws Exception {
     this.arena = Arena.ofShared();

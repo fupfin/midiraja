@@ -25,7 +25,7 @@ public class DeviceCommand implements java.util.concurrent.Callable<Integer>
                       "If the first argument is not a valid file/directory, it is treated as the device query.")
     private List<String> args = new ArrayList<>();
 
-    @Mixin private CommonOptions common = new CommonOptions();
+    @Mixin private final CommonOptions common = new CommonOptions();
 
     @Override public Integer call() throws Exception
     {

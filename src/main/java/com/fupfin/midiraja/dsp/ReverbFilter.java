@@ -77,7 +77,7 @@ public final class ReverbFilter extends AudioFilter {
     private static class Allpass {
         float[] buffer;
         int bufIdx;
-        float feedback = 0.5f;
+        final float feedback = 0.5f;
 
         Allpass(int size) {
             buffer = new float[size];

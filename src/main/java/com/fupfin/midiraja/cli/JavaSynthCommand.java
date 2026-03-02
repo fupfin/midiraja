@@ -32,7 +32,7 @@ public class JavaSynthCommand implements Callable<Integer>
     @Parameters(arity = "1..*", description = "MIDI files, directories, or .m3u playlists to play.")
     private List<File> files = new ArrayList<>();
 
-    @Mixin private CommonOptions common = new CommonOptions();
+    @Mixin private final CommonOptions common = new CommonOptions();
 
     @Override public Integer call() throws Exception
     {
