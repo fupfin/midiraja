@@ -122,7 +122,6 @@ public class PlaybackRunner
         logVerbose(common.verbose, "Soundbank loaded: " + soundbankArg.get());
       }
 
-      int currentTrackIdx = 0;
       Optional<String> currentStartTime = common.startTime;
 
       var activeIO =
@@ -181,79 +180,9 @@ public class PlaybackRunner
         MidirajaCommand.ALT_SCREEN_ACTIVE = true;
       }
 
-      try
-      {
-        boolean wasPaused = false;
-        
-        while (currentTrackIdx >= 0 && currentTrackIdx < playlist.size())
-        {
-          var file = playlist.get(currentTrackIdx);
-          var sequence = MidiSystem.getSequence(file);
-          logVerbose(
-              common.verbose,
-              String.format(
-                  "Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d",
-                  file.getName(), sequence.getResolution(),
-                  sequence.getMicrosecondLength()));
-
-          String title =
-              com.fupfin.midiraja.midi.MidiUtils.extractSequenceTitle(sequence);
-          var context = new PlaylistContext(playlist, currentTrackIdx,
-                                            ports.get(portIndex), title);
-
-          var engine = new PlaybackEngine(sequence, provider, context,
-                                          common.volume, common.speed,
-                                          currentStartTime, common.transpose);
-          if (common.ignoreSysex)
-            engine.setIgnoreSysex(true);
-          if (common.resetType.isPresent())
-            engine.setInitialResetType(common.resetType);
-            
-          if (wasPaused) {
-              engine.setInitiallyPaused();
-          }
-          
-          // If this is the last track in the playlist, we are not looping, 
-          // and we are in full interactive mode, keep the UI alive at the end.
-          boolean isLastTrack = (currentTrackIdx == playlist.size() - 1);
-          if (isLastTrack && !common.loop && (ui instanceof com.fupfin.midiraja.ui.DashboardUI)) {
-              engine.setHoldAtEnd(true);
-          }
-
-          var status = ScopedValue.where(TerminalIO.CONTEXT, activeIO)
-                           .call(() -> engine.start(ui));
-
-          currentStartTime = Optional.empty();
-          common.volume = (int)(engine.getVolumeScale() * 100);
-          common.speed = engine.getCurrentSpeed();
-          common.transpose = Optional.of(engine.getCurrentTranspose());
-          wasPaused = engine.isPaused();
-
-          switch (status)
-          {
-          case QUIT_ALL -> currentTrackIdx = -1;
-          case PREVIOUS ->
-          {
-            currentTrackIdx--;
-            if (common.loop && currentTrackIdx < 0)
-              currentTrackIdx = playlist.size() - 1;
-            else
-              currentTrackIdx = Math.max(0, currentTrackIdx);
-          }
-          case FINISHED, NEXT ->
-          {
-            currentTrackIdx++;
-            if (common.loop && currentTrackIdx >= playlist.size())
-            {
-              currentTrackIdx = 0;
-              if (common.shuffle)
-                Collections.shuffle(playlist);
-            }
-          }
-          }
-        }
-      } finally
-      {
+      try {
+        playPlaylistLoop(playlist, provider, ports.get(portIndex), common, ui, activeIO, currentStartTime);
+      } finally {
         activeIO.close();
         if (isInteractive)
         {
@@ -620,5 +549,64 @@ public class PlaybackRunner
       useAltScreenOut[0] = true;
     }
     return ui;
+  }
+
+  private void playPlaylistLoop(List<File> playlist, MidiOutProvider provider, MidiPort port,
+                                CommonOptions common, com.fupfin.midiraja.ui.PlaybackUI ui,
+                                TerminalIO activeIO, Optional<String> initialStartTime) throws Exception {
+    int currentTrackIdx = 0;
+    Optional<String> currentStartTime = initialStartTime;
+    boolean wasPaused = false;
+    
+    while (currentTrackIdx >= 0 && currentTrackIdx < playlist.size()) {
+      var file = playlist.get(currentTrackIdx);
+      var sequence = MidiSystem.getSequence(file);
+      logVerbose(common.verbose, String.format("Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d",
+              file.getName(), sequence.getResolution(), sequence.getMicrosecondLength()));
+
+      String title = com.fupfin.midiraja.midi.MidiUtils.extractSequenceTitle(sequence);
+      var context = new PlaylistContext(playlist, currentTrackIdx, port, title);
+
+      var engine = new PlaybackEngine(sequence, provider, context,
+              common.volume, common.speed, currentStartTime, common.transpose);
+              
+      if (common.ignoreSysex) engine.setIgnoreSysex(true);
+      if (common.resetType.isPresent()) engine.setInitialResetType(common.resetType);
+      if (wasPaused) engine.setInitiallyPaused();
+      
+      boolean isLastTrack = (currentTrackIdx == playlist.size() - 1);
+      if (isLastTrack && !common.loop && (ui instanceof com.fupfin.midiraja.ui.DashboardUI)) {
+          engine.setHoldAtEnd(true);
+      }
+
+      var status = ScopedValue.where(TerminalIO.CONTEXT, activeIO).call(() -> engine.start(ui));
+
+      currentStartTime = Optional.empty();
+      common.volume = (int)(engine.getVolumeScale() * 100);
+      common.speed = engine.getCurrentSpeed();
+      common.transpose = Optional.of(engine.getCurrentTranspose());
+      wasPaused = engine.isPaused();
+
+      currentTrackIdx = handlePlaybackStatus(status, currentTrackIdx, playlist, common);
+    }
+  }
+
+  private int handlePlaybackStatus(PlaybackStatus status, int currentTrackIdx, List<File> playlist, CommonOptions common) {
+    switch (status) {
+      case QUIT_ALL: return -1;
+      case PREVIOUS:
+        currentTrackIdx--;
+        if (common.loop && currentTrackIdx < 0) return playlist.size() - 1;
+        return Math.max(0, currentTrackIdx);
+      case FINISHED:
+      case NEXT:
+        currentTrackIdx++;
+        if (common.loop && currentTrackIdx >= playlist.size()) {
+          currentTrackIdx = 0;
+          if (common.shuffle) Collections.shuffle(playlist);
+        }
+        return currentTrackIdx;
+      default: return currentTrackIdx;
+    }
   }
 }
