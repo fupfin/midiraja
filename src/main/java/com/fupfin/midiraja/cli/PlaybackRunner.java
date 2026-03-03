@@ -74,19 +74,9 @@ public class PlaybackRunner
                  Optional<String> portQuery, Optional<String> soundbankArg,
                  List<File> rawFiles, CommonOptions common) throws Exception
                  {
-    // FAIL-FAST VALIDATION: Prevent commands/options typed as files from proceeding
-    if (rawFiles != null)
-    {
-      for (File f : rawFiles)
-      {
-        if (!f.exists())
-        {
-          err.println("Error: The file or directory '" + f.getPath() + "' does not exist.");
-          err.println("Hint: Did you misspell a command or option? (e.g. 'midra fluidsynth' instead of 'midra fluid')");
-          err.println("Run 'midra --help' for usage instructions.");
-          return 1;
-        }
-      }
+    // FAIL-FAST VALIDATION
+    if (validateFiles(rawFiles) != 0) {
+      return 1;
     }
 
     AtomicBoolean portClosed = new AtomicBoolean(false);
@@ -109,28 +99,9 @@ public class PlaybackRunner
     }
 
     // ── Port selection ────────────────────────────────────────────────────
-    int portIndex;
-    if (isSoftSynth)
-    {
-      portIndex = 0;
-    } else if (portQuery.isPresent())
-    {
-      portIndex = findPortIndex(ports, portQuery.get(), err);
-      if (portIndex == -1)
-      {
-        err.println("Error: Could not find MIDI port matching: " +
-                    portQuery.get());
-        return 1;
-      }
-    } else if (!isTestMode)
-    {
-      portIndex = interactivePortSelection(ports, common.uiOptions);
-      if (portIndex == -1)
-        return 0; // User quit
-    } else
-    {
-      portIndex = 0;
-    }
+    int portIndex = resolvePortIndex(ports, isSoftSynth, portQuery, common.uiOptions);
+    if (portIndex == -2) return 1; // Error finding port
+    if (portIndex == -1) return 0; // User quit
 
     try
     {
@@ -199,31 +170,9 @@ public class PlaybackRunner
       }));
 
       // ── UI mode ───────────────────────────────────────────────────────
-      com.fupfin.midiraja.ui.PlaybackUI ui;
-      boolean useAltScreen = false;
-      UiModeOptions uiOpts = common.uiOptions;
-
-      if (uiOpts.classicMode)
-      {
-        ui = new com.fupfin.midiraja.ui.DumbUI();
-      } else if (uiOpts.miniMode)
-      {
-        ui = new com.fupfin.midiraja.ui.LineUI();
-      } else if (uiOpts.fullMode)
-      {
-        ui = new com.fupfin.midiraja.ui.DashboardUI();
-        useAltScreen = true;
-      } else if (!isInteractive)
-      {
-        ui = new com.fupfin.midiraja.ui.DumbUI();
-      } else if (activeIO.getHeight() < 10)
-      {
-        ui = new com.fupfin.midiraja.ui.LineUI();
-      } else
-      {
-        ui = new com.fupfin.midiraja.ui.DashboardUI();
-        useAltScreen = true;
-      }
+      boolean[] altScreenOut = new boolean[1];
+      com.fupfin.midiraja.ui.PlaybackUI ui = buildUI(common.uiOptions, isInteractive, activeIO.getHeight(), altScreenOut);
+      boolean useAltScreen = altScreenOut[0];
 
       if (useAltScreen && isInteractive)
       {
@@ -619,5 +568,57 @@ public class PlaybackRunner
   {
     if (verbose)
       err.println("[VERBOSE] " + message);
+  }
+
+
+  private int validateFiles(List<File> rawFiles) {
+    if (rawFiles != null) {
+      for (File f : rawFiles) {
+        if (!f.exists()) {
+          err.println("Error: The file or directory '" + f.getPath() + "' does not exist.");
+          err.println("Hint: Did you misspell a command or option? (e.g. 'midra fluidsynth' instead of 'midra fluid')");
+          err.println("Run 'midra --help' for usage instructions.");
+          return 1;
+        }
+      }
+    }
+    return 0;
+  }
+
+  private int resolvePortIndex(List<MidiPort> ports, boolean isSoftSynth, Optional<String> portQuery, UiModeOptions uiOpts) throws Exception {
+    if (isSoftSynth) {
+      return 0;
+    } else if (portQuery.isPresent()) {
+      int idx = findPortIndex(ports, portQuery.get(), err);
+      if (idx == -1) {
+        err.println("Error: Could not find MIDI port matching: " + portQuery.get());
+        return -2;
+      }
+      return idx;
+    } else if (!isTestMode) {
+      return interactivePortSelection(ports, uiOpts);
+    } else {
+      return 0;
+    }
+  }
+
+  private com.fupfin.midiraja.ui.PlaybackUI buildUI(UiModeOptions uiOpts, boolean isInteractive, int activeIOHeight, boolean[] useAltScreenOut) {
+    com.fupfin.midiraja.ui.PlaybackUI ui;
+    if (uiOpts.classicMode) {
+      ui = new com.fupfin.midiraja.ui.DumbUI();
+    } else if (uiOpts.miniMode) {
+      ui = new com.fupfin.midiraja.ui.LineUI();
+    } else if (uiOpts.fullMode) {
+      ui = new com.fupfin.midiraja.ui.DashboardUI();
+      useAltScreenOut[0] = true;
+    } else if (!isInteractive) {
+      ui = new com.fupfin.midiraja.ui.DumbUI();
+    } else if (activeIOHeight < 10) {
+      ui = new com.fupfin.midiraja.ui.LineUI();
+    } else {
+      ui = new com.fupfin.midiraja.ui.DashboardUI();
+      useAltScreenOut[0] = true;
+    }
+    return ui;
   }
 }
