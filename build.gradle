@@ -317,13 +317,22 @@ spotless {
 }
 
 
+configurations {
+    cpdClasspath
+}
+
+dependencies {
+    cpdClasspath "net.sourceforge.pmd:pmd-ant:7.22.0"
+    cpdClasspath "net.sourceforge.pmd:pmd-java:7.22.0"
+    cpdClasspath 'org.slf4j:slf4j-simple:1.7.36'
+}
+
 task cpdCheck {
     group = 'verification'
     doLast {
         File outDir = new File(buildDir, 'reports/cpd')
         outDir.mkdirs()
-        // Ensure pmd-ant is available in the classpath
-        ant.taskdef(name: 'cpd', classname: 'net.sourceforge.pmd.ant.cpd.CPDTask', classpath: configurations.pmd.asPath)
+        ant.taskdef(name: 'cpd', classname: 'net.sourceforge.pmd.ant.CPDTask', classpath: configurations.cpdClasspath.asPath)
         ant.cpd(minimumTokenCount: '50', format: 'text', outputFile: new File(outDir, 'cpdCheck.txt')) {
             fileset(dir: "src/main/java") {
                 include(name: '**/*.java')
