@@ -89,76 +89,10 @@ public class BeepCommand implements Callable<Integer>
         }
         com.fupfin.midiraja.dsp.AudioProcessor pipeline =
                 new com.fupfin.midiraja.dsp.FloatToShortSink(audio, 1);
-        // 1. Acoustic Speaker Simulation (Applied BEFORE final DAC to shape the signal)
-        // Wait, physical speakers come AFTER the DAC.
-        // But our pipeline runs BACKWARDS. The signal flows from the synth (upstream) to the sink.
-        // The FloatToShortSink calls `pipeline.process()`.
-        // So the outermost wrapper is executed LAST in the physical signal chain.
-        // The physical chain is: Synth -> Filter -> DAC -> Speaker.
-        // Therefore, we must wrap in this order:
-        // pipeline = Speaker(pipeline)
-        // pipeline = DAC(pipeline)
-
-        if (common != null && common.speakerProfile.isPresent())
+        if (common != null)
         {
-            String profileStr = common.speakerProfile.get().toUpperCase(java.util.Locale.ROOT)
-                    .replace("-", "_");
-            try
-            {
-                com.fupfin.midiraja.dsp.AcousticSpeakerFilter.Profile profile =
-                        com.fupfin.midiraja.dsp.AcousticSpeakerFilter.Profile.valueOf(profileStr);
-                pipeline =
-                        new com.fupfin.midiraja.dsp.AcousticSpeakerFilter(true, profile, pipeline);
-            }
-            catch (IllegalArgumentException e)
-            {
-                System.err.println(
-                        "Warning: Unknown speaker profile '" + profileStr + "'. Ignoring.");
-            }
+            pipeline = common.wrapRetroPipeline(pipeline);
         }
-
-        // 2. Retro DAC Conversion
-        if (common != null && common.retroMode.isPresent())
-        {
-            String mode = common.retroMode.get().toLowerCase(java.util.Locale.ROOT);
-            switch (mode)
-            {
-                case "mac128k":
-                    // mac128k is a monolithic filter combining DAC and Speaker for now
-                    pipeline = new com.fupfin.midiraja.dsp.Mac128kSimulatorFilter(true, pipeline);
-                    break;
-                case "ibmpc":
-                case "1bit":
-                case "realsound": // legacy mapped to IBM PC
-                    pipeline = new com.fupfin.midiraja.dsp.OneBitHardwareFilter(true, "pwm",
-                            18600.0, 64.0, 0.45f, pipeline);
-                    break;
-                case "covox":
-                case "8bit":
-                    pipeline = new com.fupfin.midiraja.dsp.CovoxDacFilter(true, pipeline);
-                    break;
-                case "apple2":
-                    pipeline = new com.fupfin.midiraja.dsp.OneBitHardwareFilter(true, "pwm",
-                            11025.0, 93.0, 0.35f, pipeline);
-                    break;
-                case "spectrum":
-                    // ZX Spectrum Z80 at 3.5MHz allows high carrier (17.5kHz) and high precision
-                    // (200 levels).
-                    // Its speaker was tiny and piercing, so we use a lighter filter (alpha 0.50)
-                    pipeline = new com.fupfin.midiraja.dsp.OneBitHardwareFilter(true, "pwm",
-                            17500.0, 200.0, 0.50f, pipeline);
-                    break;
-                case "amiga":
-                case "disneysound":
-                    // Fallbacks for planned features
-                    pipeline = new com.fupfin.midiraja.dsp.CovoxDacFilter(true, pipeline);
-                    break;
-                default:
-                    System.err.println("Warning: Unknown DAC mode '" + mode + "'. Ignoring.");
-            }
-        }
-
-
 
         // Map user's 1~6 quality level exponentially (1 -> 1x, 2 -> 2x, 3 -> 4x, ..., 6 -> 32x)
         int clampedLevel = Math.max(1, Math.min(6, qualityLevel));

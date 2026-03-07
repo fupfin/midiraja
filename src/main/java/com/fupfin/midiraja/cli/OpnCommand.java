@@ -41,10 +41,6 @@ public class OpnCommand implements Callable<Integer>
             description = "Path to a .wopn bank file. Default: built-in GM bank.")
     private Optional<String> bank = Optional.empty();
 
-    @Option(names = {"-e", "--emulator"}, defaultValue = "0",
-            description = "Emulator backend: 0:MAME-YM2612 (Default), 1:Nuked-YM3438, 2:GENS, 3:YMFM-OPN2, 4:NP2-OPNA, 5:MAME-YM2608, 6:YMFM-OPNA")
-    private int emulator = 0;
-
     @Mixin
     private FmSynthOptions fmOptions = new FmSynthOptions();
 
@@ -79,8 +75,8 @@ public class OpnCommand implements Callable<Integer>
         }
 
         var bridge = new com.fupfin.midiraja.midi.FFMOpnMidiNativeBridge();
-        var provider = new com.fupfin.midiraja.midi.OpnMidiSynthProvider(bridge, pipeline, emulator,
-                fmOptions.chips, common.retroMode.orElse(null));
+        var provider = new com.fupfin.midiraja.midi.OpnMidiSynthProvider(bridge, pipeline,
+                fmOptions.emulator, fmOptions.chips, common.retroMode.orElse(null));
 
         // bank: empty string = default built-in GM bank; otherwise WOPN file path
         String soundbankArg = bank.orElse("");

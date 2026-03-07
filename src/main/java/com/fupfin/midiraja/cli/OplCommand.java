@@ -41,10 +41,6 @@ public class OplCommand implements Callable<Integer>
             description = "Embedded bank number (0-75) or path to a .wopl file. Default: bank 0 (General MIDI).")
     private Optional<String> bank = Optional.empty();
 
-    @Option(names = {"-e", "--emulator"}, defaultValue = "0",
-            description = "Emulator backend: 0:Nuked-1.8 (Default), 1:Nuked-1.7.4, 2:DosBox, 3:Opal, 4:Java, 5:ESFMu, 6:MAME, 7:YMFM-OPL2, 8:YMFM-OPL3")
-    private int emulator = 0;
-
     @Mixin
     private FmSynthOptions fmOptions = new FmSynthOptions();
 
@@ -79,8 +75,8 @@ public class OplCommand implements Callable<Integer>
         }
 
         var bridge = new com.fupfin.midiraja.midi.FFMAdlMidiNativeBridge();
-        var provider = new com.fupfin.midiraja.midi.AdlMidiSynthProvider(bridge, pipeline, emulator,
-                fmOptions.chips, common.retroMode.orElse(null));
+        var provider = new com.fupfin.midiraja.midi.AdlMidiSynthProvider(bridge, pipeline,
+                fmOptions.emulator, fmOptions.chips, common.retroMode.orElse(null));
 
         // Resolve bank argument: "" → "bank:0", "14" → "bank:14", path → path
         String soundbankArg =
