@@ -42,13 +42,13 @@ public class OpnCommand implements Callable<Integer>
     private Optional<String> bank = Optional.empty();
 
     @Mixin
-    private FmSynthOptions fmOptions = new FmSynthOptions();
+    private final FmSynthOptions fmOptions = new FmSynthOptions();
 
     @Mixin
-    private FxOptions fxOptions = new FxOptions();
+    private final FxOptions fxOptions = new FxOptions();
 
     @Mixin
-    private CommonOptions common = new CommonOptions();
+    private final CommonOptions common = new CommonOptions();
 
 
 
@@ -57,22 +57,7 @@ public class OpnCommand implements Callable<Integer>
     {
         var p = java.util.Objects.requireNonNull(parent);
 
-        String audioLib = AudioLibResolver.resolve();
-        var audio = new com.fupfin.midiraja.midi.NativeAudioEngine(audioLib);
-        audio.init(44100, 2, 4096);
-        if (common != null && common.dumpWav.isPresent())
-        {
-            audio.enableDump(common.dumpWav.get());
-        }
-
-        com.fupfin.midiraja.dsp.AudioProcessor pipeline =
-                new com.fupfin.midiraja.dsp.FloatToShortSink(audio);
-        pipeline = common.wrapRetroPipeline(pipeline);
-        pipeline = fxOptions.wrapFxPipeline(pipeline);
-        if (fxOptions.needsFloatConversion(common))
-        {
-            pipeline = new com.fupfin.midiraja.dsp.ShortToFloatFilter(pipeline);
-        }
+        var pipeline = FmSynthOptions.buildStereoFmPipeline(common, fxOptions);
 
         var bridge = new com.fupfin.midiraja.midi.FFMOpnMidiNativeBridge();
         var provider = new com.fupfin.midiraja.midi.OpnMidiSynthProvider(bridge, pipeline,
