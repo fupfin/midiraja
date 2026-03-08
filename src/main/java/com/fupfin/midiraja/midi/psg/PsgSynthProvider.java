@@ -7,8 +7,8 @@
 
 package com.fupfin.midiraja.midi.psg;
 
+import com.fupfin.midiraja.midi.AbstractOneBitSynthProvider;
 import com.fupfin.midiraja.midi.MidiPort;
-import com.fupfin.midiraja.midi.SoftSynthProvider;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -18,14 +18,9 @@ import org.jspecify.annotations.Nullable;
  * Interception Layer" that applies 1980s demoscene software hacks.
  */
 @SuppressWarnings({"ThreadPriorityCheck", "EmptyCatch"})
-public class PsgSynthProvider implements SoftSynthProvider
+public class PsgSynthProvider extends AbstractOneBitSynthProvider
 {
-    private final com.fupfin.midiraja.dsp.@org.jspecify.annotations.Nullable AudioProcessor audioOut;
     private final int sampleRate = 44100;
-
-    private @Nullable Thread renderThread;
-    private volatile boolean running = false;
-    private volatile boolean renderPaused = false;
 
     private final int systems; // The number of pairs (or just single PSGs if no SCC)
     private final TrackerSynthChip[] chips;
@@ -37,7 +32,7 @@ public class PsgSynthProvider implements SoftSynthProvider
             com.fupfin.midiraja.dsp.@org.jspecify.annotations.Nullable AudioProcessor audioOut,
             int systems, double vibratoDepth, double dutySweep, boolean useScc, boolean smoothScc)
     {
-        this.audioOut = audioOut;
+        super(audioOut);
         this.systems = Math.max(1, Math.min(16, systems));
         this.useScc = useScc;
         this.totalPhysicalChips = useScc ? this.systems * 2 : this.systems;
@@ -87,80 +82,30 @@ public class PsgSynthProvider implements SoftSynthProvider
     }
 
     @Override
-    public void openPort(int portIndex) throws Exception
+    protected void renderFrames(short[] pcmBuffer, int framesToRender)
     {
-        if (audioOut != null) startRenderThread();
-    }
+        for (int i = 0; i < framesToRender; i++)
+        {
+            double sumOutput = 0.0;
 
-    @Override
-    public void loadSoundbank(String path) throws Exception
-    {}
-
-    private void startRenderThread()
-    {
-        running = true;
-        renderThread = new Thread(() -> {
-            final int framesToRender = 512;
-            short[] pcmBuffer = new short[framesToRender];
-
-            while (running)
+            // Sum the output of all hardware chips
+            for (int c = 0; c < totalPhysicalChips; c++)
             {
-                if (renderPaused)
-                {
-                    try
-                    {
-                        Thread.sleep(1);
-                    }
-                    catch (InterruptedException e)
-                    {
-                        break;
-                    }
-                    continue;
-                }
-
-                for (int i = 0; i < framesToRender; i++)
-                {
-                    double sumOutput = 0.0;
-
-                    // Sum the output of all hardware chips
-                    for (int c = 0; c < totalPhysicalChips; c++)
-                    {
-                        sumOutput += chips[c].render();
-                    }
-
-                    // Normalize by the number of chips to prevent clipping
-                    sumOutput /= (totalPhysicalChips * 0.7);
-
-                    pcmBuffer[i] = (short) (Math.max(-1.0, Math.min(1.0, sumOutput)) * 32767);
-                }
-                if (audioOut != null) audioOut.processInterleaved(pcmBuffer, framesToRender, 1);
+                sumOutput += chips[c].render();
             }
-        });
-        renderThread.setPriority(Thread.MAX_PRIORITY);
-        renderThread.setDaemon(true);
-        renderThread.start();
+
+            // Normalize by the number of chips to prevent clipping
+            sumOutput /= (totalPhysicalChips * 0.7);
+
+            pcmBuffer[i] = (short) (Math.max(-1.0, Math.min(1.0, sumOutput)) * 32767);
+        }
     }
 
     @Override
-    public void closePort()
+    protected void resetState()
     {
-        running = false;
-        if (renderThread != null) renderThread.interrupt();
-    }
-
-    @Override
-    public void prepareForNewTrack(javax.sound.midi.Sequence seq)
-    {
-        renderPaused = true;
-        if (audioOut != null) audioOut.reset();
         for (int i = 0; i < totalPhysicalChips; i++)
             chips[i].reset();
-    }
-
-    @Override
-    public void onPlaybackStarted()
-    {
-        renderPaused = false;
     }
 
     @Override

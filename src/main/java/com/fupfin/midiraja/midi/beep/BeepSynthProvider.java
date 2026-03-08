@@ -8,8 +8,8 @@
 package com.fupfin.midiraja.midi.beep;
 
 
+import com.fupfin.midiraja.midi.AbstractOneBitSynthProvider;
 import com.fupfin.midiraja.midi.MidiPort;
-import com.fupfin.midiraja.midi.SoftSynthProvider;
 import java.util.ArrayList;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -33,7 +33,7 @@ import org.jspecify.annotations.Nullable;
  * </ul>
  */
 @SuppressWarnings({"ThreadPriorityCheck", "EmptyCatch"})
-public class BeepSynthProvider implements SoftSynthProvider
+public class BeepSynthProvider extends AbstractOneBitSynthProvider
 {
     /**
      * Internal container for AI-optimized DSP parameters.
@@ -79,7 +79,6 @@ public class BeepSynthProvider implements SoftSynthProvider
             java.util.Map.entry("square_xor_4", new DspParams(0.029, 0.000, 0.000)));
 
 
-    private final com.fupfin.midiraja.dsp.@org.jspecify.annotations.Nullable AudioProcessor audioOut;
     private final int voicesPerCore;
     private final double fmRatio;
     private final double fmIndex;
@@ -97,10 +96,6 @@ public class BeepSynthProvider implements SoftSynthProvider
     private final double dspDcBlockerR;
     @SuppressWarnings("unused")
     private final boolean dspUseDcBlocker;
-
-    private @Nullable Thread renderThread;
-    private volatile boolean running = false;
-    private volatile boolean renderPaused = false;
 
     /**
      * Represents a single active MIDI note in the synthesis engine. Uses 16-bit fixed-point
@@ -458,7 +453,7 @@ public class BeepSynthProvider implements SoftSynthProvider
             int voices, double fmRatio, double fmIndex, int oversample, String muxMode,
             String synthMode)
     {
-        this.audioOut = audioOut;
+        super(audioOut);
         this.voicesPerCore = Math.max(1, Math.min(4, voices));
         this.fmRatio = fmRatio;
         this.fmIndex = fmIndex;
@@ -511,70 +506,43 @@ public class BeepSynthProvider implements SoftSynthProvider
     }
 
     @Override
-    public void openPort(int portIndex) throws Exception
+    protected void renderFrames(short[] pcmBuffer, int framesToRender)
     {
-        if (audioOut != null) startRenderThread();
-    }
-
-    @Override
-    public void loadSoundbank(String path) throws Exception
-    {}
-
-    private void startRenderThread()
-    {
-        running = true;
-        renderThread = new Thread(() -> {
-            final int framesToRender = 512;
-            short[] pcmBuffer = new short[framesToRender];
-            while (running)
+        // Wait-Free garbage collection and snapshot
+        List<ActiveNote> currentNotes = new ArrayList<>(32);
+        for (int i = 0; i < MAX_POLYPHONY; i++)
+        {
+            ActiveNote n = activeNotes[i];
+            if (n.active)
             {
-                if (renderPaused)
+                if ((n.isDrum && n.activeFrames > sampleRate * 0.2)
+                        || (!n.isDrum && n.activeFrames > sampleRate * 3.0))
                 {
-                    try
-                    {
-                        Thread.sleep(1);
-                    }
-                    catch (InterruptedException e)
-                    {
-                        break;
-                    }
-                    continue;
-                }
-
-                // Wait-Free garbage collection and snapshot
-                List<ActiveNote> currentNotes = new ArrayList<>(32);
-                for (int i = 0; i < MAX_POLYPHONY; i++)
-                {
-                    ActiveNote n = activeNotes[i];
-                    if (n.active)
-                    {
-                        if ((n.isDrum && n.activeFrames > sampleRate * 0.2)
-                                || (!n.isDrum && n.activeFrames > sampleRate * 3.0))
-                        {
-                            n.active = false;
-                        }
-                        else
-                        {
-                            currentNotes.add(n);
-                        }
-                    }
-                }
-
-                if (currentNotes.isEmpty())
-                {
-                    for (int i = 0; i < framesToRender; i++)
-                        pcmBuffer[i] = 0;
+                    n.active = false;
                 }
                 else
                 {
-                    renderCluster(currentNotes, pcmBuffer, framesToRender);
+                    currentNotes.add(n);
                 }
-                if (audioOut != null) audioOut.processInterleaved(pcmBuffer, 512, 1);
             }
-        });
-        renderThread.setPriority(Thread.MAX_PRIORITY);
-        renderThread.setDaemon(true);
-        renderThread.start();
+        }
+
+        if (currentNotes.isEmpty())
+        {
+            for (int i = 0; i < framesToRender; i++)
+                pcmBuffer[i] = 0;
+        }
+        else
+        {
+            renderCluster(currentNotes, pcmBuffer, framesToRender);
+        }
+    }
+
+    @Override
+    protected void resetState()
+    {
+        for (int i = 0; i < MAX_POLYPHONY; i++)
+            activeNotes[i].active = false;
     }
 
     /**
@@ -712,28 +680,6 @@ public class BeepSynthProvider implements SoftSynthProvider
             double finalMix = Math.max(-1.0, Math.min(1.0, lpfState2));
             buffer[i] = (short) (finalMix * 18000);
         }
-    }
-
-    @Override
-    public void closePort()
-    {
-        running = false;
-        if (renderThread != null) renderThread.interrupt();
-    }
-
-    @Override
-    public void prepareForNewTrack(javax.sound.midi.Sequence seq)
-    {
-        renderPaused = true;
-        if (audioOut != null) audioOut.reset();
-        for (int i = 0; i < MAX_POLYPHONY; i++)
-            activeNotes[i].active = false;
-    }
-
-    @Override
-    public void onPlaybackStarted()
-    {
-        renderPaused = false;
     }
 
     @Override
