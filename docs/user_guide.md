@@ -23,18 +23,20 @@ Midiraja (`midra`) is the ultimate **Terminal-Native** MIDI player. It is design
 ### 2.1. Installation
 Midiraja is distributed as a single, standalone native program. You do not need to install Java or any complex audio drivers to get started.
 
-**For macOS (The Easiest Way):**
-If you use Homebrew, simply run:
+**For macOS (Quick Script):**
 ```bash
-brew tap YOUR_GITHUB_USERNAME/tap
-brew install midra
+curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.sh | bash
 ```
 
-**For Linux & macOS (Quick Script):**
-You can also use this one-liner to download the app directly:
+To install to a custom location (e.g., `/usr/local`):
 ```bash
-curl -sL https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/midiraja/master/install.sh | bash
+curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.sh | bash -s -- --prefix /usr/local
 ```
+
+**Manual Download:**
+Download the latest release for your platform from the [GitHub Releases page](https://github.com/sungchulpark/midiraja/releases), extract the archive, and place `midra` somewhere on your `PATH`.
+
+*(Homebrew tap and Linux/Windows installers are coming soon.)*
 
 ### 2.2. The 10-Second Magic Command
 The biggest hurdle with playing MIDI files is usually hunting down "Patch Banks" or configuring ports. Midiraja solves this by including built-in mathematical sound generators!

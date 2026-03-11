@@ -1,15 +1,47 @@
-.TH MIDRA 1 "February 2026" "midra" "User Commands"
+.TH MIDRA 1 "March 2026" "midra" "User Commands"
 .SH NAME
 midra \- A high-performance, interactive MIDI player for the command line.
 .SH SYNOPSIS
 .B midra
-[\fIOPTIONS\fR] [\fIFILE\fR...]
+[\fICOMMAND\fR] [\fIOPTIONS\fR] [\fIFILE\fR...]
 .SH DESCRIPTION
-\fBmidra\fR (Midiraja) is a lightweight, cross-platform CLI tool for playing MIDI files directly to native OS MIDI synthesizers. It features an interactive UI for port selection, a robust playlist system, and live playback controls.
-.SH OPTIONS
+\fBmidra\fR (Midiraja) is a lightweight, cross-platform CLI tool for playing MIDI files directly to
+native OS MIDI synthesizers, built-in retro emulation engines, or dynamically linked C libraries
+such as FluidSynth and Munt. It features an interactive TUI with real-time VU meters, live
+playback controls, and a modular DSP audio effect rack.
+.SH SUBCOMMANDS
 .TP
-\fB\-p\fR, \fB\-\-port\fR=\fIPORT\fR
-MIDI output port index or partial name. If omitted, an interactive menu will be shown.
+\fBopl\fR
+OPL2/OPL3 FM synthesis (AdLib / Sound Blaster). Run \fBmidra opl --help\fR for options.
+.TP
+\fBopn\fR
+OPN2 FM synthesis (Sega Genesis / PC-98). Run \fBmidra opn --help\fR for options.
+.TP
+\fBmunt\fR
+Cycle-accurate Roland MT-32/CM-32L emulation via Munt. Requires ROM files.
+.TP
+\fBfluid\fR
+FluidSynth SoundFont (.sf2) playback. Requires FluidSynth installed.
+.TP
+\fBgus\fR
+Gravis Ultrasound DSP wavetable synthesis (.pat patches).
+.TP
+\fBbeep\fR (alias: \fB1bit\fR)
+1-Bit Digital Cluster speaker engine (Apple II / PC Speaker style).
+.TP
+\fBpsg\fR (alias: \fBmsx\fR)
+Programmable Sound Generator (AY-3-8910 / YM2149F) with optional Konami SCC expansion.
+.TP
+\fBdevice\fR (alias: \fBdev\fR)
+Route raw MIDI events to an OS MIDI output port (hardware or virtual).
+.TP
+\fBjava\fR
+Java built-in synthesizer (experimental, cross-platform).
+.TP
+\fBports\fR
+List available MIDI output devices and exit.
+.SH COMMON OPTIONS
+These options apply to all subcommands.
 .TP
 \fB\-v\fR, \fB\-\-volume\fR=\fIVOLUME\fR
 Initial volume percentage (0-100). Default is 100.
@@ -17,28 +49,98 @@ Initial volume percentage (0-100). Default is 100.
 \fB\-x\fR, \fB\-\-speed\fR=\fISPEED\fR
 Playback speed multiplier (e.g., 1.0, 1.2, 0.5). Default is 1.0.
 .TP
-\fB\-s\fR, \fB\-\-start\fR=\fITIME\fR
-Playback start time for the first track. Format can be HH:MM:SS, MM:SS, or seconds (e.g., 01:10:12, 05:30, or 90).
+\fB\-S\fR, \fB\-\-start\fR=\fITIME\fR
+Playback start time for the first track. Format: HH:MM:SS, MM:SS, or seconds (e.g., 01:10:12, 05:30, or 90).
 .TP
 \fB\-t\fR, \fB\-\-transpose\fR=\fISEMITONES\fR
 Transpose by semitones (e.g., 12 for one octave up, -5 for down).
 .TP
-\fB\-z\fR, \fB\-\-shuffle\fR
+\fB\-s\fR, \fB\-\-shuffle\fR
 Shuffle the playlist before playing.
 .TP
 \fB\-r\fR, \fB\-\-loop\fR
-Loop the playlist indefinitely. If combined with \fB\-\-shuffle\fR, the playlist is reshuffled on each new loop.
+Loop the playlist indefinitely.
 .TP
-\fB\-l\fR, \fB\-\-list\fR
-List available MIDI output devices and exit.
+\fB\-R\fR, \fB\-\-recursive\fR
+Recursively search for MIDI files in given directories.
 .TP
-\fB\-h\fR, \fB\-\-help\fR
-Show this help message and exit.
+\fB\-\-verbose\fR
+Show verbose error messages and stack traces.
 .TP
-\fB\-V\fR, \fB\-\-version\fR
-Print version information and exit.
+\fB\-\-ignore-sysex\fR
+Filter out hardware-specific System Exclusive (SysEx) messages.
+.TP
+\fB\-\-reset\fR=\fITYPE\fR
+Send a SysEx reset before each track (gm, gm2, gs, xg, mt32, or raw hex like F0...F7).
+.TP
+\fB\-\-dump-wav\fR=\fIFILE\fR
+Dump the real-time audio output to the specified WAV file.
+.SH RETRO HARDWARE SIMULATION
+.TP
+\fB\-\-retro\fR=\fIMODE\fR
+Apply a physically accurate acoustic simulation of retro hardware output. Modes:
+.RS 4
+\fBcompactmac\fR  \- Macintosh 128K/512K 2-inch mono speaker
+.br
+\fBpc\fR          \- IBM PC Speaker (15.2kHz PWM, ~6-bit)
+.br
+\fBapple2\fR      \- Apple II speaker (DAC522 dual-pulse technique, ~5-bit)
+.br
+\fBspectrum\fR    \- ZX Spectrum 22mm beeper
+.br
+\fBcovox\fR       \- Covox Speech Thing parallel-port DAC
+.br
+\fBdisneysound\fR \- Disney Sound Source
+.RE
+.TP
+\fB\-\-speaker\fR=\fIPROFILE\fR
+Vintage speaker acoustic simulation (independent of \fB\-\-retro\fR). Profiles:
+.RS 4
+\fBtin-can\fR    \- Narrow-band, telephone-like mid-forward coloring
+.br
+\fBwarm-radio\fR \- AM radio warmth with soft bass rolloff
+.RE
+.SH DSP OPTIONS
+These options apply to internal synthesis engines (opl, opn, psg, gus, beep).
+.TP
+\fB\-\-tube\fR=\fI0-100\fR
+Analog tube saturation (harmonic distortion and warmth).
+.TP
+\fB\-\-chorus\fR=\fI0-100\fR
+Stereo chorus effect.
+.TP
+\fB\-\-reverb\fR=\fIPRESET\fR
+Algorithmic reverb. Presets: room, hall, plate, chamber, spring, cave.
+.TP
+\fB\-\-reverb-level\fR=\fI0-100\fR
+Reverb wet/dry mix. Default is 50.
+.TP
+\fB\-\-bass\fR=\fI0-100\fR
+Bass EQ boost/cut (50 = neutral).
+.TP
+\fB\-\-mid\fR=\fI0-100\fR
+Mid EQ boost/cut (50 = neutral).
+.TP
+\fB\-\-treble\fR=\fI0-100\fR
+Treble EQ boost/cut (50 = neutral).
+.TP
+\fB\-\-lpf\fR=\fIFREQ\fR
+Low-pass filter cutoff frequency in Hz.
+.TP
+\fB\-\-hpf\fR=\fIFREQ\fR
+High-pass filter cutoff frequency in Hz.
+.SH TUI OPTIONS
+.TP
+\fB\-1\fR, \fB\-\-classic\fR
+Classic scrolling console output.
+.TP
+\fB\-2\fR, \fB\-\-mini\fR
+Compact single-line status bar.
+.TP
+\fB\-3\fR, \fB\-\-full\fR
+Full-screen TUI dashboard with VU meters and playlist queue.
 .SH INTERACTIVE CONTROLS
-During playback, the following keystrokes are supported to control the engine in real-time:
+During playback, the following keystrokes are supported:
 .TP
 \fBUp / Down Arrow\fR
 Increase or decrease the master volume by 5%.
@@ -58,22 +160,53 @@ Skip to the next track in the playlist.
 \fBp\fR (or \fB[\fR)
 Return to the previous track in the playlist.
 .TP
+\fBSpace\fR
+Pause or resume playback.
+.TP
+\fB1\fR, \fB2\fR, \fB3\fR
+Switch TUI display mode (classic, mini, full).
+.TP
 \fBq\fR (or \fBESC\fR)
-Stop playback and exit the application entirely.
+Stop playback and exit the application.
 .SH EXAMPLES
 Play a single file with an interactive port selection menu:
 .RS 4
 midra PASSPORT.MID
 .RE
 
-Play all MIDI files in a directory continuously in random order:
+Play all MIDI files in a directory in random order, looping forever:
 .RS 4
-midra --loop --shuffle *.mid
+midra --loop --shuffle ~/game_music/
 .RE
 
-Start playback at 1 minute and 30 seconds with 1.5x speed:
+Start playback at 1 minute 30 seconds with 1.5x speed:
 .RS 4
 midra --start 01:30 --speed 1.5 PASSPORT.MID
 .RE
+
+Play using the OPL3 FM engine with the DOOM instrument bank:
+.RS 4
+midra opl -b 14 song.mid
+.RE
+
+Play using Munt MT-32 emulation:
+.RS 4
+midra munt ~/roms/ monkey_island.mid
+.RE
+
+Play using FluidSynth with a SoundFont:
+.RS 4
+midra fluid ~/soundfonts/gm.sf2 song.mid
+.RE
+
+Apply tube saturation and reverb to the OPN2 engine:
+.RS 4
+midra opn --tube 20 --reverb hall --reverb-level 70 song.mid
+.RE
+
+Simulate Compact Mac speaker output:
+.RS 4
+midra opl --retro compactmac song.mid
+.RE
 .SH AUTHORS
-Midiraja was created to bring high-performance, interactive MIDI playback to the terminal.
+Midiraja was created by Park, Sungchul. See https://github.com/sungchulpark/midiraja

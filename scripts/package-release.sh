@@ -29,8 +29,12 @@ DIST_DIR="dist"
 ARCHIVE_NAME="midra-${OS}-${ARCH}-v${VERSION}.tar.gz"
 CHECKSUM_FILE="midra-${OS}-${ARCH}-v${VERSION}.sha256"
 
-# Build the native binary automatically
-echo "🛠️ Building native image via GraalVM Native Image..."
+# Build C/C++ native libraries
+echo "🛠️  Building C/C++ native libraries..."
+./scripts/build-native-libs.sh
+
+# Build the native binary
+echo "🛠️  Building native image via GraalVM Native Image..."
 ./gradlew nativeCompile
 
 if [ ! -f "${BIN_DIR}/midra" ]; then
@@ -41,8 +45,11 @@ fi
 echo "📦 Packaging ${ARCHIVE_NAME}..."
 mkdir -p "${DIST_DIR}"
 
-# Use -C to change directory so the tarball contains just 'midra' without the path structure
-tar -czf "${DIST_DIR}/${ARCHIVE_NAME}" -C "${BIN_DIR}" midra
+STAGING_DIR="$(mktemp -d)"
+trap 'rm -rf "$STAGING_DIR"' EXIT
+cp "${BIN_DIR}/midra" "${STAGING_DIR}/midra"
+cp "man/midra.1" "${STAGING_DIR}/midra.1"
+tar -czf "${DIST_DIR}/${ARCHIVE_NAME}" -C "${STAGING_DIR}" midra midra.1
 
 echo "🔒 Calculating SHA256 Checksum..."
 cd "${DIST_DIR}"

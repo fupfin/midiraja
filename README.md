@@ -31,18 +31,20 @@ Midiraja features a built-in, modular DSP effect rack that can be applied to alm
 
 ## 🚀 Quick Install (macOS & Linux)
 
-### Option 1: macOS via Homebrew (Recommended)
+### Option 1: Curl Script (macOS)
 ```bash
-brew tap YOUR_GITHUB_USERNAME/tap
-brew install midra
+curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.sh | bash
 ```
 
-### Option 2: Curl Script (Mac & Linux)
+Install to a custom prefix (e.g., `/usr/local`):
 ```bash
-curl -sL https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/midiraja/master/install.sh | bash
+curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.sh | bash -s -- --prefix /usr/local
 ```
 
-*(For Windows or manual downloads, see the [Releases](https://github.com/YOUR_GITHUB_USERNAME/midiraja/releases) page).*
+### Option 2: Manual Download
+Download the latest tarball for your platform from the [Releases](https://github.com/sungchulpark/midiraja/releases) page, extract, and place `midra` somewhere on your `PATH`.
+
+*(Homebrew tap and Linux/Windows installers are coming soon.)*
 
 ---
 

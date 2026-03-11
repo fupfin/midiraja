@@ -13,27 +13,29 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-22.04
-            artifact_name: midra
-            asset_name: midra-linux-amd64
-          - os: ubuntu-24.04-arm
-            artifact_name: midra
-            asset_name: midra-linux-arm64
           - os: macos-13
             artifact_name: midra
+            asset_name: midra-darwin-amd64
+          - os: macos-15
+            artifact_name: midra
             asset_name: midra-darwin-arm64
-          - os: windows-2022
-            artifact_name: midra.exe
-            asset_name: midra-windows-amd64.exe
+          # Linux and Windows will be added in future steps
+          # - os: ubuntu-22.04
+          #   artifact_name: midra
+          #   asset_name: midra-linux-amd64
+          # - os: ubuntu-24.04-arm
+          #   artifact_name: midra
+          #   asset_name: midra-linux-arm64
+          # - os: windows-2022
+          #   artifact_name: midra.exe
+          #   asset_name: midra-windows-amd64.exe
 
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup MSVC
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          submodules: recursive
 
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
@@ -41,115 +43,38 @@ jobs:
           java-version: '25'
           distribution: 'graalvm-community'
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
-        
+
       - name: Make gradlew executable
-        if: runner.os != 'Windows'
         run: chmod +x ./gradlew
-        
+
+      - name: Build C/C++ Native Libraries
+        run: ./scripts/build-native-libs.sh
+
       - name: Build Native Image
         run: ./gradlew nativeCompile
 
-      - name: Rename Artifact
+      - name: Package Artifact
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            mv build/native/nativeCompile/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
-          else
-            mv build/native/nativeCompile/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
-          fi
-        shell: bash
-
-      - name: Setup Ruby for fpm (Linux only)
-        if: runner.os == 'Linux'
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          
-      - name: Install fpm and rpm tools (Linux only)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm
-          gem install fpm
-
-      - name: Generate completions and build packages (Linux only)
-        if: runner.os == 'Linux'
-        run: |
-          # Create staging directories
-          mkdir -p pkg-root/usr/bin
-          mkdir -p pkg-root/usr/share/zsh/vendor-completions
-          mkdir -p pkg-root/usr/share/bash-completion/completions
-
-          # Copy binary to staging (making sure it's executable)
-          cp ${{ matrix.asset_name }} pkg-root/usr/bin/midra
-          chmod +x pkg-root/usr/bin/midra
-
-          # Generate completion scripts directly using the compiled binary
-          ./pkg-root/usr/bin/midra generate-completion > pkg-root/usr/share/zsh/vendor-completions/_midra
-          ./pkg-root/usr/bin/midra generate-completion > pkg-root/usr/share/bash-completion/completions/midra
-
-          # Bundle Freepats
-          ./gradlew setupFreepats
-          mkdir -p pkg-root/usr/share/midiraja/freepats
-          cp -r build/freepats/* pkg-root/usr/share/midiraja/freepats/
-
-          # Extract version from tag (remove 'v' prefix)
-          VERSION=${GITHUB_REF_NAME#v}
-          if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
-
-          # Build .deb package
-          fpm -s dir -t deb             -n midra -v "$VERSION"             --description "A blazing fast, cross-platform CLI MIDI player"             --maintainer "Park, Sungchul <fupfin@space-vision.ai>"             --url "https://github.com/sungchulpark/midiraja"             -C pkg-root .
-
-          # Build .rpm package
-          fpm -s dir -t rpm             -n midra -v "$VERSION"             --description "A blazing fast, cross-platform CLI MIDI player"             --maintainer "Park, Sungchul <fupfin@space-vision.ai>"             --url "https://github.com/sungchulpark/midiraja"             -C pkg-root .
+          chmod +x build/native/nativeCompile/${{ matrix.artifact_name }}
+          mkdir -p staging
+          cp build/native/nativeCompile/${{ matrix.artifact_name }} staging/midra
+          cp man/midra.1 staging/
+          tar -czf ${{ matrix.asset_name }}.tar.gz -C staging .
 
       - name: Upload Native Release Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            ${{ matrix.asset_name }}
-            *.deb
-            *.rpm
-
-  build-jvm-dist:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-22.04
-          - os: macos-13
-
-    runs-on: ${{ matrix.os }}
-    
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up GraalVM Community Edition
-        uses: graalvm/setup-graalvm@v1
-        with:
-          java-version: '25'
-          distribution: 'graalvm-community'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-        
-      - name: Build Leyden JVM Distribution
-        run: bash ./scripts/build-leyden-dist.sh
-
-      - name: Upload JVM Release Asset
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/midrac-*.tar.gz
+          files: ${{ matrix.asset_name }}.tar.gz
 
   build-midrax-jar:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Set up GraalVM Community Edition
         uses: graalvm/setup-graalvm@v1
         with:
@@ -161,7 +86,7 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
       - name: Build Distribution Zip
-        run: ./gradlew distZip
+        run: ./gradlew distZip -x buildAdlMidiLib -x buildOpnMidiLib -x buildMiniaudioLib
       - name: Rename Zip
         run: |
           VERSION=${GITHUB_REF_NAME#v}
