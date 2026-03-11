@@ -60,8 +60,9 @@ class RetroFiltersTest {
     }
 
     @Test
-    void testIbmPcDacBoundary() {
-        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "pwm", 18600.0, 64.0, 0.45f, mock);
+    void testPcDacBoundary() {
+        // --retro pc: empirical 15.2kHz carrier (1.19318MHz / 78 steps), ~6.3-bit
+        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "pwm", 15200.0, 78.0, 0.45f, mock);
         float[] left = new float[512];
         float[] right = new float[512];
         
@@ -108,6 +109,44 @@ class RetroFiltersTest {
         float maxVal = 0;
         for (float v : mock.lastLeft) maxVal = Math.max(maxVal, Math.abs(v));
         assertTrue(maxVal < 0.1f, "10Hz should be heavily attenuated by PC speaker model, got max: " + maxVal);
+    }
+
+    @Test
+    void testSpectrumBeeperBasic() {
+        SpectrumBeeperFilter filter = new SpectrumBeeperFilter(true, mock);
+        float[] left = new float[512];
+        float[] right = new float[512];
+        for (int i = 0; i < 512; i++) {
+            left[i] = (float) Math.sin(2.0 * Math.PI * 1000.0 * i / 44100.0);
+            right[i] = left[i];
+        }
+
+        filter.process(left, right, 512);
+
+        assertTrue(mock.processCalled);
+        assertEquals(512, mock.lastFrames);
+        boolean hasSignal = false;
+        for (int i = 0; i < 512; i++) {
+            float val = mock.lastLeft[i];
+            assertTrue(val >= -1.0f && val <= 1.0f, "Spectrum beeper output out of range: " + val);
+            if (Math.abs(val) > 0.001f) hasSignal = true;
+        }
+        assertTrue(hasSignal, "Expected non-zero output from SpectrumBeeperFilter");
+    }
+
+    @Test
+    void testSpectrumBeeperDisabled() {
+        SpectrumBeeperFilter filter = new SpectrumBeeperFilter(false, mock);
+        float[] left = {0.5f, 0.3f, -0.4f};
+        float[] right = {0.5f, 0.3f, -0.4f};
+
+        filter.process(left, right, 3);
+
+        assertTrue(mock.processCalled);
+        // Disabled: signal passes through unmodified
+        assertEquals(0.5f, mock.lastLeft[0], 0.001f);
+        assertEquals(0.3f, mock.lastLeft[1], 0.001f);
+        assertEquals(-0.4f, mock.lastLeft[2], 0.001f);
     }
 
     @Test

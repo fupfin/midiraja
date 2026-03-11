@@ -115,7 +115,15 @@ Places the synthesizer inside a simulated 3D acoustic space (based on the legend
 * **Intensity:** Control the wet/dry mix using `--reverb-level <0-100>` (Default is 50).
 * *Example:* `midra psg --reverb chamber --reverb-level 70 song.mid`
 
-**4. 3-Band EQ & Filters**
+**4. Vintage Speaker Simulation (`--speaker <profile>`)**
+Applies an `AcousticSpeakerFilter` that models the acoustic frequency response of vintage speaker hardware, reshaping the output to sound like it is coming from a specific physical cabinet.
+* **Profiles:** `tin-can` (narrow-band, telephone-like; heavy high and low rolloff for a mid-forward, hollow character), `warm-radio` (AM radio warmth; gentle mid-forward coloration with soft bass rolloff).
+* *Example:* `midra fluidsynth piano.sf2 --speaker tin-can song.mid`
+
+> ⚠️ **Do not combine `--speaker` with `--retro`:**
+> Every `--retro` mode already contains a physically accurate model of its hardware speaker — the Mac's 2-inch cone, the Spectrum's 22mm beeper, the IBM PC's paper cone. Adding `--speaker` on top applies a second filter stage with no physical basis, producing an over-filtered result that does not match any real hardware. Use `--speaker` only when not using `--retro`. For the full technical explanation, see [The Retro Hardware Audio Simulation reference](retro-audio-engineering.md#7-the---speaker-option-and-retro-modes).
+
+**5. 3-Band EQ & Filters**
 Sculpt the frequency response using precision RBJ Biquad filters.
 * **EQ (0-100%):** `--bass`, `--mid`, `--treble` (Default is 50 for neutral. Set to 100 for maximum boost, 0 to cut completely).
 * **Cutoffs (Hz):** `--lpf <freq>` (Low-pass, cuts high frequencies), `--hpf <freq>` (High-pass, cuts low frequencies).

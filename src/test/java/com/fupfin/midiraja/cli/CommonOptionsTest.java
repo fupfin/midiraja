@@ -84,44 +84,21 @@ class CommonOptionsTest
     }
 
     @Test
-    void wrapRetroPipeline_retroModeMac128k_wrapsWithMacFilter()
+    void wrapRetroPipeline_retroModeCompactMac_wrapsWithCompactMacFilter()
     {
-        common.retroMode = Optional.of("mac128k");
-
-        AudioProcessor result = common.wrapRetroPipeline(sink);
-
-        assertNotSame(sink, result,
-                "mac128k mode should wrap the pipeline");
-        assertInstanceOf(com.fupfin.midiraja.dsp.Mac128kSimulatorFilter.class, result,
-                "Should be a Mac128kSimulatorFilter");
-    }
-
-    @Test
-    void wrapRetroPipeline_retroModeIbmpc_wrapsWithOneBitFilter()
-    {
-        common.retroMode = Optional.of("ibmpc");
+        common.retroMode = Optional.of("compactmac");
 
         AudioProcessor result = common.wrapRetroPipeline(sink);
 
         assertNotSame(sink, result);
-        assertInstanceOf(com.fupfin.midiraja.dsp.OneBitHardwareFilter.class, result);
+        assertInstanceOf(com.fupfin.midiraja.dsp.CompactMacSimulatorFilter.class, result);
     }
 
-    @Test
-    void wrapRetroPipeline_retroMode1bit_wrapsWithOneBitFilter()
-    {
-        common.retroMode = Optional.of("1bit");
-
-        AudioProcessor result = common.wrapRetroPipeline(sink);
-
-        assertNotSame(sink, result);
-        assertInstanceOf(com.fupfin.midiraja.dsp.OneBitHardwareFilter.class, result);
-    }
 
     @Test
-    void wrapRetroPipeline_retroModeRealsound_wrapsWithOneBitFilter()
+    void wrapRetroPipeline_retroModePc_wrapsWithOneBitFilter()
     {
-        common.retroMode = Optional.of("realsound");
+        common.retroMode = Optional.of("pc");
 
         AudioProcessor result = common.wrapRetroPipeline(sink);
 
@@ -140,16 +117,6 @@ class CommonOptionsTest
         assertInstanceOf(com.fupfin.midiraja.dsp.CovoxDacFilter.class, result);
     }
 
-    @Test
-    void wrapRetroPipeline_retroMode8bit_wrapsWithCovoxFilter()
-    {
-        common.retroMode = Optional.of("8bit");
-
-        AudioProcessor result = common.wrapRetroPipeline(sink);
-
-        assertNotSame(sink, result);
-        assertInstanceOf(com.fupfin.midiraja.dsp.CovoxDacFilter.class, result);
-    }
 
     @Test
     void wrapRetroPipeline_retroModeApple2_wrapsWithOneBitFilter()
@@ -163,26 +130,16 @@ class CommonOptionsTest
     }
 
     @Test
-    void wrapRetroPipeline_retroModeSpectrum_wrapsWithOneBitFilter()
+    void wrapRetroPipeline_retroModeSpectrum_wrapsWithSpectrumBeeperFilter()
     {
         common.retroMode = Optional.of("spectrum");
 
         AudioProcessor result = common.wrapRetroPipeline(sink);
 
         assertNotSame(sink, result);
-        assertInstanceOf(com.fupfin.midiraja.dsp.OneBitHardwareFilter.class, result);
+        assertInstanceOf(com.fupfin.midiraja.dsp.SpectrumBeeperFilter.class, result);
     }
 
-    @Test
-    void wrapRetroPipeline_retroModeAmiga_wrapsWithCovoxFilter()
-    {
-        common.retroMode = Optional.of("amiga");
-
-        AudioProcessor result = common.wrapRetroPipeline(sink);
-
-        assertNotSame(sink, result);
-        assertInstanceOf(com.fupfin.midiraja.dsp.CovoxDacFilter.class, result);
-    }
 
     @Test
     void wrapRetroPipeline_retroModeDisneysound_wrapsWithCovoxFilter()
@@ -209,7 +166,7 @@ class CommonOptionsTest
     @Test
     void wrapRetroPipeline_retroModeCaseInsensitive_wrapsCorrectly()
     {
-        common.retroMode = Optional.of("IBMPC");
+        common.retroMode = Optional.of("PC");
 
         AudioProcessor result = common.wrapRetroPipeline(sink);
 

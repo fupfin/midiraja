@@ -59,7 +59,7 @@ public class CommonOptions
     public Optional<String> dumpWav = Optional.empty();
 
     @Option(names = {"--retro"},
-            description = "Retro hardware physical acoustic simulation (mac128k, realsound, ibmpc, apple2, spectrum, covox, disneysound, amiga)")
+            description = "Retro hardware physical acoustic simulation (compactmac, pc, apple2, spectrum, covox, disneysound)")
     public Optional<String> retroMode = Optional.empty();
 
     @Option(names = {"--speaker"},
@@ -101,17 +101,16 @@ public class CommonOptions
             String mode = retroMode.get().toLowerCase(java.util.Locale.ROOT);
             switch (mode)
             {
-                case "mac128k":
-                    pipeline = new com.fupfin.midiraja.dsp.Mac128kSimulatorFilter(true, pipeline);
+                case "compactmac":
+                    pipeline = new com.fupfin.midiraja.dsp.CompactMacSimulatorFilter(true, pipeline);
                     break;
-                case "ibmpc":
-                case "1bit":
-                case "realsound":
+                case "pc":
+                    // Empirically measured from original RealSound demos: 15.2kHz carrier
+                    // (1.19318MHz / 78 steps ≈ 15.3kHz), 78 discrete levels (~6.3-bit).
                     pipeline = new com.fupfin.midiraja.dsp.OneBitHardwareFilter(true, "pwm",
-                            18600.0, 64.0, 0.45f, pipeline);
+                            15200.0, 78.0, 0.45f, pipeline);
                     break;
                 case "covox":
-                case "8bit":
                     pipeline = new com.fupfin.midiraja.dsp.CovoxDacFilter(true, pipeline);
                     break;
                 case "apple2":
@@ -123,10 +122,8 @@ public class CommonOptions
                             22050.0, 32.0, 0.55f, pipeline);
                     break;
                 case "spectrum":
-                    pipeline = new com.fupfin.midiraja.dsp.OneBitHardwareFilter(true, "pwm",
-                            17500.0, 200.0, 0.50f, pipeline);
+                    pipeline = new com.fupfin.midiraja.dsp.SpectrumBeeperFilter(true, pipeline);
                     break;
-                case "amiga":
                 case "disneysound":
                     pipeline = new com.fupfin.midiraja.dsp.CovoxDacFilter(true, pipeline);
                     break;

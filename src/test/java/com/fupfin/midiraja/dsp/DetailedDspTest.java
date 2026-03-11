@@ -27,9 +27,9 @@ public class DetailedDspTest {
     }
 
     @Test
-    public void testMac128kSimulatorFilter_Disabled() {
+    public void testCompactMacSimulatorFilter_Disabled() {
         DummyProcessor dummy = new DummyProcessor();
-        Mac128kSimulatorFilter filter = new Mac128kSimulatorFilter(false, dummy);
+        CompactMacSimulatorFilter filter = new CompactMacSimulatorFilter(false, dummy);
 
         float[] left = new float[10];
         float[] right = new float[10];
@@ -42,9 +42,9 @@ public class DetailedDspTest {
     }
 
     @Test
-    public void testMac128kSimulatorFilter_EnabledProcess() {
+    public void testCompactMacSimulatorFilter_EnabledProcess() {
         DummyProcessor dummy = new DummyProcessor();
-        Mac128kSimulatorFilter filter = new Mac128kSimulatorFilter(true, dummy);
+        CompactMacSimulatorFilter filter = new CompactMacSimulatorFilter(true, dummy);
 
         // Generate enough frames to trigger the currentTimeUs wrap around
         int frames = 44100 * 2; // 2 seconds
@@ -66,9 +66,9 @@ public class DetailedDspTest {
     }
 
     @Test
-    public void testMac128kSimulatorFilter_EnabledProcessInterleavedMono() {
+    public void testCompactMacSimulatorFilter_EnabledProcessInterleavedMono() {
         DummyProcessor dummy = new DummyProcessor();
-        Mac128kSimulatorFilter filter = new Mac128kSimulatorFilter(true, dummy);
+        CompactMacSimulatorFilter filter = new CompactMacSimulatorFilter(true, dummy);
 
         int frames = 44100 * 2; // 2 seconds
         short[] pcm = new short[frames]; // Mono
@@ -81,9 +81,9 @@ public class DetailedDspTest {
     }
 
     @Test
-    public void testMac128kSimulatorFilter_EnabledProcessInterleavedStereo() {
+    public void testCompactMacSimulatorFilter_EnabledProcessInterleavedStereo() {
         DummyProcessor dummy = new DummyProcessor();
-        Mac128kSimulatorFilter filter = new Mac128kSimulatorFilter(true, dummy);
+        CompactMacSimulatorFilter filter = new CompactMacSimulatorFilter(true, dummy);
 
         int frames = 44100 * 2; // 2 seconds
         short[] pcm = new short[frames * 2]; // Stereo

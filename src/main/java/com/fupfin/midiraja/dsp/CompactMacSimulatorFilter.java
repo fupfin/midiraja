@@ -1,16 +1,16 @@
 package com.fupfin.midiraja.dsp;
 
 /**
- * Simulates the unique audio hardware of the original Macintosh 128k (1984). The Mac used a custom
- * Sony sound chip (or SWIM later) but initially relied on the 68000 CPU stuffing 8-bit values into
- * a PWM generator built from two 74LS161 4-bit counters. The sample rate was strictly tied to the
- * horizontal video flyback frequency: exactly 22.25 kHz.
+ * Simulates the unique audio hardware of the early compact Macintosh line (128k, 512k, Plus, SE).
+ * The Mac used a PWM generator built from two 74LS161 4-bit counters, driven by the 68000 CPU at
+ * the horizontal video flyback frequency (~22.25 kHz). The resulting 1-bit pulse train was
+ * integrated by a physical RC low-pass filter before reaching the internal 2-inch speaker.
  *
  * This filter performs: 1. Event-Driven Analytical Integration of the 1-bit PWM pulse train. 2.
  * Simulates the physical RC filter charging and discharging at sub-microsecond precision. 3.
  * Eliminates ZOH aliasing (the "siren" tone) mathematically without oversampling.
  */
-public class Mac128kSimulatorFilter implements AudioProcessor
+public class CompactMacSimulatorFilter implements AudioProcessor
 {
     private final boolean enabled;
     private final AudioProcessor next;
@@ -41,7 +41,7 @@ public class Mac128kSimulatorFilter implements AudioProcessor
     private double transitionTimeLUs = 0.0;
     private double transitionTimeRUs = 0.0;
 
-    public Mac128kSimulatorFilter(boolean enabled, AudioProcessor next)
+    public CompactMacSimulatorFilter(boolean enabled, AudioProcessor next)
     {
         this.enabled = enabled;
         this.next = next;
