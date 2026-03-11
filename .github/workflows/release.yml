@@ -13,9 +13,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-13
-            artifact_name: midra
-            asset_name: midra-darwin-amd64
           - os: macos-15
             artifact_name: midra
             asset_name: midra-darwin-arm64
