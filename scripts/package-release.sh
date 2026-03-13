@@ -48,7 +48,7 @@ mkdir -p "${DIST_DIR}"
 STAGING_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGING_DIR"' EXIT
 cp "${BIN_DIR}/midra" "${STAGING_DIR}/midra"
-cp "man/midra.1" "${STAGING_DIR}/midra.1"
+cp "src/main/man/midra.1" "${STAGING_DIR}/midra.1"
 tar -czf "${DIST_DIR}/${ARCHIVE_NAME}" -C "${STAGING_DIR}" midra midra.1
 
 echo "🔒 Calculating SHA256 Checksum..."

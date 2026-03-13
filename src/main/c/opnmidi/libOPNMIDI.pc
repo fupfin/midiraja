@@ -1,0 +1,10 @@
+prefix=/usr/local
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libOPNMIDI
+Description: A MIDI playback library with OPN2 (YM2612) emulator
+Version: 1.6.1
+Libs: -L${libdir} -lOPNMIDI
+Cflags: -I${includedir}

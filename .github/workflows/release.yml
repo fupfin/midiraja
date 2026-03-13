@@ -58,7 +58,7 @@ jobs:
           chmod +x build/native/nativeCompile/${{ matrix.artifact_name }}
           mkdir -p staging
           cp build/native/nativeCompile/${{ matrix.artifact_name }} staging/midra
-          cp man/midra.1 staging/
+          cp src/main/man/midra.1 staging/
           tar -czf ${{ matrix.asset_name }}.tar.gz -C staging .
 
       - name: Upload Native Release Asset
