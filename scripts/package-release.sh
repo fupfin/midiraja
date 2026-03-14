@@ -25,6 +25,12 @@ if [ ${#MISSING[@]} -gt 0 ]; then
     fi
     exit 1
 fi
+if ! command -v native-image &>/dev/null; then
+    echo "❌ GraalVM native-image not found."
+    echo "   Install GraalVM JDK 25 and set JAVA_HOME, or run:"
+    echo "   https://www.graalvm.org/downloads/"
+    exit 1
+fi
 echo "✅ All prerequisites satisfied."
 
 # Extract version dynamically from Gradle
