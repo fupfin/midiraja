@@ -1,0 +1,2 @@
+# Exclude third-party submodules from GitHub language statistics
+ext/** linguist-vendored
