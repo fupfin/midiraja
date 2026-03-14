@@ -332,6 +332,13 @@ public class PlaybackRunner
                         if (next2 == 'A') selectedIndex = (selectedIndex - 1 + numPorts) % numPorts;
                         else if (next2 == 'B') selectedIndex = (selectedIndex + 1) % numPorts;
                     }
+                    else
+                    {
+                        clearMenu(terminal, numPorts);
+                        terminal.writer().print(Theme.TERM_SHOW_CURSOR);
+                        terminal.writer().flush();
+                        return -1;
+                    }
                 }
             }
         }
@@ -425,6 +432,12 @@ public class PlaybackRunner
                         int next2 = reader.read(2);
                         if (next2 == 'A') selectedIndex = (selectedIndex - 1 + numPorts) % numPorts;
                         else if (next2 == 'B') selectedIndex = (selectedIndex + 1) % numPorts;
+                    }
+                    else
+                    {
+                        terminal.writer().print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
+                        terminal.writer().flush();
+                        return -1;
                     }
                 }
             }

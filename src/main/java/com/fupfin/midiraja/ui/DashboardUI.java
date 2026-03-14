@@ -79,6 +79,7 @@ public class DashboardUI implements PlaybackUI
         int lastWidth = -1;
         int lastHeight = -1;
 
+        term.print(Theme.TERM_HIDE_CURSOR + Theme.TERM_AUTOWRAP_OFF);
         try
         {
             while (engine.isPlaying())
@@ -164,6 +165,10 @@ public class DashboardUI implements PlaybackUI
         catch (InterruptedException ignored)
         {
             Thread.currentThread().interrupt();
+        }
+        finally
+        {
+            term.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_AUTOWRAP_ON);
         }
     }
 
