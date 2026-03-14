@@ -18,8 +18,7 @@
                 {"name": "legacyOpnChips"},
                 {"name": "legacyMunt"},
                 {"name": "legacyFluid"},
-                {"name": "legacyFluidDriver"},
-                {"name": "legacySynth"}
+                {"name": "legacyFluidDriver"}
             ]
         },
         {
@@ -107,17 +106,6 @@
                 {"name": "soundfont"},
                 {"name": "files"},
                 {"name": "driver"},
-                {"name": "common"}
-            ]
-        },
-        {
-            "type": "com.midiraja.cli.JavaSynthCommand",
-            "allDeclaredConstructors": true,
-            "allPublicConstructors": true,
-            "allDeclaredMethods": true,
-            "allPublicMethods": true,
-            "fields": [
-                {"name": "files"},
                 {"name": "common"}
             ]
         },

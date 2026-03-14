@@ -19,7 +19,6 @@ import com.fupfin.midiraja.midi.FFMAdlMidiNativeBridge;
 import com.fupfin.midiraja.midi.FFMMuntNativeBridge;
 import com.fupfin.midiraja.midi.FFMOpnMidiNativeBridge;
 import com.fupfin.midiraja.midi.FluidSynthProvider;
-import com.fupfin.midiraja.midi.JavaSynthProvider;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.midi.MidiProviderFactory;
@@ -44,7 +43,7 @@ import picocli.CommandLine.Parameters;
         description = "A fast, cross-platform CLI MIDI player.",
         customSynopsis = {"midra [command] [OPTIONS] [<files>...]"},
         subcommands = {OplCommand.class, OpnCommand.class, MuntCommand.class, FluidCommand.class,
-                JavaSynthCommand.class, GusCommand.class, BeepCommand.class,
+                GusCommand.class, BeepCommand.class,
                 DeviceCommand.class,
                 PsgCommand.class, ListPortsCommand.class,
                 CommandLine.HelpCommand.class, picocli.AutoComplete.GenerateCompletion.class,},
@@ -55,8 +54,7 @@ import picocli.CommandLine.Parameters;
                 "  gus    GUS DSP       (Gravis Ultrasound .pat)",
                 "  beep   1-Bit Speaker (Apple II / PC Speaker)",
                 "  device OS Ports      (Hardware/Software MIDI OUT)",
-                "  psg    PSG Tracker   (AY-3-8910 / YM2149F)",
-                "  java   Java built-in synthesizer (experimental)", "",
+                "  psg    PSG Tracker   (AY-3-8910 / YM2149F)", "",
                 "Run 'midra <command> --help' for synth-specific options.", "",
                 "Playlist Features:",
                 "  Supports .m3u and .txt files containing paths to .mid files.",
@@ -109,9 +107,6 @@ public class MidirajaCommand implements Callable<Integer>
 
     @Option(names = {"--fluid-driver"}, hidden = true)
     private Optional<String> legacyFluidDriver = Optional.empty();
-
-    @Option(names = {"--synth"}, hidden = true)
-    private boolean legacySynth;
 
     // ── Test injection ────────────────────────────────────────────────────────
 
@@ -283,19 +278,13 @@ public class MidirajaCommand implements Callable<Integer>
             resolvedProvider = new FluidSynthProvider(legacyFluidDriver.orElse(null));
             soundbankArg = legacyFluid;
         }
-        else if (legacySynth)
-        {
-            stdErr.println(
-                    "Warning: --synth is deprecated. Use 'midra java " + "<files...>' instead.");
-            resolvedProvider = new JavaSynthProvider();
-        }
         else
         {
             resolvedProvider = MidiProviderFactory.createProvider();
         }
 
         boolean isSoftSynth = legacyMunt.isPresent() || legacyOpl.isPresent()
-                || legacyOpn.isPresent() || legacyFluid.isPresent() || legacySynth
+                || legacyOpn.isPresent() || legacyFluid.isPresent()
                 || (provider != null && isTestMode);
 
         var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
