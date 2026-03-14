@@ -103,7 +103,8 @@ LIB_EXT="dylib" ; [ "$(uname -s)" = "Linux" ] && LIB_EXT="so"
 for lib in \
     "${NATIVE_LIBS_DIR}/miniaudio/libmidiraja_audio.${LIB_EXT}" \
     "${NATIVE_LIBS_DIR}/adlmidi/libADLMIDI.${LIB_EXT}" \
-    "${NATIVE_LIBS_DIR}/opnmidi/libOPNMIDI.${LIB_EXT}"; do
+    "${NATIVE_LIBS_DIR}/opnmidi/libOPNMIDI.${LIB_EXT}" \
+    "${NATIVE_LIBS_DIR}/munt/libmt32emu.${LIB_EXT}"; do
     [ -f "$lib" ] && cp "$lib" "${STAGING_DIR}/lib/"
 done
 
