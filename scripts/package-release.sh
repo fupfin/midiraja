@@ -29,6 +29,10 @@ DIST_DIR="dist"
 ARCHIVE_NAME="midra-${OS}-${ARCH}-v${VERSION}.tar.gz"
 CHECKSUM_FILE="midra-${OS}-${ARCH}-v${VERSION}.sha256"
 
+# Ensure submodules are initialized
+echo "📦 Initializing git submodules..."
+git submodule update --init --recursive
+
 # Build C/C++ native libraries
 echo "🛠️  Building C/C++ native libraries..."
 ./scripts/build-native-libs.sh
