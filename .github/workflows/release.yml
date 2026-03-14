@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to package (e.g. 0.2.0). Defaults to version in build.gradle.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -61,7 +67,13 @@ jobs:
 
       - name: Package Artifact
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${GITHUB_REF_NAME}" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(./gradlew properties -q | awk '/^version:/ {print $2}')
+          fi
           NATIVE_ARCH=$(uname -m)
           [ "$NATIVE_ARCH" = "arm64" ] && NATIVE_ARCH="aarch64"
           OS_FAMILY="macos" ; [ "$(uname -s)" = "Linux" ] && OS_FAMILY="linux"
@@ -83,7 +95,15 @@ jobs:
           cp -r build/freepats/. staging/share/midra/freepats/
           tar -czf ${{ matrix.asset_name }}.tar.gz -C staging .
 
-      - name: Upload Native Release Asset
+      - name: Upload as CI Artifact (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.asset_name }}.tar.gz
+
+      - name: Upload Native Release Asset (tag push)
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.asset_name }}.tar.gz
