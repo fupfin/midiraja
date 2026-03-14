@@ -281,7 +281,7 @@ task buildMiniaudioLib(type: Exec) {
         else
             gcc -c -fPIC -O2 -o midiraja_audio.o "${sourceFile.absolutePath}"
             ar rcs libmidiraja_audio.a midiraja_audio.o
-            gcc -shared -fPIC -O2 -o libmidiraja_audio.so "${sourceFile.absolutePath}" -lasound
+            gcc -shared -fPIC -O2 -o libmidiraja_audio.so "${sourceFile.absolutePath}" -ldl -lpthread -lm
         fi
     """
 }
