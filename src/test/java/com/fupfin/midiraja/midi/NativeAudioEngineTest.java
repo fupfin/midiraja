@@ -49,7 +49,7 @@ class NativeAudioEngineTest
 
     @Test void testEngineThrowsOnInvalidLibraryPath()
     {
-        assertThrows(UnsatisfiedLinkError.class,
+        assertThrows(IllegalArgumentException.class,
             () -> { new NativeAudioEngine("/path/to/non/existent/lib.dylib"); });
     }
 }
