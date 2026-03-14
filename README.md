@@ -1,77 +1,74 @@
-# Midiraja (midra) 🎵
+# Midiraja (midra)
 
-**Midiraja** (command: `midra`) is the ultimate **Terminal-Native** MIDI player. It brings a rich, interactive audio dashboard directly to your command line. 
+**Midiraja** (command: `midra`) is a terminal-native MIDI player built for command-line use.
 
-Whether you want to quickly preview a `.mid` file, practice an instrument by changing the key and tempo on the fly, or just listen to a folder full of retro game soundtracks through historically accurate software synthesizers, `midra` makes it incredibly easy.
+## Features
 
-## ✨ The 3 Ways to Play
-Midiraja isn't just a player; it's a universal audio router. It can output your MIDI files in three fundamentally different ways depending on your needs:
-
-1. **External OS Devices (`device`):** Midiraja can act as a pure sequencer, routing raw MIDI events directly to your OS's native ports (like Apple CoreMIDI or Windows GS Wavetable) or to your own external hardware synthesizers connected via USB/MIDI.
-2. **Built-in Retro Engines (Zero-Dependency):** Want instant retro sound without installing anything? Midiraja contains pure-mathematical emulators built directly into the binary. Enjoy Gravis Ultrasound (`gus`), AdLib FM (`opl`/`opn`), Programmable Sound Generator (`psg`/`msx`) with Konami SCC expansion, and a custom purist 1-Bit Digital Cluster (`1bit` / `beep`) instantly.
-3. **Shared Library Linking:** If you have industry-standard C-libraries installed on your system (like `fluid-synth` or `munt`), Midiraja will dynamically link to them, allowing for ultra-high-fidelity SoundFont rendering or cycle-accurate Roland MT-32 emulation.
-
-## 🖥️ The 3 Ways to View
-Experience your music with three adaptive Terminal UI modes:
-* **`--full` (`-3`):** A glorious full-screen dashboard featuring 16-channel VU meters, progress bars, and a dynamic playlist queue.
-* **`--mini` (`-2`):** A compact, single-line status widget perfect for background listening while you work in another split terminal.
-* **`--classic` (`-1`):** Standard, pipe-friendly console output.
-
-## 🎛️ Live Playback Control
-Change the playback speed, transpose the musical key, or tweak the master volume *while* the music is playing—and keep those settings persistent across an entire folder of files!
-
-## 🎚️ Global Audio Effects (DSP)
-Midiraja features a built-in, modular DSP effect rack that can be applied to almost any built-in synthesizer (`opl`, `opn`, `psg`, `gus`). Sculpt your sound before it reaches your speakers:
-* **Tube Saturation (`--tube`)**: Adds analog warmth, harmonic distortion, and punch using mathematical waveshaping. (e.g. `--tube 20`)
-* **Stereo Chorus (`--chorus`)**: Spreads the sound wide across the stereo field with swirling 80s detuning. (e.g. `--chorus 50`)
-* **Algorithmic Reverb (`--reverb`)**: Places your retro synths in realistic 3D spaces (`room`, `hall`, `plate`, `chamber`, `spring`, `cave`). (e.g. `--reverb hall --reverb-level 80`)
-* **3-Band EQ & Cutoffs**: Sculpt the frequencies with precision Biquad filters (`--bass`, `--mid`, `--treble`, `--lpf`, `--hpf`).
+- **Retro synthesizer engines** — OPL2/OPL3 FM, OPN2, Gravis Ultrasound, PSG/MSX+SCC, 1-bit — all embedded in the binary, no external libraries needed
+- **External MIDI routing** — send events to OS native ports (CoreMIDI, Windows GS, ALSA) or hardware synthesizers via USB/MIDI
+- **High-fidelity emulation** — optionally links against FluidSynth (SoundFont) or Munt (Roland MT-32) if installed on the system
+- **Live playback control** — adjust speed, transpose key, and master volume while playing
+- **DSP effects rack** — tube saturation, stereo chorus, algorithmic reverb (room/hall/plate/chamber/spring/cave), 3-band EQ, LPF/HPF — applies to any built-in engine
+- **Three TUI modes** — full-screen dashboard with 16-channel VU meters (`--full`), compact single-line widget (`--mini`), plain console output (`--classic`)
+- **Playlist support** — M3U files, recursive directory scan, shuffle, loop
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### Supported Platforms
 
 | OS | Architecture | Native (`midra`) | Cross-platform JAR (`midrax`) |
 |---|---|---|---|
-| macOS | Apple Silicon (arm64) | ✅ | ✅ |
-| macOS | Intel (amd64) | 🔜 coming soon | ✅ |
-| Linux | amd64 / arm64 | 🔜 coming soon | ✅ |
-| Windows | amd64 | 🔜 coming soon | ✅ |
+| macOS | Apple Silicon (arm64) | Available | Available |
+| macOS | Intel (amd64) | Coming soon | Available |
+| Linux | amd64 / arm64 | Coming soon | Available |
+| Windows | amd64 | Coming soon | Available |
 
-### Option 1: Curl Script (macOS Apple Silicon)
+### Option 1: Curl (macOS Apple Silicon)
+
 ```bash
-curl -sL https://raw.githubusercontent.com/fupfin/midiraja/master/install.sh | bash
+curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash
 ```
 
-Install to a custom prefix (e.g., `/usr/local`):
+Install to a custom prefix (e.g. `/usr/local`):
+
 ```bash
-curl -sL https://raw.githubusercontent.com/fupfin/midiraja/master/install.sh | bash -s -- --prefix /usr/local
+curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash -s -- --prefix /usr/local
 ```
 
 ### Option 2: Manual Download
-Download the latest release for your platform from the [Releases](https://github.com/fupfin/midiraja/releases) page:
-- **`midra-darwin-arm64.tar.gz`** — macOS Apple Silicon native binary
-- **`midrax-vX.Y.Z.zip`** — Cross-platform JAR (requires Java 25+)
+
+Download the latest release from the [Releases](https://github.com/fupfin/midiraja/releases) page:
+
+- `midra-darwin-arm64.tar.gz` — macOS Apple Silicon native binary
+- `midrax-vX.Y.Z.zip` — Cross-platform JAR (requires Java 25+)
 
 Extract and place `midra` somewhere on your `PATH`.
 
-*(Homebrew tap and Linux/Windows native binaries are coming soon.)*
+---
+
+## Documentation
+
+- [Getting Started Guide](docs/user_guide.md)
+- [1-Bit Audio Engineering](docs/beep-1bit-audio-engineering.md)
+- [DSP Pipeline Architecture](docs/dsp-pipeline-engineering.md)
+- [MT-32 Integration](docs/mt32_integration.md)
 
 ---
 
-## 📖 Documentation & Usage
+## Motivation
 
-Ready to make some noise? Check out our user manuals:
+This project started from three personal goals:
 
-* **[🚀 Getting Started Guide](docs/user_guide.md)**: Learn how to play your first song in 10 seconds, master the TUI live controls, and discover all the built-in retro synthesizer engines.
-* **[🤖 1-Bit Audio Engineering Whitepaper](docs/beep-1bit-audio-engineering.md)**: A deep dive into the purist mathematics and historical hardware constraints behind our flagship `1bit` engine.
-* **[🎛️ The Global DSP Pipeline Architecture](docs/dsp-pipeline-engineering.md)**: Explains the math and architecture behind our zero-allocation audio effect rack (Reverb, Chorus, Tube Saturation, EQ).
-* **[🎹 MT-32 Integration Architecture](docs/mt32_integration.md)**: Detailed technical reference for the FluidSynth and MT-32 emulator integration.
+1. I own several retro MIDI tone generators (SC-55, SC-88, MT-32, MU100 and similar) and wanted a simple CLI player to audition MIDI files through them. Nothing that existed quite fit the workflow.
+
+2. I needed a personal project of realistic scope to practice coding with AI agents.
+
+3. Modern Java has been evolving toward leaner syntax and a lighter runtime — Project Loom, the Foreign Function & Memory API, GraalVM native image. I wanted a concrete target to validate how far that has come.
 
 ---
 
-## ⚖️ License & Credits
-* **Midiraja** is licensed under the [BSD 3-Clause License](LICENSE).
-* This project uses several open-source libraries. Please see [NOTICES.md](NOTICES.md) for full third-party license information and attributions.
+## License & Credits
+
+Midiraja is licensed under the [BSD 3-Clause License](LICENSE). See [NOTICES.md](NOTICES.md) for third-party library attributions.

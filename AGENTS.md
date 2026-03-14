@@ -4,6 +4,8 @@ This file provides critical guidance and architectural context to AI agents when
 
 ## Behavioral guidelines
 
+* Do not add `Co-Authored-By` lines to git commit messages.
+
 * Proceed with all work based on evidence and explicit agreement with the user.
 * Verify actual results for every task, and determine success and completion based on that verification.
 * Break work down into the smallest practical units and proceed step by step.

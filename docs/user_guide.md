@@ -25,12 +25,12 @@ Midiraja is distributed as a single, standalone native program. You do not need 
 
 **For macOS (Quick Script):**
 ```bash
-curl -sL https://raw.githubusercontent.com/fupfin/midiraja/master/install.sh | bash
+curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash
 ```
 
 To install to a custom location (e.g., `/usr/local`):
 ```bash
-curl -sL https://raw.githubusercontent.com/fupfin/midiraja/master/install.sh | bash -s -- --prefix /usr/local
+curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash -s -- --prefix /usr/local
 ```
 
 **Manual Download:**
