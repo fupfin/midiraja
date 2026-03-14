@@ -169,14 +169,17 @@ echo "  binary : ${INSTALL_BASE}/bin/${BINARY_NAME}"
 echo "  wrapper: ${INSTALL_BASE}/bin/${BINARY_NAME}.sh"
 echo "  symlink: ${LINK_DIR}/${BINARY_NAME} -> ${INSTALL_BASE}/bin/${BINARY_NAME}.sh"
 
-# Check if LINK_DIR is on PATH
+# Add LINK_DIR to PATH in shell profile if not already present
 if ! echo ":${PATH}:" | grep -q ":${LINK_DIR}:"; then
-    echo ""
-    echo "Note: ${LINK_DIR} is not in your PATH."
-    echo "Add the following line to your shell profile (~/.zshrc, ~/.bashrc, etc.):"
-    echo ""
-    echo "  export PATH=\"${LINK_DIR}:\$PATH\""
-    echo ""
+    if [ "$(uname -s)" = "Darwin" ]; then
+        SHELL_RC="${HOME}/.zshrc"
+    else
+        SHELL_RC="${HOME}/.bashrc"
+    fi
+    echo "" >> "${SHELL_RC}"
+    echo "export PATH=\"${LINK_DIR}:\$PATH\"" >> "${SHELL_RC}"
+    echo "Added ${LINK_DIR} to PATH in ${SHELL_RC}."
+    echo "Run 'source ${SHELL_RC}' or open a new terminal to apply."
 fi
 
 echo "Run 'midra --help' to get started."
