@@ -29,9 +29,18 @@ Midiraja features a built-in, modular DSP effect rack that can be applied to alm
 
 ---
 
-## 🚀 Quick Install (macOS & Linux)
+## 🚀 Installation
 
-### Option 1: Curl Script (macOS)
+### Supported Platforms
+
+| OS | Architecture | Native (`midra`) | Cross-platform JAR (`midrax`) |
+|---|---|---|---|
+| macOS | Apple Silicon (arm64) | ✅ | ✅ |
+| macOS | Intel (amd64) | 🔜 coming soon | ✅ |
+| Linux | amd64 / arm64 | 🔜 coming soon | ✅ |
+| Windows | amd64 | 🔜 coming soon | ✅ |
+
+### Option 1: Curl Script (macOS Apple Silicon)
 ```bash
 curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.sh | bash
 ```
@@ -42,9 +51,13 @@ curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.
 ```
 
 ### Option 2: Manual Download
-Download the latest tarball for your platform from the [Releases](https://github.com/sungchulpark/midiraja/releases) page, extract, and place `midra` somewhere on your `PATH`.
+Download the latest release for your platform from the [Releases](https://github.com/sungchulpark/midiraja/releases) page:
+- **`midra-darwin-arm64.tar.gz`** — macOS Apple Silicon native binary
+- **`midrax-vX.Y.Z.zip`** — Cross-platform JAR (requires Java 25+)
 
-*(Homebrew tap and Linux/Windows installers are coming soon.)*
+Extract and place `midra` somewhere on your `PATH`.
+
+*(Homebrew tap and Linux/Windows native binaries are coming soon.)*
 
 ---
 
@@ -55,7 +68,7 @@ Ready to make some noise? Check out our user manuals:
 * **[🚀 Getting Started Guide](docs/user_guide.md)**: Learn how to play your first song in 10 seconds, master the TUI live controls, and discover all the built-in retro synthesizer engines.
 * **[🤖 1-Bit Audio Engineering Whitepaper](docs/beep-1bit-audio-engineering.md)**: A deep dive into the purist mathematics and historical hardware constraints behind our flagship `1bit` engine.
 * **[🎛️ The Global DSP Pipeline Architecture](docs/dsp-pipeline-engineering.md)**: Explains the math and architecture behind our zero-allocation audio effect rack (Reverb, Chorus, Tube Saturation, EQ).
-* **[🎹 Soft Synth Guide](docs/soft-synth-guide.md)**: Detailed configuration instructions for FluidSynth and MT-32 emulators.
+* **[🎹 MT-32 Integration Architecture](docs/mt32_integration.md)**: Detailed technical reference for the FluidSynth and MT-32 emulator integration.
 
 ---
 

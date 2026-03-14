@@ -39,11 +39,12 @@ We use a specific blend of styles to keep the code readable and consistent acros
     3.  **Flexibility:** Build for change, but do not sacrifice simplicity for speculative generality.
 *   **Zero Dependencies:** Avoid introducing large frameworks. Rely on standard Java APIs (`javax.sound.midi`) and native OS capabilities to keep the binary small.
 
-### 3. Tri-State Deployment Architecture
-To maximize both performance and compatibility, Midiraja is distributed via three separate pipelines:
-*   **Native (`midra`)**: Built with GraalVM Native Image for the absolute fastest startup times. This is the primary distribution but is heavily tied to the build runner's system libraries (e.g., glibc).
-*   **Compatible (`midrac`)**: Built using `jlink` to create a lightweight, self-contained JRE. It utilizes OpenJDK (GraalVM CE/Temurin) and is optimized using Project Leyden (AppCDS) to pre-warm the JVM and FFM bindings. This offers near-native startup speeds while ensuring bulletproof execution on older/fragmented OS environments where `midra` might fail due to C-runtime mismatches.
-*   **Cross-Platform (`midrax`)**: The classic "Fat JAR" deployment. It expects the user to provide their own Java 25+ environment.
+### 3. Deployment Architecture
+Midiraja is currently distributed via two pipelines:
+*   **Native (`midra`)**: Built with GraalVM Native Image for the absolute fastest startup times. This is the primary distribution. Currently released for macOS Apple Silicon; Linux and Windows support is planned.
+*   **Cross-Platform (`midrax`)**: The classic "Fat JAR" deployment. It expects the user to provide their own Java 25+ environment. Works on any OS/architecture.
+
+> **Future:** A third **Compatible (`midrac`)** distribution using `jlink` + Project Leyden (AppCDS) is planned to offer near-native startup with broader OS compatibility.
 
 ### 4. Architecture
 *   **GraalVM Friendly:** Code MUST avoid dynamic features like runtime reflection (`java.lang.reflect`), dynamic class loading, and dynamic proxies unless explicitly registered in the GraalVM configuration files (`reflect-config.json`, etc.).
