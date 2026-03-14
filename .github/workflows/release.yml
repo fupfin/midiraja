@@ -103,10 +103,21 @@ jobs:
           name: ${{ matrix.asset_name }}
           path: ${{ matrix.asset_name }}.tar.gz
 
+      - name: Extract Changelog for this version
+        if: github.event_name == 'push'
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BODY=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Upload Native Release Asset (tag push)
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
+          body: ${{ steps.changelog.outputs.body }}
           files: ${{ matrix.asset_name }}.tar.gz
 
   # midrax JAR is built and uploaded locally via scripts/upload-midrax.sh
