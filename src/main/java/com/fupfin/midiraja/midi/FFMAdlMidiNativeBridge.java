@@ -160,13 +160,6 @@ public class FFMAdlMidiNativeBridge extends AbstractFFMBridge implements AdlMidi
         adl_errorInfo = downcall("adl_errorInfo", DESC_ERROR_INFO);
     }
 
-    /**
-     * In GraalVM native image, libADLMIDI is statically linked into the binary.
-     * {@code loaderLookup()} finds those symbols directly without any dlopen. In JVM mode, we fall
-     * back to loading the shared library from disk.
-     */
-
-
     @Override
     public void init(int sampleRate) throws Exception
     {

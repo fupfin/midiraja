@@ -236,39 +236,6 @@ graalvmNative {
             buildArgs.add('-Os')
             buildArgs.add('--install-exit-handlers')
 
-            // Statically link libADLMIDI: --opl works without distributing a .dylib/.so
-            def adlLib = "${project.buildDir}/native-libs/${nativeTarget}/adlmidi/libADLMIDI.a"
-            if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
-                // Apple ld: -force_load includes all symbols from the archive (prevents dead-stripping
-                // of symbols referenced only via FFM MethodHandle string lookup at runtime)
-                buildArgs.add("-H:NativeLinkerOption=-force_load")
-                buildArgs.add("-H:NativeLinkerOption=${adlLib}")
-                // libADLMIDI is C++; link against LLVM's C++ stdlib (macOS default)
-                buildArgs.add("-H:NativeLinkerOption=-lc++")
-            } else if (org.gradle.internal.os.OperatingSystem.current().isLinux()) {
-                // GNU ld: equivalent of -force_load
-                // GraalVM passes these to gcc, so we must wrap them with -Wl,
-                buildArgs.add("-H:NativeLinkerOption=-Wl,--whole-archive")
-                buildArgs.add("-H:NativeLinkerOption=${adlLib}")
-                buildArgs.add("-H:NativeLinkerOption=-Wl,--no-whole-archive")
-                // libADLMIDI is C++; link against GNU C++ stdlib and math lib
-                buildArgs.add("-H:NativeLinkerOption=-lstdc++")
-                buildArgs.add("-H:NativeLinkerOption=-lm")
-            }
-
-            // Statically link libOPNMIDI: --opn works without distributing a .dylib/.so
-            def opnLib = "${project.buildDir}/native-libs/${nativeTarget}/opnmidi/libOPNMIDI.a"
-            if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
-                // Do not force_load opnLib on Mac either, to avoid duplicate symbols with adlLib (ymfm backend)
-                buildArgs.add("-H:NativeLinkerOption=${opnLib}")
-                // -lc++ already added for libADLMIDI above
-            } else if (org.gradle.internal.os.OperatingSystem.current().isLinux()) {
-                // Do NOT use --whole-archive for libOPNMIDI. Both libraries embed the `ymfm` emulation core,
-                // which causes "multiple definition" linker errors if we force load both.
-                buildArgs.add("-H:NativeLinkerOption=${opnLib}")
-                // -lstdc++ already added for libADLMIDI above
-            }
-
             // Embed the native-libs directory path into the binary's rpath so that
             // libmidiraja_audio, libADLMIDI, and libOPNMIDI are found at runtime.
             // Bundled layout: bin/midra + lib/{dylibs} (one level up from the binary).

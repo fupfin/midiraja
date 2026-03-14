@@ -161,13 +161,6 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
         opn2_errorInfo = downcall("opn2_errorInfo", DESC_ERROR_INFO);
     }
 
-    /**
-     * In GraalVM native image, libOPNMIDI is statically linked into the binary.
-     * {@code loaderLookup()} finds those symbols directly without any dlopen. In JVM mode, we fall
-     * back to loading the shared library from disk.
-     */
-
-
     @Override
     public void init(int sampleRate) throws Exception
     {
