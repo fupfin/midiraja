@@ -8,12 +8,12 @@
 
 ### Fixed
 - Segfault on Linux aarch64 caused by FFM upcall — replaced with C-side ring buffer
-- FreePats missing from tarball when `package-release.sh` was run without prior `setupFreepats`
-- `~/.local/bin` not added to PATH automatically after install on Linux
+- FreePats missing from release tarball when built without running `setupFreepats` first
+- Install directory not added to PATH automatically after installation
 - Missing prerequisite checks (GraalVM, cmake, etc.) before build
 
 ### Changed
-- Removed static linking of libADLMIDI / libOPNMIDI — unified to .dylib/.so bundle via rpath
+- Removed static linking of libADLMIDI / libOPNMIDI — unified to shared library bundle via rpath
 - `LibraryPaths` now generated at build time to centralize OS-specific fallback library paths
 
 ## [0.2.0] - 2026-03-14
