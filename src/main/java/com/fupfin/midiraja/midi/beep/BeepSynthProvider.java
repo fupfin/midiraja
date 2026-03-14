@@ -678,7 +678,8 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
 
             // 3. Hard Clip safety
             double finalMix = Math.max(-1.0, Math.min(1.0, lpfState2));
-            buffer[i] = (short) (finalMix * 18000);
+            // Scale to ~−9 dBFS peak: analogMix is capped at 0.8, so 0.8 × 14540 ≈ 11632 (−9 dBFS)
+            buffer[i] = (short) (finalMix * 14540);
         }
     }
 

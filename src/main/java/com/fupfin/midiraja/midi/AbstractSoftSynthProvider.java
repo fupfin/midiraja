@@ -147,6 +147,8 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
 
                 bridge.generate(pcmBuffer, FRAMES_PER_RENDER);
 
+                applyRenderGain(pcmBuffer, FRAMES_PER_RENDER);
+
                 if (audioOut != null)
                 {
                     audioOut.processInterleaved(pcmBuffer, FRAMES_PER_RENDER, 2);
@@ -195,6 +197,32 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
             portName += " [" + dacMode.toUpperCase(Locale.ROOT) + "]";
         }
         return List.of(new MidiPort(0, portName));
+    }
+
+    /**
+     * Output gain applied after each {@link MidiNativeBridge#generate} call, before the PCM
+     * buffer is pushed to the audio output.
+     *
+     * <p>Subclasses override this to calibrate their native library's raw output level to the
+     * project-wide target of approximately −6 dBFS peak (linear ≈ 0.5, short ≈ 16 384).
+     *
+     * @return linear gain multiplier (1.0f = unity / no change)
+     */
+    protected float renderGain()
+    {
+        return 1.0f;
+    }
+
+    private void applyRenderGain(short[] buf, int frames)
+    {
+        float gain = renderGain();
+        if (gain == 1.0f) return;
+        int samples = frames * 2;
+        for (int i = 0; i < samples; i++)
+        {
+            int v = Math.round(buf[i] * gain);
+            buf[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, v));
+        }
     }
 
     /**

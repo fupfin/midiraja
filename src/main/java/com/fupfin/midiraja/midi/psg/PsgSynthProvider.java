@@ -94,8 +94,10 @@ public class PsgSynthProvider extends AbstractOneBitSynthProvider
                 sumOutput += chips[c].render();
             }
 
-            // Normalize by the number of chips to prevent clipping
-            sumOutput /= (totalPhysicalChips * 0.7);
+            // Normalize to ~−9 dBFS peak (project-wide target, matches TSF/GUS/Beep).
+            // 3 PSG channels at max each contribute 1/3, summing to 1.0; dividing by 2.8 scales
+            // the peak to ≈0.357 (−8.9 dBFS) before the 32767 conversion.
+            sumOutput /= (totalPhysicalChips * 2.8);
 
             pcmBuffer[i] = (short) (Math.max(-1.0, Math.min(1.0, sumOutput)) * 32767);
         }
