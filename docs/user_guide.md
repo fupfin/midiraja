@@ -25,16 +25,16 @@ Midiraja is distributed as a single, standalone native program. You do not need 
 
 **For macOS (Quick Script):**
 ```bash
-curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.sh | bash
+curl -sL https://raw.githubusercontent.com/fupfin/midiraja/master/install.sh | bash
 ```
 
 To install to a custom location (e.g., `/usr/local`):
 ```bash
-curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.sh | bash -s -- --prefix /usr/local
+curl -sL https://raw.githubusercontent.com/fupfin/midiraja/master/install.sh | bash -s -- --prefix /usr/local
 ```
 
 **Manual Download:**
-Download the latest release for your platform from the [GitHub Releases page](https://github.com/sungchulpark/midiraja/releases), extract the archive, and place `midra` somewhere on your `PATH`.
+Download the latest release for your platform from the [GitHub Releases page](https://github.com/fupfin/midiraja/releases), extract the archive, and place `midra` somewhere on your `PATH`.
 
 *(Homebrew tap and Linux/Windows installers are coming soon.)*
 

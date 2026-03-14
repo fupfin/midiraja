@@ -42,16 +42,16 @@ Midiraja features a built-in, modular DSP effect rack that can be applied to alm
 
 ### Option 1: Curl Script (macOS Apple Silicon)
 ```bash
-curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.sh | bash
+curl -sL https://raw.githubusercontent.com/fupfin/midiraja/master/install.sh | bash
 ```
 
 Install to a custom prefix (e.g., `/usr/local`):
 ```bash
-curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.sh | bash -s -- --prefix /usr/local
+curl -sL https://raw.githubusercontent.com/fupfin/midiraja/master/install.sh | bash -s -- --prefix /usr/local
 ```
 
 ### Option 2: Manual Download
-Download the latest release for your platform from the [Releases](https://github.com/sungchulpark/midiraja/releases) page:
+Download the latest release for your platform from the [Releases](https://github.com/fupfin/midiraja/releases) page:
 - **`midra-darwin-arm64.tar.gz`** — macOS Apple Silicon native binary
 - **`midrax-vX.Y.Z.zip`** — Cross-platform JAR (requires Java 25+)
 

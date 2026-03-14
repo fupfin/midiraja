@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # Midiraja install script
-# Usage: curl -sL https://raw.githubusercontent.com/sungchulpark/midiraja/master/install.sh | bash
+# Usage: curl -sL https://raw.githubusercontent.com/fupfin/midiraja/master/install.sh | bash
 # Or:    bash install.sh [--prefix /usr/local]
 
-REPO="sungchulpark/midiraja"
+REPO="fupfin/midiraja"
 BINARY_NAME="midra"
 PREFIX="${HOME}/.local"
 
