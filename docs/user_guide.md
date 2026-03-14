@@ -23,7 +23,10 @@ Midiraja (`midra`) is the ultimate **Terminal-Native** MIDI player. It is design
 ### 2.1. Installation
 Midiraja is distributed as a single, standalone native program. You do not need to install Java or any complex audio drivers to get started.
 
-**For macOS (Quick Script):**
+**macOS & Linux — Install Script:**
+
+The installer auto-detects your OS and architecture and places `midra` under `~/.local/bin` (or a prefix you specify):
+
 ```bash
 curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash
 ```
@@ -33,10 +36,23 @@ To install to a custom location (e.g., `/usr/local`):
 curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash -s -- --prefix /usr/local
 ```
 
-**Manual Download:**
-Download the latest release for your platform from the [GitHub Releases page](https://github.com/fupfin/midiraja/releases), extract the archive, and place `midra` somewhere on your `PATH`.
+> **Linux prerequisite:** Midiraja uses ALSA for audio output. Install the runtime library if it is not already present:
+> * Debian / Ubuntu: `sudo apt install libasound2`
+> * Fedora / RHEL: `sudo dnf install alsa-lib`
 
-*(Homebrew tap and Linux/Windows installers are coming soon.)*
+**Manual Download:**
+
+Download the archive for your platform from the [GitHub Releases page](https://github.com/fupfin/midiraja/releases):
+
+| Platform | Archive |
+|----------|---------|
+| macOS Apple Silicon | `midra-darwin-arm64.tar.gz` |
+| Linux x86_64 | `midra-linux-amd64.tar.gz` |
+| Linux ARM64 | `midra-linux-arm64.tar.gz` |
+
+Extract the archive and run the bundled `install.sh`, or manually copy the `bin/midra` binary somewhere on your `PATH` and set `LD_LIBRARY_PATH` to the `lib/` directory.
+
+*(Windows support is coming soon.)*
 
 ### 2.2. The 10-Second Magic Command
 The biggest hurdle with playing MIDI files is usually hunting down "Patch Banks" or configuring ports. Midiraja solves this by including built-in mathematical sound generators!
@@ -97,7 +113,7 @@ Once the music starts, your terminal becomes an interactive dashboard. You don't
 Midiraja features a modular audio processing pipeline. You can apply high-quality global effects to the built-in pure-math synthesizers (`opl`, `opn`, `psg`, `1bit`, `gus`) by simply adding flags to your launch command.
 
 > ⚠️ **Important Note on Compatibility:**
-> Global DSP Effects are *only* available for Midiraja's internal synthesis engines. They cannot be applied when routing audio to external hardware (`device` command) or when using dynamically linked external engines (`fluidsynth` or `mt32`), because in those cases, the audio generation happens outside of Midiraja's DSP control loop.
+> Global DSP Effects are *only* available for Midiraja's internal synthesis engines. They cannot be applied when routing audio to external hardware (`device` command) or when using the dynamically linked external engine (`fluidsynth`), because in that case audio generation happens outside of Midiraja's DSP control loop.
 
 All effect intensities are controlled via intuitive percentages (0-100%).
 
@@ -130,6 +146,16 @@ Sculpt the frequency response using precision RBJ Biquad filters.
 * **EQ (0-100%):** `--bass`, `--mid`, `--treble` (Default is 50 for neutral. Set to 100 for maximum boost, 0 to cut completely).
 * **Cutoffs (Hz):** `--lpf <freq>` (Low-pass, cuts high frequencies), `--hpf <freq>` (High-pass, cuts low frequencies).
 * *Example:* `midra opl --bass 80 --treble 70 --hpf 300 song.mid` (Boosts lows/highs but cuts extreme sub-bass rumble).
+
+### 3.5. Consistent Volume Across Engines
+
+All of Midiraja's **built-in** engines (1-bit, PSG, OPL, OPN, GUS, TSF) are calibrated to the same output level — roughly **−9 dBFS peak**. This means you can freely switch between engines for the same MIDI file without unexpected volume jumps.
+
+This consistent baseline also matters for DSP effects: because every engine enters the `--tube` waveshaper and `--reverb` wet/dry mix at the same signal level, the distortion character and reverb tail length will behave predictably regardless of which engine you pick.
+
+> **Note on FluidSynth:** This external engine manages its own audio output and is not subject to Midiraja's internal level calibration. You can use `--volume` to balance it manually against the built-in engines.
+
+---
 
 ## Chapter 4. The 3 Ways to Play (Synthesizer Engines)
 
@@ -202,8 +228,36 @@ These engines are baked directly into the Midiraja app. They require **absolutel
   * `--realsound`: Turns on a mathematical simulation of the 1980s "RealSound" technique. It completely destroys the pristine wavetable audio and forces it out through a simulated 15.2kHz PWM PC Speaker, making it sound exactly like it's coming from a tiny, overloaded 1989 desktop computer chassis. (Equivalent to `--1bit pwm`).
 * **Example:** `midra gus --realsound song.mid` (Simulates extreme low-fidelity retro hardware)
 
+#### 5. TinySoundFont (`tsf`)
+* **What is it?** Plays standard SoundFont 2 and 3 (`.sf2` / `.sf3`) files using the embedded [TinySoundFont](https://github.com/schellingb/TinySoundFont) library — with **no FluidSynth installation required**. The synthesizer engine is bundled directly into the `midra` binary.
+* **How to use it:** `midra tsf /path/to/soundfont.sf2 song.mid`
+* **Where to get SoundFont files:** A SoundFont is a library of professionally recorded instrument samples. Good free options include:
+  * *FluidR3 GM* — Ubuntu/Debian: `sudo apt install fluid-soundfont-gm`
+  * *GeneralUser GS* — widely available as a free download
+  * *MuseScore General* — bundled with MuseScore 4
+* **🎛️ DSP Effects:** All standard effects are supported — `--tube`, `--chorus`, `--reverb`, EQ, LPF/HPF.
+* **How it compares to `fluidsynth`:**
+
+| | `tsf` | `fluidsynth` |
+|---|---|---|
+| Requires separate install? | No (bundled) | Yes (`brew install fluid-synth`) |
+| DSP effects (`--tube`, `--reverb` …) | ✅ | ❌ |
+| Audio latency | Good | Lower — uses native OS audio driver (CoreAudio / ALSA) directly |
+| SF2/SF3 compatibility | Most files work | Broader — supports advanced SF2 modulators and generators |
+| Very large SoundFont files (1 GB+) | May use more memory | Handles efficiently (native streaming) |
+
+* **Example:** `midra tsf ~/soundfonts/FluidR3_GM.sf2 --reverb hall song.mid`
+
+#### 6. Roland MT-32 (`mt32`)
+* **What is it?** The "Holy Grail" of early 90s adventure game audio. If you ever played Monkey Island or King's Quest, this is the magical synthesizer that originally powered them. Midiraja bundles [Munt](https://github.com/munt/munt) — the definitive open-source MT-32 emulator — so no separate installation is required.
+* **ROM Requirements:** You must legally acquire MT-32 ROM files and place them in a single directory (e.g., `MT32_CONTROL.ROM` and `MT32_PCM.ROM`). ROMs from CM-32L and LAPC-I variants are also supported.
+* **How to use it:** `midra mt32 ~/my_rom_folder/ monkey_island.mid`
+* **🎛️ DSP Effects:** All standard effects are supported — `--tube`, `--chorus`, `--reverb`, EQ, LPF/HPF.
+
+---
+
 ### Method C: Shared Library Linking (External Engines)
-If you want ultra-realistic modern audio or perfect emulation of specific high-end retro gear, Midiraja can "link" to popular tools you may have already installed on your Mac or Linux machine.
+If you want ultra-realistic SoundFont playback and already have FluidSynth installed, Midiraja can link to it directly.
 
 #### 1. FluidSynth (`fluidsynth`)
 * **What is it?** The industry standard for playing `.sf2` (SoundFont) files. SoundFonts are massive libraries of professionally recorded real instruments.
@@ -222,16 +276,106 @@ If you want ultra-realistic modern audio or perfect emulation of specific high-e
   * `--driver <name>`: Override the audio driver used by FluidSynth (e.g., `coreaudio`, `pulseaudio`, `dsound`) if the default fails on your machine.
 * **Example:** `midra fluidsynth --driver coreaudio my_piano.sf2 song.mid`
 
-#### 2. Roland MT-32 (`mt32`)
-* **What is it?** The "Holy Grail" of early 90s adventure game audio. If you ever played Monkey Island or King's Quest, this is the magical synthesizer that originally powered them.
-* **Official Site:** [Munt (MT-32 Emulator)](https://github.com/munt/munt) - Visit their repository for in-depth information on installation, ROM requirements, and compatibility lists.
+---
 
-* **Installation:** Munt is an open-source emulator loaded dynamically at runtime. Install it via your package manager:
-  * macOS: `brew install munt`
-  * Ubuntu/Debian: `sudo apt install libmt32emu3`
-  * Fedora/RHEL: `sudo dnf install munt`
-* **ROM Requirements:** You must legally acquire MT-32 ROM files and place them in a single directory (e.g., `MT32_CONTROL.ROM` and `MT32_PCM.ROM`). ROMs from CM-32L and LAPC-I variants are also supported.
-* **How to use it:** `midra mt32 ~/my_rom_folder/ monkey_island.mid`
+## Chapter 4 Supplement: Which Engine Should I Use?
+
+Not sure which engine to pick? Use the decision table below.
+
+| I want … | Best engine | Notes |
+|-----------|-------------|-------|
+| Play a MIDI file right now, no setup | `1bit` | Zero dependencies, instant start |
+| Classic DOS game sound (DOOM, TIE Fighter) | `opl` | Add `-b 14` for DOOM bank |
+| Sega Genesis / PC-98 game sound | `opn` | OPN2/OPNA chip emulation |
+| 8-bit MSX / ZX Spectrum / Atari ST sound | `psg` | Add `--scc` for richer MSX sound |
+| General MIDI with sample quality, no installs | `tsf` + an SF2 file | Good fidelity, full DSP effects rack |
+| Best possible SoundFont quality, low latency | `fluidsynth` + an SF2 file | Requires `brew install fluid-synth` |
+| Early 90s LucasArts / Sierra adventure games | `mt32` + ROM files | Bundled Munt emulator, no install |
+| Route to hardware synth / external device | `device` | Sends raw MIDI to OS ports |
+| Maximum retro weirdness | `1bit --synth xor --mux xor` | Tim Follin–style buzzing bass |
+| Extreme low-fi (PC Speaker "RealSound") | `gus --realsound` | 15 kHz PWM through a paper cone |
+
+### Quick comparison: `tsf` vs `fluidsynth`
+
+Use **`tsf`** when you want zero-install SoundFont playback plus DSP effects.
+Use **`fluidsynth`** when you need the best SF2 compatibility, lower audio latency, or efficient handling of 1 GB+ SoundFont files.
+
+### Quick comparison: retro engines
+
+| Engine | Era / Hardware | Polyphony ceiling | External file? |
+|--------|---------------|-------------------|----------------|
+| `1bit` | 1981 Apple II / BBC Micro | 4 voices | None |
+| `psg` | 1980s MSX / ZX Spectrum / Atari ST | 3–48 voices (× chips) | None |
+| `opl` | 1990s AdLib / Sound Blaster | 9–18 FM operators | Optional `.wopl` bank |
+| `opn` | Sega Genesis / PC-98 | 6 FM + 3 SSG voices | Optional `.wopn` bank |
+| `gus` | 1994 Gravis Ultrasound | 32 wavetable voices | FreePats (auto-download) |
+| `tsf` | Modern SoundFont | Polyphonic (SF2 limit) | Required `.sf2`/`.sf3` |
+| `mt32` | 1987 Roland MT-32 | 32 partial generators | Required ROM files |
+
+---
+
+## Chapter 4 Supplement: Sound Banks & Instrument Libraries
+
+Several engines need an external file that defines what instruments should sound like. Here is a guide to the three types used in Midiraja.
+
+---
+
+### SoundFont (`.sf2` / `.sf3`) — used by `tsf` and `fluidsynth`
+
+A **SoundFont** is a container file that bundles thousands of recorded instrument notes — each one an actual audio sample — along with playback rules (pitch range, volume envelope, modulation). When a MIDI file says "play note C4 on instrument Grand Piano", the engine looks up the matching sample and plays it back at the right pitch.
+
+**Free sources:**
+
+| File | How to get it |
+|------|---------------|
+| *FluidR3 GM* | macOS: `brew install fluid-soundfont-gm` · Linux: `sudo apt install fluid-soundfont-gm` · Path: `/usr/share/sounds/sf2/FluidR3_GM.sf2` |
+| *GeneralUser GS* | Free download — search "GeneralUser GS soundfont" |
+| *MuseScore General* | Bundled with [MuseScore 4](https://musescore.org/) |
+
+The same `.sf2` file works with both `tsf` and `fluidsynth`.
+
+---
+
+### GUS Patch Set — used by `gus`
+
+The original Gravis Ultrasound card stored instruments as individual `.pat` (patch) files on a hard drive — one file per General MIDI instrument. A **patch set** is a folder containing all 128 of these files.
+
+Midiraja automatically downloads the [FreePats](https://freepats.zenvoid.org/) patch set on first run. To use a different (often higher-quality) patch set, download it and point `--patch-dir` at the folder:
+
+```bash
+midra gus --patch-dir ~/patches/eawpats song.mid
+```
+
+**Recommended patch sets:**
+
+| Patch Set | Notes |
+|-----------|-------|
+| *FreePats* (default) | Downloaded automatically on first run. Decent quality, legally free. |
+| *eawpats* (Eric A. Welsh) | Widely regarded as the best freely available GUS patches. |
+| *Unison* / *Timbres of Heaven* | More modern, higher-quality alternatives. |
+
+---
+
+### FM Bank File (`.wopl` / `.wopn`) — used by `opl` and `opn`
+
+FM synthesis does not record real instruments — it configures a set of mathematical oscillators to *approximate* a sound. A **bank file** contains up to 128 such recipes, one per General MIDI instrument slot.
+
+libADLMIDI ships with over 60 built-in banks from famous games (use `-b <number>`). To use a custom bank file you have downloaded or edited:
+
+```bash
+midra opl --bank /path/to/custom.wopl song.mid
+midra opn --bank /path/to/custom.wopn song.mid
+```
+
+**Notable built-in banks (select with `-b <number>`):**
+
+| Number | Bank | Character |
+|--------|------|-----------|
+| `0` | General MIDI | Balanced, suitable for most MIDI files |
+| `14` | DOOM (1993) | Heavy, twangy, dark |
+| `58` | Duke Nukem 3D | Punchy, aggressive |
+
+You can browse and edit bank files with the free [OPL3BankEditor](https://github.com/Wohlstand/OPL3BankEditor) (`.wopl`) or [OPN2BankEditor](https://github.com/Wohlstand/OPN2BankEditor) (`.wopn`) tools.
 
 ---
 
@@ -242,7 +386,7 @@ Midiraja stands on the shoulders of giants. While our UI, rendering pipelines, a
 ### The Emulation Cores
 * **[libADLMIDI](https://github.com/Wohlstand/libADLMIDI):** An incredible C++ library that emulates the Yamaha OPL3 (YMF262) chip. This is the heart of our `midra opl` engine.
 * **[libOPNMIDI](https://github.com/Wohlstand/libOPNMIDI):** A sister project that emulates the Yamaha OPN2 (YM2612) chip found in the Sega Genesis. This powers our `midra opn` engine.
-* **[Munt (MT-32 Emulator)](https://github.com/munt/munt):** The definitive, cycle-accurate software synthesizer replicating the Roland MT-32 and CM-32L hardware. We dynamically link to this library for the `midra mt32` command.
+* **[Munt (MT-32 Emulator)](https://github.com/munt/munt):** The definitive, cycle-accurate software synthesizer replicating the Roland MT-32 and CM-32L hardware. The Munt library (`libmt32emu`) is bundled in the Midiraja release package and powers the `midra mt32` command.
 * **[FluidSynth](https://www.fluidsynth.org/):** The world's leading real-time software synthesizer based on the SoundFont 2 specifications. We link to this for the `midra fluidsynth` command.
 
 ### Technical Documentation

@@ -7,6 +7,10 @@ Midiraja isn't just another Java application—it's a mission to build a blazing
 
 Modern Java has significantly improved code expressiveness, allowing the same problems to be solved more concisely and elegantly. Additionally, the runtime has become leaner, and integration with native systems has been dramatically strengthened. Midiraja aggressively leverages these modern Java advancements to achieve its performance and portability goals. 
 
+## Engineering Documentation
+
+Before diving into the code, the **[Engineering Documentation index](docs/engineering.md)** is the best starting point. It links to whitepapers covering each subsystem — synthesizer engines, the DSP pipeline, FFM native bridges, and the native binary distribution strategy.
+
 ## The Technical Playground
 If you love pushing Java to its limits and stepping outside the traditional enterprise environment, you will feel right at home here. Contributing to Midiraja offers a chance to get hands-on with some exciting systems-level technical challenges:
 

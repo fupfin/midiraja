@@ -97,3 +97,52 @@ Beyond standard studio effects, Midiraja features physical modeling filters that
     *   *See [Macintosh 128k Audio Hardware Simulation](mac128k-audio-engineering.md) for detailed engineering analysis.*
 
 By chaining these lightweight mathematical filters together within the zero-allocation pipeline, Midiraja provides a zero-latency, mastering-grade equalizer tailored specifically for retro audio enhancement.
+
+---
+
+## 3. Output Level Calibration
+
+### 3.1 Design Goal
+
+All built-in synthesizers must produce a **consistent peak output level** so that:
+1. Switching engines does not cause jarring volume changes.
+2. DSP effects (especially `--tube` waveshaping) receive a predictable input level, ensuring consistent distortion character across engines.
+
+The project-wide target is **−9 dBFS peak** (linear ≈ 0.355, 16-bit integer ≈ 11 637).
+
+### 3.2 Per-Synth Implementation
+
+Each engine reaches the target through a mechanism appropriate to its architecture:
+
+| Engine | Mechanism | Constant |
+|--------|-----------|----------|
+| **TSF** | `tsf_set_output` `global_gain_db` parameter | `−9.0f` dB |
+| **PSG** | Sum normalization divisor in `PsgSynthProvider.renderFrames()` | `chips × 2.8` |
+| **Beep** | Final float-to-short scale factor in `BeepSynthProvider` | `× 14540` (≈ 0.8 × 14540 = 11 632 at max) |
+| **GUS** | Per-voice `targetVolume` + `Math.tanh` soft-limiter in `Voice.java` | `0.15 × velocity/127` per voice |
+| **ADL / OPN** | `renderGain()` hook in `AbstractSoftSynthProvider` | default `1.0f` (tune per measurement) |
+
+**Why GUS differs:** GUS renders a variable number of simultaneous voices. The `0.15` per-voice gain combined with `Math.tanh` soft-limiting achieves a natural dynamic compression: quiet at low polyphony, self-limited at high polyphony. A single fixed gain factor would either clip at full polyphony or be inaudible at low polyphony.
+
+### 3.3 The `renderGain()` Hook
+
+`AbstractSoftSynthProvider` exposes a `protected float renderGain()` method (default `1.0f`) called after each `bridge.generate()` in the render thread:
+
+```java
+bridge.generate(pcmBuffer, FRAMES_PER_RENDER);
+applyRenderGain(pcmBuffer, FRAMES_PER_RENDER);   // no-op when gain == 1.0f
+audioOut.processInterleaved(pcmBuffer, ...);
+```
+
+`applyRenderGain` clamps to `[Short.MIN_VALUE, Short.MAX_VALUE]` to prevent wrap-around. Subclasses that wrap a native library without a built-in gain API (ADL, OPN) can override `renderGain()` once a reference measurement is available.
+
+### 3.4 Relationship to Tube Saturation
+
+The `TubeSaturationFilter` input is the normalised float range `[−1.0, 1.0]` produced by `ShortToFloatFilter` (÷ 32768). At −9 dBFS the peak float value is ≈ 0.355. With the default tube drive parameter:
+
+```
+drive  = 1.0 + (tubeDrive/100 × 9.0)
+d·A    = drive × 0.355          // peak input × drive
+```
+
+At `--tube 30` → drive ≈ 3.7 → d·A ≈ 1.31 → `tanh(1.31) ≈ 0.86`. The signal is mildly compressed but retains musical character. At the old un-calibrated TSF level (0 dBFS peak ≈ 0.95 float), d·A ≈ 3.5 → `tanh(3.5) ≈ 0.998` — effectively a square wave. Calibrating all engines to −9 dBFS ensures that mild tube settings stay musical rather than clipping into hard saturation.

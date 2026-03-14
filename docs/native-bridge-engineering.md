@@ -8,7 +8,7 @@ This document outlines the three distinct architectural patterns used to safely 
 ---
 
 ## 1. The Queue-and-Drain Pattern
-**Target Engines:** `OPL` (libADLMIDI), `OPN` (libOPNMIDI)
+**Target Engines:** `OPL` (libADLMIDI), `OPN` (libOPNMIDI), `TSF` (TinySoundFont)
 
 ### The Problem
 Both `libADLMIDI` and `libOPNMIDI` are highly optimized state machines that are strictly **not thread-safe**. If the high-priority Java MIDI sequencer thread sends a `noteOn` command while the background audio thread is concurrently rendering PCM samples via `generate()`, the native memory will immediately corrupt, resulting in a segmentation fault that crashes the entire JVM.
@@ -18,6 +18,13 @@ We implemented a non-blocking **Queue-and-Drain** architecture:
 1. **The Interceptor:** The FFM bridge intercepts all incoming MIDI byte arrays from the sequencer thread and offers them to a lock-free `ConcurrentLinkedQueue<byte[]>`.
 2. **The Drainer:** Before the render thread requests the next block of audio from the native C API, it aggressively polls the queue and dispatches all pending MIDI events into the C state.
 3. **Result:** State mutation and PCM generation are serialized exclusively on the render thread, mathematically guaranteeing thread safety without a single mutex lock.
+
+**TinySoundFont (`tsf`) note:** TinySoundFont follows exactly the same Queue-and-Drain pattern, but ships as a **single-header C library** (`tsf.h`) with no external dependencies and no cmake build. The wrapper is a three-line C file:
+```c
+#define TSF_IMPLEMENTATION
+#include "tsf.h"
+```
+This is compiled to `libtsf.dylib` / `libtsf.so` by a single `gcc -shared` call in `scripts/build-native-libs.sh`. The FFM binding (`FFMTsfNativeBridge`) loads it via the standard `tryLoadLibrary` helper in `AbstractFFMBridge`, identical to how ADL and OPN bridges are loaded.
 
 ---
 

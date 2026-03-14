@@ -5,6 +5,7 @@
 ## Features
 
 - **Retro synthesizer engines** — OPL2/OPL3 FM, OPN2, Gravis Ultrasound, PSG/MSX+SCC, 1-bit — all embedded in the binary, no external libraries needed
+- **SoundFont playback** — built-in TinySoundFont (`tsf`) engine plays `.sf2`/`.sf3` files with no FluidSynth installation; full DSP effects rack supported
 - **External MIDI routing** — send events to OS native ports (CoreMIDI, Windows GS, ALSA) or hardware synthesizers via USB/MIDI
 - **High-fidelity emulation** — optionally links against FluidSynth (SoundFont) or Munt (Roland MT-32) if installed on the system
 - **Live playback control** — adjust speed, transpose key, and master volume while playing
@@ -25,7 +26,9 @@
 | Linux | amd64 / arm64 | Available |
 | Windows | amd64 | Coming soon |
 
-### Option 1: Curl (macOS Apple Silicon)
+### Option 1: Install Script (macOS & Linux)
+
+The installer auto-detects your OS and architecture:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash
@@ -36,6 +39,9 @@ Install to a custom prefix (e.g. `/usr/local`):
 ```bash
 curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash -s -- --prefix /usr/local
 ```
+
+> **Linux prerequisite:** ALSA is required for audio output.
+> `sudo apt install libasound2` (Debian/Ubuntu) · `sudo dnf install alsa-lib` (Fedora/RHEL)
 
 ### Option 2: Manual Download
 
@@ -52,9 +58,7 @@ Extract and place `midra` somewhere on your `PATH`.
 ## Documentation
 
 - [Getting Started Guide](docs/user_guide.md)
-- [1-Bit Audio Engineering](docs/beep-1bit-audio-engineering.md)
-- [DSP Pipeline Architecture](docs/dsp-pipeline-engineering.md)
-- [MT-32 Integration](docs/mt32_integration.md)
+- [Engineering Documentation](docs/engineering.md) — index of all technical whitepapers
 
 ---
 
