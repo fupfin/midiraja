@@ -64,6 +64,10 @@ git submodule update --init --recursive
 echo "🛠️  Building C/C++ native libraries..."
 ./scripts/build-native-libs.sh
 
+# Download GUS patch set (freepats) for GusSynthProvider
+echo "🎵 Downloading FreePats..."
+./gradlew setupFreepats
+
 # Build the native binary (force relink so linker options are always applied)
 echo "🛠️  Building native image via GraalVM Native Image..."
 rm -f "${BIN_DIR}/midra" "${BIN_DIR}/midra.exe"
@@ -91,12 +95,12 @@ cp "src/main/man/midra.1" "${STAGING_DIR}/midra.1"
 echo "${VERSION}" > "${STAGING_DIR}/VERSION"
 
 # Include freepats in share/midra/ so GusSynthProvider finds them after install
-if [ -d "build/freepats" ]; then
-    mkdir -p "${STAGING_DIR}/share/midra/freepats"
-    cp -r "build/freepats/." "${STAGING_DIR}/share/midra/freepats/"
-else
-    echo "⚠️  Warning: build/freepats not found. Run './gradlew setupFreepats' first."
+if [ ! -d "build/freepats" ]; then
+    echo "❌ Error: build/freepats not found. Run './gradlew setupFreepats' first."
+    exit 1
 fi
+mkdir -p "${STAGING_DIR}/share/midra/freepats"
+cp -r "build/freepats/." "${STAGING_DIR}/share/midra/freepats/"
 
 # Bundle native libraries in lib/ so rpath (@executable_path/../lib / $ORIGIN/../lib) finds them
 LIB_EXT="dylib" ; [ "$(uname -s)" = "Linux" ] && LIB_EXT="so"
