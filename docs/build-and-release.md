@@ -6,14 +6,71 @@ This document describes the complete build pipeline — from source to distribut
 
 ## 1. Prerequisites
 
-| Tool | Required for | Notes |
-|------|-------------|-------|
-| GraalVM JDK 25+ | Java compilation + native image | Community edition works; set `JAVA_HOME` |
-| `native-image` | `./gradlew nativeCompile` | Bundled with GraalVM |
-| `cmake` + `make` | C++ library build (ADL, OPN, Munt) | `brew install cmake` / `apt install cmake` |
-| `gcc` | All C library builds | System default gcc suffices |
-| `git` submodules | C source trees | Run `git submodule update --init --recursive` once |
-| `libasound2-dev` | Linux only — ALSA headers for miniaudio | `sudo apt install libasound2-dev` |
+| Tool | Required for | macOS | Linux | Windows |
+|------|-------------|-------|-------|---------|
+| GraalVM JDK 25+ | Java compilation + native image | `brew install --cask graalvm-community-jdk25` | sdkman / manual | scoop (see §1.1) |
+| `native-image` | `./gradlew nativeCompile` | Bundled with GraalVM | Bundled | Bundled; requires MSVC (auto-configured by GraalVM installer) |
+| `cmake` + `make` | C++ library build (ADL, OPN, Munt) | `brew install cmake` | `apt install cmake` | MSYS2 `pacman` (see §1.1) |
+| `gcc` | All C library builds | Xcode CLT | system gcc | MSYS2 MinGW-w64 gcc |
+| `git` submodules | C source trees | `git submodule update --init --recursive` | ← same | ← same |
+| `libasound2-dev` | Linux only — ALSA headers for miniaudio | — | `sudo apt install libasound2-dev` | — |
+
+### 1.1 Windows — First-time Setup
+
+Windows 로컬 빌드에는 **PowerShell** (GraalVM/Java)과 **MSYS2** (C/C++ 네이티브 라이브러리) 두 환경이 모두 필요합니다.
+
+**Step 1 — PowerShell에서 Git 설치**
+
+```powershell
+winget install Git.Git
+```
+
+PowerShell을 재시작한 후 계속합니다.
+
+**Step 2 — scoop으로 GraalVM 설치**
+
+```powershell
+scoop bucket add java
+scoop install graalvm-community-jdk25
+```
+
+GraalVM 설치 시 MSVC Build Tools(Visual Studio C++ 컴파일러)도 함께 설치됩니다. GraalVM Native Image가 내부적으로 MSVC 링커를 사용하기 때문입니다.
+
+**Step 3 — MSYS2 설치**
+
+```powershell
+winget install MSYS2.MSYS2
+```
+
+**Step 4 — MSYS2에서 MinGW C/C++ 빌드 도구 설치**
+
+MSYS2 터미널(MINGW64)을 열고:
+
+```bash
+pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake make
+```
+
+**Step 5 — 저장소 클론 및 서브모듈 초기화**
+
+```bash
+git clone https://github.com/fupfin/midiraja.git
+cd midiraja
+git submodule update --init --recursive
+```
+
+**Step 6 — C/C++ 네이티브 라이브러리 빌드 (MSYS2에서)**
+
+```bash
+./scripts/build-native-libs.sh
+```
+
+**Step 7 — Java 빌드 및 네이티브 이미지 생성 (PowerShell에서)**
+
+```powershell
+./gradlew nativeCompile
+```
+
+빌드 결과물: `build/native/nativeCompile/midra.exe` + `build/native-libs/windows-x86_64/` 내 DLL들.
 
 ---
 
@@ -141,6 +198,7 @@ GraalVM requires all dynamically accessed types and FFM `FunctionDescriptor`s to
 
 ### Structure
 
+**macOS / Linux** (`tar.gz`):
 ```
 midra-{os}-{arch}.tar.gz
 ├── bin/
@@ -155,6 +213,22 @@ midra-{os}-{arch}.tar.gz
 ├── midra.1                          — man page
 └── VERSION                          — version string (plain text)
 ```
+
+**Windows** (`zip`):
+```
+midra-windows-amd64.zip
+├── bin/
+│   ├── midra.exe                    — native binary
+│   ├── libmidiraja_audio.dll        — miniaudio wrapper  (DLLs alongside exe)
+│   ├── libADLMIDI.dll               — OPL FM synthesis
+│   ├── libOPNMIDI.dll               — OPN FM synthesis
+│   ├── libmt32emu.dll               — MT-32 emulation
+│   └── libtsf.dll                   — TinySoundFont SF2/SF3
+├── share/midra/freepats/            — FreePats GUS patch set
+└── VERSION                          — version string (plain text)
+```
+
+> Windows는 rpath가 없어 DLL을 exe와 같은 디렉터리(`bin/`)에 배치합니다. man page는 포함하지 않습니다.
 
 ### Local packaging
 
@@ -186,6 +260,7 @@ Defined in `.github/workflows/release.yml`.
 | `macos-15` | `midra-darwin-arm64.tar.gz` |
 | `ubuntu-22.04` | `midra-linux-amd64.tar.gz` |
 | `ubuntu-24.04-arm` | `midra-linux-arm64.tar.gz` |
+| `windows-2022` | `midra-windows-amd64.zip` |
 
 ### Steps per matrix job
 
