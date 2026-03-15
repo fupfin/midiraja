@@ -81,14 +81,29 @@ try {
     New-Item -ItemType Directory -Force -Path "$InstallBase\bin" | Out-Null
     New-Item -ItemType Directory -Force -Path $ShareDir          | Out-Null
 
+    # --- Locate root of extracted archive (handle optional top-level subdirectory) ---
+    $ExtractedRoot = "$TmpDir\extracted"
+    if (-not (Test-Path "$ExtractedRoot\bin")) {
+        $sub = Get-ChildItem $ExtractedRoot -Directory | Select-Object -First 1
+        if ($sub -and (Test-Path "$($sub.FullName)\bin")) {
+            $ExtractedRoot = $sub.FullName
+        } else {
+            Write-Host "Extracted contents:"
+            Get-ChildItem $ExtractedRoot -Recurse | Select-Object -First 30 |
+                ForEach-Object { Write-Host "  $($_.FullName)" }
+            Write-Error "Expected 'bin\' directory not found in zip."
+            exit 1
+        }
+    }
+
     Write-Host "Installing midra $Version to $InstallBase..."
 
     # --- Copy bin/ (exe + DLLs) ---
-    Copy-Item "$TmpDir\extracted\bin\*" "$InstallBase\bin\" -Force
+    Copy-Item "$ExtractedRoot\bin\*" "$InstallBase\bin\" -Force
 
     # --- Copy freepats (shared across versions, ~27 MB) ---
-    if (Test-Path "$TmpDir\extracted\share\midra") {
-        Copy-Item -Recurse "$TmpDir\extracted\share\midra\*" "$ShareDir\" -Force
+    if (Test-Path "$ExtractedRoot\share\midra") {
+        Copy-Item -Recurse "$ExtractedRoot\share\midra\*" "$ShareDir\" -Force
     }
 
     # --- Update user PATH (remove old midiraja entries, prepend new one) ---

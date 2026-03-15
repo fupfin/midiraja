@@ -157,9 +157,7 @@ jobs:
           }
 
           Copy-Item -Recurse "build/freepats/*" "staging/share/midra/freepats/"
-          Push-Location staging
-          Compress-Archive -Path "*" -DestinationPath "../${{ matrix.asset_name }}.zip"
-          Pop-Location
+          Compress-Archive -Path "staging\*" -DestinationPath "${{ matrix.asset_name }}.zip"
 
       - name: Upload as CI Artifact (manual run)
         if: github.event_name == 'workflow_dispatch'
