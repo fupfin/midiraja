@@ -358,8 +358,6 @@ public class PlaybackEngine
                 ticksToNanos =
                         (60000000000.0 / (currentBpm.get() * currentSpeed.get() * resolution));
                 startTimeNanos = System.nanoTime() - elapsedNanos;
-                System.err.println(
-                        "[Diagnostic] Calling provider.onPlaybackStarted() to unpause render thread");
                 try
                 {
                     provider.onPlaybackStarted();
