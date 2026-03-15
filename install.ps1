@@ -51,7 +51,14 @@ try {
         $LatestTag = $release.tag_name
         Write-Host "Latest release: $LatestTag"
 
-        $DownloadUrl = "https://github.com/$Repo/releases/download/$LatestTag/$AssetName"
+        $asset = $release.assets | Where-Object { $_.name -eq $AssetName }
+        if (-not $asset) {
+            Write-Error ("Release $LatestTag does not contain $AssetName.`n" +
+                         "Windows builds may not be available for this version yet.`n" +
+                         "Download manually from: https://github.com/$Repo/releases")
+            exit 1
+        }
+        $DownloadUrl = $asset.browser_download_url
         Write-Host "Downloading $AssetName..."
         Invoke-WebRequest -Uri $DownloadUrl -OutFile "$TmpDir\midra.zip" -UseBasicParsing
     }
