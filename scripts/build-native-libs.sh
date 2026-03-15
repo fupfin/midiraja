@@ -39,20 +39,21 @@ echo "Output directory: $NATIVE_LIBS"
 echo "==> Building libmidiraja_audio..."
 MINIAUDIO_OUT="$NATIVE_LIBS/miniaudio"
 mkdir -p "$MINIAUDIO_OUT"
+cd "$MINIAUDIO_OUT"
 if [ "$OS_FAMILY" = "macos" ]; then
     gcc -shared -fPIC -O2 \
         -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreFoundation \
-        -o "$MINIAUDIO_OUT/libmidiraja_audio.$LIB_EXT" \
+        -o "libmidiraja_audio.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/miniaudio/midiraja_audio.c"
 elif [ "$OS_FAMILY" = "windows" ]; then
     gcc -shared -O2 \
         -lole32 -lpthread -lm \
-        -o "$MINIAUDIO_OUT/libmidiraja_audio.$LIB_EXT" \
+        -o "libmidiraja_audio.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/miniaudio/midiraja_audio.c"
 else
     gcc -shared -fPIC -O2 \
         -ldl -lpthread -lm \
-        -o "$MINIAUDIO_OUT/libmidiraja_audio.$LIB_EXT" \
+        -o "libmidiraja_audio.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/miniaudio/midiraja_audio.c"
 fi
 
@@ -104,13 +105,14 @@ $MAKE_CMD -j"$PARALLEL"
 echo "==> Building libtsf..."
 TSF_OUT="$NATIVE_LIBS/tsf"
 mkdir -p "$TSF_OUT"
+cd "$TSF_OUT"
 if [ "$OS_FAMILY" = "windows" ]; then
     gcc -shared -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
-        -o "$TSF_OUT/libtsf.$LIB_EXT" \
+        -o "libtsf.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c"
 else
     gcc -shared -fPIC -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
-        -o "$TSF_OUT/libtsf.$LIB_EXT" \
+        -o "libtsf.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c"
 fi
 
