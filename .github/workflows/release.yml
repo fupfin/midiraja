@@ -62,7 +62,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake make
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake make zip
 
       - name: Build C/C++ Native Libraries
         if: runner.os != 'Windows'
