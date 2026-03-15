@@ -66,6 +66,17 @@ try {
     # --- Extract ---
     Expand-Archive -Path "$TmpDir\midra.zip" -DestinationPath "$TmpDir\extracted" -Force
 
+    # GitHub Actions wraps artifacts in an extra zip — unwrap if needed
+    $innerZip = Get-ChildItem "$TmpDir\extracted" -Filter "*.zip" |
+                Where-Object { (Get-ChildItem "$TmpDir\extracted").Count -eq 1 } |
+                Select-Object -First 1
+    if ($innerZip) {
+        Write-Host "Unwrapping CI artifact..."
+        Expand-Archive -Path $innerZip.FullName -DestinationPath "$TmpDir\extracted2" -Force
+        Remove-Item -Recurse -Force "$TmpDir\extracted"
+        Rename-Item "$TmpDir\extracted2" "$TmpDir\extracted"
+    }
+
     # --- Read version ---
     $VersionFile = "$TmpDir\extracted\VERSION"
     if (Test-Path $VersionFile) {
