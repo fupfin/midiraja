@@ -5,7 +5,7 @@
 ## Features
 
 - **Retro synthesizer engines** — OPL2/OPL3 FM, OPN2, Gravis Ultrasound, PSG/MSX+SCC, 1-bit — all embedded in the binary, no external libraries needed
-- **SoundFont playback** — built-in TinySoundFont (`tsf`) engine plays `.sf2`/`.sf3` files with no FluidSynth installation; full DSP effects rack supported
+- **SoundFont playback** — built-in TinySoundFont (`soundfont`) engine plays `.sf2`/`.sf3` files with no FluidSynth installation; full DSP effects rack supported
 - **External MIDI routing** — send events to OS native ports (CoreMIDI, Windows GS, ALSA) or hardware synthesizers via USB/MIDI
 - **High-fidelity emulation** — optionally links against FluidSynth (SoundFont) or Munt (Roland MT-32) if installed on the system
 - **Live playback control** — adjust speed, transpose key, and master volume while playing

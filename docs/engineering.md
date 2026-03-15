@@ -22,7 +22,7 @@ Rather than JNI, Midiraja uses the **Java Foreign Function & Memory API** (JEP 4
 All synthesizers share a common contract (`SoftSynthProvider` / `MidiNativeBridge`) but split into two groups:
 
 - **Self-contained engines** (1-bit, PSG, GUS): Pure Java synthesis; no native library required. Rendered directly into a `short[]` ring buffer on a dedicated render thread.
-- **Native-bridge engines** (OPL, OPN, TSF, Munt, FluidSynth): A thin Java FFM layer delegates to a C/C++ library. The bridge pattern chosen depends on the library's thread model — Queue-and-Drain for non-thread-safe state machines, Wall-Clock Sync for latency-sensitive timestamped APIs, Driver Delegation for self-managing libraries.
+- **Native-bridge engines** (FM/OPL, FM/OPN, SoundFont/TSF, Munt, FluidSynth): A thin Java FFM layer delegates to a C/C++ library. The bridge pattern chosen depends on the library's thread model — Queue-and-Drain for non-thread-safe state machines, Wall-Clock Sync for latency-sensitive timestamped APIs, Driver Delegation for self-managing libraries.
 
 All built-in engines feed into the same **DSP pipeline** (`AudioProcessor` chain), which operates in-place on `float[]` arrays with zero per-frame allocation.
 
@@ -40,10 +40,13 @@ The command tree is structured as:
 
 ```
 midra (MidirajaCommand)
- ├── opl / opn / psg / 1bit / gus / tsf / mt32  — built-in engine subcommands (library bundled)
- ├── fluidsynth                      — external engine subcommand (user-installed library)
- ├── device                          — OS MIDI routing
- └── ports                           — list available MIDI devices
+ ├── fm [opl|adlib|opn|genesis|pc98]  — FM synthesis; aliases: opl, opn, adlib, genesis, pc98
+ ├── soundfont                         — built-in SoundFont (TSF); aliases: tsf, sf2, sf
+ ├── patch                             — GUS patches; aliases: gus, pat, guspatch
+ ├── psg / 1bit / mt32                — other built-in engine subcommands (library bundled)
+ ├── fluidsynth                        — external engine subcommand (user-installed library)
+ ├── device                            — OS MIDI routing
+ └── ports                             — list available MIDI devices
 ```
 
 Options are composed via **picocli `@Mixin`s** rather than inheritance, keeping each subcommand class focused:
