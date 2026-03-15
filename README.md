@@ -21,8 +21,8 @@
 # Install (macOS & Linux)
 curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash
 
-# Play immediately — no setup, no external files needed
-midra 1bit song.mid
+# Play immediately — FreePats wavetable is bundled, no setup needed
+midra patch song.mid
 
 # Play with a SoundFont
 midra soundfont ~/soundfonts/FluidR3_GM.sf2 song.mid
@@ -35,10 +35,11 @@ midra device song.mid
 
 | I want … | Command |
 |----------|---------|
-| Hear anything right now | `midra 1bit song.mid` |
+| Best quality, no setup (FreePats bundled) | `midra patch song.mid` |
+| Retro beeper sound, no setup | `midra 1bit song.mid` |
 | Classic DOS game sound (DOOM / TIE Fighter) | `midra opl -b 14 song.mid` |
 | Sega Genesis / PC-98 sound | `midra opn song.mid` |
-| SoundFont (General MIDI), no extra installs | `midra soundfont file.sf2 song.mid` |
+| SoundFont playback (TinySoundFont, no install) | `midra soundfont file.sf2 song.mid` |
 | Early 90s LucasArts / Sierra adventures | `midra mt32 ~/roms/ song.mid` |
 | Hardware synth or external device | `midra device song.mid` |
 

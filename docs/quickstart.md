@@ -30,10 +30,10 @@ midra --help
 You don't need to configure anything. Find any `.mid` file and run:
 
 ```bash
-midra 1bit song.mid
+midra patch song.mid
 ```
 
-The `1bit` engine is built in — no downloads, no external libraries, instant sound.
+The `patch` engine uses the FreePats wavetable set — bundled with Midiraja, no downloads needed. For something more retro, try `midra 1bit song.mid`.
 
 ---
 
@@ -41,12 +41,13 @@ The `1bit` engine is built in — no downloads, no external libraries, instant s
 
 | I want … | Command | External file? |
 |----------|---------|----------------|
-| Hear anything right now | `midra 1bit song.mid` | None |
+| Best quality, no setup | `midra patch song.mid` | None (FreePats bundled) |
+| Retro beeper sound, no setup | `midra 1bit song.mid` | None |
 | Classic DOS sound (DOOM, AdLib) | `midra opl song.mid` | None |
 | Sega Genesis / PC-98 sound | `midra opn song.mid` | None |
 | 8-bit MSX / ZX Spectrum sound | `midra psg song.mid` | None |
-| General MIDI with samples | `midra soundfont file.sf2 song.mid` | `.sf2` file |
-| Best SoundFont quality | `midra fluidsynth file.sf2 song.mid` | FluidSynth + `.sf2` |
+| SoundFont playback (TinySoundFont, no install) | `midra soundfont file.sf2 song.mid` | `.sf2` file |
+| Best SF2 compatibility / lowest latency | `midra fluidsynth file.sf2 song.mid` | FluidSynth + `.sf2` |
 | Roland MT-32 (LucasArts / Sierra) | `midra mt32 ~/roms/ song.mid` | ROM files |
 | Route to hardware synth | `midra device song.mid` | — |
 

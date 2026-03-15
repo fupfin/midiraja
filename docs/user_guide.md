@@ -225,7 +225,7 @@ These engines are baked directly into the Midiraja app. They require **absolutel
 
 #### 4. GUS Patches (`patch`)
 * **What is it?** In the mid-90s, the GUS card revolutionized PC audio by playing back actual recorded audio samples (wavetables) instead of synthesizing them.
-* **How to use it:** `midra patch song.mid` (Auto-downloads a 27MB patch set on first run). Aliases: `gus`, `pat`, `guspatch`.
+* **How to use it:** `midra patch song.mid` (FreePats is bundled — works immediately, no download needed). Aliases: `gus`, `pat`, `guspatch`.
 * **🎛️ Advanced Options:**
   * `<patch-dir>`: Optional first argument — a directory containing GUS `.pat` files. If a MIDI file path is given instead, FreePats is used automatically. Example: `midra patch ~/patches/eawpats song.mid`
   * `--1bit <mode>`: Chooses a 1-bit modulation strategy to simulate PC Speaker output.
@@ -235,17 +235,17 @@ These engines are baked directly into the Midiraja app. They require **absolutel
   * `--realsound`: Turns on a mathematical simulation of the 1980s "RealSound" technique. It completely destroys the pristine wavetable audio and forces it out through a simulated 15.2kHz PWM PC Speaker, making it sound exactly like it's coming from a tiny, overloaded 1989 desktop computer chassis. (Equivalent to `--1bit pwm`).
 * **Example:** `midra patch --realsound song.mid` (Simulates extreme low-fidelity retro hardware)
 
-#### 5. Built-in SoundFont (`soundfont`)
-* **What is it?** Plays standard SoundFont 2 and 3 (`.sf2` / `.sf3`) files using the embedded [TinySoundFont](https://github.com/schellingb/TinySoundFont) library — with **no FluidSynth installation required**. The synthesizer engine is bundled directly into the `midra` binary.
+#### 5. TinySoundFont synthesizer (`soundfont`)
+* **What is it?** Plays standard SoundFont 2 and 3 (`.sf2` / `.sf3`) files using the embedded [TinySoundFont](https://github.com/schellingb/TinySoundFont) synthesizer — bundled directly into the `midra` binary with **no external installation required**. (The `fluidsynth` command also plays `.sf2` files, but uses the separately installed FluidSynth library instead.)
 * **How to use it:** `midra soundfont /path/to/soundfont.sf2 song.mid`. Aliases: `tsf`, `sf2`, `sf`.
 * **Where to get SoundFont files:** A SoundFont is a library of professionally recorded instrument samples. Good free options include:
   * *FluidR3 GM* — Ubuntu/Debian: `sudo apt install fluid-soundfont-gm`
   * *GeneralUser GS* — widely available as a free download
   * *MuseScore General* — bundled with MuseScore 4
 * **🎛️ DSP Effects:** All standard effects are supported — `--tube`, `--chorus`, `--reverb`, EQ, LPF/HPF.
-* **How it compares to `fluidsynth`:**
+* **TinySoundFont vs FluidSynth** — both synthesizers read the same `.sf2`/`.sf3` files; the difference is the engine underneath:
 
-| | `soundfont` | `fluidsynth` |
+| | TinySoundFont (`soundfont`) | FluidSynth (`fluidsynth`) |
 |---|---|---|
 | Requires separate install? | No (bundled) | Yes (`brew install fluid-synth`) |
 | DSP effects (`--tube`, `--reverb` …) | ✅ | ❌ |
@@ -291,20 +291,23 @@ Not sure which engine to pick? Use the decision table below.
 
 | I want … | Best engine | Notes |
 |-----------|-------------|-------|
-| Play a MIDI file right now, no setup | `1bit` | Zero dependencies, instant start |
+| Play a MIDI file right now, no setup | `patch` | Bundled FreePats wavetable — best quality among zero-install options |
+| Same but maximally retro | `1bit` | Zero dependencies, instant start |
 | Classic DOS game sound (DOOM, TIE Fighter) | `fm opl` | Add `-b 14` for DOOM bank; shortcut: `midra opl` |
 | Sega Genesis / PC-98 game sound | `fm genesis` | OPN2/OPNA chip emulation; shortcuts: `midra opn`, `midra genesis`, `midra pc98` |
 | 8-bit MSX / ZX Spectrum / Atari ST sound | `psg` | Add `--scc` for richer MSX sound |
-| General MIDI with sample quality, no installs | `soundfont` + an SF2 file | Good fidelity, full DSP effects rack |
+| SoundFont playback, no installs | `soundfont` + an SF2 file | TinySoundFont; good fidelity, full DSP effects rack |
 | Best possible SoundFont quality, low latency | `fluidsynth` + an SF2 file | Requires `brew install fluid-synth` |
 | Early 90s LucasArts / Sierra adventure games | `mt32` + ROM files | Bundled Munt emulator, no install |
 | Route to hardware synth / external device | `device` | Sends raw MIDI to OS ports |
 | Maximum retro weirdness | `1bit --synth xor --mux xor` | Tim Follin–style buzzing bass |
 | Extreme low-fi (PC Speaker "RealSound") | `patch --realsound` | 15 kHz PWM through a paper cone |
 
-### Quick comparison: `soundfont` vs `fluidsynth`
+### Quick comparison: TinySoundFont (`soundfont`) vs FluidSynth (`fluidsynth`)
 
-Use **`soundfont`** when you want zero-install SoundFont playback plus DSP effects.
+Both commands play the same `.sf2`/`.sf3` SoundFont files — the difference is which synthesizer engine does the rendering.
+
+Use **`soundfont`** (TinySoundFont) when you want zero-install playback plus DSP effects.
 Use **`fluidsynth`** when you need the best SF2 compatibility, lower audio latency, or efficient handling of 1 GB+ SoundFont files.
 
 ### Quick comparison: retro engines
@@ -315,7 +318,7 @@ Use **`fluidsynth`** when you need the best SF2 compatibility, lower audio laten
 | `psg` | 1980s MSX / ZX Spectrum / Atari ST | 3–48 voices (× chips) | None |
 | `fm opl` (`opl`) | 1990s AdLib / Sound Blaster | 9–18 FM operators | Optional `.wopl` bank |
 | `fm genesis` (`opn`) | Sega Genesis / PC-98 | 6 FM + 3 SSG voices | Optional `.wopn` bank |
-| `patch` (`gus`) | 1994 Gravis Ultrasound | 32 wavetable voices | FreePats (auto-download) |
+| `patch` (`gus`) | 1994 Gravis Ultrasound | 32 wavetable voices | FreePats (bundled) |
 | `soundfont` (`tsf`) | Modern SoundFont | Polyphonic (SF2 limit) | Required `.sf2`/`.sf3` |
 | `mt32` | 1987 Roland MT-32 | 32 partial generators | Required ROM files |
 
@@ -347,7 +350,7 @@ The same `.sf2` file works with both `soundfont` and `fluidsynth`.
 
 The original Gravis Ultrasound card stored instruments as individual `.pat` (patch) files on a hard drive — one file per General MIDI instrument. A **patch set** is a folder containing all 128 of these files.
 
-Midiraja automatically downloads the [FreePats](https://freepats.zenvoid.org/) patch set on first run. To use a different (often higher-quality) patch set, download it and point `--patch-dir` at the folder:
+The [FreePats](https://freepats.zenvoid.org/) patch set is bundled with Midiraja — no download needed. To use a different (often higher-quality) patch set, download it and point `--patch-dir` at the folder:
 
 ```bash
 midra patch ~/patches/eawpats song.mid
@@ -357,7 +360,7 @@ midra patch ~/patches/eawpats song.mid
 
 | Patch Set | Notes |
 |-----------|-------|
-| *FreePats* (default) | Downloaded automatically on first run. Decent quality, legally free. |
+| *FreePats* (default) | Bundled with Midiraja. Decent quality, legally free. |
 | *eawpats* (Eric A. Welsh) | Widely regarded as the best freely available GUS patches. |
 | *Unison* / *Timbres of Heaven* | More modern, higher-quality alternatives. |
 
