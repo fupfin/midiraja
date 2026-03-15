@@ -12,21 +12,27 @@ import com.fupfin.midiraja.dsp.*;
 import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.gus.GusSynthProvider;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
 
-@Command(name = "gus", mixinStandardHelpOptions = true,
-        description = "Play using Pure Java Gravis Ultrasound (GUS) Synthesizer")
+@Command(name = "patch", aliases = {"gus", "pat", "guspatch"}, mixinStandardHelpOptions = true,
+        description = "Play with GUS patch files (.pat), the Gravis Ultrasound wavetable format.",
+        footer = {"",
+                "The patch directory is optional. If omitted, FreePats is downloaded automatically.",
+                "  midra patch song.mid",
+                "  midra patch ~/patches/eawpats song.mid"})
 public class GusCommand implements Callable<Integer>
 {
     @ParentCommand
-    @org.jspecify.annotations.Nullable
+    @Nullable
     private MidirajaCommand parent;
 
     @Mixin
@@ -35,19 +41,36 @@ public class GusCommand implements Callable<Integer>
     @Mixin
     private CommonOptions common = new CommonOptions();
 
-    @Option(names = {"-p", "--patch-dir"},
-            description = "Directory containing GUS .pat files and gus.cfg (or timidity.cfg)")
-    private Optional<File> patchDir = Optional.empty();
+    @Parameters(index = "0", arity = "0..1",
+            description = "Optional: directory containing GUS .pat files. If a MIDI file is given here, FreePats is used.")
+    @Nullable
+    private File firstArg = null;
 
+    @Parameters(index = "1..*", arity = "0..*",
+            description = "MIDI files, directories, or .m3u playlists to play.")
+    private List<File> moreFiles = new ArrayList<>();
 
+    private @Nullable File patchDir()
+    {
+        return (firstArg != null && firstArg.isDirectory()) ? firstArg : null;
+    }
 
-    @Parameters(paramLabel = "<file>", description = "MIDI files or M3U playlists to play")
-    private List<File> files = new java.util.ArrayList<>();
+    private List<File> files()
+    {
+        if (firstArg == null || firstArg.isDirectory())
+        {
+            return moreFiles;
+        }
+        var all = new ArrayList<File>();
+        all.add(firstArg);
+        all.addAll(moreFiles);
+        return all;
+    }
 
     @Override
     public Integer call() throws Exception
     {
-        var p = java.util.Objects.requireNonNull(parent);
+        var p = Objects.requireNonNull(parent);
         String audioLib = AudioLibResolver.resolve();
         NativeAudioEngine audio = new NativeAudioEngine(audioLib);
         audio.init(44100, 2, 4096);
@@ -58,17 +81,17 @@ public class GusCommand implements Callable<Integer>
 
         AudioProcessor pipeline = new FloatToShortSink(audio);
         pipeline = common.wrapRetroPipeline(pipeline);
-        pipeline = java.util.Objects.requireNonNull(fxOptions).wrapFxPipeline(pipeline);
-        if (java.util.Objects.requireNonNull(fxOptions).needsFloatConversion(common))
+        pipeline = Objects.requireNonNull(fxOptions).wrapFxPipeline(pipeline);
+        if (Objects.requireNonNull(fxOptions).needsFloatConversion(common))
             pipeline = new ShortToFloatFilter(pipeline);
 
-        String dirPath = patchDir.map(File::getAbsolutePath).orElse(null);
+        var patchDir = patchDir();
+        var provider = new GusSynthProvider(pipeline,
+                patchDir != null ? patchDir.getAbsolutePath() : null);
 
-        var provider = new GusSynthProvider(pipeline, dirPath);
-
-        var runner =
-                new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
-        return runner.run(provider, true, Optional.empty(), patchDir.map(File::getPath), files,
-                java.util.Objects.requireNonNull(common));
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+        return runner.run(provider, true, Optional.empty(),
+                Optional.ofNullable(patchDir).map(File::getPath), files(),
+                Objects.requireNonNull(common));
     }
 }

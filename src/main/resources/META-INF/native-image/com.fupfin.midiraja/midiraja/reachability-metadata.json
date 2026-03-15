@@ -59,28 +59,17 @@
             ]
         },
         {
-            "type": "com.midiraja.cli.OplCommand",
+            "type": "com.midiraja.cli.FmCommand",
             "allDeclaredConstructors": true,
             "allPublicConstructors": true,
             "allDeclaredMethods": true,
             "allPublicMethods": true,
             "fields": [
-                {"name": "files"},
+                {"name": "spec"},
+                {"name": "rawArgs"},
                 {"name": "bank"},
                 {"name": "fmOptions"},
-                {"name": "common"}
-            ]
-        },
-        {
-            "type": "com.midiraja.cli.OpnCommand",
-            "allDeclaredConstructors": true,
-            "allPublicConstructors": true,
-            "allDeclaredMethods": true,
-            "allPublicMethods": true,
-            "fields": [
-                {"name": "files"},
-                {"name": "bank"},
-                {"name": "fmOptions"},
+                {"name": "fxOptions"},
                 {"name": "common"}
             ]
         },

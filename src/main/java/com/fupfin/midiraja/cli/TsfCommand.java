@@ -26,8 +26,8 @@ import picocli.CommandLine.ParentCommand;
 /**
  * Plays MIDI files using the built-in TinySoundFont SF2 synthesizer.
  */
-@Command(name = "tsf", mixinStandardHelpOptions = true,
-        description = "Play with TinySoundFont using a SoundFont (.sf2/.sf3) file.")
+@Command(name = "soundfont", aliases = {"tsf", "sf2", "sf"}, mixinStandardHelpOptions = true,
+        description = "Play with the built-in SoundFont synthesizer (SF2/SF3, no install needed).")
 public class TsfCommand implements Callable<Integer>
 {
     @ParentCommand
