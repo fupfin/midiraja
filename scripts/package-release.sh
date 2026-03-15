@@ -44,7 +44,13 @@ if [ -z "$VERSION" ] || [ "$VERSION" = "unspecified" ]; then
 fi
 echo "✅ Version detected: v${VERSION}"
 
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+RAW_OS=$(uname -s)
+case "$RAW_OS" in
+    Darwin*)  OS="darwin"   ;;
+    Linux*)   OS="linux"    ;;
+    MINGW*|MSYS*|CYGWIN*) OS="windows" ;;
+    *)        OS=$(echo "$RAW_OS" | tr '[:upper:]' '[:lower:]') ;;
+esac
 ARCH=$(uname -m)
 
 if [ "$ARCH" = "x86_64" ]; then
@@ -53,7 +59,11 @@ fi
 
 BIN_DIR="build/native/nativeCompile"
 DIST_DIR="dist"
-ARCHIVE_NAME="midra-${OS}-${ARCH}-v${VERSION}.tar.gz"
+if [ "$OS" = "windows" ]; then
+    ARCHIVE_NAME="midra-${OS}-${ARCH}-v${VERSION}.zip"
+else
+    ARCHIVE_NAME="midra-${OS}-${ARCH}-v${VERSION}.tar.gz"
+fi
 CHECKSUM_FILE="midra-${OS}-${ARCH}-v${VERSION}.sha256"
 
 # Ensure submodules are initialized
@@ -73,8 +83,10 @@ echo "🛠️  Building native image via GraalVM Native Image..."
 rm -f "${BIN_DIR}/midra" "${BIN_DIR}/midra.exe"
 ./gradlew nativeCompile
 
-if [ ! -f "${BIN_DIR}/midra" ]; then
-    echo "❌ Error: Binary not found at ${BIN_DIR}/midra even after build attempt."
+BIN_NAME="midra"
+[ "$OS" = "windows" ] && BIN_NAME="midra.exe"
+if [ ! -f "${BIN_DIR}/${BIN_NAME}" ]; then
+    echo "❌ Error: Binary not found at ${BIN_DIR}/${BIN_NAME} even after build attempt."
     exit 1
 fi
 
@@ -82,7 +94,8 @@ echo "📦 Packaging ${ARCHIVE_NAME}..."
 mkdir -p "${DIST_DIR}"
 
 # Resolve the native-libs directory (build system uses aarch64/x86_64, not arm64/amd64)
-NATIVE_OS=$(uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/macos/')
+NATIVE_OS="$OS"
+[ "$NATIVE_OS" = "darwin" ] && NATIVE_OS="macos"
 NATIVE_ARCH=$(uname -m)
 [ "$NATIVE_ARCH" = "arm64"  ] && NATIVE_ARCH="aarch64"
 NATIVE_LIBS_DIR="build/native-libs/${NATIVE_OS}-${NATIVE_ARCH}"
@@ -90,9 +103,13 @@ NATIVE_LIBS_DIR="build/native-libs/${NATIVE_OS}-${NATIVE_ARCH}"
 STAGING_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGING_DIR"' EXIT
 mkdir -p "${STAGING_DIR}/bin" "${STAGING_DIR}/lib" "${STAGING_DIR}/share/midra"
-cp "${BIN_DIR}/midra" "${STAGING_DIR}/bin/midra"
-cp "src/main/man/midra.1" "${STAGING_DIR}/midra.1"
+cp "${BIN_DIR}/${BIN_NAME}" "${STAGING_DIR}/bin/${BIN_NAME}"
 echo "${VERSION}" > "${STAGING_DIR}/VERSION"
+
+# Man page: skip on Windows
+if [ "$OS" != "windows" ]; then
+    cp "src/main/man/midra.1" "${STAGING_DIR}/midra.1"
+fi
 
 # Include freepats in share/midra/ so GusSynthProvider finds them after install
 if [ ! -d "build/freepats" ]; then
@@ -102,18 +119,33 @@ fi
 mkdir -p "${STAGING_DIR}/share/midra/freepats"
 cp -r "build/freepats/." "${STAGING_DIR}/share/midra/freepats/"
 
-# Bundle native libraries in lib/ so rpath (@executable_path/../lib / $ORIGIN/../lib) finds them
-LIB_EXT="dylib" ; [ "$(uname -s)" = "Linux" ] && LIB_EXT="so"
+# Bundle native libraries
+# Windows: DLLs go in bin/ (same dir as exe) so the loader finds them
+# Unix: shared libs go in lib/ so rpath (@executable_path/../lib / $ORIGIN/../lib) finds them
+if [ "$OS" = "windows" ]; then
+    LIB_EXT="dll"
+    LIB_DEST="${STAGING_DIR}/bin"
+elif [ "$OS" = "darwin" ]; then
+    LIB_EXT="dylib"
+    LIB_DEST="${STAGING_DIR}/lib"
+else
+    LIB_EXT="so"
+    LIB_DEST="${STAGING_DIR}/lib"
+fi
 for lib in \
     "${NATIVE_LIBS_DIR}/miniaudio/libmidiraja_audio.${LIB_EXT}" \
     "${NATIVE_LIBS_DIR}/adlmidi/libADLMIDI.${LIB_EXT}" \
     "${NATIVE_LIBS_DIR}/opnmidi/libOPNMIDI.${LIB_EXT}" \
     "${NATIVE_LIBS_DIR}/munt/libmt32emu.${LIB_EXT}" \
     "${NATIVE_LIBS_DIR}/tsf/libtsf.${LIB_EXT}"; do
-    [ -f "$lib" ] && cp "$lib" "${STAGING_DIR}/lib/"
+    [ -f "$lib" ] && cp "$lib" "${LIB_DEST}/"
 done
 
-tar -czf "${DIST_DIR}/${ARCHIVE_NAME}" -C "${STAGING_DIR}" .
+if [ "$OS" = "windows" ]; then
+    (cd "${STAGING_DIR}" && zip -r - .) > "${DIST_DIR}/${ARCHIVE_NAME}"
+else
+    tar -czf "${DIST_DIR}/${ARCHIVE_NAME}" -C "${STAGING_DIR}" .
+fi
 
 echo "🔒 Calculating SHA256 Checksum..."
 cd "${DIST_DIR}"

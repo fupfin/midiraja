@@ -28,6 +28,9 @@ jobs:
           - os: ubuntu-24.04-arm
             artifact_name: midra
             asset_name: midra-linux-arm64
+          - os: windows-2022
+            artifact_name: midra.exe
+            asset_name: midra-windows-amd64
 
     runs-on: ${{ matrix.os }}
 
@@ -47,13 +50,27 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Make gradlew executable
+        if: runner.os != 'Windows'
         run: chmod +x ./gradlew
 
       - name: Install ALSA dependencies (Linux only)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev
 
+      - name: Setup MSYS2 (Windows only)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake make
+
       - name: Build C/C++ Native Libraries
+        if: runner.os != 'Windows'
+        run: ./scripts/build-native-libs.sh
+
+      - name: Build C/C++ Native Libraries (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
         run: ./scripts/build-native-libs.sh
 
       - name: Run Tests
@@ -65,7 +82,8 @@ jobs:
       - name: Download FreePats
         run: ./gradlew setupFreepats
 
-      - name: Package Artifact
+      - name: Package Artifact (Unix)
+        if: runner.os != 'Windows'
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
@@ -97,12 +115,43 @@ jobs:
           cp -r build/freepats/. staging/share/midra/freepats/
           tar -czf ${{ matrix.asset_name }}.tar.gz -C staging .
 
+      - name: Package Artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${GITHUB_REF_NAME}" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(./gradlew properties -q | awk '/^version:/ {print $2}')
+          fi
+          NATIVE_ARCH=$(uname -m)
+          NATIVE_LIBS_DIR="build/native-libs/windows-${NATIVE_ARCH}"
+
+          mkdir -p staging/bin staging/share/midra/freepats
+          cp build/native/nativeCompile/${{ matrix.artifact_name }} staging/bin/midra.exe
+          echo "${VERSION}" > staging/VERSION
+
+          # On Windows, DLLs go in bin/ alongside the executable
+          for lib in \
+            "${NATIVE_LIBS_DIR}/miniaudio/libmidiraja_audio.dll" \
+            "${NATIVE_LIBS_DIR}/adlmidi/libADLMIDI.dll" \
+            "${NATIVE_LIBS_DIR}/opnmidi/libOPNMIDI.dll" \
+            "${NATIVE_LIBS_DIR}/munt/libmt32emu.dll" \
+            "${NATIVE_LIBS_DIR}/tsf/libtsf.dll"; do
+            [ -f "$lib" ] && cp "$lib" staging/bin/
+          done
+
+          cp -r build/freepats/. staging/share/midra/freepats/
+          (cd staging && zip -r ../${{ matrix.asset_name }}.zip .)
+
       - name: Upload as CI Artifact (manual run)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
-          path: ${{ matrix.asset_name }}.tar.gz
+          path: ${{ matrix.asset_name }}.*
 
       - name: Extract Changelog for this version
         if: github.event_name == 'push'
@@ -119,6 +168,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body: ${{ steps.changelog.outputs.body }}
-          files: ${{ matrix.asset_name }}.tar.gz
+          files: ${{ matrix.asset_name }}.*
 
   # midrax JAR is built and uploaded locally via scripts/upload-midrax.sh

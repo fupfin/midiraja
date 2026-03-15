@@ -179,7 +179,6 @@ def nativeTarget = "${osFamily}-${arch}"
 
 task buildAdlMidiLib(type: Exec) {
     description = 'Builds libADLMIDI.a via cmake + make.'
-    onlyIf { !org.gradle.internal.os.OperatingSystem.current().isWindows() }
 
     def sourceDir = file("ext/libADLMIDI")
     def buildDir  = file("build/native-libs/${nativeTarget}/adlmidi")
@@ -189,20 +188,30 @@ task buildAdlMidiLib(type: Exec) {
     doFirst { buildDir.mkdirs() }
     workingDir { buildDir }
     commandLine 'bash', '-c', """
-        cmake -G 'Unix Makefiles' \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DlibADLMIDI_SHARED=ON -DlibADLMIDI_STATIC=ON \
-            -DWITH_EMBEDDED_BANKS=ON \
-            -DWITH_MUS_SUPPORT=OFF -DWITH_XMI_SUPPORT=OFF \
-            -DUSE_DOSBOX_EMULATOR=OFF -DUSE_OPAL_EMULATOR=OFF -DUSE_JAVA_EMULATOR=OFF \
-            ${sourceDir.absolutePath} && \
-        make -j\$(sysctl -n hw.ncpu 2>/dev/null || nproc)
+        if [[ "\$OSTYPE" == "msys"* || "\$OSTYPE" == "mingw"* || "\$OSTYPE" == "cygwin"* ]]; then
+            cmake -G 'MinGW Makefiles' \\
+                -DCMAKE_BUILD_TYPE=Release \\
+                -DlibADLMIDI_SHARED=ON -DlibADLMIDI_STATIC=ON \\
+                -DWITH_EMBEDDED_BANKS=ON \\
+                -DWITH_MUS_SUPPORT=OFF -DWITH_XMI_SUPPORT=OFF \\
+                -DUSE_DOSBOX_EMULATOR=OFF -DUSE_OPAL_EMULATOR=OFF -DUSE_JAVA_EMULATOR=OFF \\
+                ${sourceDir.absolutePath} && \\
+            mingw32-make -j\$NUMBER_OF_PROCESSORS
+        else
+            cmake -G 'Unix Makefiles' \\
+                -DCMAKE_BUILD_TYPE=Release \\
+                -DlibADLMIDI_SHARED=ON -DlibADLMIDI_STATIC=ON \\
+                -DWITH_EMBEDDED_BANKS=ON \\
+                -DWITH_MUS_SUPPORT=OFF -DWITH_XMI_SUPPORT=OFF \\
+                -DUSE_DOSBOX_EMULATOR=OFF -DUSE_OPAL_EMULATOR=OFF -DUSE_JAVA_EMULATOR=OFF \\
+                ${sourceDir.absolutePath} && \\
+            make -j\$(sysctl -n hw.ncpu 2>/dev/null || nproc)
+        fi
     """
 }
 
 task buildOpnMidiLib(type: Exec) {
     description = 'Builds libOPNMIDI.a via cmake + make.'
-    onlyIf { !org.gradle.internal.os.OperatingSystem.current().isWindows() }
 
     def sourceDir = file("ext/libOPNMIDI")
     def buildDir  = file("build/native-libs/${nativeTarget}/opnmidi")
@@ -212,12 +221,21 @@ task buildOpnMidiLib(type: Exec) {
     doFirst { buildDir.mkdirs() }
     workingDir { buildDir }
     commandLine 'bash', '-c', """
-        cmake -G 'Unix Makefiles' \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DlibOPNMIDI_SHARED=ON -DlibOPNMIDI_STATIC=ON \
-            -DWITH_MUS_SUPPORT=OFF -DWITH_XMI_SUPPORT=OFF \
-            ${sourceDir.absolutePath} && \
-        make -j\$(sysctl -n hw.ncpu 2>/dev/null || nproc)
+        if [[ "\$OSTYPE" == "msys"* || "\$OSTYPE" == "mingw"* || "\$OSTYPE" == "cygwin"* ]]; then
+            cmake -G 'MinGW Makefiles' \\
+                -DCMAKE_BUILD_TYPE=Release \\
+                -DlibOPNMIDI_SHARED=ON -DlibOPNMIDI_STATIC=ON \\
+                -DWITH_MUS_SUPPORT=OFF -DWITH_XMI_SUPPORT=OFF \\
+                ${sourceDir.absolutePath} && \\
+            mingw32-make -j\$NUMBER_OF_PROCESSORS
+        else
+            cmake -G 'Unix Makefiles' \\
+                -DCMAKE_BUILD_TYPE=Release \\
+                -DlibOPNMIDI_SHARED=ON -DlibOPNMIDI_STATIC=ON \\
+                -DWITH_MUS_SUPPORT=OFF -DWITH_XMI_SUPPORT=OFF \\
+                ${sourceDir.absolutePath} && \\
+            make -j\$(sysctl -n hw.ncpu 2>/dev/null || nproc)
+        fi
     """
 }
 
@@ -247,6 +265,7 @@ graalvmNative {
                 // $ORIGIN/../lib resolves to the lib/ dir next to bin/
                 buildArgs.add("-H:NativeLinkerOption=-Wl,-rpath,\$ORIGIN/../lib")
             }
+            // Windows: no rpath needed — DLLs are bundled in the same directory as midra.exe
         }
     }
 }
@@ -255,7 +274,6 @@ graalvmNative {
 
 task buildTsfLib(type: Exec) {
     description = 'Builds libtsf (TinySoundFont) as a shared library via a single gcc call.'
-    onlyIf { !org.gradle.internal.os.OperatingSystem.current().isWindows() }
 
     def sourceFile = file("src/main/c/tsf/tsf_wrapper.c")
     def includeDir  = file("ext/TinySoundFont")
@@ -264,26 +282,33 @@ task buildTsfLib(type: Exec) {
     inputs.file(sourceFile)
     inputs.dir(includeDir)
 
-    def libName = org.gradle.internal.os.OperatingSystem.current().isMacOsX() ? "libtsf.dylib" : "libtsf.so"
+    def os = org.gradle.internal.os.OperatingSystem.current()
+    def libName = os.isMacOsX() ? "libtsf.dylib" : (os.isWindows() ? "libtsf.dll" : "libtsf.so")
     outputs.file(file("${outputDir}/${libName}"))
 
     workingDir { outputDir }
     commandLine 'bash', '-c', """
-        gcc -shared -fPIC -O2 -I${includeDir.absolutePath} \
-            -o ${libName} ${sourceFile.absolutePath}
+        if [[ "\$OSTYPE" == "msys"* || "\$OSTYPE" == "mingw"* || "\$OSTYPE" == "cygwin"* ]]; then
+            gcc -shared -O2 -I${includeDir.absolutePath} \\
+                -o ${libName} ${sourceFile.absolutePath}
+        else
+            gcc -shared -fPIC -O2 -I${includeDir.absolutePath} \\
+                -o ${libName} ${sourceFile.absolutePath}
+        fi
     """
 }
 
 task buildMiniaudioLib(type: Exec) {
     description = 'Builds libmidiraja_audio as both a static (.a) and shared library.'
-    onlyIf { !org.gradle.internal.os.OperatingSystem.current().isWindows() }
 
     def sourceFile = file("src/main/c/miniaudio/midiraja_audio.c")
     def outputDir  = file("build/native-libs/${nativeTarget}/miniaudio")
     doFirst { outputDir.mkdirs() }
     inputs.file(sourceFile)
 
-    def libName = org.gradle.internal.os.OperatingSystem.current().isMacOsX() ? "libmidiraja_audio.dylib" : "libmidiraja_audio.so"
+    def os = org.gradle.internal.os.OperatingSystem.current()
+    def libName = os.isMacOsX() ? "libmidiraja_audio.dylib"
+            : (os.isWindows() ? "libmidiraja_audio.dll" : "libmidiraja_audio.so")
     outputs.file(file("${outputDir}/${libName}"))
     outputs.file(file("${outputDir}/libmidiraja_audio.a"))
 
@@ -293,6 +318,10 @@ task buildMiniaudioLib(type: Exec) {
             gcc -c -fPIC -O2 -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreFoundation -o midiraja_audio.o "${sourceFile.absolutePath}"
             ar rcs libmidiraja_audio.a midiraja_audio.o
             gcc -shared -fPIC -O2 -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreFoundation -o libmidiraja_audio.dylib "${sourceFile.absolutePath}"
+        elif [[ "\$OSTYPE" == "msys"* || "\$OSTYPE" == "mingw"* || "\$OSTYPE" == "cygwin"* ]]; then
+            gcc -c -O2 -o midiraja_audio.o "${sourceFile.absolutePath}"
+            ar rcs libmidiraja_audio.a midiraja_audio.o
+            gcc -shared -O2 -o libmidiraja_audio.dll "${sourceFile.absolutePath}" -lole32 -lpthread -lm
         else
             gcc -c -fPIC -O2 -o midiraja_audio.o "${sourceFile.absolutePath}"
             ar rcs libmidiraja_audio.a midiraja_audio.o

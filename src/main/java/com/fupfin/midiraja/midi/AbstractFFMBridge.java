@@ -131,7 +131,7 @@ public abstract class AbstractFFMBridge implements AutoCloseable
         // Append OS-specific fallback dirs for bare library names (e.g. /opt/homebrew/lib/libfoo.dylib)
         for (String path : paths)
         {
-            if (!path.startsWith("/"))
+            if (!new File(path).isAbsolute())
             {
                 for (String dir : osFallbackDirs)
                 {
@@ -155,7 +155,7 @@ public abstract class AbstractFFMBridge implements AutoCloseable
         {
             try
             {
-                if (path.startsWith("/"))
+                if (new File(path).isAbsolute())
                 {
                     File f = new File(path);
                     if (f.exists())

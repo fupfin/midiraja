@@ -75,7 +75,7 @@ public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
         if (libPath.isEmpty())
             // No dylib found: fall back to the process symbol table (covers static linking).
             return Linker.nativeLinker().defaultLookup();
-        if (libPath.startsWith("/"))
+        if (new File(libPath).isAbsolute())
             return SymbolLookup.libraryLookup(new File(libPath).toPath(), arena);
         // Name-only path (e.g. "libmidiraja_audio.dylib"): resolved via rpath at runtime.
         return SymbolLookup.libraryLookup(libPath, arena);

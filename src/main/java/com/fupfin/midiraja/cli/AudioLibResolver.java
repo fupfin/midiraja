@@ -32,8 +32,9 @@ public final class AudioLibResolver
         if (arch.equals("arm64")) arch = "aarch64";
 
         String nativeTarget = osFamily + "-" + arch;
-        String libName =
-                osName.contains("mac") ? "libmidiraja_audio.dylib" : "libmidiraja_audio.so";
+        String libName = osName.contains("mac") ? "libmidiraja_audio.dylib"
+                : osName.contains("win") ? "libmidiraja_audio.dll"
+                : "libmidiraja_audio.so";
         String devPath = new File("").getAbsolutePath() + "/build/native-libs/" + nativeTarget
                 + "/miniaudio/" + libName;
         String[] paths = {libName, devPath};
@@ -44,7 +45,7 @@ public final class AudioLibResolver
             {
                 try
                 {
-                    if (p.startsWith("/"))
+                    if (new File(p).isAbsolute())
                     {
                         if (new File(p).exists()) return p;
                     }
