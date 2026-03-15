@@ -64,11 +64,6 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
             {
             }
         }
-        if (audioOut != null)
-        {
-            audioOut.reset();
-            renderPaused = true;
-        }
     }
 
     @Override

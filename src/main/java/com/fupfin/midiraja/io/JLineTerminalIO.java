@@ -94,9 +94,9 @@ public class JLineTerminalIO implements TerminalIO
 
       // Handle ESC and Arrow Keys (typically ESC [ A, B, C, D)
       case 27 -> {
-        int next1 = reader.read(10);
+        int next1 = reader.read(50);
         if (next1 == '[') {
-          int next2 = reader.read(10);
+          int next2 = reader.read(50);
           yield switch (next2) {
             case 'A' -> TerminalKey.PREV_TRACK;
             case 'B' -> TerminalKey.NEXT_TRACK;
