@@ -49,10 +49,14 @@ Download the archive for your platform from the [GitHub Releases page](https://g
 | macOS Apple Silicon | `midra-darwin-arm64.tar.gz` |
 | Linux x86_64 | `midra-linux-amd64.tar.gz` |
 | Linux ARM64 | `midra-linux-arm64.tar.gz` |
+| Windows x86_64 | `midra-windows-amd64.zip` |
 
-Extract the archive and run the bundled `install.sh`, or manually copy the `bin/midra` binary somewhere on your `PATH` and set `LD_LIBRARY_PATH` to the `lib/` directory.
+Extract the archive and run the bundled `install.sh` (macOS/Linux), or manually copy the `bin/midra` binary somewhere on your `PATH` and set `LD_LIBRARY_PATH` to the `lib/` directory (macOS/Linux) or add the `bin\` folder to `PATH` (Windows).
 
-*(Windows support is coming soon.)*
+**Windows:** Alternatively, use the PowerShell one-liner:
+```powershell
+irm https://raw.githubusercontent.com/fupfin/midiraja/main/install.ps1 | iex
+```
 
 ### 2.2. The 10-Second Magic Command
 The biggest hurdle with playing MIDI files is usually hunting down "Patch Banks" or configuring ports. Midiraja solves this by including built-in mathematical sound generators!

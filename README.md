@@ -15,6 +15,37 @@
 
 ---
 
+## Quick Start
+
+```bash
+# Install (macOS & Linux)
+curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash
+
+# Play immediately — no setup, no external files needed
+midra 1bit song.mid
+
+# Play with a SoundFont
+midra soundfont ~/soundfonts/FluidR3_GM.sf2 song.mid
+
+# Route to hardware (Roland SC-55, Yamaha MU100, etc.)
+midra device song.mid
+```
+
+### Engine quick-pick
+
+| I want … | Command |
+|----------|---------|
+| Hear anything right now | `midra 1bit song.mid` |
+| Classic DOS game sound (DOOM / TIE Fighter) | `midra opl -b 14 song.mid` |
+| Sega Genesis / PC-98 sound | `midra opn song.mid` |
+| SoundFont (General MIDI), no extra installs | `midra soundfont file.sf2 song.mid` |
+| Early 90s LucasArts / Sierra adventures | `midra mt32 ~/roms/ song.mid` |
+| Hardware synth or external device | `midra device song.mid` |
+
+See the full engine guide in [docs/quickstart.md](docs/quickstart.md).
+
+---
+
 ## Installation
 
 ### Supported Platforms
@@ -22,9 +53,10 @@
 | OS | Architecture | Native (`midra`) |
 |---|---|---|
 | macOS | Apple Silicon (arm64) | Available |
-| macOS | Intel (amd64) | Coming soon |
-| Linux | amd64 / arm64 | Available |
-| Windows | amd64 | Available |
+| Linux | amd64 / arm64 | Available (experimental) |
+| Windows | amd64 | Available (experimental) |
+
+> **Linux & Windows** builds are provided but have received limited real-world testing. Please [open an issue](https://github.com/fupfin/midiraja/issues) if you encounter problems.
 
 ### macOS & Linux
 
@@ -72,7 +104,8 @@ Extract and place `midra` (or `midra.exe`) somewhere on your `PATH`.
 
 ## Documentation
 
-- [Getting Started Guide](docs/user_guide.md)
+- [Quick Start Guide](docs/quickstart.md) — install and play in 2 minutes
+- [User Guide](docs/user_guide.md) — full engine reference, DSP effects, keyboard controls
 - [Engineering Documentation](docs/engineering.md) — index of all technical whitepapers
 
 ---

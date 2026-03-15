@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0] - 2026-03-15
+
+### Added
+- **Windows support** — native binary, `install.ps1` one-liner installer, and Windows CI build
+- **`soundfont` engine** — built-in TinySoundFont plays SF2/SF3 files with no FluidSynth installation required; full DSP effects rack supported
+- **`fm` unified subcommand** — `midra fm opl` / `midra fm genesis` replaces separate `opl` / `opn` commands; `opl`, `opn`, `adlib`, `genesis`, `pc98` remain as shortcuts
+
+### Changed
+- All built-in engines calibrated to a consistent −9 dBFS peak output level — switching engines no longer causes unexpected volume jumps
+- `tsf` → `soundfont`, `gus` → `patch` (old names kept as aliases)
+
+### Fixed
+- JLine upgraded to 3.26.3 for correct keyboard input on Windows terminals
+- Windows audio device selection and input handling bugs
+
 ## [0.2.1] - 2026-03-14
 
 ### Added

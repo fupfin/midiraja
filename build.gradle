@@ -9,7 +9,7 @@ plugins {
 apply plugin: 'checkstyle'
 
 
-version = '0.2.1'
+version = '0.3.0'
 
 def generatedVersionDir = layout.buildDirectory.dir("generated/sources/version/java")
 
