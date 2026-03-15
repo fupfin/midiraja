@@ -19,19 +19,12 @@ This document describes the complete build pipeline — from source to distribut
 
 Windows 로컬 빌드에는 **PowerShell** (GraalVM/Java)과 **MSYS2** (C/C++ 네이티브 라이브러리) 두 환경이 모두 필요합니다.
 
-**Step 1 — PowerShell에서 Git 설치**
+**Step 1 — PowerShell에서 Git + GraalVM 설치**
 
 ```powershell
-winget install Git.Git
-```
-
-PowerShell을 재시작한 후 계속합니다.
-
-**Step 2 — scoop으로 GraalVM 설치**
-
-```powershell
+scoop install git
 scoop bucket add java
-scoop install graalvm-community-jdk25
+scoop install graalvm25
 ```
 
 GraalVM 설치 시 MSVC Build Tools(Visual Studio C++ 컴파일러)도 함께 설치됩니다. GraalVM Native Image가 내부적으로 MSVC 링커를 사용하기 때문입니다.
@@ -67,8 +60,10 @@ git submodule update --init --recursive
 **Step 7 — Java 빌드 및 네이티브 이미지 생성 (PowerShell에서)**
 
 ```powershell
-./gradlew nativeCompile
+.\gradlew nativeCompile
 ```
+
+> Windows에서 `.\gradlew nativeCompile`은 C 라이브러리 빌드 태스크를 자동으로 스킵합니다 (`onlyIf` 조건). Step 6에서 MSYS2로 빌드한 DLL들이 그대로 사용됩니다.
 
 빌드 결과물: `build/native/nativeCompile/midra.exe` + `build/native-libs/windows-x86_64/` 내 DLL들.
 

@@ -179,6 +179,7 @@ def nativeTarget = "${osFamily}-${arch}"
 
 task buildAdlMidiLib(type: Exec) {
     description = 'Builds libADLMIDI.a via cmake + make.'
+    onlyIf { !org.gradle.internal.os.OperatingSystem.current().isWindows() }
 
     def sourceDir = file("ext/libADLMIDI")
     def buildDir  = file("build/native-libs/${nativeTarget}/adlmidi")
@@ -212,6 +213,7 @@ task buildAdlMidiLib(type: Exec) {
 
 task buildOpnMidiLib(type: Exec) {
     description = 'Builds libOPNMIDI.a via cmake + make.'
+    onlyIf { !org.gradle.internal.os.OperatingSystem.current().isWindows() }
 
     def sourceDir = file("ext/libOPNMIDI")
     def buildDir  = file("build/native-libs/${nativeTarget}/opnmidi")
@@ -274,6 +276,7 @@ graalvmNative {
 
 task buildTsfLib(type: Exec) {
     description = 'Builds libtsf (TinySoundFont) as a shared library via a single gcc call.'
+    onlyIf { !org.gradle.internal.os.OperatingSystem.current().isWindows() }
 
     def sourceFile = file("src/main/c/tsf/tsf_wrapper.c")
     def includeDir  = file("ext/TinySoundFont")
@@ -300,6 +303,7 @@ task buildTsfLib(type: Exec) {
 
 task buildMiniaudioLib(type: Exec) {
     description = 'Builds libmidiraja_audio as both a static (.a) and shared library.'
+    onlyIf { !org.gradle.internal.os.OperatingSystem.current().isWindows() }
 
     def sourceFile = file("src/main/c/miniaudio/midiraja_audio.c")
     def outputDir  = file("build/native-libs/${nativeTarget}/miniaudio")
