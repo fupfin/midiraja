@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jspecify.annotations.Nullable;
@@ -76,10 +77,40 @@ public class EngineSelector
      * Shows the engine selection menu and returns the user's choice, or {@code null} if the user
      * quit.
      */
+    /**
+     * Resets the terminal to canonical (cooked) mode by running {@code stty sane}.
+     *
+     * <p>
+     * A previous run may have exited while the terminal was in raw mode (e.g. if the JLine terminal
+     * was not closed cleanly). This call resets the OS-level tty state so that subsequent JLine
+     * opens capture cooked mode as their "original" attributes and restore it correctly on close.
+     */
+    private static void resetTerminalToSane()
+    {
+        if (System.getProperty("os.name", "").toLowerCase().contains("win")) return;
+        try
+        {
+            new ProcessBuilder("stty", "sane")
+                    .redirectInput(ProcessBuilder.Redirect.INHERIT)
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start()
+                    .waitFor(1, TimeUnit.SECONDS);
+        }
+        catch (Exception ignored)
+        {
+        }
+    }
+
     @Nullable
     public static Choice select(List<MidiPort> ports, boolean preferFullMode, boolean preferMini,
             boolean preferClassic, PrintStream err) throws Exception
     {
+        // Reset terminal to sane/cooked mode before opening any JLine terminal.
+        // A previous run may have left the tty in raw mode; this ensures JLine captures
+        // cooked mode as its "original" and restores it correctly on close.
+        resetTerminalToSane();
+
         var entries = buildEntries(ports);
 
         var probe = new JLineTerminalIO();

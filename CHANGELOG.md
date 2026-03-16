@@ -1,10 +1,19 @@
 # Changelog
 
-## [Unreleased]
+## [0.3.1] - 2026-03-16
 
 ### Added
-- **Bundled MuseScore General SF3** — the `soundfont` engine now works out of the box with no external file; `midra soundfont song.mid` plays immediately using the bundled MIT-licensed SoundFont
-- **Engine selector** — running `midra song.mid` without a subcommand shows an interactive menu listing all built-in engines and available OS MIDI ports
+- **Engine selector** — running `midra song.mid` without a subcommand shows an interactive menu listing available OS MIDI ports and all built-in engines; arrow keys to navigate, Enter to select
+- **Bundled MuseScore General SF3** — `midra soundfont song.mid` now plays immediately with no external file; bundled MIT-licensed SoundFont
+- **Windows ARM64** — `midra-windows-arm64.zip` release package; `install.ps1` detects architecture automatically
+
+### Changed
+- Engine selector lists OS MIDI ports first, followed by built-in engines ordered by audio quality: `soundfont` → `patch` → `opn` → `opl` → `psg` → `1bit`
+- `midra device` with no arguments lists available ports (replaces the removed `ports` subcommand); `--list` flag also supported
+- Help screen now lists Commands before Options, with aliases shown in brackets
+
+### Fixed
+- Release workflow failed on Windows due to bash syntax in a PowerShell shell context
 
 ## [0.3.0] - 2026-03-15
 
