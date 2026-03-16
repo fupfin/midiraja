@@ -27,7 +27,42 @@ Below are the details of the third-party components and their respective license
 
 ---
 
+## 4. FreePats
+
+*   **Project**: [https://freepats.zenvoid.org/](https://freepats.zenvoid.org/)
+*   **License**: GNU General Public License v2 (GPL v2)
+*   **Copyright**: Copyright (c) The FreePats Project contributors
+*   **Note**: The `.pat` patch files bundled in Midiraja's `patch` (`gus`) engine are from the FreePats project and are distributed under the GPL v2. Midiraja includes these files as a separate, independently licensed component ("mere aggregation"). The full GPL v2 license text is included in this distribution at `share/midra/freepats/LICENSE`. The upstream source is available at [https://freepats.zenvoid.org/](https://freepats.zenvoid.org/).
+
+---
+
+## 5. stb_vorbis
+
+*   **Project**: [https://github.com/nothings/stb](https://github.com/nothings/stb)
+*   **License**: MIT License / Public Domain (choose either)
+*   **Copyright**: Copyright (c) 2017 Sean Barrett
+*   **Note**: `stb_vorbis.c` is bundled in the `soundfont` engine (`libtsf`) to decode Ogg Vorbis-compressed samples in SF3 SoundFont files. Without it, SF3 files produce noise instead of music.
+
+---
+
+## 6. MuseScore General SoundFont
+
+*   **Project**: [https://musescore.org/](https://musescore.org/)
+*   **License**: MIT License
+*   **Copyright**: Copyright (c) 2020 S. Christian Collins and MuseScore contributors
+*   **Note**: The MuseScore General `.sf3` SoundFont file bundled with Midiraja is derived from the *MuseScore General* soundfont and is provided under the MIT License. Source and full details are available at [https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/](https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/).
+
+---
+
 ## License Texts
+
+### GNU General Public License v2
+(Used by FreePats `.pat` files)
+
+The full text of the GPL v2 is included in this distribution at `share/midra/freepats/LICENSE`.
+A canonical copy is also available at [https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt](https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt).
+
+---
 
 ### Apache License 2.0
 (Used by picocli and JNA)

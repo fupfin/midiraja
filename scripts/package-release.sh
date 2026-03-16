@@ -78,6 +78,10 @@ echo "🛠️  Building C/C++ native libraries..."
 echo "🎵 Downloading FreePats..."
 ./gradlew setupFreepats
 
+# Download MuseScore General SF3 SoundFont for TsfSynthProvider
+echo "🎵 Downloading MuseScore General SF3..."
+./gradlew downloadMuseScoreSf3
+
 # Build the native binary (force relink so linker options are always applied)
 echo "🛠️  Building native image via GraalVM Native Image..."
 rm -f "${BIN_DIR}/midra" "${BIN_DIR}/midra.exe"
@@ -102,7 +106,7 @@ NATIVE_LIBS_DIR="build/native-libs/${NATIVE_OS}-${NATIVE_ARCH}"
 
 STAGING_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGING_DIR"' EXIT
-mkdir -p "${STAGING_DIR}/bin" "${STAGING_DIR}/lib" "${STAGING_DIR}/share/midra"
+mkdir -p "${STAGING_DIR}/bin" "${STAGING_DIR}/lib" "${STAGING_DIR}/share/midra/soundfonts"
 cp "${BIN_DIR}/${BIN_NAME}" "${STAGING_DIR}/bin/${BIN_NAME}"
 echo "${VERSION}" > "${STAGING_DIR}/VERSION"
 
@@ -118,6 +122,13 @@ if [ ! -d "build/freepats" ]; then
 fi
 mkdir -p "${STAGING_DIR}/share/midra/freepats"
 cp -r "build/freepats/." "${STAGING_DIR}/share/midra/freepats/"
+
+# Include MuseScore General SF3 in share/midra/soundfonts/ so TsfSynthProvider finds it
+if [ ! -f "build/soundfonts/MuseScore_General.sf3" ]; then
+    echo "❌ Error: build/soundfonts/MuseScore_General.sf3 not found. Run './gradlew downloadMuseScoreSf3' first."
+    exit 1
+fi
+cp "build/soundfonts/MuseScore_General.sf3" "${STAGING_DIR}/share/midra/soundfonts/"
 
 # Bundle native libraries
 # Windows: DLLs go in bin/ (same dir as exe) so the loader finds them

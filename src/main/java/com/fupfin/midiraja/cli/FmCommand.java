@@ -41,7 +41,7 @@ import picocli.CommandLine.Spec;
 @Command(name = "fm",
         aliases = {"opl", "opn", "adlib", "genesis", "pc98"},
         mixinStandardHelpOptions = true,
-        description = "Play with FM synthesis (OPL/OPN chip emulation).",
+        description = "FM synthesis (OPL2/OPL3 and OPN2 chip emulation).",
         footer = {"",
                 "Engine can be specified as the first argument:",
                 "  midra fm opl <files...>     OPL2/OPL3 (AdLib / Sound Blaster)",

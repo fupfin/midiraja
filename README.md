@@ -24,7 +24,10 @@ curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bas
 # Play immediately — FreePats wavetable is bundled, no setup needed
 midra patch song.mid
 
-# Play with a SoundFont
+# Play with SoundFont — bundled MuseScore General SF3, no setup needed
+midra soundfont song.mid
+
+# Play with a custom SoundFont
 midra soundfont ~/soundfonts/FluidR3_GM.sf2 song.mid
 
 # Route to hardware (Roland SC-55, Yamaha MU100, etc.)
@@ -35,13 +38,20 @@ midra device song.mid
 
 | I want … | Command |
 |----------|---------|
-| Best quality, no setup (FreePats bundled) | `midra patch song.mid` |
-| Retro beeper sound, no setup | `midra 1bit song.mid` |
-| Classic DOS game sound (DOOM / TIE Fighter) | `midra opl -b 14 song.mid` |
-| Sega Genesis / PC-98 sound | `midra opn song.mid` |
-| SoundFont playback (TinySoundFont, no install) | `midra soundfont file.sf2 song.mid` |
-| Early 90s LucasArts / Sierra adventures | `midra mt32 ~/roms/ song.mid` |
-| Hardware synth or external device | `midra device song.mid` |
+| Best quality, no setup | `midra patch song.mid` |
+| SoundFont playback, no setup | `midra soundfont song.mid` |
+| Retro hardware emulation | see below |
+| Roland MT-32 (LucasArts / Sierra adventures) | `midra mt32 ~/roms/ song.mid` |
+| Hardware synth or OS MIDI port | `midra device song.mid` |
+
+**Retro emulation engines** — all zero-setup, no external files needed:
+
+| Chip | Era | Command |
+|------|-----|---------|
+| OPL3 (AdLib / Sound Blaster) | DOS games (DOOM, TIE Fighter) | `midra opl song.mid` |
+| OPN2 (Sega Genesis / PC-98) | Console / Japanese PC | `midra opn song.mid` |
+| PSG (MSX / ZX Spectrum / Atari ST) | 8-bit home computers | `midra psg song.mid` |
+| 1-bit (Apple II / PC Speaker) | Extreme lo-fi | `midra 1bit song.mid` |
 
 See the full engine guide in [docs/quickstart.md](docs/quickstart.md).
 
@@ -56,6 +66,7 @@ See the full engine guide in [docs/quickstart.md](docs/quickstart.md).
 | macOS | Apple Silicon (arm64) | Available |
 | Linux | amd64 / arm64 | Available (experimental) |
 | Windows | amd64 | Available (experimental) |
+| Windows | arm64 | Available (experimental) |
 
 > **Linux & Windows** builds are provided but have received limited real-world testing. Please [open an issue](https://github.com/fupfin/midiraja/issues) if you encounter problems.
 

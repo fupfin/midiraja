@@ -27,7 +27,7 @@ import picocli.CommandLine.ParentCommand;
  * Plays MIDI files through the built-in FluidSynth SoundFont synthesizer.
  */
 @Command(name = "fluid", aliases = {"fluidsynth"}, mixinStandardHelpOptions = true,
-        description = "Play with FluidSynth using a SoundFont (.sf2) file.")
+        description = "FluidSynth SoundFont playback.")
 public class FluidCommand implements Callable<Integer>
 {
     @ParentCommand

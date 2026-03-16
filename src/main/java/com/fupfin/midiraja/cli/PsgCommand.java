@@ -21,7 +21,7 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
 
 @Command(name = "psg", aliases = {"ay", "msx"}, mixinStandardHelpOptions = true,
-        description = "Play using the Programmable Sound Generator (PSG) emulator with 8-bit tracker hacks")
+        description = "PSG chiptune (MSX / ZX Spectrum / Atari ST).")
 public class PsgCommand implements Callable<Integer>
 {
     @ParentCommand

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **Bundled MuseScore General SF3** — the `soundfont` engine now works out of the box with no external file; `midra soundfont song.mid` plays immediately using the bundled MIT-licensed SoundFont
+- **Engine selector** — running `midra song.mid` without a subcommand shows an interactive menu listing all built-in engines and available OS MIDI ports
+
 ## [0.3.0] - 2026-03-15
 
 ### Added

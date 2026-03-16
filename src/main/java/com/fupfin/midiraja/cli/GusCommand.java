@@ -24,7 +24,7 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
 
 @Command(name = "patch", aliases = {"gus", "pat", "guspatch"}, mixinStandardHelpOptions = true,
-        description = "Play with GUS patch files (.pat), the Gravis Ultrasound wavetable format.",
+        description = "GUS wavetable patches (.pat), FreePats bundled.",
         footer = {"",
                 "The patch directory is optional. If omitted, FreePats is downloaded automatically.",
                 "  midra patch song.mid",

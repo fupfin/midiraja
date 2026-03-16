@@ -13,18 +13,26 @@ import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
 
 @Command(name = "device", aliases = {"dev"}, mixinStandardHelpOptions = true,
-        description = "Play using the OS's native hardware/software MIDI ports")
+        description = "OS native MIDI ports (CoreMIDI / ALSA / Windows GS).",
+        footer = {"", "With no arguments, lists available MIDI output ports.",
+                "  midra device                    # list ports",
+                "  midra device song.mid           # pick port interactively, then play",
+                "  midra device 1 song.mid         # play on port 1"})
 public class DeviceCommand implements Callable<Integer>
 {
     @ParentCommand
     @Nullable
     private MidirajaCommand parent;
 
-    @Parameters(index = "0..*", arity = "1..*",
+    @Option(names = {"-l", "--list"}, description = "List available MIDI output ports and exit.")
+    private boolean list;
+
+    @Parameters(index = "0..*", arity = "0..*",
             description = "[Optional Device ID/Name] followed by MIDI files or directories.\n"
                     + "If the first argument is not a valid file/directory, it is treated as the device query.")
     private List<String> args = new ArrayList<>();
@@ -38,29 +46,36 @@ public class DeviceCommand implements Callable<Integer>
         var p = requireNonNull(parent);
         MidiOutProvider provider = MidiProviderFactory.createProvider();
 
-        // We must separate the potential device query from the files list
+        if (list || args.isEmpty())
+        {
+            var ports = provider.getOutputPorts();
+            p.getOut().println("Available MIDI Output Devices:");
+            for (var port : ports)
+            {
+                p.getOut().println("[" + port.index() + "] " + port.name());
+            }
+            return 0;
+        }
+
+        // Separate the optional device query from the files list
         Optional<String> portQuery = Optional.empty();
         List<File> files = new ArrayList<>();
 
-        if (!args.isEmpty())
+        File firstArg = new File(args.get(0));
+        // If the first argument does NOT exist on the filesystem, assume it's a device ID or name
+        if (!firstArg.exists())
         {
-            File firstArg = new File(args.get(0));
-            // If the first argument does NOT exist on the filesystem, we assume it's a device ID or
-            // Name (e.g., "1" or "CoreMIDI")
-            if (!firstArg.exists())
+            portQuery = Optional.of(args.get(0));
+            for (int i = 1; i < args.size(); i++)
             {
-                portQuery = Optional.of(args.get(0));
-                for (int i = 1; i < args.size(); i++)
-                {
-                    files.add(new File(args.get(i)));
-                }
+                files.add(new File(args.get(i)));
             }
-            else
+        }
+        else
+        {
+            for (String arg : args)
             {
-                for (String arg : args)
-                {
-                    files.add(new File(arg));
-                }
+                files.add(new File(arg));
             }
         }
 

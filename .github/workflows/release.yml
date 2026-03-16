@@ -11,7 +11,7 @@ on:
         required: false
         default: ''
       os_filter:
-        description: 'OS to build (macos / linux-amd64 / linux-arm64 / windows). Leave empty for all.'
+        description: 'OS to build (macos / linux-amd64 / linux-arm64 / windows-amd64 / windows-arm64). Leave empty for all.'
         required: false
         default: ''
 
@@ -30,7 +30,8 @@ jobs:
             {"os":"macos-15","artifact_name":"midra","asset_name":"midra-darwin-arm64","filter_key":"macos"},
             {"os":"ubuntu-22.04","artifact_name":"midra","asset_name":"midra-linux-amd64","filter_key":"linux-amd64"},
             {"os":"ubuntu-24.04-arm","artifact_name":"midra","asset_name":"midra-linux-arm64","filter_key":"linux-arm64"},
-            {"os":"windows-2022","artifact_name":"midra.exe","asset_name":"midra-windows-amd64","filter_key":"windows"}
+            {"os":"windows-2022","artifact_name":"midra.exe","asset_name":"midra-windows-amd64","filter_key":"windows-amd64","msys2_system":"MINGW64","msys2_packages":"mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake make zip","native_libs_arch":"windows-x86_64","cc":"gcc"},
+            {"os":"windows-11-arm","artifact_name":"midra.exe","asset_name":"midra-windows-arm64","filter_key":"windows-arm64","msys2_system":"CLANGARM64","msys2_packages":"mingw-w64-clang-aarch64-clang mingw-w64-clang-aarch64-cmake make zip","native_libs_arch":"windows-aarch64","cc":"clang"}
           ]'
           FILTER="${{ github.event.inputs.os_filter }}"
           if [ -z "$FILTER" ]; then
@@ -74,8 +75,8 @@ jobs:
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
-          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake make zip
+          msystem: ${{ matrix.msys2_system }}
+          install: ${{ matrix.msys2_packages }}
 
       - name: Build C/C++ Native Libraries
         if: runner.os != 'Windows'
@@ -84,6 +85,8 @@ jobs:
       - name: Build C/C++ Native Libraries (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
+        env:
+          CC: ${{ matrix.cc }}
         run: ./scripts/build-native-libs.sh
 
       - name: Run Tests
@@ -139,7 +142,7 @@ jobs:
           } else {
             (./gradlew properties -q | Select-String '^version:').ToString() -replace '^version:\s+', ''
           }
-          $nativeLibsDir = "build/native-libs/windows-x86_64"
+          $nativeLibsDir = "build/native-libs/${{ matrix.native_libs_arch }}"
 
           New-Item -ItemType Directory -Force -Path staging/bin, staging/share/midra/freepats | Out-Null
           Copy-Item "build/native/nativeCompile/${{ matrix.artifact_name }}" "staging/bin/midra.exe"
@@ -169,6 +172,7 @@ jobs:
       - name: Extract Changelog for this version
         if: github.event_name == 'push'
         id: changelog
+        shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           BODY=$(awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)

@@ -15,6 +15,9 @@ import com.fupfin.midiraja.dsp.AudioProcessor;
 import com.fupfin.midiraja.midi.FFMTsfNativeBridge;
 import com.fupfin.midiraja.midi.TsfSynthProvider;
 import com.fupfin.midiraja.dsp.FloatToShortSink;
+import com.fupfin.midiraja.midi.beep.BeepSynthProvider;
+import com.fupfin.midiraja.midi.gus.GusSynthProvider;
+import com.fupfin.midiraja.midi.psg.PsgSynthProvider;
 import com.fupfin.midiraja.io.TerminalIO;
 import com.fupfin.midiraja.midi.AdlMidiSynthProvider;
 import com.fupfin.midiraja.midi.FFMAdlMidiNativeBridge;
@@ -46,19 +49,10 @@ import picocli.CommandLine.Parameters;
         customSynopsis = {"midra [command] [OPTIONS] [<files>...]"},
         subcommands = {FmCommand.class, MuntCommand.class, FluidCommand.class,
                 TsfCommand.class, GusCommand.class, BeepCommand.class,
-                DeviceCommand.class,
-                PsgCommand.class, ListPortsCommand.class,
-                CommandLine.HelpCommand.class, picocli.AutoComplete.GenerateCompletion.class,},
-        footer = {"", "Synths (subcommands):",
-                "  fm         FM Synth      (OPL/OPN chip emulation) [opl, opn, adlib, genesis, pc98]",
-                "  munt   MT-32         (Roland MT-32/CM-32L)",
-                "  fluid  FluidSynth    (SoundFont .sf2)",
-                "  soundfont  Built-in SF2   (SoundFont .sf2/.sf3, no install needed) [tsf, sf2, sf]",
-                "  patch      GUS patches    (Gravis Ultrasound .pat) [gus, pat]",
-                "  beep   1-Bit Speaker (Apple II / PC Speaker)",
-                "  device OS Ports      (Hardware/Software MIDI OUT)",
-                "  psg    PSG Tracker   (AY-3-8910 / YM2149F)", "",
-                "Run 'midra <command> --help' for synth-specific options.", "",
+                DeviceCommand.class, PsgCommand.class,
+                CommandLine.HelpCommand.class},
+        footer = {"",
+                "Run 'midra <command> --help' for command-specific options.", "",
                 "Playlist Features:",
                 "  Supports .m3u and .txt files containing paths to .mid files.",
                 "  You can embed CLI options inside M3U files using the " + "#MIDRA: prefix.",
@@ -79,10 +73,6 @@ public class MidirajaCommand implements Callable<Integer>
     private final CommonOptions common = new CommonOptions();
 
     // ── Deprecated legacy options (hidden, for backwards compatibility) ───────
-
-    @Option(names = {"-l", "--list-ports"}, hidden = true,
-            description = "Deprecated: use 'midra ports' instead.")
-    private boolean legacyListPorts;
 
     @Option(names = {"--opl"}, hidden = true, arity = "0..1", fallbackValue = "")
     private Optional<String> legacyOpl = Optional.empty();
@@ -162,10 +152,47 @@ public class MidirajaCommand implements Callable<Integer>
 
     public static void main(String[] args)
     {
-        int exitCode = new CommandLine(new MidirajaCommand())
-                .setParameterExceptionHandler(MidirajaCommand::handleParameterException)
-                .execute(args);
-        System.exit(exitCode);
+        var cmd = new CommandLine(new MidirajaCommand())
+                .setParameterExceptionHandler(MidirajaCommand::handleParameterException);
+        // Show Commands before Options (matches "midra [command] [OPTIONS]" synopsis order)
+        cmd.setHelpSectionKeys(List.of(
+                "headerHeading", "header", "synopsisHeading", "synopsis",
+                "descriptionHeading", "description",
+                "parameterListHeading", "parameterList",
+                "commandListHeading", "commandList",
+                "optionListHeading", "optionList",
+                "exitCodeListHeading", "exitCodeList",
+                "footerHeading", "footer"));
+        // Show only primary name; list aliases in brackets so they're visually secondary
+        cmd.getHelpSectionMap().put("commandList", MidirajaCommand::renderCommandList);
+        System.exit(cmd.execute(args));
+    }
+
+    private static String renderCommandList(CommandLine.Help help)
+    {
+        if (help.subcommands().isEmpty()) return "";
+        var sb = new StringBuilder();
+        // Deduplicate by CommandSpec identity so aliases don't produce duplicate entries
+        var seen = new java.util.IdentityHashMap<Object, Boolean>();
+        for (var entry : help.subcommands().entrySet())
+        {
+            var sub = entry.getValue();
+            if (sub.commandSpec().usageMessage().hidden()) continue;
+            if (seen.put(sub.commandSpec(), Boolean.TRUE) != null) continue;
+
+            String name = sub.commandSpec().name();
+            if (name == null || name.isEmpty()) name = entry.getKey();
+            String[] aliases = sub.commandSpec().aliases();
+            String[] descs = sub.commandSpec().usageMessage().description();
+            // Strip picocli format sequences (e.g. %n) for single-line list display
+            String desc = descs.length > 0 ? descs[0].replace("%n", " ").trim() : "";
+
+            sb.append(String.format("  %-12s  %s", name, desc));
+            if (aliases != null && aliases.length > 0)
+                sb.append("  [").append(String.join(", ", aliases)).append("]");
+            sb.append(System.lineSeparator());
+        }
+        return sb.toString();
     }
 
     private static int handleParameterException(CommandLine.ParameterException ex, String[] args)
@@ -210,20 +237,6 @@ public class MidirajaCommand implements Callable<Integer>
                     return 1;
                 }
             }
-        }
-
-        // Warn and handle deprecated legacy options
-        if (legacyListPorts)
-        {
-            stdErr.println(
-                    "Warning: --list-ports / -l is deprecated. Use 'midra " + "ports' instead.");
-            var nativeProvider = MidiProviderFactory.createProvider();
-            stdOut.println("Available MIDI Output Devices:");
-            for (var p : nativeProvider.getOutputPorts())
-            {
-                stdOut.println("[" + p.index() + "] " + p.name());
-            }
-            return 0;
         }
 
         MidiOutProvider resolvedProvider;
@@ -281,6 +294,24 @@ public class MidirajaCommand implements Callable<Integer>
             resolvedProvider = new FluidSynthProvider(legacyFluidDriver.orElse(null));
             soundbankArg = legacyFluid;
         }
+        else if (!files.isEmpty() && port.isEmpty())
+        {
+            var nativePorts = MidiProviderFactory.createProvider().getOutputPorts();
+            var choice = EngineSelector.select(nativePorts, common.uiOptions.fullMode,
+                    common.uiOptions.miniMode, common.uiOptions.classicMode, stdErr);
+            if (choice == null) return 0;
+            return switch (choice)
+            {
+                case EngineSelector.Choice.Builtin b -> runBuiltinEngine(b.engineName().strip(),
+                        files, common);
+                case EngineSelector.Choice.Port p -> {
+                    var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
+                    yield runner.run(MidiProviderFactory.createProvider(), false,
+                            Optional.of(String.valueOf(p.portIndex())), Optional.empty(), files,
+                            common);
+                }
+            };
+        }
         else
         {
             resolvedProvider = MidiProviderFactory.createProvider();
@@ -292,5 +323,67 @@ public class MidirajaCommand implements Callable<Integer>
 
         var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
         return runner.run(resolvedProvider, isSoftSynth, port, soundbankArg, files, common);
+    }
+
+    private int runBuiltinEngine(String engine, List<File> files, CommonOptions common)
+            throws Exception
+    {
+        String audioLib = AudioLibResolver.resolve();
+        var audio = new NativeAudioEngine(audioLib);
+        Optional<String> soundbankArg = Optional.empty();
+        MidiOutProvider builtinProvider;
+
+        switch (engine)
+        {
+            case "patch" -> {
+                audio.init(44100, 2, 4096);
+                AudioProcessor pipeline = new FloatToShortSink(audio);
+                builtinProvider = new GusSynthProvider(pipeline, null);
+            }
+            case "soundfont" -> {
+                audio.init(44100, 2, 4096);
+                String sfPath = TsfCommand.findBundledSf3();
+                if (sfPath == null)
+                {
+                    stdErr.println("Error: Bundled MuseScore General SF3 not found. "
+                            + "Run 'midra soundfont --help' for details.");
+                    return 1;
+                }
+                AudioProcessor pipeline = new FloatToShortSink(audio);
+                builtinProvider = new TsfSynthProvider(new FFMTsfNativeBridge(), pipeline);
+                soundbankArg = Optional.of(sfPath);
+            }
+            case "opl" -> {
+                audio.init(44100, 2, 4096);
+                AudioProcessor pipeline = new FloatToShortSink(audio);
+                builtinProvider = new AdlMidiSynthProvider(new FFMAdlMidiNativeBridge(), pipeline,
+                        0, 4, null);
+                soundbankArg = Optional.of("bank:0");
+            }
+            case "opn" -> {
+                audio.init(44100, 2, 4096);
+                AudioProcessor pipeline = new FloatToShortSink(audio);
+                builtinProvider = new OpnMidiSynthProvider(new FFMOpnMidiNativeBridge(), pipeline,
+                        0, 4, null);
+                soundbankArg = Optional.of("");
+            }
+            case "1bit" -> {
+                audio.init(44100, 1, 4096);
+                AudioProcessor pipeline = new FloatToShortSink(audio, 1);
+                builtinProvider = new BeepSynthProvider(pipeline, 2, 2.0, 2.0, 1, "dsd", "square");
+            }
+            case "psg" -> {
+                audio.init(44100, 1, 4096);
+                AudioProcessor pipeline = new FloatToShortSink(audio, 1);
+                builtinProvider = new PsgSynthProvider(pipeline, 4, 5.0, 25.0, false, false);
+            }
+            default -> {
+                stdErr.println("Error: Unknown built-in engine: " + engine);
+                return 1;
+            }
+        }
+
+        var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
+        return runner.run(builtinProvider, true, Optional.empty(), soundbankArg, files, common);
     }
 }

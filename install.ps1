@@ -10,7 +10,7 @@
 .PARAMETER Prefix
     Installation prefix. Defaults to $env:LOCALAPPDATA\Programs.
 .PARAMETER Local
-    Path to a local midra-windows-amd64.zip to install from.
+    Path to a local midra-windows-amd64.zip or midra-windows-arm64.zip to install from.
 .EXAMPLE
     # Install latest release:
     irm https://raw.githubusercontent.com/fupfin/midiraja/main/install.ps1 | iex
@@ -30,7 +30,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $Repo      = "fupfin/midiraja"
-$AssetName = "midra-windows-amd64.zip"
+$AssetName = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "midra-windows-arm64.zip" } else { "midra-windows-amd64.zip" }
 
 $TmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $TmpDir | Out-Null

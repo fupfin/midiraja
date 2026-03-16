@@ -33,7 +33,7 @@ import picocli.CommandLine.ParentCommand;
  * Plays MIDI files using a 1-bit PC Speaker / Apple II style synthesizer.
  */
 @Command(name = "beep", aliases = {"1bit"}, mixinStandardHelpOptions = true,
-        description = "Play with a 1-bit digital logic synthesizer.", footer = {"",
+        description = "1-bit digital logic synthesizer (Apple II / PC Speaker style).", footer = {"",
                 "Experience the extreme limitations of 1980s computer audio via 1-bit logic gates."})
 public class BeepCommand implements Callable<Integer>
 {

@@ -39,22 +39,27 @@ The `patch` engine uses the FreePats wavetable set — bundled with Midiraja, no
 
 ## 3. Choose an engine
 
-| I want … | Command | External file? |
-|----------|---------|----------------|
-| Best quality, no setup | `midra patch song.mid` | None (FreePats bundled) |
-| Retro beeper sound, no setup | `midra 1bit song.mid` | None |
-| Classic DOS sound (DOOM, AdLib) | `midra opl song.mid` | None |
-| Sega Genesis / PC-98 sound | `midra opn song.mid` | None |
-| 8-bit MSX / ZX Spectrum sound | `midra psg song.mid` | None |
-| SoundFont playback (TinySoundFont, no install) | `midra soundfont file.sf2 song.mid` | `.sf2` file |
-| Best SF2 compatibility / lowest latency | `midra fluidsynth file.sf2 song.mid` | FluidSynth + `.sf2` |
-| Roland MT-32 (LucasArts / Sierra) | `midra mt32 ~/roms/ song.mid` | ROM files |
-| Route to hardware synth | `midra device song.mid` | — |
+| I want … | Command |
+|----------|---------|
+| Best quality, no setup | `midra patch song.mid` |
+| SoundFont playback, no setup | `midra soundfont song.mid` |
+| Retro hardware emulation | see below |
+| Roland MT-32 (LucasArts / Sierra) | `midra mt32 ~/roms/ song.mid` |
+| Route to hardware synth | `midra device song.mid` |
 
-**Getting a free SoundFont (`.sf2`) for the `soundfont` engine:**
-- Ubuntu/Debian: `sudo apt install fluid-soundfont-gm` → `/usr/share/sounds/sf2/FluidR3_GM.sf2`
-- macOS: `brew install fluid-soundfont-gm` → check `brew --prefix`
-- Or download *GeneralUser GS* (free, search online)
+**Retro emulation engines** — all zero-setup, no external files needed:
+
+| Chip | Era | Command |
+|------|-----|---------|
+| OPL3 (AdLib / Sound Blaster) | DOS games (DOOM, TIE Fighter) | `midra opl song.mid` |
+| OPN2 (Sega Genesis / PC-98) | Console / Japanese PC | `midra opn song.mid` |
+| PSG (MSX / ZX Spectrum / Atari ST) | 8-bit home computers | `midra psg song.mid` |
+| 1-bit (Apple II / PC Speaker) | Extreme lo-fi | `midra 1bit song.mid` |
+
+The `patch` and `soundfont` engines bundle their instrument data (FreePats and MuseScore General SF3 respectively) — no downloads needed. To use a custom SoundFont:
+```bash
+midra soundfont ~/soundfonts/FluidR3_GM.sf2 song.mid
+```
 
 ---
 

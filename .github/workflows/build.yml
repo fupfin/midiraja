@@ -22,6 +22,8 @@ jobs:
             arch_name: darwin-arm64
           - os: windows-2022
             arch_name: windows-amd64
+          - os: windows-11-arm
+            arch_name: windows-arm64
 
     steps:
     - name: Checkout Repository

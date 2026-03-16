@@ -237,8 +237,12 @@ These engines are baked directly into the Midiraja app. They require **absolutel
 
 #### 5. TinySoundFont synthesizer (`soundfont`)
 * **What is it?** Plays standard SoundFont 2 and 3 (`.sf2` / `.sf3`) files using the embedded [TinySoundFont](https://github.com/schellingb/TinySoundFont) synthesizer — bundled directly into the `midra` binary with **no external installation required**. (The `fluidsynth` command also plays `.sf2` files, but uses the separately installed FluidSynth library instead.)
-* **How to use it:** `midra soundfont /path/to/soundfont.sf2 song.mid`. Aliases: `tsf`, `sf2`, `sf`.
-* **Where to get SoundFont files:** A SoundFont is a library of professionally recorded instrument samples. Good free options include:
+* **Bundled SoundFont:** The **MuseScore General SF3** (MIT license) is bundled with Midiraja, so `midra soundfont song.mid` works immediately with no downloads or configuration. To use a custom SoundFont, pass it as the first argument.
+* **How to use it:**
+  * `midra soundfont song.mid` — uses the bundled MuseScore General SF3
+  * `midra soundfont /path/to/soundfont.sf2 song.mid` — uses a custom SoundFont
+  * Aliases: `tsf`, `sf2`, `sf`
+* **Where to get other SoundFont files:** A SoundFont is a library of professionally recorded instrument samples. Good free options include:
   * *FluidR3 GM* — Ubuntu/Debian: `sudo apt install fluid-soundfont-gm`
   * *GeneralUser GS* — widely available as a free download
   * *MuseScore General* — bundled with MuseScore 4
@@ -250,7 +254,7 @@ These engines are baked directly into the Midiraja app. They require **absolutel
 | Requires separate install? | No (bundled) | Yes (`brew install fluid-synth`) |
 | DSP effects (`--tube`, `--reverb` …) | ✅ | ❌ |
 | Audio latency | Good | Lower — uses native OS audio driver (CoreAudio / ALSA) directly |
-| SF2/SF3 compatibility | Most files work | Broader — supports advanced SF2 modulators and generators |
+| SF2/SF3 compatibility | SF2 fully supported; SF3 (Ogg Vorbis) supported via bundled stb_vorbis | Broader — supports advanced SF2 modulators and generators |
 | Very large SoundFont files (1 GB+) | May use more memory | Handles efficiently (native streaming) |
 
 * **Example:** `midra soundfont ~/soundfonts/FluidR3_GM.sf2 --reverb hall song.mid`
@@ -291,16 +295,22 @@ Not sure which engine to pick? Use the decision table below.
 
 | I want … | Best engine | Notes |
 |-----------|-------------|-------|
-| Play a MIDI file right now, no setup | `patch` | Bundled FreePats wavetable — best quality among zero-install options |
-| Same but maximally retro | `1bit` | Zero dependencies, instant start |
-| Classic DOS game sound (DOOM, TIE Fighter) | `fm opl` | Add `-b 14` for DOOM bank; shortcut: `midra opl` |
-| Sega Genesis / PC-98 game sound | `fm genesis` | OPN2/OPNA chip emulation; shortcuts: `midra opn`, `midra genesis`, `midra pc98` |
-| 8-bit MSX / ZX Spectrum / Atari ST sound | `psg` | Add `--scc` for richer MSX sound |
-| SoundFont playback, no installs | `soundfont` + an SF2 file | TinySoundFont; good fidelity, full DSP effects rack |
+| Play a MIDI file right now, no setup | `patch` | Bundled FreePats wavetable — best quality, zero install |
+| SoundFont playback, no setup | `soundfont` | Bundled MuseScore General SF3 (MIT); full DSP effects rack |
+| **Retro hardware emulation** (no setup) | — | see table below |
+| SoundFont with custom file | `soundfont` + an SF2/SF3 file | Pass as first argument; TinySoundFont handles both formats |
 | Best possible SoundFont quality, low latency | `fluidsynth` + an SF2 file | Requires `brew install fluid-synth` |
 | Early 90s LucasArts / Sierra adventure games | `mt32` + ROM files | Bundled Munt emulator, no install |
 | Route to hardware synth / external device | `device` | Sends raw MIDI to OS ports |
-| Maximum retro weirdness | `1bit --synth xor --mux xor` | Tim Follin–style buzzing bass |
+
+**Retro emulation engines** — all zero-setup, bundled inside midra:
+
+| I want … | Engine | Notes |
+|----------|--------|-------|
+| Classic DOS game sound (DOOM, TIE Fighter) | `opl` | OPL3 (AdLib / Sound Blaster); add `-b 14` for DOOM bank |
+| Sega Genesis / PC-98 game sound | `opn` | OPN2/OPNA chip emulation; aliases: `genesis`, `pc98` |
+| 8-bit MSX / ZX Spectrum / Atari ST sound | `psg` | Add `--scc` for richer MSX sound |
+| Apple II / PC Speaker lo-fi | `1bit` | Add `--synth xor --mux xor` for Tim Follin–style buzzing |
 | Extreme low-fi (PC Speaker "RealSound") | `patch --realsound` | 15 kHz PWM through a paper cone |
 
 ### Quick comparison: TinySoundFont (`soundfont`) vs FluidSynth (`fluidsynth`)
@@ -319,7 +329,7 @@ Use **`fluidsynth`** when you need the best SF2 compatibility, lower audio laten
 | `fm opl` (`opl`) | 1990s AdLib / Sound Blaster | 9–18 FM operators | Optional `.wopl` bank |
 | `fm genesis` (`opn`) | Sega Genesis / PC-98 | 6 FM + 3 SSG voices | Optional `.wopn` bank |
 | `patch` (`gus`) | 1994 Gravis Ultrasound | 32 wavetable voices | FreePats (bundled) |
-| `soundfont` (`tsf`) | Modern SoundFont | Polyphonic (SF2 limit) | Required `.sf2`/`.sf3` |
+| `soundfont` (`tsf`) | Modern SoundFont | Polyphonic (SF2 limit) | MuseScore General SF3 (bundled) |
 | `mt32` | 1987 Roland MT-32 | 32 partial generators | Required ROM files |
 
 ---

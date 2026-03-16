@@ -43,8 +43,10 @@ else
 fi
 
 ARCH=$(uname -m)
-if [ "$ARCH" = "arm64" ]; then ARCH="aarch64"; fi
-if [ "$ARCH" = "x86_64" ]; then ARCH="x86_64"; fi
+case "$ARCH" in
+    arm64|ARM64|aarch64) ARCH="aarch64" ;;
+    x86_64|AMD64)        ARCH="x86_64"  ;;
+esac
 
 NATIVE_LIBS="$PROJECT_ROOT/build/native-libs/$OS_FAMILY-$ARCH"
 echo "Output directory: $NATIVE_LIBS"
@@ -55,17 +57,17 @@ MINIAUDIO_OUT="$NATIVE_LIBS/miniaudio"
 mkdir -p "$MINIAUDIO_OUT"
 cd "$MINIAUDIO_OUT"
 if [ "$OS_FAMILY" = "macos" ]; then
-    gcc -shared -fPIC -O2 \
+    ${CC:-gcc} -shared -fPIC -O2 \
         -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreFoundation \
         -o "libmidiraja_audio.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/miniaudio/midiraja_audio.c"
 elif [ "$OS_FAMILY" = "windows" ]; then
-    gcc -shared -O2 \
+    ${CC:-gcc} -shared -O2 \
         -lole32 -lpthread -lm \
         -o "libmidiraja_audio.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/miniaudio/midiraja_audio.c"
 else
-    gcc -shared -fPIC -O2 \
+    ${CC:-gcc} -shared -fPIC -O2 \
         -ldl -lpthread -lm \
         -o "libmidiraja_audio.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/miniaudio/midiraja_audio.c"
@@ -121,11 +123,11 @@ TSF_OUT="$NATIVE_LIBS/tsf"
 mkdir -p "$TSF_OUT"
 cd "$TSF_OUT"
 if [ "$OS_FAMILY" = "windows" ]; then
-    gcc -shared -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
+    ${CC:-gcc} -shared -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
         -o "libtsf.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c"
 else
-    gcc -shared -fPIC -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
+    ${CC:-gcc} -shared -fPIC -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
         -o "libtsf.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c"
 fi
