@@ -97,6 +97,9 @@ jobs:
       - name: Download FreePats
         run: ./gradlew setupFreepats
 
+      - name: Download MuseScore General SF3
+        run: ./gradlew downloadMuseScoreSf3
+
       - name: Package Artifact (Unix)
         if: runner.os != 'Windows'
         run: |
@@ -113,7 +116,7 @@ jobs:
           NATIVE_LIBS_DIR="build/native-libs/${OS_FAMILY}-${NATIVE_ARCH}"
           LIB_EXT="dylib"  ; [ "$OS_FAMILY" = "linux" ] && LIB_EXT="so"
 
-          mkdir -p staging/bin staging/lib staging/share/midra/freepats
+          mkdir -p staging/bin staging/lib staging/share/midra/freepats staging/share/midra/soundfonts
           cp build/native/nativeCompile/${{ matrix.artifact_name }} staging/bin/midra
           echo "${VERSION}" > staging/VERSION
           cp src/main/man/midra.1 staging/midra.1
@@ -128,6 +131,7 @@ jobs:
           done
 
           cp -r build/freepats/. staging/share/midra/freepats/
+          cp build/soundfonts/MuseScore_General.sf3 staging/share/midra/soundfonts/
           tar -czf ${{ matrix.asset_name }}.tar.gz -C staging .
 
       - name: Package Artifact (Windows)
@@ -143,7 +147,7 @@ jobs:
           }
           $nativeLibsDir = "build/native-libs/${{ matrix.native_libs_arch }}"
 
-          New-Item -ItemType Directory -Force -Path staging/bin, staging/share/midra/freepats | Out-Null
+          New-Item -ItemType Directory -Force -Path staging/bin, staging/share/midra/freepats, staging/share/midra/soundfonts | Out-Null
           Copy-Item "build/native/nativeCompile/${{ matrix.artifact_name }}" "staging/bin/midra.exe"
           Set-Content -Path "staging/VERSION" -Value $version -NoNewline
 
@@ -159,6 +163,7 @@ jobs:
           }
 
           Copy-Item -Recurse "build/freepats/*" "staging/share/midra/freepats/"
+          Copy-Item "build/soundfonts/MuseScore_General.sf3" "staging/share/midra/soundfonts/"
           Compress-Archive -Path "staging\*" -DestinationPath "${{ matrix.asset_name }}.zip"
 
       - name: Upload as CI Artifact (manual run)
