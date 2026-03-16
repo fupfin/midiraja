@@ -119,7 +119,7 @@ fi
 
 # Versioned install root: ~/.local/share/midiraja/{version}/
 INSTALL_BASE="${PREFIX}/share/midiraja/${VERSION}"
-mkdir -p "${INSTALL_BASE}/bin" "${INSTALL_BASE}/lib"
+mkdir -p "${INSTALL_BASE}/bin" "${INSTALL_BASE}/lib" "${INSTALL_BASE}/share"
 
 echo "Installing midra ${VERSION} to ${INSTALL_BASE}..."
 
@@ -130,8 +130,7 @@ for lib in "${TMP_DIR}/lib"/*.dylib "${TMP_DIR}/lib"/*.so; do
 done
 
 if [ -d "${TMP_DIR}/share/midra" ]; then
-    mkdir -p "${PREFIX}/share/midra"
-    cp -r "${TMP_DIR}/share/midra/." "${PREFIX}/share/midra/"
+    cp -r "${TMP_DIR}/share/midra/." "${INSTALL_BASE}/share/"
 fi
 
 # Write a wrapper script into the versioned bin/ dir, then symlink it into ~/.local/bin/.
@@ -143,7 +142,7 @@ mkdir -p "${LINK_DIR}"
 cat > "${WRAPPER}" << EOF
 #!/usr/bin/env bash
 MIDRA_HOME="${INSTALL_BASE}"
-export MIDRA_DATA="${PREFIX}/share/midra"
+export MIDRA_DATA="${INSTALL_BASE}/share"
 if [ "\$(uname -s)" = "Darwin" ]; then
     export DYLD_LIBRARY_PATH="\${MIDRA_HOME}/lib:\${DYLD_LIBRARY_PATH:-}"
 else
