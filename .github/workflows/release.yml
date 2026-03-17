@@ -77,6 +77,9 @@ jobs:
           msystem: ${{ matrix.msys2_system }}
           install: ${{ matrix.msys2_packages }}
 
+      - name: Clean Gradle Build
+        run: ./gradlew clean
+
       - name: Build C/C++ Native Libraries
         if: runner.os != 'Windows'
         run: ./scripts/build-native-libs.sh
@@ -92,7 +95,7 @@ jobs:
         run: ./gradlew test
 
       - name: Build Native Image
-        run: ./gradlew clean nativeCompile
+        run: ./gradlew nativeCompile
 
       - name: Download FreePats
         run: ./gradlew setupFreepats
@@ -158,11 +161,12 @@ jobs:
             "$nativeLibsDir/miniaudio/libmidiraja_audio.dll",
             "$nativeLibsDir/adlmidi/libADLMIDI.dll",
             "$nativeLibsDir/opnmidi/libOPNMIDI.dll",
-            "$nativeLibsDir/munt/libmt32emu.dll",
             "$nativeLibsDir/tsf/libtsf.dll"
           )) {
             if (Test-Path $lib) { Copy-Item $lib "staging/bin/" }
           }
+          # CMake names the Munt DLL libmt32emu-2.dll (SOVERSION suffix) on Windows
+          Get-ChildItem "$nativeLibsDir/munt/libmt32emu*.dll" -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName "staging/bin/" }
 
           Copy-Item -Recurse "build/freepats/*" "staging/share/midra/freepats/"
           Copy-Item "build/soundfonts/FluidR3_GM.sf3" "staging/share/midra/soundfonts/"

@@ -242,6 +242,16 @@ public class MidirajaCommand implements Callable<Integer>
     @Override
     public Integer call() throws Exception
     {
+        boolean hasLegacyOption = legacyMunt.isPresent() || legacyOpl.isPresent()
+                || legacyOpn.isPresent() || legacyFluid.isPresent();
+        if ((files == null || files.isEmpty()) && port.isEmpty() && !hasLegacyOption
+                && provider == null)
+        {
+            stdOut.println("A fast, cross-platform CLI MIDI player.");
+            stdOut.println("Use 'midra <file1.mid>' or 'midra -h' for help.");
+            return 0;
+        }
+
         // Fail-fast validation: Ensure all provided file paths actually exist
         if (files != null)
         {

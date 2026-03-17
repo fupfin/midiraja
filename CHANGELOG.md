@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.5] - 2026-03-17
+
+### Fixed
+- **Windows**: release package was missing all DLLs (`libmidiraja_audio.dll`, etc.) — `gradle clean` ran after native library build, wiping `build/native-libs/`; `clean` is now a separate step before native builds
+- **Windows**: `midra munt` could not find `libmt32emu.dll` — CMake names the DLL `libmt32emu-2.dll` (SOVERSION suffix); packaging now copies whichever `libmt32emu*.dll` exists
+
 ## [0.3.4] - 2026-03-17
 
 ### Fixed
