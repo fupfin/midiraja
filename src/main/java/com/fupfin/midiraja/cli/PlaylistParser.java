@@ -43,7 +43,7 @@ public class PlaylistParser
         for (File f : rawFiles)
         {
             String nameLower = f.getName().toLowerCase(Locale.ROOT);
-            if (f.isDirectory())
+            if (Files.isDirectory(f.toPath()))
             {
                 parseDirectory(f, playlist, common.recursive);
             }
@@ -168,13 +168,13 @@ public class PlaylistParser
                     track = new File(parentDir, line);
                 }
 
-                if (track.exists() && !track.isDirectory())
-                {
-                    playlist.add(track);
-                }
-                else if (track.isDirectory())
+                if (Files.isDirectory(track.toPath()))
                 {
                     parseDirectory(track, playlist, common.recursive);
+                }
+                else if (track.exists())
+                {
+                    playlist.add(track);
                 }
                 else
                 {
