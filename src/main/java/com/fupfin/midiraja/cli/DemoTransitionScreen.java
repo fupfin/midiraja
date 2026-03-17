@@ -75,7 +75,7 @@ class DemoTransitionScreen
                     long remaining = (deadline - System.currentTimeMillis() + 999) / 1000;
                     if (remaining <= 0)
                     {
-                        clearScreen(writer);
+                        exitAltScreen(writer);
                         return PlaybackStatus.FINISHED;
                     }
                     int width = terminal.getWidth();
@@ -151,7 +151,7 @@ class DemoTransitionScreen
                     int ch = reader.read(200);
                     if (ch <= 0) continue;
 
-                    if (ch == 'q' || ch == 'Q') return PlaybackStatus.QUIT_ALL;
+                    if (ch == 'q' || ch == 'Q') { exitAltScreen(writer); return PlaybackStatus.QUIT_ALL; }
                     if (ch == 'p' || ch == 'P')
                     {
                         clearScreen(writer);
@@ -159,7 +159,7 @@ class DemoTransitionScreen
                     }
                     if (ch == 13 || ch == 10 || ch == ' ' || ch == 'n' || ch == 'N')
                     {
-                        clearScreen(writer);
+                        exitAltScreen(writer);
                         return PlaybackStatus.FINISHED;
                     }
                     if (ch == 27)
@@ -176,9 +176,17 @@ class DemoTransitionScreen
         }
     }
 
+    /** Clears the alt-screen content (used when transitioning to prev/next track). */
     private static void clearScreen(PrintWriter writer)
     {
         writer.print(Theme.TERM_CURSOR_HOME + Theme.TERM_CLEAR_TO_END);
+        writer.flush();
+    }
+
+    /** Fully exits the alt screen (used when handing off to playback or quitting). */
+    private static void exitAltScreen(PrintWriter writer)
+    {
+        writer.print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
         writer.flush();
     }
 }

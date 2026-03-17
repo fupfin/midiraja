@@ -72,6 +72,7 @@ public class DemoCommand implements Callable<Integer>
 
         int total = allFiles.size();
         int currentIdx = 0;
+        String deferredError = null;
         try
         {
             while (currentIdx >= 0 && currentIdx < total)
@@ -96,7 +97,17 @@ public class DemoCommand implements Callable<Integer>
                     continue;
                 }
 
-                ProviderWithArgs pwa = selectProviderForTrack(file.getName());
+                ProviderWithArgs pwa;
+                try
+                {
+                    pwa = selectProviderForTrack(file.getName());
+                }
+                catch (Exception e)
+                {
+                    deferredError = "Failed to start engine for '" + file.getName() + "': " + e.getMessage();
+                    break;
+                }
+
                 PlaybackRunner runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
                 runner.setSuppressAltScreenRestore(true);
                 runner.setSuppressHoldAtEnd(true);
@@ -104,7 +115,12 @@ public class DemoCommand implements Callable<Integer>
 
                 int exitCode = runner.run(pwa.provider, true, Optional.empty(), pwa.soundbank, List.of(file), common);
 
-                if (exitCode != 0 || MidirajaCommand.SHUTTING_DOWN) break;
+                if (exitCode != 0 || MidirajaCommand.SHUTTING_DOWN)
+                {
+                    if (exitCode != 0)
+                        deferredError = "Playback failed for '" + file.getName() + "'. Run with --verbose for details.";
+                    break;
+                }
 
                 PlaybackStatus playNav = runner.getLastRawStatus();
                 if (playNav == PlaybackStatus.PREVIOUS)
@@ -124,6 +140,8 @@ public class DemoCommand implements Callable<Integer>
                         + Theme.COLOR_RESET + "\033[?7h\n");
                 p.getOut().flush();
             }
+            if (deferredError != null)
+                p.getErr().println("\nError: " + deferredError);
         }
 
         return 0;
