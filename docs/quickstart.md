@@ -25,7 +25,21 @@ midra --help
 
 ---
 
-## 2. Play your first file
+## 2. Try the demo tour
+
+The fastest way to hear what Midiraja can do — no MIDI files needed:
+
+```bash
+midra demo
+```
+
+This plays a 10-track curated playlist, one track per built-in engine: SoundFont, GUS patches, OPL3 FM, OPN2 FM, PSG chip, and 1-bit beep — all back-to-back. A transition screen with a 5-second countdown appears before each track; press `Enter` to skip ahead or `Q` to quit.
+
+See the full demo reference in the [User Guide](user_guide.md#22-try-the-demo-tour).
+
+---
+
+## 3. Play your first file
 
 You don't need to configure anything. Find any `.mid` file and run:
 
@@ -37,7 +51,7 @@ The `patch` engine uses the FreePats wavetable set — bundled with Midiraja, no
 
 ---
 
-## 3. Choose an engine
+## 4. Choose an engine
 
 | I want … | Command |
 |----------|---------|
@@ -56,14 +70,14 @@ The `patch` engine uses the FreePats wavetable set — bundled with Midiraja, no
 | PSG (MSX / ZX Spectrum / Atari ST) | 8-bit home computers | `midra psg song.mid` |
 | 1-bit (Apple II / PC Speaker) | Extreme lo-fi | `midra 1bit song.mid` |
 
-The `patch` and `soundfont` engines bundle their instrument data (FreePats and MuseScore General SF3 respectively) — no downloads needed. To use a custom SoundFont:
+The `patch` and `soundfont` engines bundle their instrument data (FreePats and FluidR3 GM SF3 respectively) — no downloads needed. To use a custom SoundFont:
 ```bash
 midra soundfont ~/soundfonts/FluidR3_GM.sf2 song.mid
 ```
 
 ---
 
-## 4. Keyboard controls
+## 5. Keyboard controls
 
 Once a song is playing, your terminal is interactive:
 
@@ -79,7 +93,7 @@ Once a song is playing, your terminal is interactive:
 
 ---
 
-## 5. Common options
+## 6. Common options
 
 ```bash
 # Start at 1:30, play 1.5× speed, loop forever

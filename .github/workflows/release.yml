@@ -97,8 +97,8 @@ jobs:
       - name: Download FreePats
         run: ./gradlew setupFreepats
 
-      - name: Download MuseScore General SF3
-        run: ./gradlew downloadMuseScoreSf3
+      - name: Download FluidR3 GM SF3
+        run: ./gradlew downloadFluidR3Sf3
 
       - name: Package Artifact (Unix)
         if: runner.os != 'Windows'
@@ -131,7 +131,7 @@ jobs:
           done
 
           cp -r build/freepats/. staging/share/midra/freepats/
-          cp build/soundfonts/MuseScore_General.sf3 staging/share/midra/soundfonts/
+          cp build/soundfonts/FluidR3_GM.sf3 staging/share/midra/soundfonts/
           tar -czf ${{ matrix.asset_name }}.tar.gz -C staging .
 
       - name: Package Artifact (Windows)
@@ -163,7 +163,7 @@ jobs:
           }
 
           Copy-Item -Recurse "build/freepats/*" "staging/share/midra/freepats/"
-          Copy-Item "build/soundfonts/MuseScore_General.sf3" "staging/share/midra/soundfonts/"
+          Copy-Item "build/soundfonts/FluidR3_GM.sf3" "staging/share/midra/soundfonts/"
           Compress-Archive -Path "staging\*" -DestinationPath "${{ matrix.asset_name }}.zip"
 
       - name: Upload as CI Artifact (manual run)

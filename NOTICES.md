@@ -45,12 +45,12 @@ Below are the details of the third-party components and their respective license
 
 ---
 
-## 6. MuseScore General SoundFont
+## 6. FluidR3 GM SoundFont
 
-*   **Project**: [https://musescore.org/](https://musescore.org/)
+*   **Project**: [https://github.com/Jacalz/fluid-soundfont](https://github.com/Jacalz/fluid-soundfont)
 *   **License**: MIT License
-*   **Copyright**: Copyright (c) 2020 S. Christian Collins and MuseScore contributors
-*   **Note**: The MuseScore General `.sf3` SoundFont file bundled with Midiraja is derived from the *MuseScore General* soundfont and is provided under the MIT License. Source and full details are available at [https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/](https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/).
+*   **Copyright**: Copyright (c) 2000-2002 Frank Wen
+*   **Note**: The `FluidR3_GM.sf3` SoundFont file bundled with Midiraja is an SF3-compressed version of the original Fluid (R3) GM SoundFont, provided under the MIT License.
 
 ---
 

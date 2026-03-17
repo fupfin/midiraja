@@ -58,7 +58,70 @@ Extract the archive and run the bundled `install.sh` (macOS/Linux), or manually 
 irm https://raw.githubusercontent.com/fupfin/midiraja/main/install.ps1 | iex
 ```
 
-### 2.2. The 10-Second Magic Command
+### 2.2. Try the Demo Tour
+
+Not sure where to start? Just run:
+
+```bash
+midra demo
+```
+
+`midra demo` plays a curated 10-track playlist — one track per synthesis engine — with no setup and no external files. You hear OPL3 FM, Gravis Ultrasound patches, PSG chip audio, and SoundFont playback back-to-back, so the sonic character of each engine is immediately apparent.
+
+Before each track, a full-screen panel shows the upcoming song title, synthesis engine, and a 5-second countdown. You can act immediately or let it auto-advance.
+
+```
+──────────────── MIDIRAJA ENGINE TOUR ────────────────
+
+▶ TRACK 3 / 10
+    Nocturne
+
+▶ SYNTHESIS ENGINE
+    GUS Patches (FreePats)
+
+──────────────────────────────────────────────────────
+   [Enter] Play   [▲/▼] Prev/Next   [Q] Quit   (auto in 5s)
+```
+
+| Key | Action |
+|-----|--------|
+| `Enter` / `Space` | Play this track now |
+| `↑` / `↓` | Previous / next track's info screen |
+| `Q` | Quit |
+| *(5 s timeout)* | Auto-advance to playback |
+
+During playback the standard controls apply (`↑`/`↓` next/prev, `Space` pause, `Q` quit — see [Section 3.3](#33-live-terminal-controls-tui)).
+
+**Demo playlist:**
+
+| # | Engine | Composer / Title |
+|---|--------|-----------------|
+| 1 | SoundFont (TSF) | Beethoven: Symphony No. 5, 1st Mvt (Op. 67) |
+| 2 | SoundFont (TSF) | Ximon: Venture |
+| 3 | GUS Patches | Chopin: Nocturne Op. 9 No. 2 |
+| 4 | GUS Patches | Joplin: The Entertainer |
+| 5 | OPL3 FM (AdlMidi) | Bach: Toccata & Fugue in D minor (BWV 565) |
+| 6 | OPN2 FM (OpnMidi) | Joplin: Maple Leaf Rag |
+| 7 | PSG (AY-3-8910) | Bach: Invention No. 1 in C Major (BWV 772) |
+| 8 | 1-bit Beep | Bach: Minuet in A minor (BWV Anh. 120) |
+| 9 | SoundFont (TSF) | Chopin: Étude Op. 10 No. 12 "Revolutionary" |
+| 10 | SoundFont (TSF) | Beethoven: Ode to Joy (Symphony No. 9) |
+
+All MIDI files are Public Domain sourced from the [Mutopia Project](https://www.mutopiaproject.org/).
+
+`midra demo` accepts the same DSP and UI flags as other subcommands:
+
+```bash
+midra demo --classic          # plain text output (no TUI)
+midra demo --reverb hall      # add reverb
+midra demo --dump-wav out.wav # record to WAV
+```
+
+> **Tip:** If you built from source, run `./scripts/run.sh demo` instead — it sets `MIDRA_DATA` automatically so all bundled resources are found.
+
+---
+
+### 2.3. The 10-Second Magic Command
 The biggest hurdle with playing MIDI files is usually hunting down "Patch Banks" or configuring ports. Midiraja solves this by including built-in mathematical sound generators!
 
 To hear music immediately without any setup, find any `.mid` file on your computer and type:
@@ -237,9 +300,9 @@ These engines are baked directly into the Midiraja app. They require **absolutel
 
 #### 5. TinySoundFont synthesizer (`soundfont`)
 * **What is it?** Plays standard SoundFont 2 and 3 (`.sf2` / `.sf3`) files using the embedded [TinySoundFont](https://github.com/schellingb/TinySoundFont) synthesizer — bundled directly into the `midra` binary with **no external installation required**. (The `fluidsynth` command also plays `.sf2` files, but uses the separately installed FluidSynth library instead.)
-* **Bundled SoundFont:** The **MuseScore General SF3** (MIT license) is bundled with Midiraja, so `midra soundfont song.mid` works immediately with no downloads or configuration. To use a custom SoundFont, pass it as the first argument.
+* **Bundled SoundFont:** The **FluidR3 GM SF3** (MIT license) is bundled with Midiraja, so `midra soundfont song.mid` works immediately with no downloads or configuration. To use a custom SoundFont, pass it as the first argument.
 * **How to use it:**
-  * `midra soundfont song.mid` — uses the bundled MuseScore General SF3
+  * `midra soundfont song.mid` — uses the bundled FluidR3 GM SF3
   * `midra soundfont /path/to/soundfont.sf2 song.mid` — uses a custom SoundFont
   * Aliases: `tsf`, `sf2`, `sf`
 * **Where to get other SoundFont files:** A SoundFont is a library of professionally recorded instrument samples. Good free options include:
@@ -296,7 +359,7 @@ Not sure which engine to pick? Use the decision table below.
 | I want … | Best engine | Notes |
 |-----------|-------------|-------|
 | Play a MIDI file right now, no setup | `patch` | Bundled FreePats wavetable — best quality, zero install |
-| SoundFont playback, no setup | `soundfont` | Bundled MuseScore General SF3 (MIT); full DSP effects rack |
+| SoundFont playback, no setup | `soundfont` | Bundled FluidR3 GM SF3 (MIT); full DSP effects rack |
 | **Retro hardware emulation** (no setup) | — | see table below |
 | SoundFont with custom file | `soundfont` + an SF2/SF3 file | Pass as first argument; TinySoundFont handles both formats |
 | Best possible SoundFont quality, low latency | `fluidsynth` + an SF2 file | Requires `brew install fluid-synth` |
@@ -329,7 +392,7 @@ Use **`fluidsynth`** when you need the best SF2 compatibility, lower audio laten
 | `fm opl` (`opl`) | 1990s AdLib / Sound Blaster | 9–18 FM operators | Optional `.wopl` bank |
 | `fm genesis` (`opn`) | Sega Genesis / PC-98 | 6 FM + 3 SSG voices | Optional `.wopn` bank |
 | `patch` (`gus`) | 1994 Gravis Ultrasound | 32 wavetable voices | FreePats (bundled) |
-| `soundfont` (`tsf`) | Modern SoundFont | Polyphonic (SF2 limit) | MuseScore General SF3 (bundled) |
+| `soundfont` (`tsf`) | Modern SoundFont | Polyphonic (SF2 limit) | FluidR3 GM SF3 (bundled) |
 | `mt32` | 1987 Roland MT-32 | 32 partial generators | Required ROM files |
 
 ---

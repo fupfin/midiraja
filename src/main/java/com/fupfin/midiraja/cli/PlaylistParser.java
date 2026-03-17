@@ -200,7 +200,9 @@ public class PlaylistParser
             int maxDepth = recursive ? Integer.MAX_VALUE : 1;
             try (var stream = Files.walk(dir.toPath(), maxDepth))
             {
-                stream.filter(Files::isRegularFile).map(Path::toFile)
+                stream.filter(Files::isRegularFile)
+                        .sorted()
+                        .map(Path::toFile)
                         .filter(f -> {
                             String name = f.getName().toLowerCase(Locale.ROOT);
                             return name.endsWith(".mid") || name.endsWith(".midi");

@@ -129,7 +129,8 @@ if [ "$OS_FAMILY" = "windows" ]; then
 else
     ${CC:-gcc} -shared -fPIC -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
         -o "libtsf.$LIB_EXT" \
-        "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c"
+        "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c" \
+        -lm
 fi
 
 echo "Native libraries built successfully → $NATIVE_LIBS"

@@ -1,10 +1,18 @@
 # Changelog
 
+## [0.3.2] - 2026-03-17
+
+### Added
+- **`midra demo`** — curated 10-track playlist that tours every built-in synthesis engine with no setup required; transition screen shows engine name and song title before each track
+
+### Changed
+- Bundled SoundFont switched from MuseScore General SF3 to **FluidR3 GM SF3** (MIT license) — more consistent volume across all GM instruments
+
 ## [0.3.1] - 2026-03-16
 
 ### Added
 - **Engine selector** — running `midra song.mid` without a subcommand shows an interactive menu listing available OS MIDI ports and all built-in engines; arrow keys to navigate, Enter to select
-- **Bundled MuseScore General SF3** — `midra soundfont song.mid` now plays immediately with no external file; bundled MIT-licensed SoundFont
+- **Bundled FluidR3 GM SF3** — `midra soundfont song.mid` now plays immediately with no external file; bundled MIT-licensed SoundFont
 - **Windows ARM64** — `midra-windows-arm64.zip` release package; `install.ps1` detects architecture automatically
 
 ### Changed

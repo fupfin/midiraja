@@ -1,37 +1,40 @@
 package com.fupfin.midiraja.midi;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * Applies a pitch transposition to MIDI Note On and Note Off messages. Drum channel (10) is
  * ignored.
  */
 public class TransposeFilter extends MidiFilter
 {
-    private volatile int semitones = 0;
+    private final AtomicInteger semitones;
 
     public TransposeFilter(MidiProcessor next)
     {
         super(next);
+        this.semitones = new AtomicInteger(0);
     }
 
     public TransposeFilter(MidiProcessor next, int initialSemitones)
     {
         super(next);
-        this.semitones = initialSemitones;
+        this.semitones = new AtomicInteger(initialSemitones);
     }
 
     public int getSemitones()
     {
-        return semitones;
+        return semitones.get();
     }
 
     public void setSemitones(int semitones)
     {
-        this.semitones = semitones;
+        this.semitones.set(semitones);
     }
 
     public void adjust(int delta)
     {
-        this.semitones += delta;
+        this.semitones.addAndGet(delta);
     }
 
     @Override
@@ -50,10 +53,11 @@ public class TransposeFilter extends MidiFilter
             int ch = status & 0x0F;
 
             // Transpose Note On (0x90) and Note Off (0x80), but skip channel 10 (drums, index 9)
-            if (ch != 9 && (cmd == 0x90 || cmd == 0x80) && semitones != 0)
+            int s = semitones.get();
+            if (ch != 9 && (cmd == 0x90 || cmd == 0x80) && s != 0)
             {
                 byte[] out = data.clone();
-                int note = (out[1] & 0xFF) + semitones;
+                int note = (out[1] & 0xFF) + s;
                 out[1] = (byte) Math.max(0, Math.min(127, note));
                 next.sendMessage(out);
                 return;

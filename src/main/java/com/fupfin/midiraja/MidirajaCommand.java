@@ -49,7 +49,7 @@ import picocli.CommandLine.Parameters;
         customSynopsis = {"midra [command] [OPTIONS] [<files>...]"},
         subcommands = {FmCommand.class, MuntCommand.class, FluidCommand.class,
                 TsfCommand.class, GusCommand.class, BeepCommand.class,
-                DeviceCommand.class, PsgCommand.class,
+                DeviceCommand.class, PsgCommand.class, DemoCommand.class,
                 CommandLine.HelpCommand.class},
         footer = {"",
                 "Run 'midra <command> --help' for command-specific options.", "",
@@ -345,7 +345,7 @@ public class MidirajaCommand implements Callable<Integer>
                 String sfPath = TsfCommand.findBundledSf3();
                 if (sfPath == null)
                 {
-                    stdErr.println("Error: Bundled MuseScore General SF3 not found. "
+                    stdErr.println("Error: Bundled FluidR3 GM SF3 not found. "
                             + "Run 'midra soundfont --help' for details.");
                     return 1;
                 }

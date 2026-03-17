@@ -21,10 +21,13 @@
 # Install (macOS & Linux)
 curl -sL https://raw.githubusercontent.com/fupfin/midiraja/main/install.sh | bash
 
+# Tour all synthesis engines — no setup needed
+midra demo
+
 # Play immediately — FreePats wavetable is bundled, no setup needed
 midra patch song.mid
 
-# Play with SoundFont — bundled MuseScore General SF3, no setup needed
+# Play with SoundFont — bundled FluidR3 GM SF3, no setup needed
 midra soundfont song.mid
 
 # Play with a custom SoundFont

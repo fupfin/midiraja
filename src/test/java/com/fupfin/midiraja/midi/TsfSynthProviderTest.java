@@ -145,8 +145,15 @@ class TsfSynthProviderTest
         assertTrue(mockBridge.resetCalled, "bridge.reset() should be called in prepareForNewTrack");
 
         provider.flushEventQueueForTest();
-        assertTrue(mockBridge.eventLog.isEmpty(),
-            "Stale events should be cleared by prepareForNewTrack");
+        // prepareForNewTrack clears stale events and queues CC121 on all 16 channels to
+        // initialise f->channels in TSF (tsf_channel_note_on is a no-op when f->channels==NULL).
+        assertEquals(16, mockBridge.eventLog.size(),
+            "prepareForNewTrack should queue CC121 (Reset All Controllers) on all 16 channels");
+        for (int ch = 0; ch < 16; ch++)
+        {
+            assertEquals("CC ch:" + ch + " type:121 val:0", mockBridge.eventLog.get(ch),
+                "Channel " + ch + " should have CC121=0 (Reset All Controllers)");
+        }
     }
 
     @Test void testGetOutputPorts()

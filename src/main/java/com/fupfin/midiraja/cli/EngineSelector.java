@@ -66,7 +66,7 @@ public class EngineSelector
 
     // Built-in engines ordered by audio quality (best first)
     private static final List<Entry> BUILTIN_ENTRIES = List.of(
-            Entry.builtin("soundfont", "SoundFont            (MuseScore General SF3 bundled)"),
+            Entry.builtin("soundfont", "SoundFont            (FluidR3 GM SF3 bundled)"),
             Entry.builtin("patch    ", "GUS wavetable        (FreePats bundled)"),
             Entry.builtin("opn      ", "OPN FM synthesis     (Sega Genesis / PC-98)"),
             Entry.builtin("opl      ", "OPL FM synthesis     (DOS / AdLib / Sound Blaster)"),

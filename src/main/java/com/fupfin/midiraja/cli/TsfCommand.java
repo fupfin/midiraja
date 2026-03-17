@@ -32,7 +32,7 @@ import picocli.CommandLine.ParentCommand;
 @Command(name = "soundfont", aliases = {"tsf", "sf2", "sf"}, mixinStandardHelpOptions = true,
         description = "Built-in SoundFont synthesizer (SF2/SF3), no install needed.",
         footer = {"",
-                "The SoundFont path is optional. If omitted, the bundled MuseScore General SF3 is used.",
+                "The SoundFont path is optional. If omitted, the bundled FluidR3 GM SF3 is used.",
                 "  midra soundfont song.mid",
                 "  midra soundfont ~/soundfonts/FluidR3_GM.sf2 song.mid"})
 public class TsfCommand implements Callable<Integer>
@@ -83,7 +83,7 @@ public class TsfCommand implements Callable<Integer>
         return all;
     }
 
-    private static final String BUNDLED_SF3_NAME = "MuseScore_General.sf3";
+    private static final String BUNDLED_SF3_NAME = "FluidR3_GM.sf3";
 
     public static @Nullable String findBundledSf3()
     {
@@ -126,7 +126,7 @@ public class TsfCommand implements Callable<Integer>
         if (sfPath == null)
         {
             p.getErr().println("Error: No SoundFont file found. Provide an .sf2/.sf3 path, "
-                    + "or install midra to get the bundled MuseScore General SF3.");
+                    + "or install midra to get the bundled FluidR3 GM SF3.");
             p.getErr().println("  midra soundfont ~/soundfonts/FluidR3_GM.sf2 song.mid");
             return 1;
         }

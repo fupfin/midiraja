@@ -78,9 +78,9 @@ echo "🛠️  Building C/C++ native libraries..."
 echo "🎵 Downloading FreePats..."
 ./gradlew setupFreepats
 
-# Download MuseScore General SF3 SoundFont for TsfSynthProvider
-echo "🎵 Downloading MuseScore General SF3..."
-./gradlew downloadMuseScoreSf3
+# Download FluidR3 GM SF3 SoundFont for TsfSynthProvider
+echo "🎵 Downloading FluidR3 GM SF3..."
+./gradlew downloadFluidR3Sf3
 
 # Build the native binary (force relink so linker options are always applied)
 echo "🛠️  Building native image via GraalVM Native Image..."
@@ -123,12 +123,18 @@ fi
 mkdir -p "${STAGING_DIR}/share/midra/freepats"
 cp -r "build/freepats/." "${STAGING_DIR}/share/midra/freepats/"
 
-# Include MuseScore General SF3 in share/midra/soundfonts/ so TsfSynthProvider finds it
-if [ ! -f "build/soundfonts/MuseScore_General.sf3" ]; then
-    echo "❌ Error: build/soundfonts/MuseScore_General.sf3 not found. Run './gradlew downloadMuseScoreSf3' first."
+# Include FluidR3 GM SF3 in share/midra/soundfonts/ so TsfSynthProvider finds it
+if [ ! -f "build/soundfonts/FluidR3_GM.sf3" ]; then
+    echo "❌ Error: build/soundfonts/FluidR3_GM.sf3 not found. Run './gradlew downloadFluidR3Sf3' first."
     exit 1
 fi
-cp "build/soundfonts/MuseScore_General.sf3" "${STAGING_DIR}/share/midra/soundfonts/"
+cp "build/soundfonts/FluidR3_GM.sf3" "${STAGING_DIR}/share/midra/soundfonts/"
+
+# Include demo MIDI files in share/midra/demomidi/
+echo "🎵 Bundling demo MIDI files..."
+mkdir -p "${STAGING_DIR}/share/midra/demomidi"
+cp src/main/resources/demomidi/*.mid "${STAGING_DIR}/share/midra/demomidi/"
+cp src/main/resources/demomidi/CREDITS.md "${STAGING_DIR}/share/midra/demomidi/"
 
 # Bundle native libraries
 # Windows: DLLs go in bin/ (same dir as exe) so the loader finds them

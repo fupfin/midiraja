@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.sound.midi.MidiSystem;
+import javax.sound.midi.Sequence;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jspecify.annotations.Nullable;
@@ -54,6 +55,36 @@ public class PlaybackRunner
     @Nullable
     private final TerminalIO terminalIO;
     private final boolean isTestMode;
+    private PlaybackStatus lastRawStatus = PlaybackStatus.FINISHED;
+    private boolean suppressAltScreenRestore = false;
+    private boolean suppressHoldAtEnd = false;
+    private boolean exitOnNavBoundary = false;
+
+    public PlaybackStatus getLastRawStatus()
+    {
+        return lastRawStatus;
+    }
+
+    public void setSuppressAltScreenRestore(boolean suppress)
+    {
+        this.suppressAltScreenRestore = suppress;
+    }
+
+    /** When true, the engine will not hold at the end of the last track. */
+    public void setSuppressHoldAtEnd(boolean suppress)
+    {
+        this.suppressHoldAtEnd = suppress;
+    }
+
+    /**
+     * When true, PREVIOUS at the first track and NEXT at the last track exit the playlist loop
+     * instead of wrapping around. The caller can inspect {@link #getLastRawStatus()} to determine
+     * the direction of navigation.
+     */
+    public void setExitOnNavBoundary(boolean exit)
+    {
+        this.exitOnNavBoundary = exit;
+    }
 
     public PlaybackRunner(PrintStream out, PrintStream err, @Nullable TerminalIO terminalIO,
             boolean isTestMode)
@@ -195,7 +226,8 @@ public class PlaybackRunner
                 activeIO.close();
                 if (isInteractive)
                 {
-                    String safeRestore = (useAltScreen ? Theme.TERM_ALT_SCREEN_DISABLE : "")
+                    String safeRestore = (useAltScreen && !suppressAltScreenRestore
+                                    ? Theme.TERM_ALT_SCREEN_DISABLE : "")
                             + Theme.TERM_MOUSE_DISABLE + Theme.COLOR_RESET + "\033[?7h"
                             + Theme.TERM_SHOW_CURSOR + "\r\033[K\n";
                     out.print(safeRestore);
@@ -572,38 +604,48 @@ public class PlaybackRunner
         while (currentTrackIdx >= 0 && currentTrackIdx < playlist.size())
         {
             var file = playlist.get(currentTrackIdx);
-            var sequence = MidiSystem.getSequence(file);
-            logVerbose(common.verbose,
-                    String.format("Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d",
-                            file.getName(), sequence.getResolution(),
-                            sequence.getMicrosecondLength()));
-
-            String title = MidiUtils.extractSequenceTitle(sequence);
-            var context = new PlaylistContext(playlist, currentTrackIdx, port, title);
-
-            var engine = new PlaybackEngine(sequence, provider, context, common.volume,
-                    common.speed, currentStartTime, common.transpose);
-
-            if (common.ignoreSysex) engine.setIgnoreSysex(true);
-            if (common.resetType.isPresent()) engine.setInitialResetType(common.resetType);
-            if (wasPaused) engine.setInitiallyPaused();
-
-            boolean isLastTrack = (currentTrackIdx == playlist.size() - 1);
-            if (isLastTrack && !common.loop && (ui instanceof DashboardUI))
+            try
             {
-                engine.setHoldAtEnd(true);
+                var sequence = MidiUtils.loadSequence(file);
+                logVerbose(common.verbose,
+                        String.format("Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d",
+                                file.getName(), sequence.getResolution(),
+                                sequence.getMicrosecondLength()));
+
+                var title = MidiUtils.extractSequenceTitle(sequence);
+                var context = new PlaylistContext(playlist, currentTrackIdx, port, title);
+
+                var engine = new PlaybackEngine(sequence, provider, context, common.volume,
+                        common.speed, currentStartTime, common.transpose);
+
+                if (common.ignoreSysex) engine.setIgnoreSysex(true);
+                if (common.resetType.isPresent()) engine.setInitialResetType(common.resetType);
+                if (wasPaused) engine.setInitiallyPaused();
+
+                boolean isLastTrack = (currentTrackIdx == playlist.size() - 1);
+                if (!suppressHoldAtEnd && isLastTrack && !common.loop && (ui instanceof DashboardUI))
+                {
+                    engine.setHoldAtEnd(true);
+                }
+
+                var status = ScopedValue.where(TerminalIO.CONTEXT, activeIO).call(() -> engine.start(ui));
+                lastRawStatus = status;
+
+                currentStartTime = Optional.empty();
+                common.volume = (int) (engine.getVolumeScale() * 100);
+                common.speed = engine.getCurrentSpeed();
+                common.transpose = Optional.of(engine.getCurrentTranspose());
+                wasPaused = engine.isPaused();
+
+                currentTrackIdx = handlePlaybackStatus(status, currentTrackIdx, playlist, common);
             }
-
-            var status =
-                    ScopedValue.where(TerminalIO.CONTEXT, activeIO).call(() -> engine.start(ui));
-
-            currentStartTime = Optional.empty();
-            common.volume = (int) (engine.getVolumeScale() * 100);
-            common.speed = engine.getCurrentSpeed();
-            common.transpose = Optional.of(engine.getCurrentTranspose());
-            wasPaused = engine.isPaused();
-
-            currentTrackIdx = handlePlaybackStatus(status, currentTrackIdx, playlist, common);
+            catch (Exception e)
+            {
+                err.println("\n[Error] Failed to load MIDI file: " + file.getName());
+                err.println("        Reason: " + e.getMessage());
+                err.println("        Skipping to the next track...");
+                currentTrackIdx++;
+            }
         }
     }
 
@@ -614,15 +656,29 @@ public class PlaybackRunner
         {
             case QUIT_ALL -> -1;
             case PREVIOUS ->
-                    (common.loop && currentTrackIdx == 0) ? playlist.size() - 1
-                                                          : max(0, currentTrackIdx - 1);
-            case FINISHED, NEXT ->
+            {
+                if (currentTrackIdx == 0)
+                    yield exitOnNavBoundary ? -1 : playlist.size() - 1;
+                yield currentTrackIdx - 1;
+            }
+            case NEXT ->
             {
                 int next = currentTrackIdx + 1;
-                if (common.loop && next >= playlist.size())
+                if (next >= playlist.size())
+                    yield exitOnNavBoundary ? next : 0;
+                yield next;
+            }
+            case FINISHED ->
+            {
+                int next = currentTrackIdx + 1;
+                if (next >= playlist.size())
                 {
-                    if (common.shuffle) Collections.shuffle(playlist);
-                    yield 0;
+                    if (common.loop)
+                    {
+                        if (common.shuffle) Collections.shuffle(playlist);
+                        yield 0;
+                    }
+                    yield next; // exits the loop
                 }
                 yield next;
             }
