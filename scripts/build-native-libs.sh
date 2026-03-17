@@ -132,14 +132,15 @@ elif [ "$OS_FAMILY" = "macos" ]; then
         "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c" \
         -lm
 else
-    # Linux: force libm.so.6 into DT_NEEDED with --no-as-needed.
-    # Ubuntu 24.04 (glibc 2.39) provides log() in libc.so.6 too, so --as-needed
-    # (the Ubuntu linker default) omits libm from DT_NEEDED. Older glibc only
-    # has log() in libm.so.6, causing "undefined symbol: log" at runtime.
+    # Linux: statically link libm so that log() and other math functions are
+    # resolved at link time. On glibc 2.38+ the shared libm.so.6 is a thin
+    # redirect to libc.so.6, so --no-as-needed still omits libm from DT_NEEDED.
+    # Statically embedding log() removes any runtime dependency on libm.so.6,
+    # ensuring compatibility with older glibc where log() lives only in libm.
     ${CC:-gcc} -shared -fPIC -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
         -o "libtsf.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c" \
-        -Wl,--no-as-needed -lm
+        -Wl,--push-state,-Bstatic -lm -Wl,--pop-state
 fi
 
 echo "Native libraries built successfully → $NATIVE_LIBS"

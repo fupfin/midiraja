@@ -4,7 +4,7 @@
 
 ### Fixed
 - **Windows**: `midra demo` (soundfont engine) failed with non-ASCII username paths — switched from `tsf_load_filename` (C `fopen()`, ANSI code page) to `tsf_load_memory` (Java NIO reads the file, bypassing encoding issues)
-- **Linux**: `libtsf.so` caused `undefined symbol: log` on some systems — added `-Wl,--no-as-needed` before `-lm` to ensure `libm.so.6` is recorded in `DT_NEEDED`
+- **Linux**: `libtsf.so` caused `undefined symbol: log` on systems with glibc < 2.29 — switched to statically linking libm (`-Wl,--push-state,-Bstatic -lm -Wl,--pop-state`) so `log()` is embedded directly in `libtsf.so` with no runtime dependency on `libm.so.6`
 - **Linux installer**: `tar` printed excessive future-timestamp warnings during installation — suppressed with `--warning=no-timestamp` (GNU tar)
 
 ## [0.3.2] - 2026-03-17
