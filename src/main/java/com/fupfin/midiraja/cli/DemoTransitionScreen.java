@@ -11,6 +11,8 @@ import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.ui.ScreenBuffer;
 import com.fupfin.midiraja.ui.Theme;
 import java.io.PrintStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.jline.terminal.TerminalBuilder;
 
 /**
@@ -47,7 +49,12 @@ class DemoTransitionScreen
             return PlaybackStatus.NEXT;
         }
 
-        try (var terminal = TerminalBuilder.builder().system(true).build())
+        var jlineLog = Logger.getLogger("org.jline.nativ.JLineNativeLoader");
+        var savedLevel = jlineLog.getLevel();
+        jlineLog.setLevel(Level.SEVERE);
+        var terminal = TerminalBuilder.builder().system(true).build();
+        jlineLog.setLevel(savedLevel);
+        try (terminal)
         {
             if (terminal.getHeight() < 10 || "dumb".equals(terminal.getType()))
             {

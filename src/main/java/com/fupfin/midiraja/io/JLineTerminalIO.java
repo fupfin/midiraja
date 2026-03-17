@@ -10,6 +10,8 @@ package com.fupfin.midiraja.io;
 import static java.lang.IO.*;
 
 import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
 import org.jline.terminal.*;
@@ -37,7 +39,14 @@ public class JLineTerminalIO implements TerminalIO
     @Override
     public void init() throws IOException
     {
-        terminal = TerminalBuilder.builder().system(true).build();
+        var jlineLog = Logger.getLogger("org.jline.nativ.JLineNativeLoader");
+        var savedLevel = jlineLog.getLevel();
+        jlineLog.setLevel(Level.SEVERE);
+        try {
+            terminal = TerminalBuilder.builder().system(true).build();
+        } finally {
+            jlineLog.setLevel(savedLevel);
+        }
         terminal.enterRawMode();
         Attributes attr = terminal.getAttributes();
         attr.setLocalFlag(Attributes.LocalFlag.ECHO, false);
