@@ -1,21 +1,16 @@
 # Changelog
 
-## [0.3.5] - 2026-03-17
-
-### Fixed
-- **Windows**: release package was missing all DLLs (`libmidiraja_audio.dll`, etc.) — `gradle clean` ran after native library build, wiping `build/native-libs/`; `clean` is now a separate step before native builds
-- **Windows**: `midra munt` could not find `libmt32emu.dll` — CMake names the DLL `libmt32emu-2.dll` (SOVERSION suffix); packaging now copies whichever `libmt32emu*.dll` exists
-
 ## [0.3.4] - 2026-03-17
 
 ### Fixed
-- **Windows**: passing a path ending with `\` in PowerShell caused a trailing `"` to appear in the argument (Windows command-line quoting artifact) — now stripped automatically
-- **Windows / Linux**: directory arguments were not recognized as directories in GraalVM native image when the path contained spaces or special characters — switched to NIO2 `Files.isDirectory()`
-- **Linux**: `libtsf.so` caused `undefined symbol: log` — fixed by building on a glibc < 2.29 host so that `-Wl,--no-as-needed -lm` correctly records `libm.so.6` in `DT_NEEDED`
-- **`midra demo`**: classic mode (non-TUI terminal) skipped playback and moved to the next track immediately — `DemoTransitionScreen` now returns `FINISHED` instead of `NEXT`
+- **Windows**: DLLs missing from release package — CI `gradle clean` was wiping native libs before packaging
+- **Windows**: directory path not recognized as directory in GraalVM native image
+- **Windows**: path ending with `\` in PowerShell caused a trailing `"` in the argument
+- **Linux**: `libtsf.so` caused `undefined symbol: log` on glibc < 2.29
+- **`midra demo`**: classic mode skipped playback and moved to next track immediately
 
 ### Changed
-- `midra gus ./dir/` (directory as sole argument) now scans the directory for MIDI files instead of treating it as a GUS patch directory; pass `midra gus ./patches/ file.mid` to use a custom patch directory
+- `midra gus ./dir/` now scans the directory for MIDI files; pass patch dir explicitly as `midra gus ./patches/ file.mid`
 
 ## [0.3.3] - 2026-03-17
 
