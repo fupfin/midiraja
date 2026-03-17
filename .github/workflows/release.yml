@@ -171,12 +171,22 @@ jobs:
           Copy-Item "src/main/resources/demomidi/CREDITS.md" "staging/share/midra/demomidi/"
           Compress-Archive -Path "staging\*" -DestinationPath "${{ matrix.asset_name }}.zip"
 
-      - name: Upload as CI Artifact (manual run)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.asset_name }}
-          path: ${{ matrix.asset_name }}.*
+      - name: Determine release tag
+        id: release_tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            # workflow_dispatch: use explicit input, or fall back to build.gradle version
+            INPUT_VER="${{ github.event.inputs.version }}"
+            if [ -n "$INPUT_VER" ]; then
+              echo "tag=v${INPUT_VER}" >> "$GITHUB_OUTPUT"
+            else
+              VER=$(grep '^version = ' build.gradle | sed "s/version = '//;s/'//")
+              echo "tag=v${VER}" >> "$GITHUB_OUTPUT"
+            fi
+          fi
 
       - name: Extract Changelog for this version
         if: github.event_name == 'push'
@@ -189,10 +199,10 @@ jobs:
           echo "$BODY" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Native Release Asset (tag push)
-        if: github.event_name == 'push'
+      - name: Upload Native Release Asset
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.release_tag.outputs.tag }}
           body: ${{ steps.changelog.outputs.body }}
           files: ${{ matrix.asset_name }}.*
 
