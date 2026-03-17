@@ -68,7 +68,7 @@ elif [ "$OS_FAMILY" = "windows" ]; then
         "$PROJECT_ROOT/src/main/c/miniaudio/midiraja_audio.c"
 else
     ${CC:-gcc} -shared -fPIC -O2 \
-        -ldl -lpthread -lm \
+        -ldl -lpthread -Wl,--no-as-needed -lm \
         -o "libmidiraja_audio.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/miniaudio/midiraja_audio.c"
 fi
@@ -130,7 +130,7 @@ else
     ${CC:-gcc} -shared -fPIC -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
         -o "libtsf.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c" \
-        -lm
+        -Wl,--no-as-needed -lm
 fi
 
 echo "Native libraries built successfully → $NATIVE_LIBS"

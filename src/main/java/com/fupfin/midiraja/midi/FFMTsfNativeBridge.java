@@ -11,6 +11,8 @@ import static java.lang.System.err;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -48,6 +50,9 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
     private static final FunctionDescriptor DESC_TSF_NOTE_OFF =
             FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
                     ValueLayout.JAVA_INT);
+    // tsf_load_memory: (const void* buffer, int size) → tsf*
+    private static final FunctionDescriptor DESC_TSF_LOAD_MEMORY =
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT);
 
     /**
      * Returns all {@link FunctionDescriptor}s used for FFM downcall handles in this class.
@@ -61,6 +66,8 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
         return List.of(
                 // tsf_load_filename: (const char*) → tsf*
                 DESC_ERROR_INFO,
+                // tsf_load_memory: (const void* buffer, int size) → tsf*
+                DESC_TSF_LOAD_MEMORY,
                 // tsf_close, tsf_reset, tsf_note_off_all: (tsf*) → void
                 DESC_VOID_PTR,
                 // tsf_set_output: (tsf*, int mode, int samplerate, float gain) → void
@@ -87,6 +94,7 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
 
     // FFM Method Handles
     private final MethodHandle tsf_load_filename;
+    private final MethodHandle tsf_load_memory;
     private final MethodHandle tsf_close;
     private final MethodHandle tsf_set_output;
     private final MethodHandle tsf_reset;
@@ -109,6 +117,9 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
 
         // tsf* tsf_load_filename(const char* filename)
         tsf_load_filename = downcall("tsf_load_filename", DESC_ERROR_INFO);
+
+        // tsf* tsf_load_memory(const void* buffer, int size)
+        tsf_load_memory = downcall("tsf_load_memory", DESC_TSF_LOAD_MEMORY);
 
         // void tsf_close(tsf* f)
         tsf_close = downcall("tsf_close", DESC_VOID_PTR);
@@ -147,10 +158,14 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
     @Override
     public void loadSoundfontFile(String path, int sampleRate) throws Exception
     {
+        // Read file bytes in Java (handles Unicode/non-ASCII paths on all platforms).
+        // Passes in-memory buffer to tsf_load_memory, bypassing tsf_load_filename's use of
+        // C fopen() which uses the ANSI code page on Windows and fails with non-ASCII paths.
+        byte[] sfBytes = Files.readAllBytes(Path.of(path));
         try (Arena temp = Arena.ofConfined())
         {
-            MemorySegment pathSeg = temp.allocateFrom(path);
-            device = (MemorySegment) tsf_load_filename.invokeExact(pathSeg);
+            MemorySegment buf = temp.allocateFrom(ValueLayout.JAVA_BYTE, sfBytes);
+            device = (MemorySegment) tsf_load_memory.invokeExact(buf, sfBytes.length);
         }
         catch (Exception e)
         {
@@ -165,7 +180,7 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
 
         if (device.equals(MemorySegment.NULL))
         {
-            throw new IllegalStateException("tsf_load_filename returned NULL: " + path);
+            throw new IllegalStateException("tsf_load_memory returned NULL: " + path);
         }
 
         // TSF_STEREO_INTERLEAVED = 0

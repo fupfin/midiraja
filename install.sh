@@ -107,8 +107,12 @@ else
     fi
 fi
 
-# Extract tarball
-tar -xzf "${TMP_DIR}/midra.tar.gz" -C "${TMP_DIR}"
+# Extract tarball; suppress harmless future-timestamp warnings on GNU tar (Linux)
+if [ "$(uname -s)" = "Linux" ]; then
+    tar --warning=no-timestamp -xzf "${TMP_DIR}/midra.tar.gz" -C "${TMP_DIR}"
+else
+    tar -xzf "${TMP_DIR}/midra.tar.gz" -C "${TMP_DIR}"
+fi
 
 # Determine version: prefer VERSION file in tarball, fall back to LATEST_TAG
 if [ -f "${TMP_DIR}/VERSION" ]; then

@@ -220,6 +220,13 @@
             },
             {
                 "parameterTypes": [
+                    "void*",
+                    "jint"
+                ],
+                "returnType": "void*"
+            },
+            {
+                "parameterTypes": [
                     "jint",
                     "void*",
                     "void*"
