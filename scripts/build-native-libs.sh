@@ -126,6 +126,11 @@ if [ "$OS_FAMILY" = "windows" ]; then
     ${CC:-gcc} -shared -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
         -o "libtsf.$LIB_EXT" \
         "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c"
+elif [ "$OS_FAMILY" = "macos" ]; then
+    ${CC:-gcc} -shared -fPIC -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
+        -o "libtsf.$LIB_EXT" \
+        "$PROJECT_ROOT/src/main/c/tsf/tsf_wrapper.c" \
+        -lm
 else
     ${CC:-gcc} -shared -fPIC -O2 -I"$PROJECT_ROOT/ext/TinySoundFont" \
         -o "libtsf.$LIB_EXT" \
