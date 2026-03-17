@@ -11,6 +11,7 @@ import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.ui.ScreenBuffer;
 import com.fupfin.midiraja.ui.Theme;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jline.terminal.TerminalBuilder;
@@ -63,10 +64,9 @@ class DemoTransitionScreen
 
             terminal.enterRawMode();
             var reader = terminal.reader();
-            // Write ANSI directly to out so JLine doesn't track alt screen state
-            // and won't send TERM_ALT_SCREEN_DISABLE when the terminal is closed.
-            out.print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
-            out.flush();
+            var writer = terminal.writer();
+            writer.print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
+            writer.flush();
 
             long deadline = System.currentTimeMillis() + AUTOPLAY_SECONDS * 1000L;
 
@@ -75,7 +75,7 @@ class DemoTransitionScreen
                     long remaining = (deadline - System.currentTimeMillis() + 999) / 1000;
                     if (remaining <= 0)
                     {
-                        clearScreen(out);
+                        clearScreen(writer);
                         return PlaybackStatus.FINISHED;
                     }
                     int width = terminal.getWidth();
@@ -145,8 +145,8 @@ class DemoTransitionScreen
                             .append(Theme.COLOR_HIGHLIGHT).append(footer)
                             .append(Theme.COLOR_RESET).appendLine();
 
-                    out.print(buf.toString());
-                    out.flush();
+                    writer.print(buf.toString());
+                    writer.flush();
 
                     int ch = reader.read(200);
                     if (ch <= 0) continue;
@@ -154,12 +154,12 @@ class DemoTransitionScreen
                     if (ch == 'q' || ch == 'Q') return PlaybackStatus.QUIT_ALL;
                     if (ch == 'p' || ch == 'P')
                     {
-                        clearScreen(out);
+                        clearScreen(writer);
                         return PlaybackStatus.PREVIOUS;
                     }
                     if (ch == 13 || ch == 10 || ch == ' ' || ch == 'n' || ch == 'N')
                     {
-                        clearScreen(out);
+                        clearScreen(writer);
                         return PlaybackStatus.FINISHED;
                     }
                     if (ch == 27)
@@ -168,17 +168,17 @@ class DemoTransitionScreen
                         if (next1 == '[')
                         {
                             int next2 = reader.read(2);
-                            if (next2 == 'A') { clearScreen(out); return PlaybackStatus.PREVIOUS; }
-                            if (next2 == 'B') { clearScreen(out); return PlaybackStatus.NEXT; }
+                            if (next2 == 'A') { clearScreen(writer); return PlaybackStatus.PREVIOUS; }
+                            if (next2 == 'B') { clearScreen(writer); return PlaybackStatus.NEXT; }
                         }
                     }
             }
         }
     }
 
-    private static void clearScreen(PrintStream out)
+    private static void clearScreen(PrintWriter writer)
     {
-        out.print(Theme.TERM_CURSOR_HOME + Theme.TERM_CLEAR_TO_END);
-        out.flush();
+        writer.print(Theme.TERM_CURSOR_HOME + Theme.TERM_CLEAR_TO_END);
+        writer.flush();
     }
 }
