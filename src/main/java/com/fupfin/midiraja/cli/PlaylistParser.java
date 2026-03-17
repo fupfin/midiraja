@@ -42,6 +42,7 @@ public class PlaylistParser
         List<File> playlist = new ArrayList<>();
         for (File f : rawFiles)
         {
+            f = normalize(f);
             String nameLower = f.getName().toLowerCase(Locale.ROOT);
             if (Files.isDirectory(f.toPath()))
             {
@@ -215,6 +216,22 @@ public class PlaylistParser
             err.println("Error reading directory '" + dir.getName() + "': " + e.getMessage());
             if (verbose) e.printStackTrace(err);
         }
+    }
+
+    /**
+     * Strips trailing {@code "} characters from a file path. On Windows, PowerShell wraps
+     * arguments in double-quotes when they end with {@code \}, which the Windows command-line
+     * parser then converts to a trailing literal {@code "} in the received string.
+     */
+    static File normalize(File f)
+    {
+        String path = f.getPath();
+        int end = path.length();
+        while (end > 0 && path.charAt(end - 1) == '"')
+        {
+            end--;
+        }
+        return end == path.length() ? f : new File(path.substring(0, end));
     }
 
     private void logVerbose(String message)

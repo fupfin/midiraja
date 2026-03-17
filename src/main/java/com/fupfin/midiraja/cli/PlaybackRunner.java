@@ -519,6 +519,7 @@ public class PlaybackRunner
         {
             for (File f : rawFiles)
             {
+                f = PlaylistParser.normalize(f);
                 if (!f.exists())
                 {
                     err.println(

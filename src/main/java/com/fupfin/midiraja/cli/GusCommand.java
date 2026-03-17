@@ -52,24 +52,27 @@ public class GusCommand implements Callable<Integer>
 
     private @Nullable File patchDir()
     {
-        // A directory is the patch dir only when MIDI files are also specified separately.
-        // If the user passes only a directory (no moreFiles), treat it as the MIDI source.
-        return (firstArg != null && java.nio.file.Files.isDirectory(firstArg.toPath()) && !moreFiles.isEmpty()) ? firstArg : null;
+        if (firstArg == null || moreFiles.isEmpty()) return null;
+        File f = PlaylistParser.normalize(firstArg);
+        return java.nio.file.Files.isDirectory(f.toPath()) ? f : null;
     }
 
     private List<File> files()
     {
-        if (firstArg == null)
+        if (firstArg == null) return moreFiles;
+        File f = PlaylistParser.normalize(firstArg);
+        // Directory-only arg: MIDI source, not patch dir.
+        if (java.nio.file.Files.isDirectory(f.toPath()) && moreFiles.isEmpty())
         {
-            return moreFiles;
+            return List.of(f);
         }
-        // Directory with no other args: treat it as MIDI source directory (not patch dir).
-        if (java.nio.file.Files.isDirectory(firstArg.toPath()) && !moreFiles.isEmpty())
+        // Directory with MIDI files: patch dir (handled by patchDir()), return only moreFiles.
+        if (java.nio.file.Files.isDirectory(f.toPath()))
         {
             return moreFiles;
         }
         var all = new ArrayList<File>();
-        all.add(firstArg);
+        all.add(f);
         all.addAll(moreFiles);
         return all;
     }
