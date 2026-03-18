@@ -9,9 +9,13 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 public abstract class AbstractFFMBridge implements AutoCloseable
 {
+    /** Result of a non-throwing library probe. {@code resolvedPath} is null when not found. */
+    public record LibProbeResult(boolean found, @Nullable String resolvedPath) {}
+
     protected static final FunctionDescriptor DESC_INIT =
             FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
     protected static final FunctionDescriptor DESC_VOID_PTR =
@@ -180,6 +184,72 @@ public abstract class AbstractFFMBridge implements AutoCloseable
 
         throw new RuntimeException("Failed to load native library. Paths tried:\n  - "
                 + String.join("\n  - ", failedPaths));
+    }
+
+    /**
+     * Probes whether a native library is available without throwing on failure.
+     *
+     * <p>Uses the same path resolution logic as {@link #tryLoadLibrary} but returns a
+     * {@link LibProbeResult} instead of throwing. For bare library names (non-absolute paths),
+     * a temporary confined arena is used and closed immediately after the probe.
+     */
+    public static LibProbeResult probeLibrary(String fallbackDevDir, String... paths)
+    {
+        if (paths.length == 0) return new LibProbeResult(false, null);
+        String projectRoot = new File("").getAbsolutePath();
+
+        String osName = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+        String osFamily = osName.contains("mac") ? "macos"
+                : (osName.contains("linux") ? "linux" : "windows");
+        String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
+        if (arch.equals("amd64")) arch = "x86_64";
+        if (arch.equals("arm64")) arch = "aarch64";
+
+        String[] osFallbackDirs = osName.contains("mac") ? LibraryPaths.DARWIN
+                : (osName.contains("linux") ? LibraryPaths.LINUX : LibraryPaths.WINDOWS);
+
+        List<String> allPaths = new ArrayList<>(List.of(paths));
+        for (String path : paths)
+        {
+            if (!new File(path).isAbsolute())
+            {
+                for (String dir : osFallbackDirs)
+                {
+                    allPaths.add(dir + "/" + path);
+                }
+            }
+        }
+
+        if (fallbackDevDir != null && !fallbackDevDir.isEmpty())
+        {
+            String nativeTarget = osFamily + "-" + arch;
+            for (String path : paths)
+            {
+                allPaths.add(projectRoot + "/build/native-libs/" + nativeTarget + "/"
+                        + fallbackDevDir + "/" + path);
+            }
+        }
+
+        for (String path : allPaths)
+        {
+            if (new File(path).isAbsolute())
+            {
+                if (new File(path).exists())
+                    return new LibProbeResult(true, path);
+            }
+            else
+            {
+                try (Arena probeArena = Arena.ofConfined())
+                {
+                    SymbolLookup.libraryLookup(path, probeArena);
+                    return new LibProbeResult(true, path);
+                }
+                catch (IllegalArgumentException ignored)
+                {
+                }
+            }
+        }
+        return new LibProbeResult(false, null);
     }
 
     @Override

@@ -60,6 +60,34 @@ public class GusSynthProvider implements SoftSynthProvider
     {
         if (userPath != null) return new GusBank(Path.of(userPath));
 
+        String found = findPatches();
+        if (found != null && !found.equals("(embedded FreePats)"))
+            return new GusBank(Path.of(found));
+
+        InputStream embeddedCfg = getClass().getResourceAsStream("/gus/freepats/timidity.cfg");
+        if (embeddedCfg != null)
+        {
+            try
+            {
+                embeddedCfg.close();
+            }
+            catch (IOException e)
+            {
+                /* ignored */
+            }
+            return new GusBank(getClass().getClassLoader(), "gus/freepats");
+        }
+        return null;
+    }
+
+    /**
+     * Searches standard locations for a GUS patch directory.
+     *
+     * @return absolute path of the found patch directory, {@code "(embedded FreePats)"} if only
+     *         the bundled resource is available, or {@code null} if nothing is found.
+     */
+    public static @Nullable String findPatches()
+    {
         String homeDir = System.getProperty("user.home");
         List<String> baseDirs = new ArrayList<>();
 
@@ -83,22 +111,18 @@ public class GusSynthProvider implements SoftSynthProvider
                 if (Files.isDirectory(p) && (Files.exists(p.resolve("gus.cfg"))
                         || Files.exists(p.resolve("timidity.cfg"))))
                 {
-                    return new GusBank(p);
+                    return p.toAbsolutePath().toString();
                 }
             }
         }
 
-        InputStream embeddedCfg = getClass().getResourceAsStream("/gus/freepats/timidity.cfg");
-        if (embeddedCfg != null)
+        try (InputStream embeddedCfg =
+                GusSynthProvider.class.getResourceAsStream("/gus/freepats/timidity.cfg"))
         {
-            try
-            {
-                embeddedCfg.close();
-            }
-            catch (IOException e)
-            {
-                /* ignored */ }
-            return new GusBank(getClass().getClassLoader(), "gus/freepats");
+            if (embeddedCfg != null) return "(embedded FreePats)";
+        }
+        catch (IOException ignored)
+        {
         }
         return null;
     }
