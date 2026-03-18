@@ -26,6 +26,7 @@ import com.fupfin.midiraja.ui.DumbUI;
 import com.fupfin.midiraja.ui.LineUI;
 import com.fupfin.midiraja.ui.PlaybackUI;
 import com.fupfin.midiraja.ui.Theme;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.PrintStream;
 import java.util.Collections;
@@ -203,11 +204,15 @@ public class PlaybackRunner
             PlaybackUI ui = buildUI(common.uiOptions, isInteractive, activeIO.getHeight(), altScreenOut);
             boolean useAltScreen = altScreenOut[0];
 
+            PrintStream savedErr = System.err;
+            ByteArrayOutputStream errBuffer = null;
             if (useAltScreen && isInteractive && !suppressAltScreenRestore)
             {
                 out.print("\033[?1049h\033[?25l");
                 out.flush();
                 MidirajaCommand.ALT_SCREEN_ACTIVE = true;
+                errBuffer = new ByteArrayOutputStream();
+                System.setErr(new PrintStream(errBuffer, true));
             }
 
             try
@@ -217,6 +222,8 @@ public class PlaybackRunner
             }
             finally
             {
+                System.setErr(savedErr);
+                MidirajaCommand.ALT_SCREEN_ACTIVE = false;
                 activeIO.close();
                 if (isInteractive)
                 {
@@ -227,6 +234,8 @@ public class PlaybackRunner
                     out.print(safeRestore);
                     out.flush();
                 }
+                if (errBuffer != null && errBuffer.size() > 0)
+                    savedErr.print(errBuffer.toString());
             }
         }
         catch (Exception e)
