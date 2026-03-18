@@ -153,6 +153,11 @@ Register-interface-level emulators. MIDI mapping implemented separately.
 |---------|----------|-------|
 | **libsidplayfp** | C64 SID (MOS 6581/8580) | Already planned in TODO; mature API |
 
+### Playlist Management
+- **M3U export** — key press (e.g. `E`) saves the current in-memory playlist to a `.m3u` file
+- **Runtime add / remove** — add files or directories to the running playlist; remove the current
+  or any queued track (requires `PlaylistContext` to become mutable)
+
 ### `midra compare`
 Cycle through all available engines for the same MIDI file, pausing between each — useful for
 evaluating SF2 files or choosing a retro aesthetic.
