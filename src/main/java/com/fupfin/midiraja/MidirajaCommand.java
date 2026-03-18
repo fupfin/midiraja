@@ -32,6 +32,7 @@ import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.OpnMidiSynthProvider;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import org.jline.terminal.TerminalBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -246,8 +247,12 @@ public class MidirajaCommand implements Callable<Integer>
         if ((files == null || files.isEmpty()) && port.isEmpty() && !hasLegacyOption
                 && provider == null)
         {
-            Logo.print(stdOut);
-            stdOut.println("Use 'midra <file1.mid>' or 'midra -h' for help.");
+            try (var terminal = TerminalBuilder.builder().system(true).build())
+            {
+                Logo.print(terminal.writer());
+                terminal.writer().println("Use 'midra <file1.mid>' or 'midra -h' for help.");
+                terminal.writer().flush();
+            }
             return 0;
         }
 

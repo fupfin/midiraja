@@ -7,7 +7,7 @@
 
 package com.fupfin.midiraja.ui;
 
-import java.io.PrintStream;
+import java.io.PrintWriter;
 
 /** ASCII-art logo for Midiraja. */
 public final class Logo
@@ -39,7 +39,7 @@ public final class Logo
     public static final int WIDTH = 64;
 
     /** Prints the logo and subtitle to {@code out}, with amber color if the terminal supports it. */
-    public static void print(PrintStream out)
+    public static void print(PrintWriter out)
     {
         for (int i = 0; i < LINES.length; i++)
             out.println(LINE_COLORS[i] + LINES[i] + Theme.COLOR_RESET);
