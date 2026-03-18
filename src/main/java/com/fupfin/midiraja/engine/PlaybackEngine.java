@@ -509,11 +509,15 @@ public class PlaybackEngine
         if (status < 0xF0)
         {
             int cmd = status & 0xF0;
-            // CHASE ONLY: Program Change(0xC0), Control Change(0xB0), Pitch
-            // Bend(0xE0)
-            if (cmd == 0xC0 || cmd == 0xB0 || cmd == 0xE0)
+            int ch = status & 0x0F;
+            // CHASE ONLY: Program Change(0xC0), Control Change(0xB0), Pitch Bend(0xE0),
+            // Channel Pressure(0xD0)
+            if (cmd == 0xC0 || cmd == 0xB0 || cmd == 0xE0 || cmd == 0xD0)
             {
-
+                if (cmd == 0xC0 && raw.length >= 2)
+                {
+                    channelPrograms[ch] = raw[1] & 0xFF;
+                }
                 try
                 {
                     pipelineRoot.sendMessage(raw);
