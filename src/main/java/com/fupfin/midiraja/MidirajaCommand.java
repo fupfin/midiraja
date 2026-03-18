@@ -34,7 +34,6 @@ import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.OpnMidiSynthProvider;
 import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -173,8 +172,6 @@ public class MidirajaCommand implements Callable<Integer>
 
     public static void main(String[] args)
     {
-        System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
-        System.setErr(new PrintStream(System.err, true, StandardCharsets.UTF_8));
         fixJLineTmpDirOnWindows();
         var cmd = new CommandLine(new MidirajaCommand())
                 .setParameterExceptionHandler(MidirajaCommand::handleParameterException);

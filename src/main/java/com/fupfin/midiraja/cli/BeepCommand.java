@@ -14,6 +14,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.dsp.AudioProcessor;
+import com.fupfin.midiraja.io.Console;
 import com.fupfin.midiraja.dsp.FloatToShortSink;
 import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.beep.BeepSynthProvider;
@@ -82,7 +83,7 @@ public class BeepCommand implements Callable<Integer>
     {
         if (files.isEmpty())
         {
-            System.err.println("Error: No MIDI files specified.");
+            Console.err.println("Error: No MIDI files specified.");
             return 1;
         }
 

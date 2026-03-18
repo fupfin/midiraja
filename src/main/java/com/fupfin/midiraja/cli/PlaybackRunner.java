@@ -8,11 +8,11 @@
 package com.fupfin.midiraja.cli;
 
 import static java.lang.Math.max;
-import static java.lang.System.out;
 import static java.util.Locale.ROOT;
 
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.engine.PlaybackEngine;
+import com.fupfin.midiraja.io.Console;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.io.JLineTerminalIO;
@@ -168,7 +168,7 @@ public class PlaybackRunner
                 }
                 catch (Exception e)
                 {
-                    System.err.println("[Error] " + e.getMessage());
+                    Console.err.println("[Error] " + e.getMessage());
                 }
                 out.print(safeRestore);
                 out.flush();
@@ -186,7 +186,7 @@ public class PlaybackRunner
                             }
                             catch (Exception ignored)
                             {
-                                System.err.println("[Error] " + ignored.getMessage());
+                                Console.err.println("[Error] " + ignored.getMessage());
                             }
                         }
                         provider.closePort();
@@ -194,7 +194,7 @@ public class PlaybackRunner
                 }
                 catch (Exception e)
                 {
-                    System.err.println("[Error] " + e.getMessage());
+                    Console.err.println("[Error] " + e.getMessage());
                 }
             }));
 
@@ -231,7 +231,7 @@ public class PlaybackRunner
         }
         catch (Exception e)
         {
-            System.err.println("[Error] " + e.getMessage());
+            Console.err.println("[Error] " + e.getMessage());
             err.println("Error during playback: " + e.getMessage());
             if (common.verbose) e.printStackTrace(err);
             return 1;
@@ -250,7 +250,7 @@ public class PlaybackRunner
                     }
                     catch (Exception ignored)
                     {
-                        System.err.println("[Error] " + ignored.getMessage());
+                        Console.err.println("[Error] " + ignored.getMessage());
                     }
                 }
                 provider.closePort();

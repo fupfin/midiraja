@@ -7,8 +7,7 @@
 
 package com.fupfin.midiraja.midi.os;
 
-import static java.lang.System.err;
-
+import com.fupfin.midiraja.io.Console;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import java.lang.foreign.*;
@@ -143,9 +142,9 @@ public class CoreMidiProvider implements MidiOutProvider
         }
         catch (Throwable e)
         {
-            System.err.println("[NativeBridge Error] " + e.getMessage());
+            Console.err.println("[NativeBridge Error] " + e.getMessage());
             // FFM API throws Throwable, handle gracefully
-            err.println("Error enumerating Mac MIDI ports: " + e.getMessage());
+            Console.err.println("Error enumerating Mac MIDI ports: " + e.getMessage());
         }
         return ports;
     }
@@ -188,7 +187,7 @@ public class CoreMidiProvider implements MidiOutProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            Console.err.println("[NativeBridge Error] " + t.getMessage());
             throw new Exception("Failed to open Mac MIDI port via FFM", t);
         }
     }
@@ -222,7 +221,7 @@ public class CoreMidiProvider implements MidiOutProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            Console.err.println("[NativeBridge Error] " + t.getMessage());
             throw new Exception("Error sending MIDI message: " + t.getMessage(), t);
         }
     }
@@ -237,7 +236,7 @@ public class CoreMidiProvider implements MidiOutProvider
         }
         catch (Throwable e)
         {
-            System.err.println("[NativeBridge Error] " + e.getMessage());
+            Console.err.println("[NativeBridge Error] " + e.getMessage());
             // ignored
         }
         finally

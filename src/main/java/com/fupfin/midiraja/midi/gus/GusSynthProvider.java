@@ -10,6 +10,7 @@ package com.fupfin.midiraja.midi.gus;
 
 import com.fupfin.midiraja.dsp.AudioProcessor;
 import com.fupfin.midiraja.dsp.MasterGainFilter;
+import com.fupfin.midiraja.io.Console;
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.midi.SoftSynthProvider;
 import java.io.IOException;
@@ -197,7 +198,7 @@ public class GusSynthProvider implements SoftSynthProvider
             }
             catch (Exception e)
             {
-                System.err.println("[NativeBridge Error] " + e.getMessage());
+                Console.err.println("[NativeBridge Error] " + e.getMessage());
                 /* ignored */ }
         });
     }
@@ -352,7 +353,7 @@ public class GusSynthProvider implements SoftSynthProvider
                 }
                 catch (Exception e)
                 {
-                    System.err.println("[NativeBridge Error] " + e.getMessage());
+                    Console.err.println("[NativeBridge Error] " + e.getMessage());
                     failedPatches.add(engineId);
                 }
             }, () -> failedPatches.add(engineId));

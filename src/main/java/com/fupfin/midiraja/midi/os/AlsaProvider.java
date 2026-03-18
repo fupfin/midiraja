@@ -7,8 +7,7 @@
 
 package com.fupfin.midiraja.midi.os;
 
-import static java.lang.System.err;
-
+import com.fupfin.midiraja.io.Console;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import java.lang.foreign.*;
@@ -39,7 +38,7 @@ public class AlsaProvider implements MidiOutProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            Console.err.println("[NativeBridge Error] " + t.getMessage());
             // libasound.so.2 not found, probably not on a Linux desktop with ALSA
         }
         ALSA_LOOKUP = lookup;
@@ -175,7 +174,7 @@ public class AlsaProvider implements MidiOutProvider
 
             if ((int) snd_seq_open.invokeExact(seqRef, nameStr, SND_SEQ_OPEN_OUTPUT, 0) < 0)
             {
-                err.println("[Midiraja] Warning: ALSA Sequencer could not be opened.");
+                Console.err.println("[Midiraja] Warning: ALSA Sequencer could not be opened.");
                 return ports;
             }
 
@@ -247,8 +246,8 @@ public class AlsaProvider implements MidiOutProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
-            err.println("ALSA Query Error: " + t.getMessage());
+            Console.err.println("[NativeBridge Error] " + t.getMessage());
+            Console.err.println("ALSA Query Error: " + t.getMessage());
         }
 
         return ports;
@@ -297,7 +296,7 @@ public class AlsaProvider implements MidiOutProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            Console.err.println("[NativeBridge Error] " + t.getMessage());
             if (sessionArena != null) sessionArena.close();
             throw new Exception("Failed to open ALSA port via FFM", t);
         }
@@ -343,7 +342,7 @@ public class AlsaProvider implements MidiOutProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            Console.err.println("[NativeBridge Error] " + t.getMessage());
             throw new Exception("Error sending ALSA MIDI message", t);
         }
     }
@@ -365,7 +364,7 @@ public class AlsaProvider implements MidiOutProvider
         }
         catch (Throwable e)
         {
-            System.err.println("[NativeBridge Error] " + e.getMessage());
+            Console.err.println("[NativeBridge Error] " + e.getMessage());
             // ignore
         }
         finally

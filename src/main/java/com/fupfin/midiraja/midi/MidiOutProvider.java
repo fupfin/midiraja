@@ -8,6 +8,7 @@
 package com.fupfin.midiraja.midi;
 
 import com.fupfin.midiraja.dsp.MasterGainFilter;
+import com.fupfin.midiraja.io.Console;
 import java.util.List;
 import java.util.Optional;
 import javax.sound.midi.Sequence;
@@ -94,7 +95,7 @@ public interface MidiOutProvider extends MidiSink
             }
             catch (Exception ignored)
             {
-                System.err.println(
+                Console.err.println(
                         "[NativeBridge Error] " + ignored.getMessage()); /* Ignore during panic */
             }
         }
@@ -126,7 +127,7 @@ public interface MidiOutProvider extends MidiSink
             }
             catch (Exception ignored)
             {
-                System.err.println(
+                Console.err.println(
                         "[NativeBridge Error] " + ignored.getMessage()); /* Ignore during panic */
             }
         }
@@ -149,7 +150,7 @@ public interface MidiOutProvider extends MidiSink
             }
             catch (Exception ignored)
             {
-                System.err.println("[NativeBridge Error] " + ignored.getMessage()); /* force wait */
+                Console.err.println("[NativeBridge Error] " + ignored.getMessage()); /* force wait */
             }
         }
     }

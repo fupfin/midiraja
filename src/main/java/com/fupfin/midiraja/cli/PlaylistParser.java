@@ -7,6 +7,7 @@
 
 package com.fupfin.midiraja.cli;
 
+import com.fupfin.midiraja.io.Console;
 import java.io.File;
 import java.io.PrintStream;
 import java.nio.file.Files;
@@ -187,7 +188,7 @@ public class PlaylistParser
         }
         catch (Exception e)
         {
-            System.err.println("[Error in " + getClass().getSimpleName() + "] " + e.getMessage());
+            Console.err.println("[Error in " + getClass().getSimpleName() + "] " + e.getMessage());
             err.println("Error reading playlist file '" + playlistFile.getName() + "': "
                     + e.getMessage());
             if (verbose) e.printStackTrace(err);
@@ -212,7 +213,7 @@ public class PlaylistParser
         }
         catch (Exception e)
         {
-            System.err.println("[Error in " + getClass().getSimpleName() + "] " + e.getMessage());
+            Console.err.println("[Error in " + getClass().getSimpleName() + "] " + e.getMessage());
             err.println("Error reading directory '" + dir.getName() + "': " + e.getMessage());
             if (verbose) e.printStackTrace(err);
         }
