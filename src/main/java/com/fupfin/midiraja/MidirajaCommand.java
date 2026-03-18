@@ -32,9 +32,9 @@ import com.fupfin.midiraja.midi.MidiProviderFactory;
 import com.fupfin.midiraja.midi.MuntSynthProvider;
 import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.OpnMidiSynthProvider;
-import java.io.File;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -47,7 +47,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 @Command(name = "midra", mixinStandardHelpOptions = true,
-        version = {"midiraja " + Version.VERSION, "commit: " + Version.COMMIT},
+        version = {"midiraja " + Version.VERSION + " (" + Version.COMMIT + ")"},
         description = "Terminal Lover's MIDI Player",
         customSynopsis = {"midra [command] [OPTIONS] [<files>...]"},
         subcommands = {FmCommand.class, MuntCommand.class, FluidCommand.class,
@@ -173,6 +173,8 @@ public class MidirajaCommand implements Callable<Integer>
 
     public static void main(String[] args)
     {
+        System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
+        System.setErr(new PrintStream(System.err, true, StandardCharsets.UTF_8));
         fixJLineTmpDirOnWindows();
         var cmd = new CommandLine(new MidirajaCommand())
                 .setParameterExceptionHandler(MidirajaCommand::handleParameterException);
