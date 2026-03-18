@@ -33,7 +33,7 @@ public final class Logo
         "╚═╝     ╚═╝ ╚═╝ ╚═════╝  ╚═╝ ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚█████╔╝ ╚═╝  ╚═╝"
     };
 
-    public static final String VU_BARS = "▃▅▇▅▆▄";
+    public static final String VU_BARS = "[▃▅▇▅▆▄]";
     public static final String SUBTITLE_TEXT = "Play MIDI anywhere, any way";
     public static final String SUBTITLE = VU_BARS + "  " + SUBTITLE_TEXT;
     public static final int WIDTH = 64;
@@ -45,7 +45,7 @@ public final class Logo
             out.println(LINE_COLORS[i] + LINES[i] + Theme.COLOR_RESET);
         int pad = (WIDTH - SUBTITLE.length()) / 2;
         out.println(" ".repeat(pad)
-                + Theme.COLOR_DIM_FG + VU_BARS + "  " + SUBTITLE_TEXT + Theme.COLOR_RESET);
+                + Theme.COLOR_VU + VU_BARS + Theme.COLOR_DIM_FG + "  " + SUBTITLE_TEXT + Theme.COLOR_RESET);
         out.println();
     }
 }

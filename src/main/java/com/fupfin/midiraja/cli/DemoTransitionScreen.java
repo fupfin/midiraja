@@ -107,8 +107,8 @@ class DemoTransitionScreen
                                     .append(Theme.COLOR_RESET).appendLine();
                         int subtitlePad = Math.max(0, (width - Logo.SUBTITLE.length()) / 2);
                         buf.repeat(" ", subtitlePad)
-                                .append(Theme.COLOR_DIM_FG).append(Logo.VU_BARS)
-                                .append("  ").append(Logo.SUBTITLE_TEXT)
+                                .append(Theme.COLOR_VU).append(Logo.VU_BARS)
+                                .append(Theme.COLOR_DIM_FG).append("  ").append(Logo.SUBTITLE_TEXT)
                                 .append(Theme.COLOR_RESET).appendLine();
                         buf.appendLine();
                     }

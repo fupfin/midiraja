@@ -24,6 +24,9 @@ public final class Theme
     // Dimmed foreground relative to terminal theme — readable on both dark and light backgrounds
     public static final String COLOR_DIM_FG = "\033[2m";
 
+    // Dim amber for VU bars — same brightness as COLOR_DIM_FG on dark terminals, but orange
+    public static final String COLOR_VU = "\033[38;5;136m";
+
     // Invert Colors (for top banner)
     public static final String FORMAT_INVERT = "\033[7m";
 
