@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.5] - 2026-03-18
+
+### Added
+- **`midra info`** — new subcommand that prints build version, native library paths, detected patch/soundfont locations, and available synthesis engines
+
+### Changed
+- **Improved audio quality for built-in synths** — internal DSP architecture was significantly restructured: signal levels, per-synth calibration, and volume are now unified into a single gain stage, reducing distortion and producing cleaner output across all effects (tube saturation, reverb, chorus)
+- **Volume for internal synths now goes up to 150%** — since volume is applied as a PCM gain (not MIDI CC7), exceeding 100% boosts output above nominal level; values > 100 may clip
+
+### Changed
+- **Seek state**: `channelPrograms` array is now re-applied during seek chase, and `ChannelPressure` messages are forwarded, preventing silent channels and wrong patches after seeking
+
+### Fixed
+- **Windows**: argument ending with `\` in PowerShell caused a trailing `"` to be appended to the path; the validator now strips it
+
 ## [0.3.4] - 2026-03-17
 
 ### Fixed
