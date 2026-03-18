@@ -1,6 +1,6 @@
 package com.fupfin.midiraja.midi;
 
-import com.fupfin.midiraja.io.Console;
+
 import java.io.File;
 import java.lang.foreign.*;
 import java.lang.invoke.*;
@@ -99,7 +99,7 @@ public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
         try
         {
             wavWriter = new WavFileWriter(filename, 44100, 2);
-            Console.out.println("[DEBUG] Dumping audio to " + filename);
+            System.out.println("[DEBUG] Dumping audio to " + filename);
         }
         catch (Exception e)
         {
@@ -145,7 +145,7 @@ public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
         }
         catch (Throwable t)
         {
-            Console.err.println("[NativeBridge Error] " + t.getMessage());
+            System.err.println("[NativeBridge Error] " + t.getMessage());
             throw new Exception("Error invoking midiraja_audio_init", t);
         }
     }

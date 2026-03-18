@@ -8,7 +8,7 @@
 package com.fupfin.midiraja.cli;
 
 import com.fupfin.midiraja.dsp.*;
-import com.fupfin.midiraja.io.Console;
+
 import java.util.Optional;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Option;
@@ -91,7 +91,7 @@ public class CommonOptions
             }
             catch (IllegalArgumentException e)
             {
-                Console.err.println(
+                System.err.println(
                         "Warning: Unknown speaker profile '" + profileStr + "'. Ignoring.");
             }
         }
@@ -115,7 +115,7 @@ public class CommonOptions
                 case "covox", "disneysound" -> new CovoxDacFilter(true, pipeline);
                 default ->
                 {
-                    Console.err.println("Warning: Unknown retro hardware mode '" + mode
+                    System.err.println("Warning: Unknown retro hardware mode '" + mode
                             + "'. Falling back to clean output.");
                     yield pipeline;
                 }

@@ -10,7 +10,7 @@ package com.fupfin.midiraja.midi.gus;
 
 import com.fupfin.midiraja.dsp.AudioProcessor;
 import com.fupfin.midiraja.dsp.MasterGainFilter;
-import com.fupfin.midiraja.io.Console;
+
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.midi.SoftSynthProvider;
 import java.io.IOException;
@@ -60,10 +60,10 @@ public class GusSynthProvider implements SoftSynthProvider
         this.bank = resolveBank(patchDir);
     }
 
-    /** GUS uses tanh soft-clipping, so output level is already bounded. No calibration needed. */
+    /** GUS (freepats) is mastered loud; attenuate to match reference level. */
     protected float calibrationGain()
     {
-        return 1.0f;
+        return 0.54f;
     }
 
     public void setMasterGain(MasterGainFilter gain)
@@ -198,7 +198,7 @@ public class GusSynthProvider implements SoftSynthProvider
             }
             catch (Exception e)
             {
-                Console.err.println("[NativeBridge Error] " + e.getMessage());
+                System.err.println("[NativeBridge Error] " + e.getMessage());
                 /* ignored */ }
         });
     }
@@ -353,7 +353,7 @@ public class GusSynthProvider implements SoftSynthProvider
                 }
                 catch (Exception e)
                 {
-                    Console.err.println("[NativeBridge Error] " + e.getMessage());
+                    System.err.println("[NativeBridge Error] " + e.getMessage());
                     failedPatches.add(engineId);
                 }
             }, () -> failedPatches.add(engineId));

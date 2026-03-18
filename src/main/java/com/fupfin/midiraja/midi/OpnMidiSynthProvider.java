@@ -44,6 +44,13 @@ public class OpnMidiSynthProvider extends AbstractSoftSynthProvider<OpnMidiNativ
         return buildFmSynthPorts(EMULATOR_NAMES, emulatorId, numChips, dacMode);
     }
 
+    /** OPN output is slightly quiet; boost to match reference level. */
+    @Override
+    protected float calibrationGain()
+    {
+        return 1.15f;
+    }
+
     @Override
     public void openPort(int portIndex) throws Exception
     {

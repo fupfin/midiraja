@@ -102,11 +102,11 @@ public class PsgSynthProvider extends AbstractOneBitSynthProvider
         }
     }
 
-    /** PSG renders chip-count-normalized; calibrate to −9 dBFS (÷2.8 ≈ 0.357). */
+    /** PSG renders chip-count-normalized; calibrate to reference level (÷4.65 ≈ 0.215). */
     @Override
     protected float calibrationGain()
     {
-        return 1.0f / 2.8f;
+        return 1.0f / 4.65f;
     }
 
     @Override

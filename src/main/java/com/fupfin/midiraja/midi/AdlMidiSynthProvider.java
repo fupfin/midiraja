@@ -44,6 +44,13 @@ public class AdlMidiSynthProvider extends AbstractSoftSynthProvider<AdlMidiNativ
         return buildFmSynthPorts(EMULATOR_NAMES, emulatorId, numChips, dacMode);
     }
 
+    /** OPL output is relatively quiet; boost to match reference level. */
+    @Override
+    protected float calibrationGain()
+    {
+        return 1.78f;
+    }
+
     @Override
     public void openPort(int portIndex) throws Exception
     {

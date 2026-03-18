@@ -34,6 +34,13 @@ public class TsfSynthProvider extends AbstractSoftSynthProvider<TsfNativeBridge>
         return List.of(new MidiPort(0, "TinySoundFont"));
     }
 
+    /** FluidR3 GM SF3 is mastered loud; attenuate to match reference level. */
+    @Override
+    protected float calibrationGain()
+    {
+        return 0.60f;
+    }
+
     @Override
     public void openPort(int portIndex)
     {

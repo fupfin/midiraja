@@ -8,7 +8,7 @@
 package com.fupfin.midiraja;
 
 import com.fupfin.midiraja.cli.*;
-import com.fupfin.midiraja.io.Console;
+
 import com.fupfin.midiraja.ui.Logo;
 import com.fupfin.midiraja.dsp.AudioProcessor;
 import java.io.File;
@@ -109,8 +109,8 @@ public class MidirajaCommand implements Callable<Integer>
     @Nullable
     private TerminalIO terminalIO;
     private boolean isTestMode = false;
-    private PrintStream stdOut = Console.out;
-    private PrintStream stdErr = Console.err;
+    private PrintStream stdOut = System.out;
+    private PrintStream stdErr = System.err;
 
     public void setTestEnvironment(MidiOutProvider provider, TerminalIO terminalIO, PrintStream out,
             PrintStream err)

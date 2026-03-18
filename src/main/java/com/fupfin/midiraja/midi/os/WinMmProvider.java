@@ -7,7 +7,7 @@
 
 package com.fupfin.midiraja.midi.os;
 
-import com.fupfin.midiraja.io.Console;
+
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import java.lang.foreign.*;
@@ -93,8 +93,8 @@ public class WinMmProvider implements MidiOutProvider
         }
         catch (Throwable e)
         {
-            Console.err.println("[NativeBridge Error] " + e.getMessage());
-            Console.err.println("Error enumerating Windows MIDI ports: " + e.getMessage());
+            System.err.println("[NativeBridge Error] " + e.getMessage());
+            System.err.println("Error enumerating Windows MIDI ports: " + e.getMessage());
         }
         return ports;
     }
@@ -117,7 +117,7 @@ public class WinMmProvider implements MidiOutProvider
         }
         catch (Throwable t)
         {
-            Console.err.println("[NativeBridge Error] " + t.getMessage());
+            System.err.println("[NativeBridge Error] " + t.getMessage());
             if (sessionArena != null) sessionArena.close();
             throw new Exception("Failed to open Windows MIDI port via FFM", t);
         }
@@ -146,7 +146,7 @@ public class WinMmProvider implements MidiOutProvider
             }
             catch (Throwable t)
             {
-                Console.err.println("[NativeBridge Error] " + t.getMessage());
+                System.err.println("[NativeBridge Error] " + t.getMessage());
                 throw new Exception("Error sending MIDI message to WinMM", t);
             }
         }
@@ -165,7 +165,7 @@ public class WinMmProvider implements MidiOutProvider
         }
         catch (Throwable e)
         {
-            Console.err.println("[NativeBridge Error] " + e.getMessage());
+            System.err.println("[NativeBridge Error] " + e.getMessage());
             // ignored
         }
         finally

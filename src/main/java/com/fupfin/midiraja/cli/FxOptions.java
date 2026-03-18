@@ -1,7 +1,7 @@
 package com.fupfin.midiraja.cli;
 
 import com.fupfin.midiraja.dsp.*;
-import com.fupfin.midiraja.io.Console;
+
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Option;
@@ -77,7 +77,7 @@ public class FxOptions
             }
             catch (IllegalArgumentException e)
             {
-                Console.err.println(
+                System.err.println(
                         "Warning: Unknown reverb preset '" + reverb.get() + "'. Using HALL.");
                 pipeline = new ReverbFilter(pipeline, ReverbFilter.Preset.HALL, levelScale);
             }

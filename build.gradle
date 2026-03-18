@@ -420,3 +420,11 @@ task cpdCheck {
         }
     }
 }
+
+task measureLoudness(type: JavaExec, dependsOn: testClasses) {
+    group = 'verification'
+    description = 'Measure RMS/peak dBFS of WAV files. Usage: ./gradlew measureLoudness -PwavFiles="a.wav,b.wav"'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fupfin.midiraja.tools.WavRmsMeter'
+    args = project.hasProperty('wavFiles') ? project.wavFiles.split(',') as List : []
+}
