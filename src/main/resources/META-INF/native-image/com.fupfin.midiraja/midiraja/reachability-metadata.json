@@ -119,6 +119,12 @@
             "allPublicMethods": true
         },
         {
+            "type": "com.fupfin.midiraja.cli.ResumeCommand",
+            "allDeclaredFields": true,
+            "allDeclaredMethods": true,
+            "allDeclaredConstructors": true
+        },
+        {
             "type": "groovy.lang.Closure"
         },
         {

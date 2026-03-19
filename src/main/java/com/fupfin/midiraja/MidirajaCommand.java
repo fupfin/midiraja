@@ -52,7 +52,7 @@ import picocli.CommandLine.Parameters;
         subcommands = {FmCommand.class, MuntCommand.class, FluidCommand.class,
                 TsfCommand.class, GusCommand.class, BeepCommand.class,
                 DeviceCommand.class, PsgCommand.class, DemoCommand.class,
-                InfoCommand.class, CommandLine.HelpCommand.class},
+                InfoCommand.class, ResumeCommand.class, CommandLine.HelpCommand.class},
         footer = {"",
                 "Run 'midra <command> --help' for command-specific options.", "",
                 "Playlist Features:",
@@ -141,6 +141,11 @@ public class MidirajaCommand implements Callable<Integer>
     public boolean isInTestMode()
     {
         return isTestMode;
+    }
+
+    public CommonOptions getCommonOptions()
+    {
+        return common;
     }
 
     // ── Port index lookup (package-private for tests) ─────────────────────────
