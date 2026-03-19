@@ -22,6 +22,8 @@ import org.jspecify.annotations.Nullable;
  */
 public class WinMmProvider implements MidiOutProvider
 {
+    private static final java.util.logging.Logger log =
+            java.util.logging.Logger.getLogger(WinMmProvider.class.getName());
     private static final Linker LINKER = Linker.nativeLinker();
     // In Windows, WinMM is usually globally available or found via standard
     // lookup.
@@ -93,8 +95,8 @@ public class WinMmProvider implements MidiOutProvider
         }
         catch (Throwable e)
         {
-            System.err.println("[NativeBridge Error] " + e.getMessage());
-            System.err.println("Error enumerating Windows MIDI ports: " + e.getMessage());
+            log.warning("NativeBridge error: " + e.getMessage());
+            log.warning("Error enumerating Windows MIDI ports: " + e.getMessage());
         }
         return ports;
     }
@@ -117,7 +119,7 @@ public class WinMmProvider implements MidiOutProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            log.warning("NativeBridge error: " + t.getMessage());
             if (sessionArena != null) sessionArena.close();
             throw new Exception("Failed to open Windows MIDI port via FFM", t);
         }
@@ -146,7 +148,7 @@ public class WinMmProvider implements MidiOutProvider
             }
             catch (Throwable t)
             {
-                System.err.println("[NativeBridge Error] " + t.getMessage());
+                log.warning("NativeBridge error: " + t.getMessage());
                 throw new Exception("Error sending MIDI message to WinMM", t);
             }
         }
@@ -165,8 +167,7 @@ public class WinMmProvider implements MidiOutProvider
         }
         catch (Throwable e)
         {
-            System.err.println("[NativeBridge Error] " + e.getMessage());
-            // ignored
+            log.warning("NativeBridge error: " + e.getMessage());
         }
         finally
         {

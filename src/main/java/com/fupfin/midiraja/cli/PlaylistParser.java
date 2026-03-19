@@ -23,6 +23,9 @@ import java.util.Locale;
  */
 public class PlaylistParser
 {
+    private static final java.util.logging.Logger log =
+            java.util.logging.Logger.getLogger(PlaylistParser.class.getName());
+
     private final PrintStream err;
     private final boolean verbose;
 
@@ -188,7 +191,7 @@ public class PlaylistParser
         }
         catch (Exception e)
         {
-            System.err.println("[Error in " + getClass().getSimpleName() + "] " + e.getMessage());
+            log.warning("Error reading playlist file '" + playlistFile.getName() + "': " + e.getMessage());
             err.println("Error reading playlist file '" + playlistFile.getName() + "': "
                     + e.getMessage());
             if (verbose) e.printStackTrace(err);
@@ -213,7 +216,7 @@ public class PlaylistParser
         }
         catch (Exception e)
         {
-            System.err.println("[Error in " + getClass().getSimpleName() + "] " + e.getMessage());
+            log.warning("Error reading directory '" + dir.getName() + "': " + e.getMessage());
             err.println("Error reading directory '" + dir.getName() + "': " + e.getMessage());
             if (verbose) e.printStackTrace(err);
         }

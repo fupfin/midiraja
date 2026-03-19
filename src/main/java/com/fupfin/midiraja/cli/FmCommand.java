@@ -10,6 +10,7 @@ package com.fupfin.midiraja.cli;
 import static java.util.Objects.requireNonNull;
 
 import com.fupfin.midiraja.MidirajaCommand;
+import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.AdlMidiSynthProvider;
 import com.fupfin.midiraja.midi.FFMAdlMidiNativeBridge;
 import com.fupfin.midiraja.midi.FFMOpnMidiNativeBridge;
@@ -148,6 +149,7 @@ public class FmCommand implements Callable<Integer>
     @Override
     public Integer call() throws Exception
     {
+        AppLogger.configure(common.verbose, common.debug);
         var p = requireNonNull(parent);
         var files = effectiveFiles();
         var pipeline = FmSynthOptions.buildStereoFmPipeline(common, fxOptions);

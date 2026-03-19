@@ -24,7 +24,6 @@ import java.util.Optional;
 import javax.sound.midi.Track;
 import org.jspecify.annotations.Nullable;
 
-@SuppressWarnings("ThreadPriorityCheck")
 /**
  * A Gravis Ultrasound (GUS) soft-synth provider.
  *
@@ -32,8 +31,11 @@ import org.jspecify.annotations.Nullable;
  * This engine emulates the classic GF1 wavetable synthesis and supports authentic retro audio
  * features like RealSound (6-bit PWM) and modular DSP filters.
  */
+@SuppressWarnings("ThreadPriorityCheck")
 public class GusSynthProvider implements SoftSynthProvider
 {
+    private static final java.util.logging.Logger log =
+            java.util.logging.Logger.getLogger(GusSynthProvider.class.getName());
     private final @Nullable AudioProcessor audioOut;
     private final GusEngine engine;
     private final @Nullable GusBank bank;
@@ -198,7 +200,7 @@ public class GusSynthProvider implements SoftSynthProvider
             }
             catch (Exception e)
             {
-                System.err.println("[NativeBridge Error] " + e.getMessage());
+                log.warning("NativeBridge error: " + e.getMessage());
                 /* ignored */ }
         });
     }
@@ -353,7 +355,7 @@ public class GusSynthProvider implements SoftSynthProvider
                 }
                 catch (Exception e)
                 {
-                    System.err.println("[NativeBridge Error] " + e.getMessage());
+                    log.warning("NativeBridge error: " + e.getMessage());
                     failedPatches.add(engineId);
                 }
             }, () -> failedPatches.add(engineId));

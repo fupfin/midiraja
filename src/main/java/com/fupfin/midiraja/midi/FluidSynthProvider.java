@@ -16,6 +16,8 @@ import org.jspecify.annotations.Nullable;
 @SuppressWarnings({"EmptyCatch", "UnusedVariable"})
 public class FluidSynthProvider implements SoftSynthProvider
 {
+    private static final java.util.logging.Logger log =
+            java.util.logging.Logger.getLogger(FluidSynthProvider.class.getName());
     private final Arena arena;
     private final @Nullable String explicitDriver;
 
@@ -248,7 +250,7 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            log.warning("NativeBridge error: " + t.getMessage());
             throw new Exception("Failed to open FluidSynth engine via FFM: " + t.getMessage(), t);
         }
     }
@@ -276,7 +278,7 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            log.warning("NativeBridge error: " + t.getMessage());
             throw new Exception("Failed to load soundbank via FFM: " + t.getMessage(), t);
         }
     }
@@ -335,7 +337,7 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
         catch (Throwable ignored)
         {
-            System.err.println("[NativeBridge Error] " + ignored.getMessage());
+            log.warning("NativeBridge error: " + ignored.getMessage());
         }
     }
 
@@ -348,7 +350,7 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
         catch (Throwable ignored)
         {
-            System.err.println("[NativeBridge Error] " + ignored.getMessage());
+            log.warning("NativeBridge error: " + ignored.getMessage());
         }
     }
 
@@ -361,7 +363,7 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
         catch (Throwable ignored)
         {
-            System.err.println("[NativeBridge Error] " + ignored.getMessage());
+            log.warning("NativeBridge error: " + ignored.getMessage());
         }
     }
 
@@ -374,7 +376,7 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
         catch (Throwable ignored)
         {
-            System.err.println("[NativeBridge Error] " + ignored.getMessage());
+            log.warning("NativeBridge error: " + ignored.getMessage());
         }
     }
 
@@ -387,7 +389,7 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
         catch (Throwable ignored)
         {
-            System.err.println("[NativeBridge Error] " + ignored.getMessage());
+            log.warning("NativeBridge error: " + ignored.getMessage());
         }
     }
 
@@ -404,7 +406,7 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
         catch (Throwable ignored)
         {
-            System.err.println("[NativeBridge Error] " + ignored.getMessage());
+            log.warning("NativeBridge error: " + ignored.getMessage());
         }
     }
 
@@ -443,8 +445,8 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
-            System.err.println("Error closing FluidSynth via FFM: " + t.getMessage());
+            log.warning("NativeBridge error: " + t.getMessage());
+            log.warning("Error closing FluidSynth via FFM: " + t.getMessage());
         }
         finally
         {

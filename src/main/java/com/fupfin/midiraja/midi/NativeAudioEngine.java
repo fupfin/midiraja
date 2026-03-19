@@ -10,6 +10,8 @@ import org.jspecify.annotations.Nullable;
 @SuppressWarnings("EmptyCatch")
 public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
 {
+    private static final java.util.logging.Logger log =
+            java.util.logging.Logger.getLogger(NativeAudioEngine.class.getName());
     private @Nullable WavFileWriter wavWriter = null;
     private MemorySegment ctx = MemorySegment.NULL;
     private final MethodHandle midiraja_audio_init;
@@ -99,7 +101,7 @@ public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
         try
         {
             wavWriter = new WavFileWriter(filename, 44100, 2);
-            System.out.println("[DEBUG] Dumping audio to " + filename);
+            log.fine("Dumping audio to " + filename);
         }
         catch (Exception e)
         {
@@ -145,7 +147,7 @@ public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            log.warning("NativeBridge error: " + t.getMessage());
             throw new Exception("Error invoking midiraja_audio_init", t);
         }
     }

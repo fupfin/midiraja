@@ -12,6 +12,7 @@ import static java.util.Objects.requireNonNull;
 import com.fupfin.midiraja.LibraryPaths;
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.Version;
+import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.AbstractFFMBridge;
 import com.fupfin.midiraja.midi.MidiProviderFactory;
 import com.fupfin.midiraja.midi.gus.GusSynthProvider;
@@ -20,6 +21,7 @@ import java.util.Locale;
 import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.ParentCommand;
 
 @Command(name = "info", mixinStandardHelpOptions = true,
@@ -30,11 +32,15 @@ public class InfoCommand implements Callable<Integer>
     @Nullable
     private MidirajaCommand parent;
 
+    @Mixin
+    private final CommonOptions common = new CommonOptions();
+
     record LibInfo(String name, AbstractFFMBridge.LibProbeResult result) {}
 
     @Override
     public Integer call()
     {
+        AppLogger.configure(common.verbose, common.debug);
         var p = requireNonNull(parent);
 
         String version = Version.VERSION;

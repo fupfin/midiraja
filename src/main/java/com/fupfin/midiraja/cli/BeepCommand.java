@@ -13,6 +13,7 @@ import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 import com.fupfin.midiraja.MidirajaCommand;
+import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.dsp.AudioProcessor;
 
 import com.fupfin.midiraja.dsp.FloatToShortSink;
@@ -81,6 +82,7 @@ public class BeepCommand implements Callable<Integer>
     @Override
     public Integer call() throws Exception
     {
+        AppLogger.configure(common.verbose, common.debug);
         if (files.isEmpty())
         {
             System.err.println("Error: No MIDI files specified.");

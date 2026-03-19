@@ -23,6 +23,8 @@ import org.jspecify.annotations.Nullable;
  */
 public class CoreMidiProvider implements MidiOutProvider
 {
+    private static final java.util.logging.Logger log =
+            java.util.logging.Logger.getLogger(CoreMidiProvider.class.getName());
     private static final Linker LINKER = Linker.nativeLinker();
     private static final SymbolLookup CF_LOOKUP = SymbolLookup.libraryLookup(
             "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", Arena.global());
@@ -142,9 +144,8 @@ public class CoreMidiProvider implements MidiOutProvider
         }
         catch (Throwable e)
         {
-            System.err.println("[NativeBridge Error] " + e.getMessage());
-            // FFM API throws Throwable, handle gracefully
-            System.err.println("Error enumerating Mac MIDI ports: " + e.getMessage());
+            log.warning("NativeBridge error: " + e.getMessage());
+            log.warning("Error enumerating Mac MIDI ports: " + e.getMessage());
         }
         return ports;
     }
@@ -187,7 +188,7 @@ public class CoreMidiProvider implements MidiOutProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            log.warning("NativeBridge error: " + t.getMessage());
             throw new Exception("Failed to open Mac MIDI port via FFM", t);
         }
     }
@@ -221,7 +222,7 @@ public class CoreMidiProvider implements MidiOutProvider
         }
         catch (Throwable t)
         {
-            System.err.println("[NativeBridge Error] " + t.getMessage());
+            log.warning("NativeBridge error: " + t.getMessage());
             throw new Exception("Error sending MIDI message: " + t.getMessage(), t);
         }
     }
@@ -236,8 +237,7 @@ public class CoreMidiProvider implements MidiOutProvider
         }
         catch (Throwable e)
         {
-            System.err.println("[NativeBridge Error] " + e.getMessage());
-            // ignored
+            log.warning("NativeBridge error: " + e.getMessage());
         }
         finally
         {

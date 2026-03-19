@@ -8,6 +8,7 @@
 package com.fupfin.midiraja.cli;
 
 import com.fupfin.midiraja.MidirajaCommand;
+import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.dsp.*;
 import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.gus.GusSynthProvider;
@@ -80,6 +81,7 @@ public class GusCommand implements Callable<Integer>
     @Override
     public Integer call() throws Exception
     {
+        AppLogger.configure(common.verbose, common.debug);
         var p = Objects.requireNonNull(parent);
         String audioLib = AudioLibResolver.resolve();
         NativeAudioEngine audio = new NativeAudioEngine(audioLib);

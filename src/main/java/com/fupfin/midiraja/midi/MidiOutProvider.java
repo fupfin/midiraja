@@ -19,6 +19,8 @@ import javax.sound.midi.Sequence;
  */
 public interface MidiOutProvider extends MidiSink
 {
+    java.util.logging.Logger log =
+            java.util.logging.Logger.getLogger(MidiOutProvider.class.getName());
     /**
      * Returns an immutable list of available MIDI output devices on the host OS.
      */
@@ -95,8 +97,7 @@ public interface MidiOutProvider extends MidiSink
             }
             catch (Exception ignored)
             {
-                System.err.println(
-                        "[NativeBridge Error] " + ignored.getMessage()); /* Ignore during panic */
+                log.warning("NativeBridge error: " + ignored.getMessage()); /* Ignore during panic */
             }
         }
     }
@@ -127,8 +128,7 @@ public interface MidiOutProvider extends MidiSink
             }
             catch (Exception ignored)
             {
-                System.err.println(
-                        "[NativeBridge Error] " + ignored.getMessage()); /* Ignore during panic */
+                log.warning("NativeBridge error: " + ignored.getMessage()); /* Ignore during panic */
             }
         }
     }
@@ -150,7 +150,7 @@ public interface MidiOutProvider extends MidiSink
             }
             catch (Exception ignored)
             {
-                System.err.println("[NativeBridge Error] " + ignored.getMessage()); /* force wait */
+                log.warning("NativeBridge error: " + ignored.getMessage()); /* force wait */
             }
         }
     }

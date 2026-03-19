@@ -10,6 +10,7 @@ package com.fupfin.midiraja.cli;
 import static java.util.Objects.requireNonNull;
 
 import com.fupfin.midiraja.MidirajaCommand;
+import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.ui.Theme;
 import java.util.Locale;
@@ -54,6 +55,7 @@ public class DemoCommand implements Callable<Integer>
     @Override
     public Integer call() throws Exception
     {
+        AppLogger.configure(common.verbose, common.debug);
         var p = requireNonNull(parent);
         File demoDir = findDemoDirectory();
         if (demoDir == null)

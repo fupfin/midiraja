@@ -11,6 +11,8 @@ import picocli.CommandLine.Option;
  */
 public class FxOptions
 {
+    private static final java.util.logging.Logger log =
+            java.util.logging.Logger.getLogger(FxOptions.class.getName());
     @Option(names = {"--bass"}, defaultValue = "50",
             description = "Adjust bass gain (0-100%%). Default: 50 (neutral).")
     public float eqBass = 100; // Actually wait, in OplCommand it was initialized to 100? Let's
@@ -77,8 +79,7 @@ public class FxOptions
             }
             catch (IllegalArgumentException e)
             {
-                System.err.println(
-                        "Warning: Unknown reverb preset '" + reverb.get() + "'. Using HALL.");
+                log.warning("Unknown reverb preset '" + reverb.get() + "'. Using HALL.");
                 pipeline = new ReverbFilter(pipeline, ReverbFilter.Preset.HALL, levelScale);
             }
         }

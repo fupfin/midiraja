@@ -10,6 +10,7 @@ package com.fupfin.midiraja.cli;
 import static java.util.Objects.requireNonNull;
 
 import com.fupfin.midiraja.MidirajaCommand;
+import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.FFMTsfNativeBridge;
 import com.fupfin.midiraja.midi.TsfSynthProvider;
 import java.io.File;
@@ -120,6 +121,7 @@ public class TsfCommand implements Callable<Integer>
     @Override
     public Integer call() throws Exception
     {
+        AppLogger.configure(common.verbose, common.debug);
         var p = requireNonNull(parent);
 
         String sfPath = soundfontPath();

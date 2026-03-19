@@ -3,6 +3,7 @@ package com.fupfin.midiraja.cli;
 import static java.util.Objects.requireNonNull;
 
 import com.fupfin.midiraja.MidirajaCommand;
+import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiProviderFactory;
 import java.io.File;
@@ -43,6 +44,7 @@ public class DeviceCommand implements Callable<Integer>
     @Override
     public Integer call() throws Exception
     {
+        AppLogger.configure(common.verbose, common.debug);
         var p = requireNonNull(parent);
         MidiOutProvider provider = MidiProviderFactory.createProvider();
 

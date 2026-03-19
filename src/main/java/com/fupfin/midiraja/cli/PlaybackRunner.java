@@ -45,6 +45,8 @@ import org.jspecify.annotations.Nullable;
 @SuppressWarnings("EmptyCatch")
 public class PlaybackRunner
 {
+    private static final java.util.logging.Logger log =
+            java.util.logging.Logger.getLogger(PlaybackRunner.class.getName());
     private final PrintStream out;
     private final PrintStream err;
     @Nullable
@@ -169,7 +171,7 @@ public class PlaybackRunner
                 }
                 catch (Exception e)
                 {
-                    System.err.println("[Error] " + e.getMessage());
+                    log.warning("Error closing terminal IO: " + e.getMessage());
                 }
                 out.print(safeRestore);
                 out.flush();
@@ -187,7 +189,7 @@ public class PlaybackRunner
                             }
                             catch (Exception ignored)
                             {
-                                System.err.println("[Error] " + ignored.getMessage());
+                                log.warning("Error during shutdown sleep: " + ignored.getMessage());
                             }
                         }
                         provider.closePort();
@@ -195,7 +197,7 @@ public class PlaybackRunner
                 }
                 catch (Exception e)
                 {
-                    System.err.println("[Error] " + e.getMessage());
+                    log.warning("Error during shutdown: " + e.getMessage());
                 }
             }));
 
@@ -240,7 +242,7 @@ public class PlaybackRunner
         }
         catch (Exception e)
         {
-            System.err.println("[Error] " + e.getMessage());
+            log.warning("Error during playback: " + e.getMessage());
             err.println("Error during playback: " + e.getMessage());
             if (common.verbose) e.printStackTrace(err);
             return 1;
@@ -259,7 +261,7 @@ public class PlaybackRunner
                     }
                     catch (Exception ignored)
                     {
-                        System.err.println("[Error] " + ignored.getMessage());
+                        log.warning("Error during cleanup sleep: " + ignored.getMessage());
                     }
                 }
                 provider.closePort();

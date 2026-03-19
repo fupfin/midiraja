@@ -18,6 +18,8 @@ import picocli.CommandLine.Option;
  */
 public class CommonOptions
 {
+    private static final java.util.logging.Logger log =
+            java.util.logging.Logger.getLogger(CommonOptions.class.getName());
     @Option(names = {"-v", "--volume"},
             description = "Initial volume percentage. For internal synths with DSP: 0-150 (>100 boosts output, may clip). For external MIDI: 0-100.",
             defaultValue = "100")
@@ -47,6 +49,9 @@ public class CommonOptions
 
     @Option(names = {"--verbose"}, description = "Show verbose error messages and stack traces.")
     public boolean verbose;
+
+    @Option(names = {"--debug"}, description = "Write debug-level log to the midiraja log file and echo to stderr.")
+    public boolean debug;
 
     @Option(names = {"--ignore-sysex"},
             description = "Filter out hardware-specific System Exclusive (SysEx) messages.")
@@ -91,8 +96,7 @@ public class CommonOptions
             }
             catch (IllegalArgumentException e)
             {
-                System.err.println(
-                        "Warning: Unknown speaker profile '" + profileStr + "'. Ignoring.");
+                log.warning("Unknown speaker profile '" + profileStr + "'. Ignoring.");
             }
         }
 
@@ -115,7 +119,7 @@ public class CommonOptions
                 case "covox", "disneysound" -> new CovoxDacFilter(true, pipeline);
                 default ->
                 {
-                    System.err.println("Warning: Unknown retro hardware mode '" + mode
+                    log.warning("Unknown retro hardware mode '" + mode
                             + "'. Falling back to clean output.");
                     yield pipeline;
                 }
