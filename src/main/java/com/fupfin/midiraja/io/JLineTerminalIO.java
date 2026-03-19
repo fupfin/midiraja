@@ -78,6 +78,7 @@ public class JLineTerminalIO implements TerminalIO
         km.bind(TerminalKey.TRANSPOSE_DOWN, "/");
         km.bind(TerminalKey.SPEED_UP,       ".", ">");
         km.bind(TerminalKey.SPEED_DOWN,     ",", "<");
+        km.bind(TerminalKey.BOOKMARK,       "*");
 
         return km;
     }

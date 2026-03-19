@@ -31,6 +31,7 @@ public class InputHandler
             case SEEK_FORWARD -> engine.seekRelative(10_000_000); // +10 seconds
             case SEEK_BACKWARD -> engine.seekRelative(-10_000_000); // -10 seconds
             case PAUSE -> engine.togglePause();
+            case BOOKMARK -> engine.fireBookmark();
             case QUIT -> engine.requestStop(PlaybackStatus.QUIT_ALL);
             default ->
             {

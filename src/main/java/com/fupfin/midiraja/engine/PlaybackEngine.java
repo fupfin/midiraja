@@ -11,6 +11,8 @@ package com.fupfin.midiraja.engine;
 import static java.lang.Math.*;
 import static java.util.Locale.ROOT;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiProcessor;
@@ -51,6 +53,8 @@ public class PlaybackEngine
 
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
+
+    private volatile @Nullable Runnable bookmarkCallback = null;
 
     private final AtomicBoolean holdAtEnd = new AtomicBoolean(false);
     private final AtomicReference<PlaybackStatus> endStatus =
@@ -717,6 +721,17 @@ public class PlaybackEngine
         Double cs = currentSpeed.get();
         currentSpeed.set(max(0.5, min(2.0, (cs != null ? cs : 1.0) + delta)));
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
+    }
+
+    public void setBookmarkCallback(Runnable callback)
+    {
+        this.bookmarkCallback = callback;
+    }
+
+    public void fireBookmark()
+    {
+        Runnable cb = bookmarkCallback;
+        if (cb != null) cb.run();
     }
 
     public void togglePause()
