@@ -135,17 +135,6 @@ public class ResumeCommand implements Callable<Integer>
 
             if (result instanceof TerminalSelector.SelectResult.Delete<Integer> del) {
                 int idx = del.value();
-                if (idx >= autoCount) {
-                    // Bookmark deletion requires confirmation
-                    err().print("Delete bookmark? [y/N] ");
-                    err().flush();
-                    var scanner = new java.util.Scanner(System.in, java.nio.charset.StandardCharsets.UTF_8);
-                    String answer = scanner.hasNextLine() ? scanner.nextLine().trim() : "";
-                    if (!answer.equalsIgnoreCase("y")) {
-                        config = config.withInitialIndex(nearestItemsIdx(items, idx));
-                        continue;
-                    }
-                }
                 int deletedItemsIdx = nearestItemsIdx(items, idx);
                 if (idx < autoCount) history.deleteAuto(idx);
                 else history.deleteBookmark(idx - autoCount);
@@ -160,25 +149,6 @@ public class ResumeCommand implements Callable<Integer>
                 int nextIdx = Math.min(deletedItemsIdx, items.size() - 1);
                 while (nextIdx > 0 && items.get(nextIdx).isSeparator()) nextIdx--;
                 config = config.withInitialIndex(nextIdx);
-                continue;
-            }
-
-            if (result instanceof TerminalSelector.SelectResult.Promote<Integer> promote) {
-                int idx = promote.value();
-                if (idx >= autoCount) {
-                    err().println("Already bookmarked.");
-                    err().flush();
-                    config = config.withInitialIndex(nearestItemsIdx(items, idx));
-                    continue;
-                }
-                int itemsIdx = nearestItemsIdx(items, idx);
-                history.promoteToBookmark(idx);
-                all = history.getAll();
-                autoCount = history.getAutoCount();
-                items = buildItems(all, autoCount);
-                // After promote, item moves to bookmarks section; find it there
-                int newIdx = idx; // now at end of all list (promoted bookmark)
-                config = config.withInitialIndex(nearestItemsIdx(items, newIdx));
                 continue;
             }
         }

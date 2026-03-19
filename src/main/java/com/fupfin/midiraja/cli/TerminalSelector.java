@@ -409,12 +409,13 @@ public final class TerminalSelector
         return null;
     }
 
-    /** Full-screen alt-buffer menu with D/B action bindings. */
+    /** Full-screen alt-buffer menu with D action binding (in-TUI confirmation). */
     @SuppressWarnings("EmptyCatch")
     private static <T> SelectResult<T> fullScreenSelectWithActions(List<Item<T>> items,
             FullScreenConfig config) throws Exception
     {
         int selectedIdx = config.initialIndex() > 0 ? config.initialIndex() : firstSelectable(items);
+        boolean confirmingDelete = false;
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build())
         {
@@ -489,7 +490,9 @@ public final class TerminalSelector
                 buf.repeat(" ", padLeft).append(Theme.COLOR_HIGHLIGHT)
                         .repeat(Theme.BORDER_HORIZONTAL, boxWidth).append(Theme.COLOR_RESET)
                         .appendLine();
-                String footer = "[▲/▼] Move   [Enter] Select   [D] Delete   [B] Bookmark   [Q] Quit";
+                String footer = confirmingDelete
+                        ? "Delete this entry? [Y] Confirm   [N] Cancel"
+                        : "[▲/▼] Move   [Enter] Select   [D] Delete   [Q] Quit";
                 int footerPad = (boxWidth - footer.length()) / 2;
                 buf.repeat(" ", padLeft + footerPad).append(Theme.COLOR_HIGHLIGHT).append(footer)
                         .append(Theme.COLOR_RESET).appendLine();
@@ -500,6 +503,21 @@ public final class TerminalSelector
                 if (terminal.reader().peek(50) == NonBlockingReader.READ_EXPIRED) continue;
                 String action = bindingReader.readBinding(km, null, false);
                 if (action == null) continue;
+
+                if (confirmingDelete)
+                {
+                    switch (action)
+                    {
+                        case "CONFIRM" -> {
+                            terminal.writer()
+                                    .print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
+                            terminal.writer().flush();
+                            return new SelectResult.Delete<>(items.get(selectedIdx).requireValue());
+                        }
+                        case "ABORT", "QUIT" -> confirmingDelete = false;
+                    }
+                    continue;
+                }
 
                 switch (action)
                 {
@@ -515,18 +533,7 @@ public final class TerminalSelector
                         terminal.writer().flush();
                         return new SelectResult.Chosen<>(items.get(selectedIdx).requireValue());
                     }
-                    case "DELETE" -> {
-                        terminal.writer()
-                                .print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
-                        terminal.writer().flush();
-                        return new SelectResult.Delete<>(items.get(selectedIdx).requireValue());
-                    }
-                    case "PROMOTE" -> {
-                        terminal.writer()
-                                .print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
-                        terminal.writer().flush();
-                        return new SelectResult.Promote<>(items.get(selectedIdx).requireValue());
-                    }
+                    case "DELETE" -> confirmingDelete = true;
                     case "UP" -> selectedIdx = nextSelectable(items, selectedIdx, -1);
                     case "DOWN" -> selectedIdx = nextSelectable(items, selectedIdx, 1);
                 }
@@ -534,13 +541,14 @@ public final class TerminalSelector
         }
     }
 
-    /** Arrow-key mini menu with D/B action bindings. */
+    /** Arrow-key mini menu with D action binding (in-TUI confirmation). */
     @SuppressWarnings("EmptyCatch")
     private static <T> SelectResult<T> miniSelectWithActions(List<Item<T>> items,
             FullScreenConfig config) throws Exception
     {
-        int numLines = items.size() + 1;
+        int numLines = items.size() + 2; // +1 header, +1 footer/status line
         int selectedIdx = config.initialIndex() > 0 ? config.initialIndex() : firstSelectable(items);
+        boolean confirmingDelete = false;
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build())
         {
@@ -572,11 +580,31 @@ public final class TerminalSelector
                                 + Theme.TERM_CLEAR_TO_EOL);
                     }
                 }
+                String statusLine = confirmingDelete
+                        ? "Delete this entry? [Y] Confirm  [N] Cancel"
+                        : "[Enter] Select  [D] Delete  [Q] Quit";
+                terminal.writer().println(Theme.COLOR_HIGHLIGHT + statusLine
+                        + Theme.COLOR_RESET + Theme.TERM_CLEAR_TO_EOL);
                 terminal.writer().flush();
 
                 if (terminal.reader().peek(100) == NonBlockingReader.READ_EXPIRED) continue;
                 String action = bindingReader.readBinding(km, null, false);
                 if (action == null) continue;
+
+                if (confirmingDelete)
+                {
+                    switch (action)
+                    {
+                        case "CONFIRM" -> {
+                            clearLines(terminal, numLines);
+                            terminal.writer().print(Theme.TERM_SHOW_CURSOR);
+                            terminal.writer().flush();
+                            return new SelectResult.Delete<>(items.get(selectedIdx).requireValue());
+                        }
+                        case "ABORT", "QUIT" -> confirmingDelete = false;
+                    }
+                    continue;
+                }
 
                 switch (action)
                 {
@@ -592,18 +620,7 @@ public final class TerminalSelector
                         terminal.writer().flush();
                         return new SelectResult.Chosen<>(items.get(selectedIdx).requireValue());
                     }
-                    case "DELETE" -> {
-                        clearLines(terminal, numLines);
-                        terminal.writer().print(Theme.TERM_SHOW_CURSOR);
-                        terminal.writer().flush();
-                        return new SelectResult.Delete<>(items.get(selectedIdx).requireValue());
-                    }
-                    case "PROMOTE" -> {
-                        clearLines(terminal, numLines);
-                        terminal.writer().print(Theme.TERM_SHOW_CURSOR);
-                        terminal.writer().flush();
-                        return new SelectResult.Promote<>(items.get(selectedIdx).requireValue());
-                    }
+                    case "DELETE" -> confirmingDelete = true;
                     case "UP" -> selectedIdx = nextSelectable(items, selectedIdx, -1);
                     case "DOWN" -> selectedIdx = nextSelectable(items, selectedIdx, 1);
                 }
@@ -658,7 +675,8 @@ public final class TerminalSelector
     {
         var km = buildNavKeyMap(terminal);
         km.bind("DELETE", "d", "D");
-        km.bind("PROMOTE", "b", "B");
+        km.bind("CONFIRM", "y", "Y");
+        km.bind("ABORT",   "n", "N");
         return km;
     }
 

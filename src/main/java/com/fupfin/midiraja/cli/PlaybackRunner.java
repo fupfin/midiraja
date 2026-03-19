@@ -274,6 +274,9 @@ public class PlaybackRunner
             }
         }
 
+        if (lastRawStatus == PlaybackStatus.RESUME_SESSION)
+            return new ResumeCommand().call();
+
         return 0;
     }
 
@@ -482,7 +485,7 @@ public class PlaybackRunner
     {
         return switch (status)
         {
-            case QUIT_ALL -> -1;
+            case QUIT_ALL, RESUME_SESSION -> -1;
             case PREVIOUS ->
             {
                 if (currentTrackIdx == 0)

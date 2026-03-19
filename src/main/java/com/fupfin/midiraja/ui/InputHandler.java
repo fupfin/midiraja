@@ -33,6 +33,7 @@ public class InputHandler
             case PAUSE -> engine.togglePause();
             case BOOKMARK -> engine.fireBookmark();
             case QUIT -> engine.requestStop(PlaybackStatus.QUIT_ALL);
+            case RESUME_SESSION -> engine.requestStop(PlaybackStatus.RESUME_SESSION);
             default ->
             {
             }

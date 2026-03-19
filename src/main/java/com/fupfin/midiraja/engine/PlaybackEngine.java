@@ -35,7 +35,7 @@ public class PlaybackEngine
 {
     public enum PlaybackStatus
     {
-        FINISHED, NEXT, PREVIOUS, QUIT_ALL
+        FINISHED, NEXT, PREVIOUS, QUIT_ALL, RESUME_SESSION
     }
 
     private final Sequence sequence;
