@@ -104,8 +104,10 @@ public class DashboardUI implements PlaybackUI
 
                 String banner = String.format(" MIDIraja v%s - " + Logo.TAGLINE,
                         Version.VERSION);
-                int bannerPadding = max(0, termWidth - banner.length());
-                buffer.append(Theme.FORMAT_INVERT).append(banner).append(" ".repeat(bannerPadding))
+                String savedTag = engine.isBookmarked() ? "[Saved] " : "";
+                int bannerPadding = max(0, termWidth - banner.length() - savedTag.length());
+                buffer.append(Theme.FORMAT_INVERT).append(banner)
+                        .append(" ".repeat(bannerPadding)).append(savedTag)
                         .append("\033[0m\n");
 
                 titledNowPlayingPanel.render(buffer);

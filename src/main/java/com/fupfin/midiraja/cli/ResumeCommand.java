@@ -88,7 +88,7 @@ public class ResumeCommand implements Callable<Integer>
             }
         }
         if (all.size() > autoCount) {
-            out.println("--- Bookmarks ---");
+            out.println("--- Saved ---");
             for (int i = autoCount; i < all.size(); i++) {
                 var e = all.get(i);
                 out.printf("[%d] [%s] \u2605 %s%n", i + 1, FMT.format(e.savedAt()), String.join(" ", e.args()));
@@ -183,7 +183,7 @@ public class ResumeCommand implements Callable<Integer>
         }
 
         if (bookmarkCount > 0) {
-            items.add(TerminalSelector.Item.separator("Bookmarks"));
+            items.add(TerminalSelector.Item.separator("Saved"));
             for (int i = autoCount; i < all.size(); i++) {
                 var e = all.get(i);
                 items.add(TerminalSelector.Item.of(i, "[" + FMT.format(e.savedAt()) + "] \u2605 " + formatArgs(e.args()), ""));

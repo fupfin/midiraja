@@ -41,16 +41,16 @@ public class ControlsPanel implements Panel
     {
         if (constraints.height() <= 0) return;
 
-        String minLine = "[Spc]Pause [▲ ▼]Track [◀ ▶]Seek [+-]Vol [<>]Speed [/\']Trans [*]Bookmark [Q]Quit";
+        String minLine = "[Spc]Pause [▲▼]Skip [◀▶]Seek [+-]Vol [<>]Tempo [/']Trans [*]Save [Q]Quit";
 
         if (constraints.height() >= 3)
         {
-            buffer.append("[Spc] Pause  [◀ ▶] Seek  [n p] Skip  [▲ ▼] Vol  [+-] Speed  [< >] Trans\n");
-            buffer.append("[*] Bookmark  [R] Resume Session  [Q] Quit\n");
+            buffer.append("[Spc] Pause  [◀ ▶] Seek  [▲ ▼] Skip  [+-] Vol  [< >] Tempo  [/ '] Trans\n");
+            buffer.append("[*] Save  [R] Resume Session  [Q] Quit\n");
         }
         else if (constraints.height() == 2)
         {
-            buffer.append("[Spc]Pause [◀ ▶]Seek [n p]Skip [▲ ▼]Vol [+-]Speed [<>]Trans [*]Bkm [R]Resume [Q]Quit\n");
+            buffer.append("[Spc]Pause [◀▶]Seek [▲▼]Skip [+-]Vol [<>]Tempo [/']Trans [*]Bkm [R]Resume [Q]Quit\n");
         }
         else
         {

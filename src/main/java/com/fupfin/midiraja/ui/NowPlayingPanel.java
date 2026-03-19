@@ -131,11 +131,8 @@ public class NowPlayingPanel implements Panel
         // Consistent Alignment Formats (10 chars padding for label)
         String fmtTitle = "%-10s %s";
 
-        // Pre-compute title line with bookmark suffix always visible (not subject to truncation).
-        // "Title:     " prefix = 11 chars; suffix = "  ★ Bookmarked" = 14 chars when bookmarked.
-        String bmSuffix = bookmarked ? "  \u2605 Bookmarked" : "";
-        int titleAvail = max(10, constraints.width() - 11 - bmSuffix.length());
-        String titleLine = String.format(fmtTitle, "Title:", truncate(displayTitle, titleAvail) + bmSuffix);
+        String titleLine = String.format(fmtTitle, "Title:",
+                truncate(displayTitle, max(10, constraints.width() - 11)));
         String fmtTime = "%-10s %s%s / %s  %s  %3d%%";
         String fmtVol = "%-10s %d%%";
         String fmtPort = "%-10s %s";
