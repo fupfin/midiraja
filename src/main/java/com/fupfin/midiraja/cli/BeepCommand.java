@@ -27,9 +27,11 @@ import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
+import picocli.CommandLine.Spec;
 
 /**
  * Plays MIDI files using a 1-bit PC Speaker / Apple II style synthesizer.
@@ -39,6 +41,10 @@ import picocli.CommandLine.ParentCommand;
                 "Experience the extreme limitations of 1980s computer audio via 1-bit logic gates."})
 public class BeepCommand implements Callable<Integer>
 {
+    @Spec
+    @Nullable
+    private CommandSpec spec;
+
     @ParentCommand
     private @Nullable MidirajaCommand parent;
 
@@ -111,9 +117,21 @@ public class BeepCommand implements Callable<Integer>
         var runner =
                 new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
         int result = runner.run(provider, true, Optional.empty(), Optional.empty(), files,
-                requireNonNull(common), List.of());
+                requireNonNull(common), originalArgs());
 
         provider.closePort();
         return result;
+    }
+
+    private List<String> originalArgs()
+    {
+        var rawArgs = requireNonNull(spec).commandLine().getParseResult().originalArgs();
+        return rawArgs.stream().map(token -> {
+            if (!token.startsWith("-")) {
+                var f = new java.io.File(token);
+                if (f.exists()) return f.getAbsolutePath();
+            }
+            return token;
+        }).collect(java.util.stream.Collectors.toList());
     }
 }

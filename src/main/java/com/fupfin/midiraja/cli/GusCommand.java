@@ -21,8 +21,10 @@ import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
+import picocli.CommandLine.Spec;
 
 @Command(name = "patch", aliases = {"gus", "pat", "guspatch"}, mixinStandardHelpOptions = true,
         description = "GUS wavetable patches (.pat), FreePats bundled.",
@@ -32,6 +34,10 @@ import picocli.CommandLine.ParentCommand;
                 "  midra patch ~/patches/eawpats song.mid"})
 public class GusCommand implements Callable<Integer>
 {
+    @Spec
+    @Nullable
+    private CommandSpec spec;
+
     @ParentCommand
     @Nullable
     private MidirajaCommand parent;
@@ -104,6 +110,18 @@ public class GusCommand implements Callable<Integer>
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
         return runner.run(provider, true, Optional.empty(),
                 Optional.ofNullable(patchDir).map(File::getPath), files(),
-                Objects.requireNonNull(common), List.of());
+                Objects.requireNonNull(common), originalArgs());
+    }
+
+    private List<String> originalArgs()
+    {
+        var rawArgs = Objects.requireNonNull(spec).commandLine().getParseResult().originalArgs();
+        return rawArgs.stream().map(token -> {
+            if (!token.startsWith("-")) {
+                var f = new java.io.File(token);
+                if (f.exists()) return f.getAbsolutePath();
+            }
+            return token;
+        }).collect(java.util.stream.Collectors.toList());
     }
 }

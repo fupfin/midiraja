@@ -24,8 +24,10 @@ import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
+import picocli.CommandLine.Spec;
 
 /**
  * Plays MIDI files through the built-in Munt MT-32 emulator.
@@ -36,6 +38,10 @@ import picocli.CommandLine.ParentCommand;
         footer = {"", "Requires MT32_CONTROL.ROM and MT32_PCM.ROM in the specified ROM directory."})
 public class MuntCommand implements Callable<Integer>
 {
+    @Spec
+    @Nullable
+    private CommandSpec spec;
+
     @ParentCommand
     @Nullable
     private MidirajaCommand parent;
@@ -73,6 +79,18 @@ public class MuntCommand implements Callable<Integer>
         var runner =
                 new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
         return runner.run(provider, true, Optional.empty(), Optional.of(romDir.getPath()), files,
-                common, List.of());
+                common, originalArgs());
+    }
+
+    private List<String> originalArgs()
+    {
+        var rawArgs = requireNonNull(spec).commandLine().getParseResult().originalArgs();
+        return rawArgs.stream().map(token -> {
+            if (!token.startsWith("-")) {
+                var f = new java.io.File(token);
+                if (f.exists()) return f.getAbsolutePath();
+            }
+            return token;
+        }).collect(java.util.stream.Collectors.toList());
     }
 }
