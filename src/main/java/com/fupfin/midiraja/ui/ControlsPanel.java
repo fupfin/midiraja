@@ -45,12 +45,12 @@ public class ControlsPanel implements Panel
 
         if (constraints.height() >= 3)
         {
-            buffer.append("[Spc] Pause/Resume  [n p] Skip Track  [◀ ▶] Seek 10s  [R] Resume  [Q] Quit\n");
-            buffer.append("[▲ ▼] Volume  [+-] Speed  [< >] Transpose  [*] Bookmark\n");
+            buffer.append("[Spc] Pause  [◀ ▶] Seek  [n p] Skip  [▲ ▼] Vol  [+-] Speed  [< >] Trans\n");
+            buffer.append("[*] Bookmark  [R] Resume Session  [Q] Quit\n");
         }
         else if (constraints.height() == 2)
         {
-            buffer.append("[Spc]Pause [n p]Skip [◀ ▶]Seek [▲ ▼]Vol [+-]Speed [*]Bookmark [R]Resume [Q]Quit\n");
+            buffer.append("[Spc]Pause [◀ ▶]Seek [n p]Skip [▲ ▼]Vol [+-]Speed [<>]Trans [*]Bkm [R]Resume [Q]Quit\n");
         }
         else
         {
