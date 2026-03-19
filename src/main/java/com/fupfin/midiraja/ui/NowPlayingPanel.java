@@ -89,8 +89,8 @@ public class NowPlayingPanel implements Panel
 
         String title = context.sequenceTitle() != null ? context.sequenceTitle() : "";
         String fileName = context.files().get(context.currentIndex()).getName();
-        String displayTitle = (title.isEmpty() ? fileName : title + " (" + fileName + ")")
-                + (bookmarked ? "  \u2605" : "");
+        String rawTitle = title.isEmpty() ? fileName : title + " (" + fileName + ")";
+        String displayTitle = rawTitle; // kept for other uses; bookmark suffix is handled in titleLine
 
         boolean incHrs = (totalMicros / 1000000) >= 3600;
         String totStr = formatTime(totalMicros, incHrs);
@@ -130,6 +130,12 @@ public class NowPlayingPanel implements Panel
 
         // Consistent Alignment Formats (10 chars padding for label)
         String fmtTitle = "%-10s %s";
+
+        // Pre-compute title line with bookmark suffix always visible (not subject to truncation).
+        // "Title:     " prefix = 11 chars; suffix = "  ★ Bookmarked" = 14 chars when bookmarked.
+        String bmSuffix = bookmarked ? "  \u2605 Bookmarked" : "";
+        int titleAvail = max(10, constraints.width() - 11 - bmSuffix.length());
+        String titleLine = String.format(fmtTitle, "Title:", truncate(displayTitle, titleAvail) + bmSuffix);
         String fmtTime = "%-10s %s%s / %s  %s  %3d%%";
         String fmtVol = "%-10s %d%%";
         String fmtPort = "%-10s %s";
@@ -139,8 +145,7 @@ public class NowPlayingPanel implements Panel
         if (h <= 2)
         {
             // Extreme minimum: Just Title and Time
-            buffer.append(String.format(fmtTitle, "Title:",
-                    truncate(displayTitle, constraints.width() - 15))).append("\n");
+            buffer.append(titleLine).append("\n");
             // Trust the bar width math, do not truncate. Truncate might be mistakenly
             // counting ANSI or something weird.
             buffer.append(
@@ -149,8 +154,7 @@ public class NowPlayingPanel implements Panel
         }
         else if (h == 3)
         {
-            buffer.append(String.format(fmtTitle, "Title:",
-                    truncate(displayTitle, constraints.width() - 15))).append("\n");
+            buffer.append(titleLine).append("\n");
             // Trust the bar width math, do not truncate. Truncate might be mistakenly
             // counting ANSI or something weird.
             buffer.append(
@@ -164,8 +168,7 @@ public class NowPlayingPanel implements Panel
         }
         else if (h == 4)
         {
-            buffer.append(String.format(fmtTitle, "Title:",
-                    truncate(displayTitle, constraints.width() - 15))).append("\n");
+            buffer.append(titleLine).append("\n");
             // Trust the bar width math, do not truncate. Truncate might be mistakenly
             // counting ANSI or something weird.
             buffer.append(
@@ -180,8 +183,7 @@ public class NowPlayingPanel implements Panel
         }
         else if (h == 5)
         {
-            buffer.append(String.format(fmtTitle, "Title:",
-                    truncate(displayTitle, constraints.width() - 15))).append("\n");
+            buffer.append(titleLine).append("\n");
             // Trust the bar width math, do not truncate. Truncate might be mistakenly
             // counting ANSI or something weird.
             buffer.append(
@@ -197,8 +199,7 @@ public class NowPlayingPanel implements Panel
         else
         {
             // h >= 6 (Fully Unpacked)
-            buffer.append(String.format(fmtTitle, "Title:",
-                    truncate(displayTitle, constraints.width() - 15))).append("\n");
+            buffer.append(titleLine).append("\n");
             // Trust the bar width math, do not truncate. Truncate might be mistakenly
             // counting ANSI or something weird.
             buffer.append(
