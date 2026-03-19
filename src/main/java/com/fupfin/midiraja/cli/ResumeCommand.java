@@ -80,15 +80,19 @@ public class ResumeCommand implements Callable<Integer>
     private void printList(List<SessionEntry> all, int autoCount)
     {
         var out = out();
-        for (int i = 0; i < all.size(); i++) {
-            var e = all.get(i);
-            boolean isBookmark = i >= autoCount;
-            String marker = isBookmark ? " \u2605" : "";
-            out.printf("[%d] [%s]%s %s%n",
-                    i + 1,
-                    FMT.format(e.savedAt()),
-                    marker,
-                    String.join(" ", e.args()));
+        if (autoCount > 0) {
+            out.println("--- Recent ---");
+            for (int i = 0; i < autoCount; i++) {
+                var e = all.get(i);
+                out.printf("[%d] [%s] %s%n", i + 1, FMT.format(e.savedAt()), String.join(" ", e.args()));
+            }
+        }
+        if (all.size() > autoCount) {
+            out.println("--- Bookmarks ---");
+            for (int i = autoCount; i < all.size(); i++) {
+                var e = all.get(i);
+                out.printf("[%d] [%s] \u2605 %s%n", i + 1, FMT.format(e.savedAt()), String.join(" ", e.args()));
+            }
         }
         out.flush();
     }
@@ -123,6 +127,8 @@ public class ResumeCommand implements Callable<Integer>
 
             if (result instanceof TerminalSelector.SelectResult.Chosen chosen) {
                 var entry = all.get(chosen.value());
+                err().println("Launching: " + String.join(" ", entry.args()));
+                err().flush();
                 return new CommandLine(new MidirajaCommand())
                         .execute(entry.args().toArray(new String[0]));
             }
@@ -158,21 +164,30 @@ public class ResumeCommand implements Callable<Integer>
     private ArrayList<TerminalSelector.Item<Integer>> buildItems(List<SessionEntry> all, int autoCount)
     {
         var items = new ArrayList<TerminalSelector.Item<Integer>>();
-        for (int i = 0; i < all.size(); i++) {
-            var e = all.get(i);
-            boolean isBookmark = i >= autoCount;
-            String date = "[" + FMT.format(e.savedAt()) + "]";
-            String mark = isBookmark ? " \u2605" : "";
-            String label = date + mark + " " + formatArgs(e.args());
-            String detail = String.join(" ", e.args());  // full command shown when terminal is wide
-            items.add(TerminalSelector.Item.of(i, label, detail));
+        int bookmarkCount = all.size() - autoCount;
+
+        if (autoCount > 0) {
+            items.add(TerminalSelector.Item.separator("Recent"));
+            for (int i = 0; i < autoCount; i++) {
+                var e = all.get(i);
+                items.add(TerminalSelector.Item.of(i, "[" + FMT.format(e.savedAt()) + "] " + formatArgs(e.args()), ""));
+            }
         }
+
+        if (bookmarkCount > 0) {
+            items.add(TerminalSelector.Item.separator("Bookmarks"));
+            for (int i = autoCount; i < all.size(); i++) {
+                var e = all.get(i);
+                items.add(TerminalSelector.Item.of(i, "[" + FMT.format(e.savedAt()) + "] \u2605 " + formatArgs(e.args()), ""));
+            }
+        }
+
         return items;
     }
 
     /**
-     * Formats arg tokens for single-line display: path tokens are middle-truncated,
-     * other tokens (flags, subcommand name) are kept as-is.
+     * Formats arg tokens for single-line display: path tokens are middle-truncated to 35 chars,
+     * flags and other short tokens are kept as-is.
      */
     private static String formatArgs(List<String> args)
     {
@@ -180,14 +195,14 @@ public class ResumeCommand implements Callable<Integer>
         for (int i = 0; i < args.size(); i++) {
             if (i > 0) sb.append(' ');
             String token = args.get(i);
-            sb.append(token.startsWith("-") ? token : truncateMidPath(token, 50));
+            sb.append(token.startsWith("-") ? token : truncateMidPath(token, 35));
         }
         return sb.toString();
     }
 
     /**
      * Middle-truncates a string, preserving the start and end.
-     * For file system paths, the filename (end) is more recognizable, so we keep more of it.
+     * More space is given to the end (filename is more recognizable than directory prefix).
      */
     static String truncateMidPath(String s, int max)
     {

@@ -244,7 +244,7 @@ public final class TerminalSelector
                             desc = desc.substring(0, maxDesc - 1) + "…";
                         if (i == selectedIdx)
                         {
-                            buf.append("  ").append(Theme.COLOR_HIGHLIGHT)
+                            buf.append("    ").append(Theme.COLOR_HIGHLIGHT)
                                     .append(Theme.CHAR_ARROW_RIGHT).append(" ").append(label)
                                     .append("  ").append(desc).append(Theme.COLOR_RESET)
                                     .appendLine();
@@ -450,7 +450,7 @@ public final class TerminalSelector
                             desc = desc.substring(0, maxDesc - 1) + "…";
                         if (i == selectedIdx)
                         {
-                            buf.append("  ").append(Theme.COLOR_HIGHLIGHT)
+                            buf.append("    ").append(Theme.COLOR_HIGHLIGHT)
                                     .append(Theme.CHAR_ARROW_RIGHT).append(" ").append(label)
                                     .append("  ").append(desc).append(Theme.COLOR_RESET)
                                     .appendLine();
