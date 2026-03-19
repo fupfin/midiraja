@@ -50,15 +50,14 @@ public class SessionHistory {
         if (bookmarks.stream().anyMatch(e -> e.args().equals(args))) return;
         auto.removeIf(e -> e.args().equals(args));
         auto.add(0, new SessionEntry(List.copyOf(args), Instant.now()));
-        if (auto.size() > AUTO_LIMIT) auto = new ArrayList<>(auto.subList(0, AUTO_LIMIT));
+        auto = trimToLimit(auto, AUTO_LIMIT);
         save();
     }
 
     public void saveBookmark(List<String> args) {
         bookmarks.removeIf(e -> e.args().equals(args));
         bookmarks.add(0, new SessionEntry(List.copyOf(args), Instant.now()));
-        if (bookmarks.size() > BOOKMARK_LIMIT)
-            bookmarks = new ArrayList<>(bookmarks.subList(0, BOOKMARK_LIMIT));
+        bookmarks = trimToLimit(bookmarks, BOOKMARK_LIMIT);
         save();
     }
 
@@ -74,8 +73,7 @@ public class SessionHistory {
         if (index < 0 || index >= auto.size()) return;
         var entry = auto.remove(index);
         bookmarks.add(0, new SessionEntry(entry.args(), Instant.now()));
-        if (bookmarks.size() > BOOKMARK_LIMIT)
-            bookmarks = new ArrayList<>(bookmarks.subList(0, BOOKMARK_LIMIT));
+        bookmarks = trimToLimit(bookmarks, BOOKMARK_LIMIT);
         save();
     }
 
@@ -142,6 +140,10 @@ public class SessionHistory {
         }
     }
 
+    private static <T> List<T> trimToLimit(List<T> list, int limit) {
+        return list.size() > limit ? new ArrayList<>(list.subList(0, limit)) : list;
+    }
+
     private static String jsonEscape(String s) {
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
@@ -181,10 +183,17 @@ public class SessionHistory {
     /** Returns the index of the `]` matching the `[` at {@code openPos}, or -1 if not found. */
     private static int findMatchingBracket(String s, int openPos) {
         int depth = 0;
+        boolean inStr = false;
         for (int i = openPos; i < s.length(); i++) {
             char c = s.charAt(i);
-            if (c == '[') depth++;
-            else if (c == ']') { depth--; if (depth == 0) return i; }
+            if (inStr) {
+                if (c == '\\') { i++; continue; }
+                if (c == '"') inStr = false;
+            } else {
+                if (c == '"') { inStr = true; continue; }
+                if (c == '[') depth++;
+                else if (c == ']') { if (--depth == 0) return i; }
+            }
         }
         return -1;
     }
@@ -192,10 +201,17 @@ public class SessionHistory {
     /** Returns the index of the `}` matching the `{` at {@code openPos}, or -1 if not found. */
     private static int findMatchingBrace(String s, int openPos) {
         int depth = 0;
+        boolean inStr = false;
         for (int i = openPos; i < s.length(); i++) {
             char c = s.charAt(i);
-            if (c == '{') depth++;
-            else if (c == '}') { depth--; if (depth == 0) return i; }
+            if (inStr) {
+                if (c == '\\') { i++; continue; }
+                if (c == '"') inStr = false;
+            } else {
+                if (c == '"') { inStr = true; continue; }
+                if (c == '{') depth++;
+                else if (c == '}') { if (--depth == 0) return i; }
+            }
         }
         return -1;
     }
@@ -221,7 +237,7 @@ public class SessionHistory {
             }
             if (q2 >= content.length()) break;
             items.add(content.substring(q1 + 1, q2)
-                    .replace("\\\"", "\"").replace("\\\\", "\\"));
+                    .replace("\\\\", "\\").replace("\\\"", "\""));
             pos = q2 + 1;
         }
         return items;
