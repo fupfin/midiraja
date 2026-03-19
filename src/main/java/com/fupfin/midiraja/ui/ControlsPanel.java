@@ -13,6 +13,7 @@ package com.fupfin.midiraja.ui;
 public class ControlsPanel implements Panel
 {
     private LayoutConstraints constraints = new LayoutConstraints(80, 1, false, false);
+    private volatile boolean bookmarked = false;
 
     @Override
     public void onLayoutUpdated(LayoutConstraints bounds)
@@ -37,17 +38,26 @@ public class ControlsPanel implements Panel
     {}
 
     @Override
+    public void onBookmarkChanged(boolean bookmarked)
+    {
+        this.bookmarked = bookmarked;
+    }
+
+    @Override
     public void render(ScreenBuffer buffer)
     {
         if (constraints.height() <= 0) return;
 
-        String minLine = "[Spc]Pause [▲ ▼]Track [◀ ▶]Seek [+-]Vol [<>]Speed [/\']Trans [Q]Quit";
+        String bm = bookmarked ? "[*]\u2605 Bookmarked" : "[*] Bookmark";
+        String minLine = "[Spc]Pause [▲ ▼]Track [◀ ▶]Seek [+-]Vol [<>]Speed [/\']Trans "
+                + bm + " [Q]Quit";
 
         // We removed the "[CONTROLS]" header to save space per user request.
         // As a result, the max needed height is now 2 lines instead of 3.
         if (constraints.height() >= 2)
         {
-            buffer.append("[Spc]Pause [n p]Skip [◀ ▶]Seek [+-]Speed [<>]Trans [▲ ▼]Vol [Q]Quit\n");
+            buffer.append("[Spc]Pause [n p]Skip [◀ ▶]Seek [+-]Speed [<>]Trans [▲ ▼]Vol "
+                    + bm + " [Q]Quit\n");
             buffer.append("[Spc] Pause/Resume  [n p] Skip Track  [◀ ▶] Seek 10s  [Q] Quit\n");
             buffer.append("[▲ ▼] Volume        [+-]  Speed       [< >] Transpose\n");
         }

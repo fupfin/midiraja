@@ -61,6 +61,14 @@ public class SessionHistory {
         save();
     }
 
+    public boolean isBookmarked(List<String> args) {
+        return bookmarks.stream().anyMatch(e -> e.args().equals(args));
+    }
+
+    public void removeBookmarkByArgs(List<String> args) {
+        if (bookmarks.removeIf(e -> e.args().equals(args))) save();
+    }
+
     public void deleteAuto(int index) {
         if (index >= 0 && index < auto.size()) { auto.remove(index); save(); }
     }

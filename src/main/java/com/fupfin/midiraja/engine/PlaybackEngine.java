@@ -54,7 +54,9 @@ public class PlaybackEngine
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
 
-    private volatile @Nullable Runnable bookmarkCallback = null;
+    private volatile boolean bookmarked = false;
+    @SuppressWarnings("NullAway")
+    private volatile java.util.function.Consumer<Boolean> bookmarkCallback = null;
 
     private final AtomicBoolean holdAtEnd = new AtomicBoolean(false);
     private final AtomicReference<PlaybackStatus> endStatus =
@@ -723,15 +725,27 @@ public class PlaybackEngine
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
 
-    public void setBookmarkCallback(Runnable callback)
+    public void setBookmarked(boolean bookmarked)
+    {
+        this.bookmarked = bookmarked;
+    }
+
+    public boolean isBookmarked()
+    {
+        return bookmarked;
+    }
+
+    public void setBookmarkCallback(java.util.function.Consumer<Boolean> callback)
     {
         this.bookmarkCallback = callback;
     }
 
     public void fireBookmark()
     {
-        Runnable cb = bookmarkCallback;
-        if (cb != null) cb.run();
+        bookmarked = !bookmarked;
+        var cb = bookmarkCallback;
+        if (cb != null) cb.accept(bookmarked);
+        listeners.forEach(l -> l.onBookmarkChanged(bookmarked));
     }
 
     public void togglePause()

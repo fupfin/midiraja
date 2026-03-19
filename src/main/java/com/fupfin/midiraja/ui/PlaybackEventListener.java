@@ -38,4 +38,11 @@ public interface PlaybackEventListener
      * @param velocity The velocity of the note (0-127).
      */
     void onChannelActivity(int channel, int velocity);
+
+    /**
+     * Called when the bookmark state of the current session changes.
+     *
+     * @param bookmarked {@code true} if the session was just bookmarked, {@code false} if removed.
+     */
+    default void onBookmarkChanged(boolean bookmarked) {}
 }

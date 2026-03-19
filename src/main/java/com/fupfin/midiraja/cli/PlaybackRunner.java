@@ -438,9 +438,16 @@ public class PlaybackRunner
                 if (common.resetType.isPresent()) engine.setInitialResetType(common.resetType);
                 if (wasPaused) engine.setInitiallyPaused();
 
-                engine.setBookmarkCallback(() -> {
-                    new SessionHistory().saveBookmark(originalArgs);
-                    err.println("[Bookmarked]");
+                boolean initiallyBookmarked =
+                        !originalArgs.isEmpty() && new SessionHistory().isBookmarked(originalArgs);
+                engine.setBookmarked(initiallyBookmarked);
+                engine.setBookmarkCallback(bookmarked -> {
+                    var h = new SessionHistory();
+                    if (bookmarked) {
+                        h.saveBookmark(originalArgs);
+                    } else {
+                        h.removeBookmarkByArgs(originalArgs);
+                    }
                 });
 
                 boolean isLastTrack = (currentTrackIdx == playlist.size() - 1);
