@@ -32,32 +32,22 @@ public class DashboardUI implements PlaybackUI
 
     private final DashboardLayoutManager layoutManager = new DashboardLayoutManager();
 
-    private List<String> extractExtraMetadata(Sequence seq)
+    private @org.jspecify.annotations.Nullable String extractCopyright(Sequence seq)
     {
-        List<String> meta = new ArrayList<>();
-        // Extract copyright and generic text (ignoring lyrics which are transient, but text could
-        // be cool)
         for (Track track : seq.getTracks())
         {
             for (int i = 0; i < track.size(); i++)
             {
                 MidiMessage msg = track.get(i).getMessage();
-                if (msg instanceof MetaMessage m)
+                if (msg instanceof MetaMessage m && m.getType() == 0x02)
                 {
-                    if (m.getType() == 0x01 || m.getType() == 0x02)
-                    { // Text or Copyright
-                        String text = new String(m.getData(), StandardCharsets.US_ASCII).trim();
-                        // Ignore garbage binary text
-                        if (text.length() > 0 && text.chars().allMatch(c -> c >= 32 && c < 127))
-                        {
-                            // Deduplicate
-                            if (!meta.contains(text)) meta.add(text);
-                        }
-                    }
+                    String text = new String(m.getData(), StandardCharsets.US_ASCII).trim();
+                    if (!text.isEmpty() && text.chars().allMatch(c -> c >= 32 && c < 127))
+                        return text;
                 }
             }
         }
-        return meta;
+        return null;
     }
 
     static String playlistTitle(boolean loop, boolean shuffle)
@@ -85,7 +75,7 @@ public class DashboardUI implements PlaybackUI
         var ctx = engine.getContext();
         titledPlaylistPanel.setTitle(playlistTitle(ctx.loop(), ctx.shuffle()));
 
-        // Copyright wired in Task 5 (setCopyright)
+        nowPlayingPanel.setCopyright(extractCopyright(engine.getSequence()));
 
         int lastWidth = -1;
         int lastHeight = -1;
