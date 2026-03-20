@@ -93,11 +93,13 @@ public class PsgCommand implements Callable<Integer>
         pipeline = common.wrapRetroPipeline(pipeline);
         pipeline = fxOptions.wrapWithFloatConversion(pipeline, common);
 
-        var provider =
-                new PsgSynthProvider(pipeline, finalChips, vibratoDepth, dutySweep, useScc, smooth);
+        var provider = new PsgSynthProvider(pipeline, finalChips, vibratoDepth, dutySweep, useScc,
+                smooth, common.retroMode.orElse(null));
         if (fxOptions.masterGain != null) provider.setMasterGain(fxOptions.masterGain);
 
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false);
+        runner.setFxOptions(fxOptions);
+        // retroMode is already shown as [X] in port name; don't duplicate in suffix
         return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common, originalArgs());
     }
 

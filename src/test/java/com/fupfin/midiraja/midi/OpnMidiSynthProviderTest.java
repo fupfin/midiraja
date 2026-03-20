@@ -205,13 +205,14 @@ class OpnMidiSynthProviderTest
         var ports = provider.getOutputPorts();
         assertEquals(1, ports.size());
         assertTrue(
+            ports.get(0).name().startsWith("YM2612 x4"), "Default should be YM2612 chip, 4 chips");
+        assertTrue(
             ports.get(0).name().contains("MAME YM2612"), "Default emulator should be MAME YM2612");
-        assertTrue(ports.get(0).name().contains("4 chips"), "Default chip count should be 4");
 
         // Nuked YM3438, 2 chips
         OpnMidiSynthProvider provider2 = new OpnMidiSynthProvider(mockBridge, null, 1, 2, null);
         var ports2 = provider2.getOutputPorts();
+        assertTrue(ports2.get(0).name().startsWith("YM3438 x2"));
         assertTrue(ports2.get(0).name().contains("Nuked YM3438"));
-        assertTrue(ports2.get(0).name().contains("2 chips"));
     }
 }

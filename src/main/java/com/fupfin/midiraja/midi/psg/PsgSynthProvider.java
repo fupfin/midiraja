@@ -9,6 +9,7 @@ package com.fupfin.midiraja.midi.psg;
 
 import com.fupfin.midiraja.dsp.AudioProcessor;
 import com.fupfin.midiraja.midi.AbstractOneBitSynthProvider;
+import com.fupfin.midiraja.midi.AbstractSoftSynthProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -28,13 +29,21 @@ public class PsgSynthProvider extends AbstractOneBitSynthProvider
     private final int totalPhysicalChips;
     private final int[] channelPrograms = new int[16];
     private final boolean useScc;
+    @Nullable private final String retroMode;
 
     public PsgSynthProvider(@Nullable AudioProcessor audioOut, int systems, double vibratoDepth,
             double dutySweep, boolean useScc, boolean smoothScc)
     {
+        this(audioOut, systems, vibratoDepth, dutySweep, useScc, smoothScc, null);
+    }
+
+    public PsgSynthProvider(@Nullable AudioProcessor audioOut, int systems, double vibratoDepth,
+            double dutySweep, boolean useScc, boolean smoothScc, @Nullable String retroMode)
+    {
         super(audioOut);
         this.systems = Math.max(1, Math.min(16, systems));
         this.useScc = useScc;
+        this.retroMode = retroMode;
         this.totalPhysicalChips = useScc ? this.systems * 2 : this.systems;
         this.chips = new TrackerSynthChip[this.totalPhysicalChips];
 
@@ -61,24 +70,10 @@ public class PsgSynthProvider extends AbstractOneBitSynthProvider
     @Override
     public List<MidiPort> getOutputPorts()
     {
-        String desc;
-        if (useScc)
-        {
-            if (systems == 1)
-            {
-                desc = "MSX System (1x AY-3-8910 + 1x Konami SCC)";
-            }
-            else
-            {
-                desc = String.format("[%d-System] MSX Array (%dx AY-3-8910 + %dx Konami SCC)",
-                        systems, systems, systems);
-            }
-        }
-        else
-        {
-            desc = String.format("[%d-Chip] AY-3-8910 Array (Tracker Hacks Mode)", systems);
-        }
-        return List.of(new MidiPort(0, desc));
+        String chipConfig = useScc ? "AY-3-8910 (Konami SCC)" : "AY-3-8910";
+        String desc = systems == 1 ? chipConfig
+                : String.format("[%s] x%d", chipConfig, systems);
+        return List.of(new MidiPort(0, desc + AbstractSoftSynthProvider.retroTag(retroMode)));
     }
 
     @Override

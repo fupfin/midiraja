@@ -79,7 +79,7 @@ class TsfSynthProviderTest
     @Test void testLifecycleAndMidiRouting() throws Exception
     {
         MockTsfBridge mockBridge = new MockTsfBridge();
-        TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null);
+        TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null, null);
 
         // openPort is a no-op for TSF
         provider.openPort(0);
@@ -117,7 +117,7 @@ class TsfSynthProviderTest
     @Test void testPanic() throws Exception
     {
         MockTsfBridge mockBridge = new MockTsfBridge();
-        TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null);
+        TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null, null);
 
         provider.panic();
 
@@ -134,7 +134,7 @@ class TsfSynthProviderTest
     @Test void testPrepareForNewTrack() throws Exception
     {
         MockTsfBridge mockBridge = new MockTsfBridge();
-        TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null);
+        TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null, null);
 
         provider.sendMessage(new byte[] {(byte) 0x90, 60, 100});
 
@@ -159,10 +159,10 @@ class TsfSynthProviderTest
     @Test void testGetOutputPorts()
     {
         MockTsfBridge mockBridge = new MockTsfBridge();
-        TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null);
+        TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null, null);
 
         var ports = provider.getOutputPorts();
         assertEquals(1, ports.size());
-        assertEquals("TinySoundFont", ports.get(0).name());
+        assertEquals("SoundFont", ports.get(0).name());
     }
 }

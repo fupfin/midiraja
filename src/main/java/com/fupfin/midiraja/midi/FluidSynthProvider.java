@@ -42,7 +42,7 @@ public class FluidSynthProvider implements SoftSynthProvider
     private MemorySegment settings = MemorySegment.NULL;
     private MemorySegment synth = MemorySegment.NULL;
     private MemorySegment adriver = MemorySegment.NULL;
-    private final String soundbankName = "None";
+    private String soundbankName = "None";
 
     public FluidSynthProvider(@Nullable String explicitDriver) throws Exception
     {
@@ -274,6 +274,7 @@ public class FluidSynthProvider implements SoftSynthProvider
                 {
                     throw new Exception("Failed to load soundfont: " + path);
                 }
+                soundbankName = new java.io.File(path).getName();
             }
         }
         catch (Throwable t)

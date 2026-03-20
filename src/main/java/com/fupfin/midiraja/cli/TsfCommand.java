@@ -142,11 +142,12 @@ public class TsfCommand implements Callable<Integer>
         var pipeline = FmSynthOptions.buildStereoFmPipeline(common, fxOptions);
 
         var bridge = new FFMTsfNativeBridge();
-        var provider = new TsfSynthProvider(bridge, pipeline);
+        var provider = new TsfSynthProvider(bridge, pipeline, common.retroMode.orElse(null));
         if (fxOptions.masterGain != null) provider.setMasterGain(fxOptions.masterGain);
 
         var runner =
                 new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+        runner.setFxOptions(fxOptions);
         return runner.run(provider, true, Optional.empty(), Optional.of(sfPath), files(), common, originalArgs());
     }
 

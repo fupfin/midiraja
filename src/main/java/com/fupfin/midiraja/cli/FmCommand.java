@@ -154,6 +154,8 @@ public class FmCommand implements Callable<Integer>
         var files = effectiveFiles();
         var pipeline = FmSynthOptions.buildStereoFmPipeline(common, fxOptions);
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+        runner.setFxOptions(fxOptions);
+        // OPL/OPN: retroMode is shown as dacMode in the port name ([AMIGA] etc.), not in suffix
 
         if (isOpl())
         {

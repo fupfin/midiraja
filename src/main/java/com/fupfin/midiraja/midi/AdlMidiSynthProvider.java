@@ -35,13 +35,15 @@ public class AdlMidiSynthProvider extends AbstractSoftSynthProvider<AdlMidiNativ
         return 4096L * 1_000_000_000L / SAMPLE_RATE;
     }
 
+    private static final String[] CHIP_NAMES     = {"OPL3", "OPL3", "OPL3", "OPL3", "OPL3",
+            "ESFM", "OPL2", "OPL2", "OPL3"};
     private static final String[] EMULATOR_NAMES = {"Nuked OPL3 v1.8", "Nuked OPL3 v1.7.4",
             "DosBox", "Opal", "Java", "ESFMu", "MAME OPL2", "YMFM OPL2", "YMFM OPL3"};
 
     @Override
     public List<MidiPort> getOutputPorts()
     {
-        return buildFmSynthPorts(EMULATOR_NAMES, emulatorId, numChips, dacMode);
+        return buildFmSynthPorts(CHIP_NAMES, EMULATOR_NAMES, emulatorId, numChips, dacMode);
     }
 
     /** OPL output is relatively quiet; boost to match reference level. */

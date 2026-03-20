@@ -17,9 +17,14 @@ import org.jspecify.annotations.Nullable;
  */
 public class TsfSynthProvider extends AbstractSoftSynthProvider<TsfNativeBridge>
 {
-    public TsfSynthProvider(TsfNativeBridge bridge, @Nullable AudioProcessor audioOut)
+    private final @Nullable String retroMode;
+    private String portName = "SoundFont";
+
+    public TsfSynthProvider(TsfNativeBridge bridge, @Nullable AudioProcessor audioOut,
+            @Nullable String retroMode)
     {
         super(bridge, audioOut);
+        this.retroMode = retroMode;
     }
 
     @Override
@@ -31,7 +36,7 @@ public class TsfSynthProvider extends AbstractSoftSynthProvider<TsfNativeBridge>
     @Override
     public List<MidiPort> getOutputPorts()
     {
-        return List.of(new MidiPort(0, "TinySoundFont"));
+        return List.of(new MidiPort(0, portName));
     }
 
     /** FluidR3 GM SF3 is mastered loud; attenuate to match reference level. */
@@ -71,6 +76,8 @@ public class TsfSynthProvider extends AbstractSoftSynthProvider<TsfNativeBridge>
     public void loadSoundbank(String path) throws Exception
     {
         bridge.loadSoundfontFile(path, SAMPLE_RATE);
+        String name = new java.io.File(path).getName();
+        portName = "SoundFont (" + name + ")" + AbstractSoftSynthProvider.retroTag(retroMode);
 
         if (audioOut != null)
         {

@@ -55,6 +55,18 @@ public class PlaybackRunner
     private boolean suppressAltScreenRestore = false;
     private boolean suppressHoldAtEnd = false;
     private boolean exitOnNavBoundary = false;
+    @Nullable
+    private FxOptions fxOptions = null;
+    private boolean includeRetroInSuffix = false;
+
+    public void setFxOptions(FxOptions fx) { this.fxOptions = fx; }
+
+    /**
+     * Set to true for synths that own the audio pipeline (gus, psg, tsf).
+     * OPL/OPN show retro via dacMode in the port name instead, so they leave this false.
+     * Fluid, Munt, and OS ports don't process retro at all.
+     */
+    public void setIncludeRetroInSuffix(boolean include) { this.includeRetroInSuffix = include; }
 
     public PlaybackStatus getLastRawStatus()
     {
@@ -150,6 +162,8 @@ public class PlaybackRunner
             {
                 softSynth.loadSoundbank(soundbankArg.get());
                 logVerbose(common.isVerbose(), "Soundbank loaded: " + soundbankArg.get());
+                // Refresh port list — loadSoundbank may update port names (e.g. Munt ROM version)
+                ports = provider.getOutputPorts();
             }
 
             Optional<String> currentStartTime = common.startTime;
@@ -471,7 +485,8 @@ public class PlaybackRunner
                 if (common.ignoreSysex) engine.setIgnoreSysex(true);
                 if (common.resetType.isPresent()) engine.setInitialResetType(common.resetType);
                 if (wasPaused) engine.setInitiallyPaused();
-                engine.setFilterDescription(buildFilterDescription(common));
+                engine.setFilterDescription(buildFxDescription(fxOptions));
+                engine.setPortSuffix(buildRetroSuffix(common, includeRetroInSuffix));
 
                 boolean initiallyBookmarked =
                         !originalArgs.isEmpty() && new SessionHistory().isBookmarked(originalArgs);
@@ -624,22 +639,38 @@ public class PlaybackRunner
         };
     }
 
-    static String buildFilterDescription(CommonOptions common)
+    /** DSP effects line (reverb/chorus/tube/eq) — always shows all four, even when off or null. */
+    static String buildFxDescription(@Nullable FxOptions fx)
     {
         var parts = new java.util.ArrayList<String>();
-        addFilterPart(parts, "retro", common.retroMode.orElse(null));
-        addFilterPart(parts, "speaker", common.speakerProfile.orElse(null));
+        String hi  = com.fupfin.midiraja.ui.Theme.COLOR_HIGHLIGHT;
+        String dim = com.fupfin.midiraja.ui.Theme.COLOR_DIM_FG;
+        String rst = com.fupfin.midiraja.ui.Theme.COLOR_RESET;
+
+        String reverbVal = fx != null ? fx.reverb.map(r -> r + " " + (int) fx.reverbLevel + "%").orElse(null) : null;
+        parts.add("reverb: " + (reverbVal != null ? hi + reverbVal + rst : dim + "off" + rst));
+
+        String chorusVal = fx != null ? fx.chorus.map(c -> (int) (float) c + "%").orElse(null) : null;
+        parts.add("chorus: " + (chorusVal != null ? hi + chorusVal + rst : dim + "off" + rst));
+
+        String tubeVal = fx != null ? fx.tubeDrive.map(t -> (int) (float) t + "%").orElse(null) : null;
+        parts.add("tube: " + (tubeVal != null ? hi + tubeVal + rst : dim + "off" + rst));
+
+        boolean eqActive = fx != null && (fx.eqBass != 50 || fx.eqMid != 50 || fx.eqTreble != 50
+                || fx.lpfFreq.isPresent() || fx.hpfFreq.isPresent());
+        parts.add("eq: " + (eqActive ? hi + "on" + rst : dim + "off" + rst));
+
         return String.join("  |  ", parts);
     }
 
-    private static void addFilterPart(java.util.List<String> parts, String label,
-            @Nullable String value)
+    /** Retro/speaker suffix for the Port line — only non-empty when at least one is active. */
+    static String buildRetroSuffix(CommonOptions common, boolean includeRetro)
     {
-        String display = value != null
-                ? com.fupfin.midiraja.ui.Theme.COLOR_HIGHLIGHT + value
-                        + com.fupfin.midiraja.ui.Theme.COLOR_RESET
-                : com.fupfin.midiraja.ui.Theme.COLOR_DIM_FG + "off"
-                        + com.fupfin.midiraja.ui.Theme.COLOR_RESET;
-        parts.add(label + ": " + display);
+        var parts = new java.util.ArrayList<String>();
+        String hi  = com.fupfin.midiraja.ui.Theme.COLOR_HIGHLIGHT;
+        String rst = com.fupfin.midiraja.ui.Theme.COLOR_RESET;
+        if (includeRetro) common.retroMode.ifPresent(r -> parts.add("retro: " + hi + r + rst));
+        common.speakerProfile.ifPresent(s -> parts.add("speaker: " + hi + s + rst));
+        return parts.isEmpty() ? "" : "  |  " + String.join("  |  ", parts);
     }
 }

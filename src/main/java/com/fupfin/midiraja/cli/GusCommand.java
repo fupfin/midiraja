@@ -108,6 +108,8 @@ public class GusCommand implements Callable<Integer>
         if (masterGain != null) provider.setMasterGain(masterGain);
 
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+        runner.setFxOptions(fxOptions);
+        runner.setIncludeRetroInSuffix(true);
         return runner.run(provider, true, Optional.empty(),
                 Optional.ofNullable(patchDir).map(File::getPath), files(),
                 Objects.requireNonNull(common), originalArgs());

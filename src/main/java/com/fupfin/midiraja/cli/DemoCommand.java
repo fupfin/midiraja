@@ -111,6 +111,7 @@ public class DemoCommand implements Callable<Integer>
                 }
 
                 PlaybackRunner runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+                runner.setFxOptions(fxOptions);
                 runner.setSuppressAltScreenRestore(true);
                 runner.setSuppressHoldAtEnd(true);
                 runner.setExitOnNavBoundary(true);
@@ -162,7 +163,7 @@ public class DemoCommand implements Callable<Integer>
     {
         if (fileName.contains("-tsf-")) {
             var pipeline = buildPipeline(2);
-            var provider = new TsfSynthProvider(new FFMTsfNativeBridge(), pipeline);
+            var provider = new TsfSynthProvider(new FFMTsfNativeBridge(), pipeline, null);
             if (fxOptions.masterGain != null) provider.setMasterGain(fxOptions.masterGain);
             return new ProviderWithArgs(provider, Optional.ofNullable(findResource("soundfonts/FluidR3_GM.sf3")));
         }

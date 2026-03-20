@@ -199,22 +199,27 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
         switch(command){case 0x90->bridge.noteOn(channel,data1,data2);case 0x80->bridge.noteOff(channel,data1);case 0xB0->bridge.controlChange(channel,data1,data2);case 0xC0->bridge.patchChange(channel,data1);case 0xE0->bridge.pitchBend(channel,(data2<<7)|data1);}
     }
 
+    /** Returns {@code " [NAME]"} for a retro/dac mode tag, or {@code ""} when mode is null. */
+    public static String retroTag(@Nullable String mode)
+    {
+        return mode != null ? " [" + mode.toUpperCase(Locale.ROOT) + "]" : "";
+    }
+
     /**
      * Builds a standard FM synth port name from emulator name, chip count, and optional DAC mode.
      * Used by {@link AdlMidiSynthProvider} and {@link OpnMidiSynthProvider}.
      */
-    protected static List<MidiPort> buildFmSynthPorts(String[] emulatorNames, int emulatorId,
-            int numChips, @Nullable String dacMode)
+    protected static List<MidiPort> buildFmSynthPorts(String[] chipNames, String[] emulatorNames,
+            int emulatorId, int numChips, @Nullable String dacMode)
     {
+        String chipName = (emulatorId >= 0 && emulatorId < chipNames.length)
+                ? chipNames[emulatorId]
+                : "Unknown";
         String emuName = (emulatorId >= 0 && emulatorId < emulatorNames.length)
                 ? emulatorNames[emulatorId]
                 : "Emulator " + emulatorId;
-        String portName = emuName + " · " + numChips + " chip" + (numChips > 1 ? "s" : "");
-        if (dacMode != null)
-        {
-            portName += " [" + dacMode.toUpperCase(Locale.ROOT) + "]";
-        }
-        return List.of(new MidiPort(0, portName));
+        return List.of(new MidiPort(0,
+                chipName + " x" + numChips + " (" + emuName + ")" + retroTag(dacMode)));
     }
 
     /**

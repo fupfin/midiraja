@@ -422,7 +422,7 @@ public class MidirajaCommand implements Callable<Integer>
                     return 1;
                 }
                 AudioProcessor pipeline = new FloatToShortSink(audio);
-                builtinProvider = new TsfSynthProvider(new FFMTsfNativeBridge(), pipeline);
+                builtinProvider = new TsfSynthProvider(new FFMTsfNativeBridge(), pipeline, null);
                 soundbankArg = Optional.of(sfPath);
             }
             case "opl" -> {

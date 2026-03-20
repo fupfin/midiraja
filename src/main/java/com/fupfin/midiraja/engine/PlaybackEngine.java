@@ -59,6 +59,7 @@ public class PlaybackEngine
     private volatile java.util.function.Consumer<Boolean> bookmarkCallback = null;
 
     private String filterDescription = "";
+    private String portSuffix = "";
 
     private volatile boolean loopEnabled = false;
     private volatile boolean shuffleEnabled = false;
@@ -105,6 +106,8 @@ public class PlaybackEngine
 
     public void setFilterDescription(String desc) { this.filterDescription = desc; }
     public String getFilterDescription() { return filterDescription; }
+    public void setPortSuffix(String suffix) { this.portSuffix = suffix; }
+    public String getPortSuffix() { return portSuffix; }
 
     public void firePlayOrderChanged(PlaylistContext ctx)
     {

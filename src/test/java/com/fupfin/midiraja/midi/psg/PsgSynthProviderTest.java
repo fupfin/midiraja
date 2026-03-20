@@ -36,7 +36,7 @@ class PsgSynthProviderTest {
     void testGetOutputPorts() {
         List<MidiPort> ports = provider.getOutputPorts();
         assertFalse(ports.isEmpty());
-        assertTrue(ports.get(0).name().contains("MSX System"));
+        assertTrue(ports.get(0).name().contains("AY-3-8910"));
     }
 
     @Test
