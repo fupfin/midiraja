@@ -432,7 +432,8 @@ public class PlaybackRunner
                                 sequence.getMicrosecondLength()));
 
                 var title = MidiUtils.extractSequenceTitle(sequence);
-                var context = new PlaylistContext(playlist, currentTrackIdx, port, title);
+                var context = new PlaylistContext(playlist, currentTrackIdx, port, title,
+                        common.loop, common.shuffle);
 
                 var engine = new PlaybackEngine(sequence, provider, context, common.volume,
                         common.speed, currentStartTime, common.transpose);
