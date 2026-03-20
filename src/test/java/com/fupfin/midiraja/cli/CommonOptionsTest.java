@@ -48,15 +48,13 @@ class CommonOptionsTest
     }
 
     @Test
-    void wrapRetroPipeline_unknownSpeakerProfile_returnsSinkUnchanged()
+    void wrapRetroPipeline_unknownSpeakerProfile_throwsIllegalArgument()
     {
         common.speakerProfile = Optional.of("totally-unknown-profile");
 
-        AudioProcessor result = common.wrapRetroPipeline(sink);
-
-        // Unknown profile is ignored; pipeline should be unchanged
-        assertSame(sink, result,
-                "Unknown speaker profile should be silently ignored, leaving sink unchanged");
+        assertThrows(IllegalArgumentException.class,
+                () -> common.wrapRetroPipeline(sink),
+                "Unknown speaker profile should throw IllegalArgumentException");
     }
 
     @Test
@@ -153,14 +151,13 @@ class CommonOptionsTest
     }
 
     @Test
-    void wrapRetroPipeline_unknownRetroMode_returnsSinkUnchanged()
+    void wrapRetroPipeline_unknownRetroMode_throwsIllegalArgument()
     {
         common.retroMode = Optional.of("totallyunknownmode");
 
-        AudioProcessor result = common.wrapRetroPipeline(sink);
-
-        assertSame(sink, result,
-                "Unknown retro mode should fall through to default, leaving sink unchanged");
+        assertThrows(IllegalArgumentException.class,
+                () -> common.wrapRetroPipeline(sink),
+                "Unknown retro mode should throw IllegalArgumentException");
     }
 
     @Test
