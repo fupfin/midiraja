@@ -7,8 +7,8 @@ This document is the unified engineering reference for all `--retro` hardware si
 | CLI Flag | Aliases | Filter Class | Carrier | Levels | Character |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `--retro compactmac` | — | `CompactMacSimulatorFilter` | 22.25 kHz PWM | 256 (8-bit) | Warm, muffled, heavy mono |
-| `--retro apple2` | — | `OneBitHardwareFilter` | 22.05 kHz PWM | 32 (5-bit) | Crisp DAC-style, noise-free |
-| `--retro pc` | — | `OneBitHardwareFilter` | 15.2 kHz PWM | 78 (6.3-bit) | Gritty crunch, carrier whine |
+| `--retro apple2` | — | `OneBitHardwareFilter` | 22.05 kHz PWM | 32 (5-bit) | 5-bit harmonic texture, cone rolloff |
+| `--retro pc` | — | `OneBitHardwareFilter` | 15.2 kHz PWM | 78 (6.3-bit) | Gritty crunch, 2.5/6.7 kHz resonance peaks |
 | `--retro spectrum` | — | `SpectrumBeeperFilter` | N/A (direct toggle) | 128 (7-bit) | Buzzy Z80 texture, beeper resonance |
 | `--retro covox` | — | `CovoxDacFilter` | 11 kHz ZOH | 256 (8-bit) | R-2R harmonic warmth |
 | `--retro disneysound` | — | `CovoxDacFilter` | 11 kHz ZOH | 256 (8-bit) | Parallel port DAC (LPT) |
@@ -110,6 +110,28 @@ Each pulse uses discrete widths of 6 to 37 cycles out of a 46-cycle period — *
 
 In the implementation, `carrierHz=22050` at `sampleRate=44100` means `carrierStep=0.5`: each carrier period spans two consecutive 44.1 kHz audio output samples, mirroring the two-pulse encoding of DAC522.
 
+### 2.4 Simulation Algorithm
+
+Earlier versions used `integratePwm()`, which computes the exact time-average of the PWM duty
+cycle over each 44.1 kHz output sample. This produces a mathematically perfect linear DAC
+output: quantisation harmonics are modulated onto carrier sidebands above 20 kHz, leaving the
+audible band completely clean — too clean for authentic 1-bit character.
+
+The current implementation uses **4× internal oversampling** (176,400 Hz). At each sub-sample,
+the raw ±1 PWM bit is evaluated directly and fed to a two-pole IIR filter modelling the
+mechanical cone (τ = 28.4 µs, derived from the empirical rolloff frequency). The result is
+decimated 4:1 to 44,100 Hz.
+
+Why oversampling rather than RC integration (as in `--retro compactmac`)?
+The Compact Mac had a physical RC capacitor on its logic board; τ was measured from hardware
+captures. The Apple II has no such capacitor — the speaker is driven directly and filtered only
+by the cone's mechanical inertia. Using the RC label for a mechanical system would be
+physically inaccurate. Oversampling sidesteps this: it makes no assumptions about the filter
+topology and lets the IIR model the cone empirically.
+
+The Apple II carrier at 22,050 Hz divides 176,400 Hz into exactly 8 sub-samples per carrier
+period — no rounding error.
+
 ---
 
 ## 3. PC Speaker (`--retro pc`)
@@ -139,6 +161,24 @@ Spectral analysis of authentic PC speaker recordings (March 2026):
 | Smooth α | 0.45 | Paper cone mechanical rolloff |
 
 > For deeper technical background, see `docs/realsound-pwm-engineering.md`.
+
+### 3.4 Simulation Algorithm
+
+Same 4× oversampling approach as apple2 (§2.4), with two additions:
+
+1. **Cone time constant:** τ = 37.9 µs (from empirical rolloff at ~8 kHz, derived from
+   smoothAlpha = 0.45 via τ = −1/(44100 × ln(1 − 0.45))).
+
+2. **Resonance biquads:** Two Direct Form I peaking EQ biquads (Audio EQ Cookbook,
+   R. Bristow-Johnson) are applied after the cone IIR:
+   - 2.5 kHz, +3 dB, Q = 3 — lightweight paper cone resonance
+   - 6.7 kHz, +4 dB, Q = 4 — chassis coupling peak
+
+   Coefficients are computed at construction time at 44,100 Hz (the output sample rate at
+   which the biquads run); bilinear pre-warping error at these frequencies is < 0.2%.
+
+The PC carrier at 15,200 Hz gives ≈ 11.6 sub-samples per carrier period. The resulting
+rounding artefacts appear above 88 kHz and are inaudible.
 
 ---
 
@@ -303,7 +343,7 @@ All PWM-based modes face the same problem: the carrier frequency is comparable t
 
 Two strategies are used:
 - **Mac 128k**: Analytical integration (exact RC exponential formula — zero aliasing by definition)
-- **PC, Apple II** (`OneBitHardwareFilter`): Analytical area integration via `integratePwm()`, which computes the exact time-averaged output over each output sample interval rather than evaluating the pulse at a single point
+- **PC, Apple II** (`OneBitHardwareFilter`): 4× internal oversampling (176,400 Hz). The raw ±1 PWM bit is evaluated at each sub-sample and fed to a speaker-cone IIR model. No RC circuit is present in either machine; the low-pass behaviour comes from the mechanical cone. Oversampling avoids aliasing without the RC assumption. Apple II: 8 sub-samples per carrier period (exact). PC: ≈ 11.6 sub-samples (minor rounding artefacts > 88 kHz, inaudible).
 - **Spectrum** (`SpectrumBeeperFilter`): No carrier; direct amplitude quantization avoids the aliasing problem entirely
 
 ### The 44.1 kHz / Carrier Frequency Relationship
