@@ -161,13 +161,32 @@ public class PlaybackRunner
             // Shutdown hook for Ctrl+C
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 MidirajaCommand.SHUTTING_DOWN = true;
-                String safeRestore =
-                        (MidirajaCommand.ALT_SCREEN_ACTIVE ? Theme.TERM_ALT_SCREEN_DISABLE : "")
+                // Always include alt-screen exit: harmless no-op if not in alt screen.
+                // Use the same output path (System.out) that was used to enter alt screen
+                // so the sequence reaches the terminal reliably.
+                String safeRestore = Theme.TERM_ALT_SCREEN_DISABLE
                                 + Theme.TERM_MOUSE_DISABLE + Theme.COLOR_RESET + "\033[?7h"
                                 + Theme.TERM_SHOW_CURSOR + "\r\033[K\n";
                 if (isInteractive)
                 {
-                    activeIO.print(safeRestore); // restore via JLine before it closes
+                    // Write via System.out first (same channel used to enter alt screen).
+                    try
+                    {
+                        System.out.print(safeRestore);
+                        System.out.flush();
+                    }
+                    catch (Exception ignored)
+                    {
+                    }
+                    // Also write directly to /dev/tty for robustness.
+                    try (var tty = new java.io.FileOutputStream("/dev/tty"))
+                    {
+                        tty.write(safeRestore.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        tty.flush();
+                    }
+                    catch (Exception ignored)
+                    {
+                    }
                 }
                 try
                 {

@@ -42,8 +42,10 @@ import org.jspecify.annotations.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Spec;
 
 @Command(name = "midra", mixinStandardHelpOptions = true,
         version = {"MIDIraja " + Version.VERSION + " (" + Version.COMMIT + ")"},
@@ -103,6 +105,10 @@ public class MidirajaCommand implements Callable<Integer>
     @Option(names = {"--fluid-driver"}, hidden = true)
     private Optional<String> legacyFluidDriver = Optional.empty();
 
+    @Spec
+    @Nullable
+    private CommandSpec spec;
+
     // ── Test injection ────────────────────────────────────────────────────────
 
     @Nullable
@@ -153,6 +159,19 @@ public class MidirajaCommand implements Callable<Integer>
     int findPortIndex(List<MidiPort> ports, String query)
     {
         return PlaybackRunner.findPortIndex(ports, query, stdErr);
+    }
+
+    private java.util.List<String> originalArgs()
+    {
+        if (spec == null) return java.util.List.of();
+        var rawArgs = spec.commandLine().getParseResult().originalArgs();
+        return rawArgs.stream().map(token -> {
+            if (!token.startsWith("-")) {
+                var f = new File(token);
+                if (f.exists()) return f.getAbsolutePath();
+            }
+            return token;
+        }).collect(java.util.stream.Collectors.toList());
     }
 
     // ── Entry point ───────────────────────────────────────────────────────────
@@ -361,7 +380,7 @@ public class MidirajaCommand implements Callable<Integer>
                     var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
                     yield runner.run(MidiProviderFactory.createProvider(), false,
                             Optional.of(String.valueOf(p.portIndex())), Optional.empty(), files,
-                            common, List.of());
+                            common, originalArgs());
                 }
             };
         }
@@ -375,7 +394,7 @@ public class MidirajaCommand implements Callable<Integer>
                 || (provider != null && isTestMode);
 
         var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
-        return runner.run(resolvedProvider, isSoftSynth, port, soundbankArg, files, common, List.of());
+        return runner.run(resolvedProvider, isSoftSynth, port, soundbankArg, files, common, originalArgs());
     }
 
     private int runBuiltinEngine(String engine, List<File> files, CommonOptions common)
@@ -437,6 +456,6 @@ public class MidirajaCommand implements Callable<Integer>
         }
 
         var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
-        return runner.run(builtinProvider, true, Optional.empty(), soundbankArg, files, common, List.of());
+        return runner.run(builtinProvider, true, Optional.empty(), soundbankArg, files, common, originalArgs());
     }
 }

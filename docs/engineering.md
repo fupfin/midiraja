@@ -60,7 +60,7 @@ Options are composed via **picocli `@Mixin`s** rather than inheritance, keeping 
 
 ### TUI Architecture
 
-Terminal I/O uses **JLine 3.25.1** with the `jline-terminal-ffm` backend — JLine's own terminal abstraction layer built on the FFM API rather than JNI, consistent with the rest of the project.
+Terminal I/O uses **JLine 3.25.1** with the `jline-terminal-ffm` backend — JLine's own terminal abstraction layer built on the FFM API rather than JNI, consistent with the rest of the project. See [TUI Engineering](tui-engineering.md) for the full architecture.
 
 **Raw mode & keyboard input**: `JLineTerminalIO` calls `terminal.enterRawMode()` and disables echo, then reads keystrokes via JLine's `NonBlockingReader`. This allows live tempo/volume/transpose control without blocking the playback thread.
 
@@ -109,6 +109,14 @@ Terminal I/O uses **JLine 3.25.1** with the `jline-terminal-ffm` backend — JLi
 | Document | What it covers |
 |----------|----------------|
 | [DSP Pipeline Architecture](dsp-pipeline-engineering.md) | Zero-allocation in-place processing pipeline; tube saturation (tanh waveshaper), stereo chorus, Freeverb reverb, RBJ biquad EQ; output level calibration (−9 dBFS target) |
+
+---
+
+## TUI & Terminal
+
+| Document | What it covers |
+|----------|----------------|
+| [TUI Engineering](tui-engineering.md) | 세 가지 UI 모드(Dashboard/Line/Dumb), 패널 아키텍처, ANSI 시퀀스 관리, 키 입력 처리, TerminalSelector 메뉴, PlaybackEngine 동시성 모델, Ctrl+C 터미널 복원 설계 (ISIG 비활성화), 셧다운 훅 한계 |
 
 ---
 

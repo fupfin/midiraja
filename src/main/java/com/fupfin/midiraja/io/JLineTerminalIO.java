@@ -41,13 +41,19 @@ public class JLineTerminalIO implements TerminalIO
         terminal.enterRawMode();
         Attributes attr = terminal.getAttributes();
         attr.setLocalFlag(Attributes.LocalFlag.ECHO, false);
+        // Disable ISIG so Ctrl+C is delivered as the character \x03 (ETX) rather than
+        // generating SIGINT. This lets JLine route it through the normal QUIT key path,
+        // which cleanly stops the render loop before restoring the terminal. Without this,
+        // SIGINT causes System.exit() while the render loop is still running, and the loop
+        // overwrites the terminal-restore sequences written by the shutdown hook.
+        attr.setLocalFlag(Attributes.LocalFlag.ISIG, false);
         terminal.setAttributes(attr);
 
         keyMap = buildKeyMap(terminal);
         bindingReader = new BindingReader(terminal.reader());
     }
 
-    private static KeyMap<TerminalKey> buildKeyMap(Terminal terminal)
+    static KeyMap<TerminalKey> buildKeyMap(Terminal terminal)
     {
         var km = new KeyMap<TerminalKey>();
         // Wait up to 100ms to disambiguate ESC-alone from ESC-sequence (e.g. arrow keys).
@@ -64,6 +70,9 @@ public class JLineTerminalIO implements TerminalIO
 
         // ESC alone → quit
         km.bind(TerminalKey.QUIT, KeyMap.esc());
+        // Ctrl+C (ETX = \x03) → quit. ISIG is disabled in init() so this arrives as a
+        // key character instead of generating SIGINT.
+        km.bind(TerminalKey.QUIT, "\003");
 
         // Single-character bindings
         km.bind(TerminalKey.PAUSE,          " ");
@@ -124,6 +133,17 @@ public class JLineTerminalIO implements TerminalIO
             catch (IOException _)
             {
                 // Ignore errors during terminal cleanup to prevent masking main exceptions
+            }
+            // Restore cursor visibility after JLine tears down the terminal.
+            // terminal.close() may restore saved terminal attributes or send reset sequences
+            // that leave the cursor hidden; writing directly to System.out ensures it is shown.
+            try
+            {
+                System.out.print("\033[?25h\033[?7h");
+                System.out.flush();
+            }
+            catch (Exception _)
+            {
             }
         }
     }
