@@ -175,11 +175,11 @@ public class OneBitHardwareFilter implements AudioProcessor
 
     /**
      * Computes normalised Direct Form I coefficients for a peaking EQ biquad
-     * (Audio EQ Cookbook, R. Bristow-Johnson) at the internal sample rate 176,400 Hz.
+     * (Audio EQ Cookbook, R. Bristow-Johnson) at the output sample rate 44,100 Hz.
      *
-     * The bilinear transform is applied at INTERNAL_RATE, so the peak frequency is
-     * accurate up to the pre-warping limit. At 2.5 kHz and 6.7 kHz, pre-warping error
-     * is negligible (< 0.2% frequency shift).
+     * The biquad is called once per output sample (not per sub-sample), so it must
+     * be designed at 44,100 Hz. At 2.5 kHz and 6.7 kHz, pre-warping error is
+     * negligible (< 0.2% frequency shift).
      *
      * @return double[5] {b0/a0, b1/a0, b2/a0, a1/a0, a2/a0}
      */
