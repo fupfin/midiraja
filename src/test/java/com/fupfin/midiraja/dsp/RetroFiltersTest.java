@@ -356,6 +356,9 @@ class RetroFiltersTest {
         double ratio = harm2 / fund;
 
         assertTrue(fund > 0, "440 Hz fundamental must be present");
+        // Observed ratio ~0.01149 on first run; 0.0103 is ~90% of that, leaving headroom for
+        // minor platform differences. Physical basis: 5-bit (32-level) quantisation of a 0.8
+        // amplitude sine produces THD ~1.6%, with the dominant harmonic near −36 dB.
         assertTrue(ratio >= 0.0103,
                 String.format("2nd harmonic should be ≥1%% of fundamental. fund=%.1f harm2=%.1f ratio=%.4f",
                         fund, harm2, ratio));
