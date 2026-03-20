@@ -9,7 +9,7 @@ package com.fupfin.midiraja.ui;
 
 public class TitledPanel implements Panel
 {
-    private final String title;
+    private String title;
     private final Panel content;
     private LayoutConstraints constraints = new LayoutConstraints(80, 0, false, false);
     private final boolean noBottomBorder;
@@ -26,6 +26,11 @@ public class TitledPanel implements Panel
         this.title = title;
         this.content = content;
         this.noBottomBorder = noBottomBorder;
+    }
+
+    public void setTitle(String title)
+    {
+        this.title = title;
     }
 
     @Override
