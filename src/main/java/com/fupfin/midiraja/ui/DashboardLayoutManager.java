@@ -90,6 +90,10 @@ public class DashboardLayoutManager
                 hNowPlaying += addNow;
                 surplus -= addNow;
 
+                int addCtrl = min(surplus, CONTROLS_MAX_CONTENT - CONTROLS_MIN_CONTENT);
+                hControls += addCtrl;
+                surplus -= addCtrl;
+
                 if (showPlaylist)
                 {
                     hPlaylist += surplus;

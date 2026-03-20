@@ -40,7 +40,8 @@ class NowPlayingPanelTest {
         String out = render(panel);
         String[] lines = out.split("\n");
         assertEquals(5, countNonEmpty(lines));
-        assertTrue(lines[1].contains("1988 Falcom"));
+        // New layout: Title, Time, Port, Settings, Copyright (copyright always last)
+        assertTrue(lines[4].contains("1988 Falcom"));
     }
 
     @Test void height5_withoutCopyright_noCopyrightLineShown() {

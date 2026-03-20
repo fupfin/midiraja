@@ -31,6 +31,7 @@ public class NowPlayingPanel implements Panel
     @Nullable
     private String copyright = null;
     private String filterInfo = "";
+    private String portSuffix = "";
 
     @Override
     public void onLayoutUpdated(LayoutConstraints bounds)
@@ -59,6 +60,11 @@ public class NowPlayingPanel implements Panel
     public void setFilterInfo(String filterInfo)
     {
         this.filterInfo = filterInfo;
+    }
+
+    public void setPortSuffix(String portSuffix)
+    {
+        this.portSuffix = portSuffix;
     }
 
     @Override
@@ -116,94 +122,34 @@ public class NowPlayingPanel implements Panel
         int filled = (int) ((percent / 100.0) * barWidth);
         String bar = ProgressBar.render(filled, barWidth, ProgressBar.Style.SOLID_BACKGROUND, true);
 
-        String portInfo =
-                String.format("[%d] %s", context.targetPort().index(), context.targetPort().name());
+        String portInfo = context.targetPort().name();
 
         int h = constraints.height();
 
         // Consistent label alignment (10 chars padding)
-        String fmtTitle = "%-10s %s";
+        String fmtLabel = "%-10s %s";
         String fmtTime  = "%-10s %s%s / %s  %s  %3d%%";
-        String fmtPort  = "%-10s %s";
 
-        String titleLine = String.format(fmtTitle, "Title:",
-                truncate(rawTitle, max(10, constraints.width() - 11)));
-        String portLine = String.format(fmtPort, "Port:",
-                truncate(portInfo, constraints.width() - 15));
-        String settingsLine = String.format("Vol: %d%% | Tempo: %3.0f BPM (%.1fx) | Trans: %+d",
-                (int) (volumeScale * 100), bpm, speed, transpose);
-        String filterLine = filterInfo.isEmpty() ? null
-                : String.format("%-10s %s", "Filters:", truncateAnsi(filterInfo,
-                        max(10, constraints.width() - 11)));
+        // Build lines in display order; output the first h of them, then pad.
+        var lines = new java.util.ArrayList<String>();
+        lines.add(String.format(fmtLabel, "Title:",
+                truncate(rawTitle, max(10, constraints.width() - 11))));
+        lines.add(String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent));
+        lines.add(String.format(fmtLabel, "Port:",
+                truncateAnsi(portInfo + portSuffix, constraints.width() - 11)));
+        lines.add(String.format("%-10s %s", "",
+                truncate(String.format("Vol: %d%% | Tempo: %.0f BPM (%.1fx) | Trans: %+d",
+                        (int) (volumeScale * 100), bpm, speed, transpose),
+                        max(10, constraints.width() - 11))));
+        if (!filterInfo.isEmpty())
+            lines.add(String.format(fmtLabel, "Effects:",
+                    truncateAnsi(filterInfo, max(10, constraints.width() - 11))));
+        if (copyright != null)
+            lines.add(String.format(fmtLabel, "Copyright:",
+                    truncate(copyright, max(10, constraints.width() - 11))));
 
-        if (h <= 2)
-        {
-            buffer.append(titleLine).append("\n");
-            buffer.append(
-                    String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
-                    .append("\n");
-        }
-        else if (h == 3)
-        {
-            buffer.append(titleLine).append("\n");
-            buffer.append(
-                    String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
-                    .append("\n");
-            String packed = String.format("Port: %s | %s", portInfo, settingsLine);
-            buffer.append(truncate(packed, constraints.width())).append("\n");
-        }
-        else if (h == 4 || (h >= 5 && copyright == null && filterLine == null))
-        {
-            buffer.append(titleLine).append("\n");
-            buffer.append(
-                    String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
-                    .append("\n");
-            buffer.append(portLine).append("\n");
-            buffer.append(truncate(settingsLine, constraints.width())).append("\n");
-            for (int i = 4; i < h; i++) buffer.append("\n");
-        }
-        else if (copyright == null)
-        {
-            // h >= 5, filterLine != null: Title + Time + Port + Settings + Filters [+ padding]
-            buffer.append(titleLine).append("\n");
-            buffer.append(
-                    String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
-                    .append("\n");
-            buffer.append(portLine).append("\n");
-            buffer.append(truncate(settingsLine, constraints.width())).append("\n");
-            buffer.append(java.util.Objects.requireNonNull(filterLine)).append("\n");
-            for (int i = 5; i < h; i++) buffer.append("\n");
-        }
-        else if (h == 5 || filterLine == null)
-        {
-            // h >= 5, with copyright, not enough room for filter line
-            String copyrightText = java.util.Objects.requireNonNull(copyright);
-            String copyrightLine = String.format(fmtTitle, "Copyright:",
-                    truncate(copyrightText, max(10, constraints.width() - 11)));
-            buffer.append(titleLine).append("\n");
-            buffer.append(copyrightLine).append("\n");
-            buffer.append(
-                    String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
-                    .append("\n");
-            buffer.append(portLine).append("\n");
-            buffer.append(truncate(settingsLine, constraints.width())).append("\n");
-            for (int i = 5; i < h; i++) buffer.append("\n");
-        }
-        else
-        {
-            // h >= 6, with copyright: Title + Copyright + Time + Port + Settings + Filters [+ padding]
-            String copyrightText = java.util.Objects.requireNonNull(copyright);
-            String copyrightLine = String.format(fmtTitle, "Copyright:",
-                    truncate(copyrightText, max(10, constraints.width() - 11)));
-            buffer.append(titleLine).append("\n");
-            buffer.append(copyrightLine).append("\n");
-            buffer.append(
-                    String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
-                    .append("\n");
-            buffer.append(portLine).append("\n");
-            buffer.append(truncate(settingsLine, constraints.width())).append("\n");
-            buffer.append(java.util.Objects.requireNonNull(filterLine)).append("\n");
-            for (int i = 6; i < h; i++) buffer.append("\n");
-        }
+        int shown = min(h, lines.size());
+        for (int i = 0; i < shown; i++) buffer.append(lines.get(i)).append("\n");
+        for (int i = shown; i < h; i++) buffer.append("\n");
     }
 }
