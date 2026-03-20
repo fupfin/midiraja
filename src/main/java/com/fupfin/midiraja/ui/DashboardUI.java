@@ -60,6 +60,14 @@ public class DashboardUI implements PlaybackUI
         return meta;
     }
 
+    static String playlistTitle(boolean loop, boolean shuffle)
+    {
+        var sb = new StringBuilder("PLAYLIST");
+        if (loop)    sb.append(" \u21A9");
+        if (shuffle) sb.append(" \u21C4");
+        return sb.toString();
+    }
+
     @Override
     public void runRenderLoop(PlaybackEngine engine)
     {
@@ -72,6 +80,10 @@ public class DashboardUI implements PlaybackUI
 
         rawPlaylistPanel.updateContext(engine.getContext());
         rawChannelPanel.updatePrograms(engine.getChannelPrograms());
+
+        // Loop/shuffle are CLI flags — set title once before the render loop
+        var ctx = engine.getContext();
+        titledPlaylistPanel.setTitle(playlistTitle(ctx.loop(), ctx.shuffle()));
 
         // Copyright wired in Task 5 (setCopyright)
 
