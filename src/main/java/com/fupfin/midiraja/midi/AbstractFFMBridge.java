@@ -113,6 +113,12 @@ public abstract class AbstractFFMBridge implements AutoCloseable
                 descriptor);
     }
 
+    @org.jspecify.annotations.Nullable
+    protected final MethodHandle optionalDowncall(String symbol, FunctionDescriptor descriptor)
+    {
+        return lib.find(symbol).map(addr -> linker.downcallHandle(addr, descriptor)).orElse(null);
+    }
+
     public static SymbolLookup tryLoadLibrary(Arena arena, String fallbackDevDir, String... paths)
             throws RuntimeException
     {
@@ -130,9 +136,25 @@ public abstract class AbstractFFMBridge implements AutoCloseable
         String[] osFallbackDirs = osName.contains("mac") ? LibraryPaths.DARWIN
                 : (osName.contains("linux") ? LibraryPaths.LINUX : LibraryPaths.WINDOWS);
 
-        List<String> allPaths = new ArrayList<>(List.of(paths));
+        List<String> allPaths = new ArrayList<>();
 
-        // Append OS-specific fallback dirs for bare library names (e.g. /opt/homebrew/lib/libfoo.dylib)
+        // Dev build paths come FIRST so they always win over any system-installed version.
+        // On macOS, DYLD_LIBRARY_PATH is stripped by SIP for certain binaries, so we cannot
+        // rely on environment variables to control the load order.
+        if (fallbackDevDir != null && !fallbackDevDir.isEmpty())
+        {
+            String nativeTarget = osFamily + "-" + arch;
+            for (String path : paths)
+            {
+                allPaths.add(projectRoot + "/build/native-libs/" + nativeTarget + "/"
+                        + fallbackDevDir + "/" + path);
+            }
+        }
+
+        // Then bare filenames (resolved by the OS dynamic linker)
+        allPaths.addAll(List.of(paths));
+
+        // Finally, explicit OS-specific fallback dirs (e.g. /opt/homebrew/lib/libfoo.dylib)
         for (String path : paths)
         {
             if (!new File(path).isAbsolute())
@@ -141,17 +163,6 @@ public abstract class AbstractFFMBridge implements AutoCloseable
                 {
                     allPaths.add(dir + "/" + path);
                 }
-            }
-        }
-
-        // Append dev build paths for local development
-        if (fallbackDevDir != null && !fallbackDevDir.isEmpty())
-        {
-            String nativeTarget = osFamily + "-" + arch;
-            for (String path : paths)
-            {
-                allPaths.add(projectRoot + "/build/native-libs/" + nativeTarget + "/"
-                        + fallbackDevDir + "/" + path);
             }
         }
 
