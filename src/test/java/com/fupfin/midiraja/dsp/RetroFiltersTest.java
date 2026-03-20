@@ -61,14 +61,17 @@ class RetroFiltersTest {
 
     @Test
     void testPcDacBoundary() {
-        // --retro pc: empirical 15.2kHz carrier (1.19318MHz / 78 steps), ~6.3-bit
-        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "pwm", 15200.0, 78.0, 0.45f, mock);
-        float[] left = new float[512];
+        // PC speaker: empirical 15.2kHz carrier (1.19318MHz / 78 steps), ~6.3-bit
+        // tauUs=37.9 derives from old smoothAlpha=0.45; resonance peaks at 2.5kHz and 6.7kHz
+        OneBitHardwareFilter filter = new OneBitHardwareFilter(
+                true, "pwm", 15200.0, 78.0, 37.9,
+                new double[]{2500.0, 3.0, 3.0, 6700.0, 4.0, 4.0}, mock);
+        float[] left  = new float[512];
         float[] right = new float[512];
-        
+
         filter.process(left, right, 512);
         assertTrue(mock.processCalled);
-        
+
         for (int i = 0; i < 512; i++) {
             float val = mock.lastLeft[i];
             assertTrue(val >= -1.0f && val <= 1.0f, "IBM PC PWM output out of bounds: " + val);
@@ -78,13 +81,14 @@ class RetroFiltersTest {
     @Test
     void testApple2DacToggle() {
         // DAC522 profile: 22kHz carrier (above hearing limit), 5-bit resolution
-        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "pwm", 22050.0, 32.0, 0.55f, mock);
-        float[] left = {0.5f, 0.5f, -0.5f, -0.5f};
+        // tauUs=28.4 derives from the old smoothAlpha=0.55 via τ = -1/(44100 × ln(1-0.55))
+        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "pwm", 22050.0, 32.0, 28.4, null, mock);
+        float[] left  = {0.5f, 0.5f, -0.5f, -0.5f};
         float[] right = {0.5f, 0.5f, -0.5f, -0.5f};
-        
+
         filter.process(left, right, 4);
         assertTrue(mock.processCalled);
-        
+
         for (int i = 0; i < 4; i++) {
             float val = mock.lastLeft[i];
             assertTrue(val >= -1.0f && val <= 1.0f, "Apple II output out of bounds: " + val);

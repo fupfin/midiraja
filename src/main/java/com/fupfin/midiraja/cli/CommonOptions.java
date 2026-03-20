@@ -130,12 +130,13 @@ public class CommonOptions
                 case "compactmac" -> new CompactMacSimulatorFilter(true, pipeline);
                 // Empirically measured from original RealSound demos: 15.2kHz carrier
                 // (1.19318MHz / 78 steps ≈ 15.3kHz), 78 discrete levels (~6.3-bit).
-                case "pc" -> new OneBitHardwareFilter(true, "pwm", 15200.0, 78.0, 0.45f, pipeline);
+                case "pc" -> new OneBitHardwareFilter(true, "pwm", 15200.0, 78.0, 37.9,
+                        new double[]{2500.0, 3.0, 3.0, 6700.0, 4.0, 4.0}, pipeline);
                 // DAC522 technique: each audio sample is encoded as TWO 46-cycle pulses.
                 // Two pulses together (92 cycles) ≈ the original 93-cycle 11kHz sample period,
                 // but the carrier noise is now at 22.05kHz — above the hearing limit.
                 // 32 discrete widths per pulse (6-37 out of 46 cycles, ~5-bit).
-                case "apple2" -> new OneBitHardwareFilter(true, "pwm", 22050.0, 32.0, 0.55f, pipeline);
+                case "apple2" -> new OneBitHardwareFilter(true, "pwm", 22050.0, 32.0, 28.4, null, pipeline);
                 case "spectrum" -> new SpectrumBeeperFilter(true, pipeline);
                 case "covox", "disneysound" -> new CovoxDacFilter(true, pipeline);
                 case "amiga", "a500" -> new AmigaPaulaFilter(true, AmigaPaulaFilter.Profile.A500,

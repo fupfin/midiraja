@@ -78,7 +78,7 @@ public class OneBitCovoxTest {
     @Test
     public void testOneBitHardwareFilterDisabled() {
         DummyAudioProcessor next = new DummyAudioProcessor();
-        OneBitHardwareFilter filter = new OneBitHardwareFilter(false, "pwm", 1000.0, 256.0, 0.5f, next);
+        OneBitHardwareFilter filter = new OneBitHardwareFilter(false, "pwm", 1000.0, 256.0, 32.8, null, next);
 
         float[] l = new float[]{0.5f, -0.5f};
         float[] r = new float[]{0.5f, -0.5f};
@@ -93,7 +93,7 @@ public class OneBitCovoxTest {
     @Test
     public void testOneBitHardwareFilterPWM() {
         DummyAudioProcessor next = new DummyAudioProcessor();
-        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, null, 15000.0, 256.0, 0.5f, next);
+        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, null, 15000.0, 256.0, 32.8, null, next);
 
         float[] l = new float[]{0.0f, 0.5f, -0.5f, 1.2f, -1.2f, 0.0f};
         float[] r = new float[]{0.0f, 0.5f, -0.5f, 1.2f, -1.2f, 0.0f};
@@ -111,7 +111,7 @@ public class OneBitCovoxTest {
     @Test
     public void testOneBitHardwareFilterPWM_Mono() {
         DummyAudioProcessor next = new DummyAudioProcessor();
-        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "pwm", 15000.0, 256.0, 0.5f, next);
+        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "pwm", 15000.0, 256.0, 32.8, null, next);
 
         short[] interleaved = new short[]{0, 10000, -10000, 32767, -32768};
         filter.processInterleaved(interleaved, 5, 1);
@@ -121,7 +121,7 @@ public class OneBitCovoxTest {
     @Test
     public void testOneBitHardwareFilterDSD() {
         DummyAudioProcessor next = new DummyAudioProcessor();
-        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "dsd", 15000.0, 256.0, 0.5f, next);
+        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "dsd", 15000.0, 256.0, 32.8, null, next);
 
         float[] l = new float[]{0.0f, 0.5f, -0.5f};
         float[] r = new float[]{0.0f, 0.5f, -0.5f};
