@@ -120,7 +120,7 @@ import org.junit.jupiter.api.condition.EnabledIf;
 
         // 4. Run PlaybackEngine at 1000x speed so the file completes in ~200ms wall-clock time
         PlaylistContext ctx = new PlaylistContext(
-            List.of(new File("monkey_island.mid")), 0, new MidiPort(0, "Test"), null);
+            List.of(new File("monkey_island.mid")), 0, new MidiPort(0, "Test"), null, false, false);
 
         PlaybackEngine engine =
             new PlaybackEngine(seq, provider, ctx, 100, 1000.0, Optional.empty(), Optional.empty());

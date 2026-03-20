@@ -11,8 +11,6 @@ import static com.fupfin.midiraja.ui.UIUtils.formatTime;
 import static java.lang.Math.*;
 
 import com.fupfin.midiraja.engine.PlaylistContext;
-import java.util.ArrayList;
-import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 public class NowPlayingPanel implements Panel
@@ -29,7 +27,8 @@ public class NowPlayingPanel implements Panel
     private volatile boolean bookmarked = false;
     @Nullable
     private PlaylistContext context;
-    private final List<String> extraMetadata = new ArrayList<>();
+    @Nullable
+    private String copyright = null;
 
     @Override
     public void onLayoutUpdated(LayoutConstraints bounds)
@@ -50,10 +49,9 @@ public class NowPlayingPanel implements Panel
         this.context = context;
     }
 
-    public void setExtraMetadata(List<String> metadata)
+    public void setCopyright(@Nullable String copyright)
     {
-        this.extraMetadata.clear();
-        this.extraMetadata.addAll(metadata);
+        this.copyright = copyright;
     }
 
     @Override
@@ -90,7 +88,6 @@ public class NowPlayingPanel implements Panel
         String title = context.sequenceTitle() != null ? context.sequenceTitle() : "";
         String fileName = context.files().get(context.currentIndex()).getName();
         String rawTitle = title.isEmpty() ? fileName : title + " (" + fileName + ")";
-        String displayTitle = rawTitle; // kept for other uses; bookmark suffix is handled in titleLine
 
         boolean incHrs = (totalMicros / 1000000) >= 3600;
         String totStr = formatTime(totalMicros, incHrs);
@@ -105,17 +102,8 @@ public class NowPlayingPanel implements Panel
         int timeLen = timeStr.length();
 
         // Fixed visual length without bar:
-        // " " (4)
-        // "Time: " (10)
-        // " " (1)
-        // "[PAUSED] " (visiblePauseLen)
-        // "00:00 / 00:00" (timeLen)
-        // " " (2)
-        // " " (2)
-        // "100%" (4)
-        // Total = 23 + visiblePauseLen + timeLen
-        // Increase safety margin by 2 to completely avoid any edge-case string
-        // overflow truncations.
+        // "Time:      " (11) + pauseIndicator + "00:00 / 00:00" + "  " + bar + "  " + "100%"
+        // Total fixed = 23 + visiblePauseLen + timeLen
         int barWidth = max(10, constraints.width() - 23 - visiblePauseLen - timeLen);
 
         int filled = (int) ((percent / 100.0) * barWidth);
@@ -126,25 +114,21 @@ public class NowPlayingPanel implements Panel
 
         int h = constraints.height();
 
-        // Consistent Alignment Prefix
-
-        // Consistent Alignment Formats (10 chars padding for label)
+        // Consistent label alignment (10 chars padding)
         String fmtTitle = "%-10s %s";
+        String fmtTime  = "%-10s %s%s / %s  %s  %3d%%";
+        String fmtPort  = "%-10s %s";
 
         String titleLine = String.format(fmtTitle, "Title:",
-                truncate(displayTitle, max(10, constraints.width() - 11)));
-        String fmtTime = "%-10s %s%s / %s  %s  %3d%%";
-        String fmtVol = "%-10s %d%%";
-        String fmtPort = "%-10s %s";
-        String fmtTempo = "%-10s %3.0f BPM (%.1fx)";
-        String fmtTrans = "%-10s %+d";
+                truncate(rawTitle, max(10, constraints.width() - 11)));
+        String portLine = String.format(fmtPort, "Port:",
+                truncate(portInfo, constraints.width() - 15));
+        String settingsLine = String.format("Vol: %d%% | Tempo: %3.0f BPM (%.1fx) | Trans: %+d",
+                (int) (volumeScale * 100), bpm, speed, transpose);
 
         if (h <= 2)
         {
-            // Extreme minimum: Just Title and Time
             buffer.append(titleLine).append("\n");
-            // Trust the bar width math, do not truncate. Truncate might be mistakenly
-            // counting ANSI or something weird.
             buffer.append(
                     String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
                     .append("\n");
@@ -152,68 +136,36 @@ public class NowPlayingPanel implements Panel
         else if (h == 3)
         {
             buffer.append(titleLine).append("\n");
-            // Trust the bar width math, do not truncate. Truncate might be mistakenly
-            // counting ANSI or something weird.
             buffer.append(
                     String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
                     .append("\n");
-
-            // Pack all into 1 line
-            String packed = String.format("Vol: %d%% | Port: %s | Spd: %.1fx | Tr: %+d",
-                    (int) (volumeScale * 100), portInfo, speed, transpose);
+            String packed = String.format("Port: %s | %s", portInfo, settingsLine);
             buffer.append(truncate(packed, constraints.width())).append("\n");
         }
-        else if (h == 4)
+        else if (h == 4 || (h >= 5 && copyright == null))
         {
             buffer.append(titleLine).append("\n");
-            // Trust the bar width math, do not truncate. Truncate might be mistakenly
-            // counting ANSI or something weird.
             buffer.append(
                     String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
                     .append("\n");
-
-            // Pack Volume/Port and Tempo/Trans
-            buffer.append(truncate(String.format("%-10s %d%% | Port: %s", "Volume:",
-                    (int) (volumeScale * 100), portInfo), constraints.width())).append("\n");
-            buffer.append(truncate(String.format("%-10s %3.0f BPM (%.1fx) | Trans: %+d", "Tempo:",
-                    bpm, speed, transpose), constraints.width())).append("\n");
-        }
-        else if (h == 5)
-        {
-            buffer.append(titleLine).append("\n");
-            // Trust the bar width math, do not truncate. Truncate might be mistakenly
-            // counting ANSI or something weird.
-            buffer.append(
-                    String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
-                    .append("\n");
-            buffer.append(String.format(fmtVol, "Volume:", (int) (volumeScale * 100))).append("\n");
-            buffer.append(
-                    String.format(fmtPort, "Port:", truncate(portInfo, constraints.width() - 15)))
-                    .append("\n");
-            buffer.append(truncate(String.format("%-10s %3.0f BPM (%.1fx) | Trans: %+d", "Tempo:",
-                    bpm, speed, transpose), constraints.width())).append("\n");
+            buffer.append(portLine).append("\n");
+            buffer.append(truncate(settingsLine, constraints.width())).append("\n");
+            for (int i = 4; i < h; i++) buffer.append("\n");
         }
         else
         {
-            // h >= 6 (Fully Unpacked)
+            // h >= 5 && copyright != null
+            String copyrightText = java.util.Objects.requireNonNull(copyright);
+            String copyrightLine = String.format(fmtTitle, "Copyright:",
+                    truncate(copyrightText, max(10, constraints.width() - 11)));
             buffer.append(titleLine).append("\n");
-            // Trust the bar width math, do not truncate. Truncate might be mistakenly
-            // counting ANSI or something weird.
+            buffer.append(copyrightLine).append("\n");
             buffer.append(
                     String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent))
                     .append("\n");
-            buffer.append(String.format(fmtVol, "Volume:", (int) (volumeScale * 100))).append("\n");
-            buffer.append(
-                    String.format(fmtPort, "Port:", truncate(portInfo, constraints.width() - 15)))
-                    .append("\n");
-            buffer.append(String.format(fmtTempo, "Tempo:", bpm, speed)).append("\n");
-            buffer.append(String.format(fmtTrans, "Transpose:", transpose)).append("\n");
-
-            // Fill any remaining space with blank lines
-            for (int i = 6; i < h; i++)
-            {
-                buffer.append("\n");
-            }
+            buffer.append(portLine).append("\n");
+            buffer.append(truncate(settingsLine, constraints.width())).append("\n");
+            for (int i = 5; i < h; i++) buffer.append("\n");
         }
     }
 }

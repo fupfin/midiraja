@@ -73,8 +73,7 @@ public class DashboardUI implements PlaybackUI
         rawPlaylistPanel.updateContext(engine.getContext());
         rawChannelPanel.updatePrograms(engine.getChannelPrograms());
 
-        // Let's grab extra metadata for the current track right away
-        nowPlayingPanel.setExtraMetadata(extractExtraMetadata(engine.getSequence()));
+        // Copyright wired in Task 5 (setCopyright)
 
         int lastWidth = -1;
         int lastHeight = -1;

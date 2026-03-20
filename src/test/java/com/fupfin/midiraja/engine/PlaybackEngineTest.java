@@ -69,7 +69,7 @@ class PlaybackEngineTest
 
     private PlaylistContext ctx()
     {
-        return new PlaylistContext(List.of(new File("test.mid")), 0, new MidiPort(0, "Mock"), null);
+        return new PlaylistContext(List.of(new File("test.mid")), 0, new MidiPort(0, "Mock"), null, false, false);
     }
 
     @BeforeEach void setUp() throws Exception
@@ -84,7 +84,7 @@ class PlaybackEngineTest
     {
         PlaybackEngine engine = new PlaybackEngine(mockSequence, mockProvider,
             new PlaylistContext(java.util.List.of(new java.io.File("test.mid")), 0,
-                new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null),
+                new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null, false, false),
             100, 1.0, java.util.Optional.empty(), java.util.Optional.empty());
 
         mockIO.injectKey(TerminalIO.TerminalKey.VOLUME_DOWN);
@@ -102,7 +102,7 @@ class PlaybackEngineTest
 
         PlaybackEngine engine = new PlaybackEngine(mockSequence, mockProvider,
             new PlaylistContext(java.util.List.of(new java.io.File("test.mid")), 0,
-                new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null),
+                new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null, false, false),
             100, 1.0, java.util.Optional.empty(), java.util.Optional.empty());
 
         // Seek forward multiple times beyond end
@@ -122,7 +122,7 @@ class PlaybackEngineTest
 
         PlaybackEngine engine = new PlaybackEngine(mockSequence, mockProvider,
             new PlaylistContext(java.util.List.of(new java.io.File("test.mid")), 0,
-                new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null),
+                new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null, false, false),
             100, 1.0, java.util.Optional.empty(), java.util.Optional.empty());
 
         // Seek backward early in the song (should stay at 0)
@@ -138,7 +138,7 @@ class PlaybackEngineTest
     {
         PlaybackEngine engine = new PlaybackEngine(mockSequence, mockProvider,
             new PlaylistContext(java.util.List.of(new java.io.File("test.mid")), 0,
-                new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null),
+                new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null, false, false),
             100, 1.0, java.util.Optional.empty(), java.util.Optional.empty());
 
         // Volume down multiple times (should clamp at 0%)
