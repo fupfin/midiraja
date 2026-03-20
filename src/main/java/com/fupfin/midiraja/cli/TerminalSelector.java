@@ -18,6 +18,7 @@ import java.util.Scanner;
 import java.util.function.BiConsumer;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
+import org.jline.terminal.Attributes;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.InfoCmp;
@@ -213,6 +214,7 @@ public final class TerminalSelector
         try (Terminal terminal = TerminalBuilder.builder().system(true).build())
         {
             terminal.enterRawMode();
+            disableIsig(terminal);
             var km = buildNavKeyMap(terminal);
             var bindingReader = new BindingReader(terminal.reader());
             terminal.writer().print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
@@ -327,6 +329,7 @@ public final class TerminalSelector
         try (Terminal terminal = TerminalBuilder.builder().system(true).build())
         {
             terminal.enterRawMode();
+            disableIsig(terminal);
             var km = buildNavKeyMap(terminal);
             var bindingReader = new BindingReader(terminal.reader());
             terminal.writer().print(Theme.TERM_HIDE_CURSOR);
@@ -420,6 +423,7 @@ public final class TerminalSelector
         try (Terminal terminal = TerminalBuilder.builder().system(true).build())
         {
             terminal.enterRawMode();
+            disableIsig(terminal);
             var km = buildNavKeyMapWithActions(terminal);
             var bindingReader = new BindingReader(terminal.reader());
             terminal.writer().print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
@@ -553,6 +557,7 @@ public final class TerminalSelector
         try (Terminal terminal = TerminalBuilder.builder().system(true).build())
         {
             terminal.enterRawMode();
+            disableIsig(terminal);
             var km = buildNavKeyMapWithActions(terminal);
             var bindingReader = new BindingReader(terminal.reader());
             terminal.writer().print(Theme.TERM_HIDE_CURSOR);
@@ -656,6 +661,19 @@ public final class TerminalSelector
         return new SelectResult.Cancelled<>();
     }
 
+    /**
+     * Disables ISIG so Ctrl+C is delivered as the character {@code \x03} (ETX) rather than
+     * generating SIGINT. Combined with the {@code \003} → QUIT binding, this routes Ctrl+C
+     * through the normal quit path and ensures the terminal is restored cleanly on exit.
+     * Same rationale as {@link com.fupfin.midiraja.io.JLineTerminalIO#init()}.
+     */
+    private static void disableIsig(Terminal terminal)
+    {
+        Attributes attr = terminal.getAttributes();
+        attr.setLocalFlag(Attributes.LocalFlag.ISIG, false);
+        terminal.setAttributes(attr);
+    }
+
     private static KeyMap<String> buildNavKeyMap(Terminal terminal)
     {
         var km = new KeyMap<String>();
@@ -667,7 +685,7 @@ public final class TerminalSelector
         if (downSeq != null && !downSeq.isEmpty()) km.bind("DOWN", downSeq);
         km.bind("DOWN", "\033[B", "\033OB");
         km.bind("SELECT", "\r", "\n");
-        km.bind("QUIT", "q", "Q", "\033");
+        km.bind("QUIT", "q", "Q", "\033", "\003"); // \003 = Ctrl+C (ETX), ISIG disabled
         return km;
     }
 

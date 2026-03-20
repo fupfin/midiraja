@@ -191,4 +191,20 @@ public class DashboardUI implements PlaybackUI
     {
         InputLoopRunner.run(engine, InputHandler::handleCommonInput);
     }
+
+    @Override
+    public void suspend(com.fupfin.midiraja.io.TerminalIO term, boolean altScreen)
+    {
+        // Exit alt screen so the shell is visible while the process is stopped.
+        if (altScreen) term.print(Theme.TERM_ALT_SCREEN_DISABLE);
+        term.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_AUTOWRAP_ON);
+    }
+
+    @Override
+    public void resume(com.fupfin.midiraja.io.TerminalIO term, boolean altScreen)
+    {
+        // Re-enter alt screen; the render loop will redraw on the next tick.
+        if (altScreen) term.print(Theme.TERM_ALT_SCREEN_ENABLE);
+        term.print(Theme.TERM_HIDE_CURSOR + Theme.TERM_AUTOWRAP_OFF);
+    }
 }

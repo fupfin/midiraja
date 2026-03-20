@@ -15,6 +15,7 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
+import org.jline.terminal.Attributes;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.InfoCmp;
 import org.jline.utils.NonBlockingReader;
@@ -62,6 +63,11 @@ class DemoTransitionScreen
             }
 
             terminal.enterRawMode();
+            // Disable ISIG so Ctrl+C is delivered as \x03 (ETX) rather than SIGINT.
+            // Combined with the \003→QUIT_ALL binding below, this restores the terminal cleanly.
+            Attributes attr = terminal.getAttributes();
+            attr.setLocalFlag(Attributes.LocalFlag.ISIG, false);
+            terminal.setAttributes(attr);
             var writer = terminal.writer();
             writer.print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
             writer.flush();
@@ -189,7 +195,7 @@ class DemoTransitionScreen
         bindArrow(km, terminal, InfoCmp.Capability.key_down, PlaybackStatus.NEXT,     "B");
         km.bind(PlaybackStatus.FINISHED, "\r", "\n", " ", "n", "N");
         km.bind(PlaybackStatus.PREVIOUS, "p", "P");
-        km.bind(PlaybackStatus.QUIT_ALL, "q", "Q", "\033");
+        km.bind(PlaybackStatus.QUIT_ALL, "q", "Q", "\033", "\003"); // \003 = Ctrl+C (ETX)
         return km;
     }
 

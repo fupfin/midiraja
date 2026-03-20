@@ -151,4 +151,16 @@ public class LineUI implements PlaybackUI
     {
         InputLoopRunner.run(engine, InputHandler::handleMiniInput);
     }
+
+    @Override
+    public void suspend(com.fupfin.midiraja.io.TerminalIO term, boolean altScreen)
+    {
+        if (term.isInteractive()) term.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_AUTOWRAP_ON);
+    }
+
+    @Override
+    public void resume(com.fupfin.midiraja.io.TerminalIO term, boolean altScreen)
+    {
+        if (term.isInteractive()) term.print(Theme.TERM_HIDE_CURSOR + Theme.TERM_AUTOWRAP_OFF);
+    }
 }

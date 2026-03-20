@@ -74,4 +74,11 @@ public interface TerminalIO
      * not interactive or unknown.
      */
     int getHeight();
+
+    /**
+     * Installs SIGTSTP/SIGCONT handlers. {@code onSuspend} is called before the process suspends
+     * (so the UI can restore the terminal); {@code onResume} is called after SIGCONT is received
+     * (so the UI can re-enter its display mode). Default no-op for non-interactive implementations.
+     */
+    default void installSuspendHandlers(Runnable onSuspend, Runnable onResume) {}
 }

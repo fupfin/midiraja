@@ -227,6 +227,13 @@ public class PlaybackRunner
             PlaybackUI ui = buildUI(common.uiOptions, isInteractive, activeIO.getHeight(), altScreenOut);
             boolean useAltScreen = altScreenOut[0];
 
+            // Install SIGTSTP/SIGCONT handlers so Ctrl+Z cleanly suspends and restores the UI.
+            // Each UI mode encapsulates its own terminal state (alt screen, cursor, autowrap).
+            boolean inAltScreen = useAltScreen && isInteractive && !suppressAltScreenRestore;
+            activeIO.installSuspendHandlers(
+                    () -> ui.suspend(activeIO, inAltScreen),
+                    () -> ui.resume(activeIO, inAltScreen));
+
             PrintStream savedErr = System.err;
             ByteArrayOutputStream errBuffer = null;
             if (useAltScreen && isInteractive && !suppressAltScreenRestore)

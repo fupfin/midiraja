@@ -176,6 +176,38 @@ public class JLineTerminalIO implements TerminalIO
         }
     }
 
+    /**
+     * Installs JLine SIGTSTP/SIGCONT handlers.
+     *
+     * <p>On SIGTSTP: calls {@code onSuspend}, resets the TSTP handler to the OS default, then
+     * sends SIGTSTP to the current process (which pauses all threads). Execution resumes here
+     * after SIGCONT is received; the TSTP handler is then re-registered and {@code onResume} is
+     * called.
+     */
+    @Override
+    public void installSuspendHandlers(Runnable onSuspend, Runnable onResume)
+    {
+        var t = terminal;
+        if (t == null) return;
+        t.handle(org.jline.terminal.Terminal.Signal.TSTP, signal -> {
+            onSuspend.run();
+            // Reset to default before re-raising so the OS actually suspends the process.
+            t.handle(org.jline.terminal.Terminal.Signal.TSTP,
+                    org.jline.terminal.Terminal.SignalHandler.SIG_DFL);
+            try
+            {
+                new ProcessBuilder("/bin/kill", "-TSTP",
+                        String.valueOf(ProcessHandle.current().pid())).start().waitFor();
+            }
+            catch (Exception ignored)
+            {
+            }
+            // Execution resumes here after SIGCONT.
+            installSuspendHandlers(onSuspend, onResume);
+            onResume.run();
+        });
+    }
+
     @Override
     public int getWidth()
     {
