@@ -24,12 +24,31 @@ import org.jspecify.annotations.Nullable;
  * comes from the mechanical inertia of the speaker cone. Applying the RC label to these modes
  * would be physically inaccurate.
  *
- * <h2>Solution: 4× internal oversampling</h2>
+ * <h2>Solution: 4× internal oversampling + 7-pole speaker model (1 electrical + 6 mechanical)</h2>
  * The filter operates internally at 176,400 Hz (4×). The cone IIR needs at least 4–8 sub-samples
  * per carrier period to accurately track PWM transitions; 4× satisfies this for both modes:
  * the Apple II 22,050 Hz carrier gets exactly 8 sub-samples per period (no rounding), and the
  * PC 15,200 Hz carrier gets ≈11.6 (minor rounding artefacts appear above 88 kHz, inaudible).
- * Each sub-sample evaluates the raw ±1 PWM bit directly and feeds it to the speaker-cone IIR model.
+ * Each sub-sample first passes the ±1 PWM bit through an electrical pre-filter (voice-coil
+ * inductance, τ_e ≈ 10 µs), then feeds the result to the 6-pole mechanical cone IIR model.
+ *
+ * <h2>Electrical pre-filter — voice coil inductance</h2>
+ * A cheap PC speaker voice coil is an inductor (L ≈ 0.1–0.3 mH, R ≈ 8 Ω). The current through
+ * an RL circuit responds to a voltage step as i(t) = V/R × (1 − e^{−t/τ_e}) where τ_e = L/R.
+ * For a 0.1 mH coil at 8 Ω: τ_e = 12.5 µs; we use τ_e = 10 µs as a conservative estimate.
+ * The cone moves in proportion to current, not voltage, so the ±1 square wave voltage first
+ * becomes a triangle-wave-like waveform (exponential edges instead of perfectly sharp ones)
+ * before the mechanical system integrates it further. This softens the initial transient and
+ * rounds off the sharp corners of the ideal square wave, adding a subtle "warm" distortion
+ * character. At 176,400 Hz: α_e = 1 − exp(−1 / (176400 × 10e−6)) ≈ 0.433.
+ *
+ * <h2>Why six IIR poles</h2>
+ * With two cascaded one-pole filters (τ = 37.9 µs) the attenuation at the 15.2 kHz PC carrier is
+ * only −23 dB, leaving a carrier residual of ≈4.7% that overwhelms quiet signals. Four poles
+ * improve this to −46 dB (residual ≈0.34%), but the 15.2 kHz tone is a pure sinusoid and remains
+ * audible over quiet passages at −40 dB or softer. Six poles reach −68 dB (residual ≈0.025%),
+ * keeping the carrier inaudible even at −50 dB signal levels. Six poles also better approximates
+ * the steep mechanical roll-off of a real PC speaker cone, which barely moves at 15 kHz.
  */
 public class OneBitHardwareFilter implements AudioProcessor
 {
@@ -47,13 +66,40 @@ public class OneBitHardwareFilter implements AudioProcessor
     // Duty-cycle quantisation resolution
     private final double levels;
 
+    // Source audio pre-quantisation (0 = disabled). Applied before PWM encoding to replicate
+    // the bit-depth of 1980s source material (8-bit PCM, no dither — historically accurate).
+    private final int preLevels;
+
+    // Input drive gain and its reciprocal.
+    // Applied as: monoIn × driveGain → clamp[-1,1] → PWM → IIR → out ÷ driveGain.
+    // Driving harder uses more of the quantiser's dynamic range, reducing quantisation noise
+    // by ~6 dB per doubling. Carrier noise scales proportionally with the input so it cancels
+    // out, leaving only quantisation SNR improvement. Output level is preserved.
+    private final double driveGain;
+    private final double invDriveGain;
+
     // DSD (delta-sigma) error accumulator — used only in "dsd" mode, untouched otherwise
     private double dsdErr = 0.0;
     private final Random rand = new Random();
 
-    // Cone IIR state (two cascaded one-pole low-pass filters at 176,400 Hz)
+    // Electrical pre-filter: voice-coil RL inductance (τ_e = 10 µs).
+    // Converts the ±1 square wave voltage into an exponentially-edged current waveform
+    // before the mechanical system sees it. α_e = 1 - exp(-1/(176400 × 10e-6)) ≈ 0.433.
+    private double iirStatePre = 0.0;
+    private final double iirAlphaPre; // = 1 - exp(-1 / (INTERNAL_RATE * tauElecUs * 1e-6))
+
+    // Cone IIR state (six cascaded one-pole low-pass filters at 176,400 Hz).
+    // Pole count vs. carrier attenuation at 15.2 kHz (|H_single| = 0.270):
+    //   2 poles → -23 dB  (carrier residual 4.7%, overwhelms quiet signals)
+    //   4 poles → -46 dB  (residual 0.34%, marginal at -40 dB signals)
+    //   6 poles → -68 dB  (residual 0.025%, inaudible even at -50 dB signals)
+    // Six mechanical poles plus the electrical pre-filter pole give 7 poles total.
     private double iirState1 = 0.0;
     private double iirState2 = 0.0;
+    private double iirState3 = 0.0;
+    private double iirState4 = 0.0;
+    private double iirState5 = 0.0;
+    private double iirState6 = 0.0;
     private final double iirAlpha;    // = 1 - exp(-1 / (INTERNAL_RATE * tauUs * 1e-6)) — for PWM loop at 176,400 Hz
     private final double iirAlphaDsd; // = 1 - exp(-1 / (44100 * tauUs * 1e-6))         — for DSD mode at 44,100 Hz
 
@@ -75,13 +121,20 @@ public class OneBitHardwareFilter implements AudioProcessor
      *                       Derived from the original smoothAlpha via
      *                       τ = −1 / (44100 × ln(1 − smoothAlpha)).
      *                       apple2: 28.4 µs (from α=0.55), pc: 37.9 µs (from α=0.45).
+     * @param preBitDepth    source audio bit depth to pre-quantise to before PWM encoding
+     *                       (e.g. 8 for 8-bit PCM), or 0 to disable. Models the limited
+     *                       bit depth of original source material. No dither applied —
+     *                       historically accurate: 1980s tools used simple rounding.
+     * @param driveGain      input gain applied before PWM and removed after IIR (1.0 = unity).
+     *                       Drives the signal harder into the quantiser, reducing quantisation
+     *                       noise by ~6 dB per doubling. Output level is preserved.
      * @param resonancePeaks flat array of {f0Hz, dBgain, Q} triplets for peaking biquads,
-     *                       or null/empty for no resonance (apple2). At most two triplets
+     *                       or null/empty for no resonance (apple2, pc). At most two triplets
      *                       (six elements) are used; extras are ignored per YAGNI.
      * @param next           next processor in the chain
      */
     public OneBitHardwareFilter(boolean enabled, String mode,
-            double carrierHz, double levels, double tauUs,
+            double carrierHz, double levels, double tauUs, int preBitDepth, double driveGain,
             double @Nullable [] resonancePeaks, AudioProcessor next)
     {
         this.enabled = enabled;
@@ -89,8 +142,13 @@ public class OneBitHardwareFilter implements AudioProcessor
         this.mode = mode != null ? mode.toLowerCase(ROOT) : "pwm";
         this.subCarrierStep = carrierHz / INTERNAL_RATE;
         this.levels = levels;
+        this.preLevels   = preBitDepth > 0 ? (1 << (preBitDepth - 1)) : 0;
+        this.driveGain   = driveGain > 0.0 ? driveGain : 1.0;
+        this.invDriveGain = 1.0 / this.driveGain;
         this.iirAlpha    = 1.0 - exp(-1.0 / (INTERNAL_RATE * tauUs * 1e-6));
         this.iirAlphaDsd = 1.0 - exp(-1.0 / (44100.0 * tauUs * 1e-6));
+        // Voice-coil electrical time constant: τ_e = 10 µs (L/R ≈ 0.1mH / 8Ω = 12.5 µs, conservative)
+        this.iirAlphaPre = 1.0 - exp(-1.0 / (INTERNAL_RATE * 10e-6));
 
         if (resonancePeaks != null && resonancePeaks.length >= 3) {
             biquad1Coeffs = computePeakingBiquad(resonancePeaks[0], resonancePeaks[1], resonancePeaks[2]);
@@ -151,6 +209,18 @@ public class OneBitHardwareFilter implements AudioProcessor
             return (float) iirState2;
         }
 
+        // Drive gain: scale up before quantisation, scale back down after IIR.
+        // Reduces quantisation noise by ~6 dB per doubling; output level is preserved.
+        if (driveGain != 1.0) {
+            monoIn = max(-1.0, min(1.0, monoIn * driveGain));
+        }
+
+        // Pre-quantise to source bit depth (e.g. 8-bit PCM). Models the limited resolution of
+        // 1980s source material fed into the hardware. No dither — historically accurate.
+        if (preLevels > 0) {
+            monoIn = round(monoIn * preLevels) / (double) preLevels;
+        }
+
         // PWM mode: 4× oversampled cone simulation.
         // Silence fast-path: real hardware stops toggling when no audio is playing — the speaker
         // pin holds its last level and the cone rings down to equilibrium. Feeding zero to the IIR
@@ -159,11 +229,16 @@ public class OneBitHardwareFilter implements AudioProcessor
         // only attenuates the ~15 kHz carrier by ~23 dB, leaving audible residual noise.
         if (abs(monoIn) < 1e-4) {
             for (int s = 0; s < OVERSAMPLE; s++) {
-                iirState1 += iirAlpha * (0.0 - iirState1);
+                iirStatePre += iirAlphaPre * (0.0 - iirStatePre);
+                iirState1 += iirAlpha * (iirStatePre - iirState1);
                 iirState2 += iirAlpha * (iirState1 - iirState2);
+                iirState3 += iirAlpha * (iirState2 - iirState3);
+                iirState4 += iirAlpha * (iirState3 - iirState4);
+                iirState5 += iirAlpha * (iirState4 - iirState5);
+                iirState6 += iirAlpha * (iirState5 - iirState6);
                 carrierPhase = (carrierPhase + subCarrierStep) % 1.0;
             }
-            double out = iirState2;
+            double out = iirState6 * invDriveGain;
             double[] c1 = biquad1Coeffs, s1 = biquad1State;
             if (c1 != null && s1 != null) out = applyBiquad(c1, s1, out);
             double[] c2 = biquad2Coeffs, s2 = biquad2State;
@@ -176,12 +251,17 @@ public class OneBitHardwareFilter implements AudioProcessor
 
         for (int s = 0; s < OVERSAMPLE; s++) {
             double bit = (carrierPhase < duty) ? 1.0 : -1.0;
-            iirState1 += iirAlpha * (bit - iirState1);
+            iirStatePre += iirAlphaPre * (bit - iirStatePre);
+            iirState1 += iirAlpha * (iirStatePre - iirState1);
             iirState2 += iirAlpha * (iirState1 - iirState2);
+            iirState3 += iirAlpha * (iirState2 - iirState3);
+            iirState4 += iirAlpha * (iirState3 - iirState4);
+            iirState5 += iirAlpha * (iirState4 - iirState5);
+            iirState6 += iirAlpha * (iirState5 - iirState6);
             carrierPhase = (carrierPhase + subCarrierStep) % 1.0;
         }
 
-        double out = iirState2;
+        double out = iirState6 * invDriveGain;
         double[] c1 = biquad1Coeffs, s1 = biquad1State;
         if (c1 != null && s1 != null) out = applyBiquad(c1, s1, out);
         double[] c2 = biquad2Coeffs, s2 = biquad2State;
@@ -234,8 +314,13 @@ public class OneBitHardwareFilter implements AudioProcessor
     {
         carrierPhase = 0.0;
         dsdErr       = 0.0;
+        iirStatePre  = 0.0;
         iirState1    = 0.0;
         iirState2    = 0.0;
+        iirState3    = 0.0;
+        iirState4    = 0.0;
+        iirState5    = 0.0;
+        iirState6    = 0.0;
         if (biquad1State != null) Arrays.fill(biquad1State, 0.0);
         if (biquad2State != null) Arrays.fill(biquad2State, 0.0);
         next.reset();

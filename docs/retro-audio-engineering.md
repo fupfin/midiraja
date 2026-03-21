@@ -8,7 +8,7 @@ This document is the unified engineering reference for all `--retro` hardware si
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `--retro compactmac` | — | `CompactMacSimulatorFilter` | 22.25 kHz PWM | 256 (8-bit) | Warm, muffled, heavy mono |
 | `--retro apple2` | — | `OneBitHardwareFilter` | 22.05 kHz PWM | 32 (5-bit) | 5-bit harmonic texture, cone rolloff |
-| `--retro pc` | — | `OneBitHardwareFilter` | 15.2 kHz PWM | 78 (6.3-bit) | Gritty crunch, 2.5/6.7 kHz resonance peaks |
+| `--retro pc` | — | `OneBitHardwareFilter` | 15.2 kHz PWM | 78 (6.3-bit) | Gritty crunch, 6-pole cone IIR, carrier at −68 dB |
 | `--retro spectrum` | — | `SpectrumBeeperFilter` | N/A (direct toggle) | 128 (7-bit) | Buzzy Z80 texture, beeper resonance |
 | `--retro covox` | — | `CovoxDacFilter` | 11 kHz ZOH | 256 (8-bit) | R-2R harmonic warmth |
 | `--retro disneysound` | — | `CovoxDacFilter` | 11 kHz ZOH | 256 (8-bit) | Parallel port DAC (LPT) |
@@ -106,7 +106,9 @@ Each pulse uses discrete widths of 6 to 37 cycles out of a 46-cycle period — *
 | :--- | :--- | :--- |
 | Carrier | 22,050 Hz | Above hearing limit |
 | Levels | 32 | 5-bit: pulse widths 6–37/46 |
-| Smooth α | 0.55 | Apple II speaker natural cone rolloff |
+| τ (cone time constant) | 28.4 µs | Derived from original smoothAlpha=0.55 via τ = −1/(44100 × ln(1−0.55)) |
+| IIR α (at 176,400 Hz) | 0.1487 | = 1 − exp(−1/(176400 × 28.4e-6)) |
+| IIR poles | 6 (cascaded) | Shared with pc mode — see §3.5 |
 
 In the implementation, `carrierHz=22050` at `sampleRate=44100` means `carrierStep=0.5`: each carrier period spans two consecutive 44.1 kHz audio output samples, mirroring the two-pulse encoding of DAC522.
 
@@ -118,9 +120,10 @@ output: quantisation harmonics are modulated onto carrier sidebands above 20 kHz
 audible band completely clean — too clean for authentic 1-bit character.
 
 The current implementation uses **4× internal oversampling** (176,400 Hz). At each sub-sample,
-the raw ±1 PWM bit is evaluated directly and fed to a two-pole IIR filter modelling the
-mechanical cone (τ = 28.4 µs, derived from the empirical rolloff frequency). The result is
-decimated 4:1 to 44,100 Hz.
+the raw ±1 PWM bit is evaluated directly and fed to a **six-pole IIR** (six cascaded one-pole
+stages) modelling the mechanical cone (τ = 28.4 µs, derived from the empirical rolloff
+frequency). The result is decimated 4:1 to 44,100 Hz. The pole count is shared with `--retro pc`
+and was determined by carrier suppression requirements — see §3.5.
 
 Why oversampling rather than RC integration (as in `--retro compactmac`)?
 The Compact Mac had a physical RC capacitor on its logic board; τ was measured from hardware
@@ -200,13 +203,44 @@ The theoretical maximum — using all 64 PIT ticks per sample period — yields 
 
 $$1{,}193{,}182 \text{ Hz} \div 78 \approx 15{,}297 \text{ Hz} \approx 15.2 \text{ kHz}, \quad \approx 6.3 \text{ bits}$$
 
-### 3.2 Acoustic Characteristics
+### 3.2 Acoustic Characteristics: Reference Recording Analysis
 
-Spectral analysis of authentic PC speaker recordings (March 2026):
-- **15.2 kHz carrier spike** — audible; the characteristic gritty "crunch"
-- **Resonant peaks at 2.5 kHz and 6.7 kHz** — small unshielded paper cone resonance
-- **Steep cliff at 8 kHz (−66.6 dB)** — mechanical cone inertia is the primary filter
-- No dedicated analog filter; the cone itself does the integration
+Welch PSD analysis of `samples/realsound_sample.wav` (original RealSound recording,
+48,000 Hz stereo, 37.8 s, mono RMS −38 dBFS):
+
+| Frequency | Level relative to 1 kHz | Interpretation |
+| :--- | :--- | :--- |
+| 100 Hz | −1.7 dB | Normal music content |
+| 800 Hz | −2.1 dB | Near-flat |
+| 1,000 Hz | 0 dB | Reference |
+| 1,346 Hz | −2.4 dB | Rolloff beginning |
+| 2,000 Hz | −18.7 dB | Steep cone rolloff |
+| 2,500 Hz | −23.2 dB | Deep rolloff (no resonance peak) |
+| 6,700 Hz | −22.4 dB | Slight recovery — but see §3.5 |
+| 15,200 Hz (carrier) | −31.5 dB | ≈ noise floor at 18 kHz (−32.7 dB) |
+| 18,000 Hz | −32.7 dB | Recording noise floor |
+| 20,000 Hz | −77.4 dB | Recording chain cutoff |
+
+Key findings:
+
+- **The carrier is not a visible spike.** At 15,200 Hz the reference measures −31.5 dB, which
+  is effectively the same level as the 18 kHz noise floor (−32.7 dB). The real hardware's
+  cone mass suppressed the carrier well below the noise floor of the recording — it was not
+  "audible" in the classic whistle sense when heard through the actual hardware cone.
+
+- **The −3 dB rolloff is near 1.4 kHz.** Response drops steeply above 1–1.5 kHz: −18.7 dB
+  at 2 kHz, −29.3 dB at 4 kHz. This matches the 6-pole IIR rolloff (calculated −3 dB at 1,435 Hz).
+
+- **The bumps at 6,947 Hz and 9,626 Hz are music content, not speaker resonances.**
+  STFT temporal analysis showed a coefficient of variation (CV) > 1.2 at both frequencies —
+  meaning their energy varies strongly over time, tracking the music, not maintaining a steady
+  resonance level. A physical speaker resonance would appear as a constant-amplitude peak
+  independent of what music is playing.
+
+- **No evidence for resonance peaks at 2.5 kHz or 6.7 kHz as speaker characteristics.**
+  The reference records −23 dB at 2.5 kHz and −22 dB at 6.7 kHz — both in the heavily
+  attenuated rolloff region. Adding peaking biquads at these frequencies would produce
+  unphysical mid-frequency boosts in a region the real cone barely moved in.
 
 ### 3.3 Parameters
 
@@ -214,28 +248,177 @@ Spectral analysis of authentic PC speaker recordings (March 2026):
 | :--- | :--- | :--- |
 | Carrier | 15,200 Hz | Empirically measured from original demos |
 | Levels | 78 | 1.19318 MHz / 78 ≈ 15.3 kHz, ~6.3-bit |
-| Smooth α | 0.45 | Paper cone mechanical rolloff |
+| Pre-quantization | 8-bit (128 levels) | Source material bit-depth simulation — see §3.4 |
+| Drive gain | 2.0× | Improves quantization SNR — see §3.4 |
+| τ_e (electrical, voice coil) | 10 µs | RL inductance of cheap speaker coil (L ≈ 0.1 mH, R ≈ 8 Ω) |
+| IIR α_e (at 176,400 Hz) | 0.433 | = 1 − exp(−1/(176400 × 10e-6)) |
+| τ_m (mechanical, cone) | 37.9 µs | Derived from original smoothAlpha=0.45 via τ = −1/(44100 × ln(1−0.45)) |
+| IIR α_m (at 176,400 Hz) | 0.1395 | = 1 − exp(−1/(176400 × 37.9e-6)) |
+| IIR poles | 7 total (1 electrical + 6 mechanical) | See §3.4 and §3.5 |
+| Resonance biquads | none | See §3.2 — reference provides no evidence for speaker peaks |
 
-> For deeper technical background, see `docs/realsound-pwm-engineering.md`.
+> For deeper technical background on the PWM encoding, see `docs/realsound-pwm-engineering.md`.
 
 ### 3.4 Simulation Algorithm
 
-Same 4× oversampling approach as apple2 (§2.4), with two additions:
+Same 4× oversampling approach as apple2 (§2.4). Signal path per output sample:
 
-1. **Cone time constant:** τ = 37.9 µs (from empirical rolloff at ~8 kHz, derived from
-   smoothAlpha = 0.45 via τ = −1/(44100 × ln(1 − 0.45))).
+```
+monoIn × driveGain → clamp[−1,1] → 8-bit pre-quantize
+  → PWM duty cycle (78 levels)
+  → [4× oversampled loop]
+      bit (±1)
+        → iirStatePre  (electrical: τ_e = 10 µs, α_e = 0.433)
+        → iirState1..6 (mechanical: τ_m = 37.9 µs, α_m = 0.1395)
+  → iirState6 ÷ driveGain
+  → output
+```
 
-2. **Resonance biquads:** Two Direct Form I peaking EQ biquads (Audio EQ Cookbook,
-   R. Bristow-Johnson) are applied after the cone IIR:
-   - 2.5 kHz, +3 dB, Q = 3 — lightweight paper cone resonance
-   - 6.7 kHz, +4 dB, Q = 4 — chassis coupling peak
+**8-bit pre-quantization.** The source material available to 1980s PC Speaker developers was
+8-bit PCM. Before being sent to the PWM encoder, audio was already limited to 256 discrete
+amplitude levels (128 bipolar). Applying `round(monoIn × 128) / 128` before PWM encodes this
+constraint: the signal arrives at the duty-cycle quantizer in coarser steps, producing the
+characteristic "staircase" texture of period hardware. No dither is applied — 1980s tools used
+simple rounding.
 
-   Coefficients are computed at construction time at 44,100 Hz (the output sample rate at
-   which the biquads run); bilinear pre-warping error at these frequencies is < 0.2%.
+Note: since 128 pre-quantization levels > 78 PWM levels, the pre-quantization does not narrow
+the effective resolution. Its role is temporal: it makes the duty cycle hold steady between
+steps instead of tracking every floating-point fluctuation, which creates the audible step
+texture without adding noise.
 
-The PC carrier at 15,200 Hz gives ≈ 11.6 sub-samples per carrier period — comfortably above
-the 4–8 sub-sample minimum. The resulting rounding artefacts from the non-integer ratio appear
-above 88 kHz and are inaudible. See §2.5 for the full design rationale shared with Apple II.
+**Drive gain.** The input is scaled by driveGain (= 2.0) before quantization and divided by
+the same factor after the IIR. This exploits the asymmetry between carrier noise and
+quantization noise: carrier noise is proportional to the signal and cancels through
+the gain–invert pair; quantization noise (fixed step size) does not cancel, but because the
+signal now uses more of the quantizer range, fewer levels are wasted → effective SNR improves
+by ~6 dB per doubling. Real hardware was commonly driven at maximum amplitude for exactly this
+reason.
+
+**Electrical pre-filter (voice coil inductance).** A cheap PC speaker voice coil is an
+inductor (L ≈ 0.1–0.3 mH, R ≈ 8 Ω). The current through an RL circuit does not follow a step
+in voltage instantaneously — it rises exponentially with τ_e = L/R ≈ 10 µs. Because the cone
+moves in proportion to current (not voltage), the ideal ±1 square wave voltage becomes a
+triangle-wave-like current waveform before the mechanical system sees it. `iirStatePre` models
+this: it is a single one-pole IIR at 176,400 Hz with α_e = 0.433 (τ_e = 10 µs), inserted
+before the six mechanical poles.
+
+**Six cascaded mechanical IIR poles** model the speaker cone's inertia — see §3.5 for the
+carrier suppression analysis that determines the pole count.
+
+The combined 7-pole response gives:
+- −3 dB at ~1,400 Hz (cone rolloff beginning)
+- −68 dB at 15,200 Hz carrier (inaudible even at −50 dBFS signal levels)
+
+**No resonance biquads.** Earlier versions included peaking EQ biquads at 2.5 kHz and 6.7 kHz.
+Welch PSD analysis of the reference recording found no evidence of speaker resonance at these
+frequencies (§3.2). The spectral bumps observed near 6.9–9.6 kHz were confirmed to be music
+harmonics via temporal variance analysis (CV > 1.2). The biquads were removed.
+
+### 3.5 Carrier Noise Analysis: Why Six IIR Poles
+
+The IIR model must suppress the 15.2 kHz carrier sufficiently that it remains inaudible even
+during quiet passages. The pole count determines this suppression.
+
+**Single-pole magnitude at 15,200 Hz** (α = 0.1395, fs = 176,400 Hz):
+
+$$|H_1(15\,200)| = \frac{\alpha}{\sqrt{(1-(1-\alpha)\cos\omega)^2 + ((1-\alpha)\sin\omega)^2}} \approx 0.270$$
+
+where $\omega = 2\pi \times 15200 / 176400$.
+
+With $N$ cascaded poles, $|H_N| = 0.270^N$. Carrier suppression vs. audibility:
+
+| Poles | Carrier attenuation | Carrier audible above | Engineering assessment |
+| :---: | :---: | :---: | :--- |
+| 2 | −23 dB | −23 dBFS signals | Overwhelms all quiet passages |
+| 4 | −46 dB | −46 dBFS signals | Still audible over quiet segments (< −10 dBFS) |
+| 6 | **−68 dB** | **−68 dBFS signals** | Inaudible even at −50 dBFS signal levels |
+
+**Why 2 poles were insufficient (observed in testing):**
+
+At duty cycle 50% (zero DC content), the PWM fundamental amplitude is 2/π ≈ 0.637. With
+2-pole attenuation (−23 dB), the carrier residual is ~4.7% of full scale. For a signal at
+−30 dBFS (a quiet passage), the carrier-to-signal ratio is only −7 dB — the carrier is
+louder than the music.
+
+**Why 6 poles suffice:**
+
+The reference recording confirms the real hardware suppressed the carrier below the recording
+noise floor (−31.5 dB at 15.2 kHz ≈ −32.7 dB noise floor). This means the actual hardware
+attenuation was at least 32 dB, but the mechanical cone mass provided substantially more.
+Six poles at −68 dB comfortably exceeds this threshold. The rolloff shape (−3 dB at 1,435 Hz)
+also matches the reference spectrum shape well.
+
+**Six poles also better models the physics:** A real PC speaker cone barely moves at 15 kHz.
+The 36 dB/octave asymptotic slope of 6 cascaded first-order filters approximates the steep
+mechanical rolloff above the cone's resonance frequency.
+
+### 3.6 PWM Carrier Sideband Characteristics
+
+#### What Sidebands Are
+
+PWM modulation produces not just the carrier frequency but sum-and-difference intermodulation products. When a signal of frequency `f` is encoded as PWM with carrier `f_c`, spectral energy appears at:
+
+$$f_\text{sideband} = f_c - k \cdot f \quad (k = 1, 2, 3, \ldots)$$
+
+At carrier 15,200 Hz with A4 (440 Hz), sidebands at k=29,30,31 land in the audio band:
+
+| k | f_c − k × 440 | In band? |
+| :---: | :---: | :---: |
+| 29 | 2,440 Hz | Yes |
+| 30 | 2,000 Hz | Yes |
+| 31 | 1,560 Hz | Yes |
+
+These sidebands are a real artifact of the hardware. What matters perceptually is how close they fall to existing signal harmonics — if they fall on top of harmonics, they are masked and inaudible; if they fall between harmonics, they emerge as distinct noise.
+
+#### The Sideband-Harmonic Distance
+
+For a signal of fundamental frequency `f`, harmonics land at `k × f` (k = 1, 2, 3…). A sideband `f_c − k × f` falls at the same frequency as the nearest harmonic only if `f_c / f` is an integer. The maximum sideband-harmonic distance is:
+
+$$d_\text{max} = \min\!\left(\text{frac}\!\left(\frac{f_c}{f}\right),\; 1 - \text{frac}\!\left(\frac{f_c}{f}\right)\right) \times f$$
+
+where frac(x) is the fractional part. This is maximised when `f_c / f` is exactly a half-integer — the sidebands land precisely halfway between harmonics.
+
+#### Why A4 Is Particularly Problematic
+
+$$\frac{15{,}200}{440} = 34.545\ldots \approx 34.5$$
+
+The ratio is nearly exactly a half-integer. Sidebands land ~200 Hz from the nearest harmonics (1760 Hz and 2200 Hz), and the 7-pole IIR barely attenuates them at 1,560–2,440 Hz — this is well below the −3 dB point. Spectral measurements of the simulation confirm sidebands at −47 dB, compared to a true noise floor of −137 to −145 dB between harmonics.
+
+Note-by-note sideband exposure (carrier 15,200 Hz, 4× oversampled):
+
+| Note | Freq (Hz) | 15200/f | Max sideband dist | Verdict |
+| :--- | :---: | :---: | :---: | :--- |
+| E1 | 41.2 | 368.9 | 37 Hz | Favorable — sidebands near harmonics |
+| A2 | 110.0 | 138.2 | 22 Hz | Favorable |
+| E2 | 82.4 | 184.5 | 41 Hz | Borderline |
+| A3 | 220.0 | 69.1 | 22 Hz | Favorable |
+| D4 | 293.7 | 51.8 | 176 Hz | Exposed |
+| E4 | 329.6 | 46.1 | 33 Hz | Favorable (near-integer) |
+| **A4** | **440.0** | **34.5** | **200 Hz** | **Maximally exposed** |
+| B4 | 493.9 | 30.8 | 176 Hz | Exposed |
+| E5 | 659.3 | 23.1 | 33 Hz | Favorable (near-integer) |
+
+Notes whose `f_c / f` ratio is near an integer or half-integer are favorable or maximally exposed respectively. No single carrier frequency is simultaneously favorable for all notes in equal temperament, since the frequency ratios are irrational.
+
+#### Why the Reference Recording Doesn't Show It
+
+The reference WAV (`samples/realsound_sample.wav`) has a dominant fundamental near 82 Hz. For this note:
+
+$$\frac{15{,}200}{82} \approx 185.4 \quad \Rightarrow \quad d_\text{max} = 0.4 \times 82 \approx 33 \text{ Hz}$$
+
+The sidebands fall within 33 Hz of the 82 Hz harmonics — too close to separate from them perceptually or analytically. The reference recording was produced with bass-heavy musical content (lower register melody and accompaniment). RealSound composers apparently gravitated toward lower registers empirically for their warmer sound — which coincidentally kept carrier sidebands close to existing harmonics, hiding the effect.
+
+#### Why Carrier Frequency Substitution Doesn't Help
+
+A brute-force search over candidate carriers from 14 kHz to 22 kHz found that the optimal choice — 15,320 Hz — reduces the maximum sideband distance for A4 from 640 Hz to 520 Hz. The improvement is minor because equal temperament's irrational frequency ratios mean no single carrier can be simultaneously near-integer for all 12 semitone classes. The 15,200 Hz carrier is historically determined (8253 PIT, 78 ticks); changing it would be inauthentic.
+
+#### Why 8-Bit Quantization Doesn't Mask It
+
+8-bit pre-quantization produces its own noise at non-harmonic frequencies. For a single clean sinusoidal input (440 Hz, −6 dBFS), quantization noise in the 1.5–2.5 kHz band measures approximately −78 dB (relative to peak). The carrier sideband at the same location measures −47 dB. The sideband is 31 dB louder than quantization noise — masking is impossible. Even for complex multi-voice input where quantization noise approaches a quasi-white spectrum (−73 dB), the sideband remains 26 dB above.
+
+#### Historical Interpretation
+
+The audibility of carrier sidebands is authentic PC speaker hardware behaviour. It manifests most strongly when feeding high-quality, spectrally sparse audio (e.g. FluidSynth soundfont rendering) into the hardware model. Original PC game music — FM synthesis (OPL2), multi-voice arrangements, complex timbres — had dense harmonic coverage that filled the sideband positions naturally, masking them. This is not a simulation defect; it is the correct response of the hardware to clean input.
 
 ---
 
@@ -428,7 +611,7 @@ Every `--retro` mode already models its physical speaker as an integral part of 
 | :--- | :--- |
 | `compactmac` | RC integration (τ = 30 µs) models the 2-inch Mac speaker; −84 dB at 10 kHz |
 | `spectrum` | HP (α = 0.930, ~510 Hz) + 2× LP (α = 0.600, ~4.5 kHz) models the 22mm 40Ω beeper |
-| `pc` | Smooth α = 0.45 (`OneBitHardwareFilter`) models the IBM PC's unshielded paper cone |
+| `pc` | 7-pole IIR (1 electrical: τ_e=10 µs, α_e=0.433 + 6 mechanical: τ_m=37.9 µs, α_m=0.1395, all at 176,400 Hz) models voice-coil inductance and cone inertia — −3 dB at 1.4 kHz, −68 dB carrier suppression |
 | `apple2` | Smooth α = 0.55 models the Apple II speaker's natural cone rolloff |
 | `covox` / `disneysound` | RC LPF (α = 0.26, ~2.12 kHz) models the parallel-port analog circuit |
 | `amiga` / `a500` | Static RC LPF (~4.5 kHz) + LED 2-pole (~3.3 kHz) models Paula's analog output stage |
