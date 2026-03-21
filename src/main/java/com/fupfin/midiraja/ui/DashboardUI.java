@@ -42,8 +42,8 @@ public class DashboardUI implements PlaybackUI
                 if (msg instanceof MetaMessage m && m.getType() == 0x02)
                 {
                     String text = new String(m.getData(), StandardCharsets.US_ASCII).trim();
-                    if (!text.isEmpty() && text.chars().allMatch(c -> c >= 32 && c < 127
-                            || c >= 160 && c <= 255))
+                    if (!text.isEmpty() && text.chars().allMatch(c -> (c >= 32 && c < 127)
+                            || (c >= 160 && c <= 255)))
                         return text;
                 }
             }

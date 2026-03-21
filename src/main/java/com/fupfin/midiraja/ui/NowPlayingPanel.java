@@ -25,7 +25,6 @@ public class NowPlayingPanel implements Panel
     private double volumeScale = 1.0;
     private int transpose = 0;
     private boolean isPaused = false;
-    private volatile boolean bookmarked = false;
     @Nullable
     private PlaylistContext context;
     @Nullable
@@ -90,7 +89,7 @@ public class NowPlayingPanel implements Panel
     @Override
     public void onBookmarkChanged(boolean bookmarked)
     {
-        this.bookmarked = bookmarked;
+        // bookmark state not currently displayed
     }
 
     @Override

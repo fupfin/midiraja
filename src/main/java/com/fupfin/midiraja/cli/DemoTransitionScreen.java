@@ -90,7 +90,7 @@ class DemoTransitionScreen
                     int boxWidth = Math.max(56, Math.min(76, width - 4));
                     int padLeft = Math.max(0, (width - boxWidth) / 2);
                     boolean showLogo = width >= Logo.WIDTH + 4;
-                    int logoLines = showLogo ? Logo.LINES.length + 2 : 0; // +2 for subtitle+blank
+                    int logoLines = showLogo ? Logo.LINES.size() + 2 : 0; // +2 for subtitle+blank
                     // title + blank + trackSection + trackTitle + blank + engineSection +
                     // engineLabel + blank + sep + footer = 10 lines
                     int padTop = Math.max(1, (height - 10 - logoLines) / 2);
@@ -102,8 +102,8 @@ class DemoTransitionScreen
                     if (showLogo)
                     {
                         int logoPad = Math.max(0, (width - Logo.WIDTH) / 2);
-                        for (int li = 0; li < Logo.LINES.length; li++)
-                            buf.repeat(" ", logoPad).append(Logo.LINE_COLORS[li]).append(Logo.LINES[li])
+                        for (int li = 0; li < Logo.LINES.size(); li++)
+                            buf.repeat(" ", logoPad).append(Logo.LINE_COLORS.get(li)).append(Logo.LINES.get(li))
                                     .append(Theme.COLOR_RESET).appendLine();
                         int subtitlePad = Math.max(0, (width - Logo.SUBTITLE.length()) / 2);
                         buf.repeat(" ", subtitlePad)

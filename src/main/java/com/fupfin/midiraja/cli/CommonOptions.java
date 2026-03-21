@@ -22,9 +22,6 @@ import picocli.CommandLine.Option;
  */
 public class CommonOptions
 {
-    private static final java.util.logging.Logger log =
-            java.util.logging.Logger.getLogger(CommonOptions.class.getName());
-
     // ── Playback control ─────────────────────────────────────────────────────
 
     @Option(names = {"-v", "--volume"},
@@ -92,7 +89,7 @@ public class CommonOptions
     public Optional<String> retroMode = Optional.empty();
 
     @Option(names = {"--retro-drive"}, paramLabel = "GAIN",
-            description = "Drive gain for --retro pc and --retro apple2 (default: 2.0). "
+            description = "Drive gain for --retro pc and --retro apple2 (default: 4.0). "
                     + "Higher values use more PWM duty-cycle levels, improving S/N for quiet "
                     + "input. Rule of thumb: GAIN ≈ 1 / peak_amplitude. "
                     + "Signals above 1/GAIN will be hard-clipped.",

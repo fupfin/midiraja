@@ -90,12 +90,12 @@ public class EngineSelector
                 " SELECT PLAYBACK ENGINE ",
                 64, 84,
                 Logo.WIDTH + 4,
-                Logo.LINES.length + 2, // +1 for subtitle, +1 for blank line
+                Logo.LINES.size() + 2, // +1 for subtitle, +1 for blank line
                 (buf, width) -> {
                     int logoPad = Math.max(0, (width - Logo.WIDTH) / 2);
-                    for (int li = 0; li < Logo.LINES.length; li++)
-                        buf.repeat(" ", logoPad).append(Logo.LINE_COLORS[li])
-                                .append(Logo.LINES[li]).append(Theme.COLOR_RESET).appendLine();
+                    for (int li = 0; li < Logo.LINES.size(); li++)
+                        buf.repeat(" ", logoPad).append(Logo.LINE_COLORS.get(li))
+                                .append(Logo.LINES.get(li)).append(Theme.COLOR_RESET).appendLine();
                     int subtitlePad = Math.max(0, (width - Logo.SUBTITLE.length()) / 2);
                     buf.repeat(" ", subtitlePad)
                             .append(Theme.COLOR_VU).append(Logo.VU_BARS)

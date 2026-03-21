@@ -476,6 +476,40 @@ Rule of thumb: `--retro-drive` × peak amplitude ≤ 1.0 to avoid hard clipping.
 | Behaviour | static, predictable | adaptive, level-dependent |
 | Interaction | inside PWM loop | upstream of retro filter |
 
+#### Measured S/N vs Compress Preset (--retro pc, driveGain 4.0)
+
+Simulation: 440 Hz sine through `DynamicsCompressor` → `OneBitHardwareFilter`. S/N = fundamental level minus average of carrier sidebands at 1560/2000/2440 Hz. All levels relative to each preset's output peak.
+
+**S/N by input level and preset:**
+
+| Input level | none | soft | gentle | moderate | aggressive |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| −6 dBFS | +51.7 dB | +51.7 dB | +47.9 dB | +47.8 dB | +45.8 dB |
+| −12 dBFS | +47.6 dB | +47.6 dB | +46.7 dB | **+50.1 dB** | +46.1 dB |
+| −18 dBFS | +37.6 dB | +37.6 dB | +40.5 dB | **+48.3 dB** | +46.0 dB |
+| −24 dBFS | +35.7 dB | +35.7 dB | +35.0 dB | +37.6 dB | **+43.8 dB** |
+
+Key observations:
+- `soft` mirrors `none` at all levels — its threshold of −3 dBFS is above typical synthesizer output, so compression rarely engages.
+- `moderate` gives the best result at −12 and −18 dBFS (+10.7 dB improvement over `none` at −18 dBFS), the range where its threshold of −18 dBFS produces useful drive into the PWM quantizer.
+- `aggressive` wins at very quiet levels (−24 dBFS) where its lower threshold of −24 dBFS kicks in.
+- At −6 dBFS (already loud), all presets reduce S/N slightly because makeup gain pushes signal closer to the drive-gain clip boundary.
+
+**Frequency detail at −18 dBFS (dB relative to each preset's output peak):**
+
+| Frequency | none | soft | gentle | moderate | aggressive |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| 440 Hz (fundamental) | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| 880 Hz (2nd harmonic) | −37.5 | −37.5 | −44.3 | −47.4 | −41.3 |
+| 1320 Hz (3rd harmonic) | −40.6 | −40.6 | −45.4 | −44.3 | −41.7 |
+| 1560 Hz (carrier SB k=31) | −37.3 | −37.3 | −39.3 | −44.0 | −48.0 |
+| 1760 Hz (4th harmonic) | −38.4 | −38.4 | −48.3 | −53.2 | −51.3 |
+| 2000 Hz (carrier SB k=30) | −29.6 | −29.6 | −35.5 | −42.4 | −40.9 |
+| 2200 Hz (5th harmonic) | −46.5 | −46.5 | −45.3 | −44.7 | −47.6 |
+| 2440 Hz (carrier SB k=29) | −45.8 | −45.8 | −46.6 | −53.9 | −48.9 |
+
+The 2000 Hz carrier sideband (k=30) is the loudest noise component in the uncompressed path (−29.6 dB). `moderate` suppresses it by 12.8 dB (to −42.4 dB), and `aggressive` by 11.3 dB (to −40.9 dB). Both also visibly suppress the even harmonics (880/1760 Hz) — a compression artefact from the soft-knee gain shaper reducing transient peaks.
+
 ---
 
 ## 4. ZX Spectrum (`--retro spectrum`)

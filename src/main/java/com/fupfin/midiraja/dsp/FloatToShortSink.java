@@ -4,6 +4,7 @@ import static java.lang.Math.*;
 
 import com.fupfin.midiraja.midi.AudioEngine;
 import java.util.concurrent.locks.LockSupport;
+import java.util.logging.Logger;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -12,6 +13,9 @@ import org.jspecify.annotations.Nullable;
  */
 public class FloatToShortSink implements AudioSink
 {
+    private static final Logger log = Logger.getLogger(FloatToShortSink.class.getName());
+    private static final int FLUSH_THRESHOLD = 500; // flush after ~500ms of failed pushes
+
     private final @Nullable AudioEngine engine;
     private final int outputChannels;
     private short @Nullable [] pcmBuffer = null;
@@ -50,9 +54,13 @@ public class FloatToShortSink implements AudioSink
                 else
                 {
                     stuckCount++;
-
-                    LockSupport.parkNanos(1000000); // 1ms sleep to match
-                                                                               // consumption rate
+                    if (stuckCount >= FLUSH_THRESHOLD)
+                    {
+                        log.warning("FloatToShortSink: ring buffer stuck, flushing to recover");
+                        engine.flush();
+                        stuckCount = 0;
+                    }
+                    LockSupport.parkNanos(1_000_000); // 1ms
                 }
             }
         }
@@ -106,9 +114,13 @@ public class FloatToShortSink implements AudioSink
             else
             {
                 stuckCount++;
-
-                LockSupport.parkNanos(1000000); // 1ms sleep to match
-                                                                           // consumption rate
+                if (stuckCount >= FLUSH_THRESHOLD)
+                {
+                    log.warning("FloatToShortSink: ring buffer stuck, flushing to recover");
+                    engine.flush();
+                    stuckCount = 0;
+                }
+                LockSupport.parkNanos(1_000_000); // 1ms
             }
         }
     }

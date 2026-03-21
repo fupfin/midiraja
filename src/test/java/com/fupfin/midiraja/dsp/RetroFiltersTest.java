@@ -62,10 +62,9 @@ class RetroFiltersTest {
     @Test
     void testPcDacBoundary() {
         // PC speaker: empirical 15.2kHz carrier (1.19318MHz / 78 steps), ~6.3-bit
-        // tauUs=37.9 derives from old smoothAlpha=0.45; resonance peaks at 2.5kHz and 6.7kHz
+        // 8-bit source pre-quantisation, no resonance peaks
         OneBitHardwareFilter filter = new OneBitHardwareFilter(
-                true, "pwm", 15200.0, 78.0, 37.9,
-                new double[]{2500.0, 3.0, 3.0, 6700.0, 4.0, 4.0}, mock);
+                true, "pwm", 15200.0, 78.0, 37.9, 8, 1.0, null, mock);
         float[] left  = new float[512];
         float[] right = new float[512];
 
@@ -82,7 +81,7 @@ class RetroFiltersTest {
     void testApple2DacToggle() {
         // DAC522 profile: 22kHz carrier (above hearing limit), 5-bit resolution
         // tauUs=28.4 derives from the old smoothAlpha=0.55 via τ = -1/(44100 × ln(1-0.55))
-        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "pwm", 22050.0, 32.0, 28.4, null, mock);
+        OneBitHardwareFilter filter = new OneBitHardwareFilter(true, "pwm", 22050.0, 32.0, 28.4, 8, 1.0, null, mock);
         float[] left  = {0.5f, 0.5f, -0.5f, -0.5f};
         float[] right = {0.5f, 0.5f, -0.5f, -0.5f};
 
@@ -347,7 +346,7 @@ class RetroFiltersTest {
         }
 
         OneBitHardwareFilter filter = new OneBitHardwareFilter(
-                true, "pwm", 22050.0, 32.0, 28.4, null, mock);
+                true, "pwm", 22050.0, 32.0, 28.4, 8, 1.0, null, mock);
         filter.process(left, right, n);
 
         float[] out = mock.lastLeft;
@@ -356,10 +355,11 @@ class RetroFiltersTest {
         double ratio = harm2 / fund;
 
         assertTrue(fund > 0, "440 Hz fundamental must be present");
-        // Observed ratio ~0.01149 on first run; 0.0103 is ~90% of that, leaving headroom for
-        // minor platform differences. Physical basis: 5-bit (32-level) quantisation of a 0.8
-        // amplitude sine produces THD ~1.6%, with the dominant harmonic near −36 dB.
-        assertTrue(ratio >= 0.0103,
+        // Observed ratio ~0.0088 with 8-bit pre-quantisation + 32-level PWM; 0.0079 is ~90%
+        // of that, leaving headroom for minor platform differences. The 8-bit pre-quantise
+        // stage (128 levels) is finer than the PWM quantiser (32 levels), so dominant harmonic
+        // distortion still comes from the 32-level PWM step.
+        assertTrue(ratio >= 0.0079,
                 String.format("2nd harmonic should be ≥1%% of fundamental. fund=%.1f harm2=%.1f ratio=%.4f",
                         fund, harm2, ratio));
     }
@@ -383,10 +383,10 @@ class RetroFiltersTest {
         MockProcessor mockNoBiquad = new MockProcessor();
         MockProcessor mockBiquad   = new MockProcessor();
 
-        // Same PC IIR, one without resonance peaks, one with
-        new OneBitHardwareFilter(true, "pwm", 15200.0, 78.0, 37.9, null, mockNoBiquad)
+        // Same PC IIR, one without resonance peaks, one with (preBitDepth=0 to isolate biquad effect)
+        new OneBitHardwareFilter(true, "pwm", 15200.0, 78.0, 37.9, 0, 1.0, null, mockNoBiquad)
                 .process(leftNoBiquad, rightNoBiquad, n);
-        new OneBitHardwareFilter(true, "pwm", 15200.0, 78.0, 37.9,
+        new OneBitHardwareFilter(true, "pwm", 15200.0, 78.0, 37.9, 0, 1.0,
                 new double[]{2500.0, 3.0, 3.0, 6700.0, 4.0, 4.0}, mockBiquad)
                 .process(leftBiquad, rightBiquad, n);
 
@@ -406,8 +406,7 @@ class RetroFiltersTest {
         // When monoIn is near zero, the IIR should ring down to silence rather than
         // sustaining the 15.2 kHz carrier at -23 dB (which is audible).
         OneBitHardwareFilter filter = new OneBitHardwareFilter(
-                true, "pwm", 15200.0, 78.0, 37.9,
-                new double[]{2500.0, 3.0, 3.0, 6700.0, 4.0, 4.0}, mock);
+                true, "pwm", 15200.0, 78.0, 37.9, 8, 1.0, null, mock);
 
         int n = 44100;
         float[] left = new float[n];
@@ -425,7 +424,7 @@ class RetroFiltersTest {
     void testApple2SilenceProducesNoAudibleCarrier() {
         // Same check for Apple II's 22.05 kHz carrier — previously sat exactly at Nyquist.
         OneBitHardwareFilter filter = new OneBitHardwareFilter(
-                true, "pwm", 22050.0, 32.0, 28.4, null, mock);
+                true, "pwm", 22050.0, 32.0, 28.4, 8, 1.0, null, mock);
 
         int n = 44100;
         float[] left = new float[n];

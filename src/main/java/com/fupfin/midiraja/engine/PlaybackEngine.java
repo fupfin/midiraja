@@ -461,10 +461,15 @@ public class PlaybackEngine
 
                 // High-resolution delay. Cap each sleep at 50ms so seek/stop requests
                 // are detected within 50ms regardless of the gap between MIDI events.
+                // Also update currentMicroseconds during the wait so the UI clock keeps
+                // moving even when there are long stretches with no MIDI events.
                 long currentNanos = System.nanoTime();
                 while (currentNanos < targetNanos)
                 {
                     if (seekTarget.get() != -1 || !isPlaying.get()) break;
+                    long nowMicros = (currentNanos - startTimeNanos) / 1000;
+                    currentMicroseconds.set(nowMicros);
+                    listeners.forEach(l -> l.onTick(nowMicros));
                     long remainingMs = (targetNanos - currentNanos) / 1_000_000L;
                     if (remainingMs > 1)
                     {

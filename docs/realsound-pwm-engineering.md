@@ -1,7 +1,14 @@
 # The Quest for Authentic RealSound: A DSP Engineering Log
 
-**Status:** Implementation Complete  
-**Context:** This whitepaper documents the digital signal processing (DSP) research conducted during the implementation of the `--bits`, `--pwm`, and `--realsound` CLI arguments for Midiraja's Gravis Ultrasound (GUS) engine. 
+**Status:** Implementation Complete
+**Context:** This whitepaper documents the digital signal processing (DSP) research conducted during the implementation of the `--bits`, `--pwm`, and `--realsound` CLI arguments for Midiraja's Gravis Ultrasound (GUS) engine.
+
+> **Note (March 2026):** The current `--retro pc` implementation uses a different architecture
+> from what is described in Sections 3–4 of this document. The GUS-engine-specific 32×
+> oversampling and boxcar FIR approach described below is superseded by the 4× oversampling
+> + 6-pole IIR cone model in `OneBitHardwareFilter`, which is shared with `--retro apple2`.
+> The current design is documented fully in `docs/retro-audio-engineering.md §3`.
+
 
 This document chronicles the engineering journey to mathematically reconstruct the legendary **RealSound (PC Speaker PWM Audio)** technology—pioneered by Access Software in the late 1980s—within a modern 44.1kHz digital audio environment, ensuring zero aliasing and perfect historical accuracy.
 
