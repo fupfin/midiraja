@@ -96,8 +96,8 @@ public class CommonOptions
                     + "Higher values use more PWM duty-cycle levels, improving S/N for quiet "
                     + "input. Rule of thumb: GAIN ≈ 1 / peak_amplitude. "
                     + "Signals above 1/GAIN will be hard-clipped.",
-            defaultValue = "2.0")
-    public double retroDrive = 2.0;
+            defaultValue = "4.0")
+    public double retroDrive = 4.0;
 
     @Option(names = {"--paula-width"}, paramLabel = "PCT",
             description = "Stereo width for Amiga Paula modes (0-300). "
