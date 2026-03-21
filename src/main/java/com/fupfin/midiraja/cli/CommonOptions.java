@@ -91,6 +91,14 @@ public class CommonOptions
             description = "Retro hardware physical acoustic simulation (compactmac, pc, apple2, spectrum, covox, disneysound, amiga/a500, a1200)")
     public Optional<String> retroMode = Optional.empty();
 
+    @Option(names = {"--retro-drive"}, paramLabel = "GAIN",
+            description = "Drive gain for --retro pc and --retro apple2 (default: 2.0). "
+                    + "Higher values use more PWM duty-cycle levels, improving S/N for quiet "
+                    + "input. Rule of thumb: GAIN ≈ 1 / peak_amplitude. "
+                    + "Signals above 1/GAIN will be hard-clipped.",
+            defaultValue = "2.0")
+    public double retroDrive = 2.0;
+
     @Option(names = {"--paula-width"}, paramLabel = "PCT",
             description = "Stereo width for Amiga Paula modes (0-300). "
                     + "0=original stereo, 60=default (Paula hard-pan feel), 100=maximum safe. "
@@ -174,13 +182,13 @@ public class CommonOptions
             // 7-pole IIR (1 electrical τ=10µs + 6 mechanical τ=37.9µs) gives -3dB at 1.4kHz
             // and -68dB carrier suppression. No resonance peaks: spectral analysis of reference
             // RealSound recordings shows no constant-frequency peaks.
-            case "pc" -> new OneBitHardwareFilter(true, "pwm", 15200.0, 78.0, 37.9, 8, 2.0,
+            case "pc" -> new OneBitHardwareFilter(true, "pwm", 15200.0, 78.0, 37.9, 8, retroDrive,
                     null, next);
             // DAC522 technique: each audio sample is encoded as TWO 46-cycle pulses.
             // Two pulses together (92 cycles) ≈ the original 93-cycle 11kHz sample period,
             // but the carrier noise is now at 22.05kHz — above the hearing limit.
             // 32 discrete widths per pulse (6-37 out of 46 cycles, ~5-bit).
-            case "apple2" -> new OneBitHardwareFilter(true, "pwm", 22050.0, 32.0, 28.4, 8, 2.0, null, next);
+            case "apple2" -> new OneBitHardwareFilter(true, "pwm", 22050.0, 32.0, 28.4, 8, retroDrive, null, next);
             case "spectrum" -> new SpectrumBeeperFilter(true, next);
             case "covox", "disneysound" -> new CovoxDacFilter(true, next);
             case "amiga", "a500" -> new AmigaPaulaFilter(true, AmigaPaulaFilter.Profile.A500,
