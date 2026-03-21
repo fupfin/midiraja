@@ -208,7 +208,47 @@ Applies an `AcousticSpeakerFilter` that models the acoustic frequency response o
 > ⚠️ **Do not combine `--speaker` with `--retro`:**
 > Every `--retro` mode already contains a physically accurate model of its hardware speaker — the Mac's 2-inch cone, the Spectrum's 22mm beeper, the IBM PC's paper cone. Adding `--speaker` on top applies a second filter stage with no physical basis, producing an over-filtered result that does not match any real hardware. Use `--speaker` only when not using `--retro`. For the full technical explanation, see [The Retro Hardware Audio Simulation reference](retro-audio-engineering.md#8-the---speaker-option-and-retro-modes).
 
-**5. Amiga Paula Stereo Width (`--paula-width <0-300>`)**
+**5. Dynamics Compressor (`--compress <preset>`)**
+Applies a feed-forward compressor before the DSP chain (including any `--retro` stage). Boosts quiet passages to use more of the hardware dynamic range, improving the perceived signal-to-noise ratio of retro simulations. Also useful without `--retro` as a general loudness-levelling stage.
+
+* **Presets:**
+  * `soft` — transparent limiter; only clips peaks above −3 dBFS, no makeup gain. Preserves full dynamics.
+  * `gentle` — 2:1 compression above −18 dBFS, +3 dB makeup. Light levelling.
+  * `moderate` — 4:1 compression above −18 dBFS, +6 dB makeup. Recommended for quiet music through `--retro pc`.
+  * `aggressive` — 8:1 compression above −24 dBFS, +9 dB makeup. Maximum loudness levelling.
+
+```bash
+# Quiet MIDI through PC speaker — moderate compression helps S/N
+midra munt --retro pc --compress moderate song.mid
+
+# Standalone loudness levelling (no retro)
+midra fluid piano.sf2 --compress gentle song.mid
+```
+
+**6. Retro PWM Drive Gain (`--retro-drive <gain>`)**
+Controls the internal drive gain for `--retro pc` and `--retro apple2`. The signal is multiplied by `gain` before PWM encoding and divided by the same factor after the speaker filter, so the output level is preserved. Higher gain forces more of the 78 PWM duty-cycle levels into use, reducing carrier sideband noise and improving S/N for quiet input.
+
+* **Default: 4.0** — optimised for typical synthesizer output near −18 dBFS.
+* Signals above `1/gain` amplitude will be hard-clipped before PWM.
+
+| Input level | Recommended `--retro-drive` |
+| :---: | :---: |
+| −6 dBFS (loud) | `2` |
+| −12 dBFS | `4` (default) |
+| −18 dBFS | `4` (default) |
+| −24 dBFS (quiet) | `8` |
+
+```bash
+# Loud input — reduce drive to avoid clipping
+midra munt --retro pc --retro-drive 2 song.mid
+
+# Very quiet input — increase drive for better S/N
+midra munt --retro pc --retro-drive 8 song.mid
+```
+
+> **Tip:** `--retro-drive` and `--compress` address the same S/N problem from different angles. `--retro-drive` is a static, predictable gain; `--compress` adapts dynamically to the signal level. For music with consistent dynamics, `--retro-drive` alone is sufficient. For music with wide dynamic range, combine both.
+
+**7. Amiga Paula Stereo Width (`--paula-width <0-300>`)**
 Controls the M/S stereo widening applied by the Amiga Paula retro filter. This option is only effective when `--retro amiga`, `--retro a500`, or `--retro a1200` is active; it has no effect with other modes.
 
 The Amiga Paula chip drove four independent 8-bit DAC channels with hard panning (channels 0 and 3 fully left, channels 1 and 2 fully right). `--paula-width` approximates this channel separation on a pre-mixed stereo source using M/S processing.
@@ -229,7 +269,7 @@ midra opl --retro a1200 --paula-width 80 song.mid
 midra opl --retro amiga --paula-width 20 song.mid
 ```
 
-**6. 3-Band EQ & Filters**
+**8. 3-Band EQ & Filters**
 Sculpt the frequency response using precision RBJ Biquad filters.
 * **EQ (0-100%):** `--bass`, `--mid`, `--treble` (Default is 50 for neutral. Set to 100 for maximum boost, 0 to cut completely).
 * **Cutoffs (Hz):** `--lpf <freq>` (Low-pass, cuts high frequencies), `--hpf <freq>` (High-pass, cuts low frequencies).

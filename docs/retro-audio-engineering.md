@@ -249,7 +249,7 @@ Key findings:
 | Carrier | 15,200 Hz | Empirically measured from original demos |
 | Levels | 78 | 1.19318 MHz / 78 ≈ 15.3 kHz, ~6.3-bit |
 | Pre-quantization | 8-bit (128 levels) | Source material bit-depth simulation — see §3.4 |
-| Drive gain | 2.0× | Improves quantization SNR — see §3.4 |
+| Drive gain | 4.0× (default) | Improves PWM duty-cycle SNR — see §3.4 and §3.7 |
 | τ_e (electrical, voice coil) | 10 µs | RL inductance of cheap speaker coil (L ≈ 0.1 mH, R ≈ 8 Ω) |
 | IIR α_e (at 176,400 Hz) | 0.433 | = 1 − exp(−1/(176400 × 10e-6)) |
 | τ_m (mechanical, cone) | 37.9 µs | Derived from original smoothAlpha=0.45 via τ = −1/(44100 × ln(1−0.45)) |
@@ -286,13 +286,13 @@ the effective resolution. Its role is temporal: it makes the duty cycle hold ste
 steps instead of tracking every floating-point fluctuation, which creates the audible step
 texture without adding noise.
 
-**Drive gain.** The input is scaled by driveGain (= 2.0) before quantization and divided by
-the same factor after the IIR. This exploits the asymmetry between carrier noise and
-quantization noise: carrier noise is proportional to the signal and cancels through
-the gain–invert pair; quantization noise (fixed step size) does not cancel, but because the
-signal now uses more of the quantizer range, fewer levels are wasted → effective SNR improves
-by ~6 dB per doubling. Real hardware was commonly driven at maximum amplitude for exactly this
-reason.
+**Drive gain.** The input is scaled by driveGain before quantization and divided by the same
+factor after the IIR. Higher gain forces the signal to use more of the 78-level PWM duty-cycle
+range, reducing the PWM quantization error at carrier sideband frequencies (see §3.7). The
+default is 4.0×, chosen to optimise S/N for typical synthesizer output levels around −18 dBFS
+with no hard clipping. Signals above 1/driveGain (= 0.25, i.e. above −12 dBFS) are
+hard-clipped before PWM encoding — which is authentic: real 1980s PC Speaker developers drove
+at maximum amplitude. The gain can be overridden with `--retro-drive`.
 
 **Electrical pre-filter (voice coil inductance).** A cheap PC speaker voice coil is an
 inductor (L ≈ 0.1–0.3 mH, R ≈ 8 Ω). The current through an RL circuit does not follow a step
@@ -419,6 +419,62 @@ A brute-force search over candidate carriers from 14 kHz to 22 kHz found that th
 #### Historical Interpretation
 
 The audibility of carrier sidebands is authentic PC speaker hardware behaviour. It manifests most strongly when feeding high-quality, spectrally sparse audio (e.g. FluidSynth soundfont rendering) into the hardware model. Original PC game music — FM synthesis (OPL2), multi-voice arrangements, complex timbres — had dense harmonic coverage that filled the sideband positions naturally, masking them. This is not a simulation defect; it is the correct response of the hardware to clean input.
+
+---
+
+### 3.7 Drive Gain and S/N Optimisation
+
+#### The Mechanism
+
+The dominant noise source in the simulation is not broadband quantization noise but carrier sideband energy at specific frequencies (§3.6). These sidebands arise primarily from **PWM duty-cycle quantization error** — the error introduced by rounding the continuous duty cycle to one of 78 discrete levels. This is not a fixed-amplitude error; it is proportional to the inverse of the number of levels actually *used* in each cycle. When the signal is quiet and the duty cycle barely deviates from 0.5, only a few of the 78 levels are exercised and the quantization error is large relative to the signal.
+
+Drive gain addresses this directly: scaling the signal up by D before PWM forces more duty-cycle levels into play. After the IIR filter the output is divided by D, restoring the original level. The carrier noise (which scales with the signal) cancels through the gain–invert pair; the duty-cycle quantization error (which is reduced by using more levels) does not fully cancel — so the net effect is improved S/N at sideband frequencies.
+
+This is distinct from the simpler "8-bit pre-quantization SNR" argument (§3.4): that mechanism applies to the 128-level pre-quantizer, while the dominant effect here is on the 78-level PWM duty-cycle quantizer.
+
+#### Measured S/N vs Drive Gain (440 Hz, 3 sideband frequencies: 1560/2000/2440 Hz)
+
+| Input level | driveGain | S/N (fund − SB avg) | Hard-clip % |
+| :---: | :---: | :---: | :---: |
+| −6 dBFS | 2.0 | +51.7 dB | 4.4% |
+| −6 dBFS | 4.0 | +56.2 dB | 66.8% |
+| −12 dBFS | 2.0 | +47.6 dB | 0% |
+| −12 dBFS | 4.0 | **+53.0 dB** | 6.2% |
+| −18 dBFS | 2.0 | +37.6 dB | 0% |
+| −18 dBFS | 4.0 | **+48.0 dB** | 0% |
+| −18 dBFS | 8.0 | +53.3 dB | 7.6% |
+| −24 dBFS | 8.0 | +46.9 dB | 0% |
+| −24 dBFS | 16.0 | +53.0 dB | 8.8% |
+
+The optimal drive gain for a given input level is approximately `1 / peak_amplitude`. For a sine wave at −18 dBFS (amplitude ≈ 0.126), driveGain = 4.0 maps the peak to 0.50 — well inside the [−1, 1] range — while using 50% of the available 78 duty-cycle levels.
+
+#### Default and CLI Override
+
+The default driveGain is **4.0**, optimised for typical synthesizer output levels near −18 dBFS. Override with `--retro-drive`:
+
+```bash
+# Default (−18 dBFS input, no clipping, good S/N)
+midra munt --retro pc song.mid
+
+# Loud input (−6 dBFS peaks) — lower gain to avoid clipping
+midra munt --retro pc --retro-drive 2 song.mid
+
+# Very quiet input (−24 dBFS) — higher gain for better S/N
+midra munt --retro pc --retro-drive 8 song.mid
+```
+
+Rule of thumb: `--retro-drive` × peak amplitude ≤ 1.0 to avoid hard clipping.
+
+#### Compressor as a Dynamic Drive Gain
+
+`--compress` (§ Global DSP) achieves the same mechanism dynamically: it raises the signal level before the retro filter when the input is quiet and holds back when the input is loud, staying below the clipping threshold automatically. `--retro-drive` is the static, predictable version; `--compress` is the adaptive version.
+
+| | `--retro-drive` | `--compress` |
+| :--- | :--- | :--- |
+| Quiet input | ✅ S/N improves | ✅ S/N improves |
+| Loud input | ❌ clips if drive too high | ✅ handles gracefully |
+| Behaviour | static, predictable | adaptive, level-dependent |
+| Interaction | inside PWM loop | upstream of retro filter |
 
 ---
 
