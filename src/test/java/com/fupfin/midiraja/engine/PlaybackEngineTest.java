@@ -73,7 +73,7 @@ class PlaybackEngineTest
 
         @Override public long nanoTime() { return nanos; }
 
-        @Override public void sleepMillis(long ms) {
+        @Override public void sleepMillis(long ms) throws InterruptedException {
             nanos += ms * 1_000_000L;
         }
 
