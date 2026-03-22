@@ -40,7 +40,7 @@ class PlaylistParserTest
     {
         File midiFile = createTestMidi(tempDir, "song.mid");
 
-        List<File> result = parser.parse(List.of(midiFile), common);
+        List<File> result = parser.parse(List.of(midiFile), common).files();
 
         assertEquals(1, result.size());
         assertEquals(midiFile, result.get(0));
@@ -53,7 +53,7 @@ class PlaylistParserTest
         // Non-MIDI file should be ignored
         Files.writeString(tempDir.resolve("readme.txt"), "not a midi file");
 
-        List<File> result = parser.parse(List.of(tempDir.toFile()), common);
+        List<File> result = parser.parse(List.of(tempDir.toFile()), common).files();
 
         assertEquals(2, result.size());
     }
@@ -66,7 +66,7 @@ class PlaylistParserTest
         createTestMidi(subDir, "nested.mid");
 
         common.recursive = false;
-        List<File> result = parser.parse(List.of(tempDir.toFile()), common);
+        List<File> result = parser.parse(List.of(tempDir.toFile()), common).files();
 
         assertEquals(1, result.size());
     }
@@ -79,7 +79,7 @@ class PlaylistParserTest
         createTestMidi(subDir, "nested.mid");
 
         common.recursive = true;
-        List<File> result = parser.parse(List.of(tempDir.toFile()), common);
+        List<File> result = parser.parse(List.of(tempDir.toFile()), common).files();
 
         assertEquals(2, result.size());
     }
@@ -93,10 +93,10 @@ class PlaylistParserTest
         Files.writeString(m3u.toPath(), "#MIDRA: --shuffle\n" + midi.getAbsolutePath() + "\n");
 
         assertFalse(common.shuffle);
-        List<File> result = parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertTrue(common.shuffle, "#MIDRA: --shuffle should set shuffle=true");
-        assertEquals(1, result.size());
+        assertTrue(result.directives().shuffle(), "#MIDRA: --shuffle should set shuffle=true");
+        assertEquals(1, result.files().size());
     }
 
     @Test void testM3uShuffleDirectiveShortFlag(@TempDir Path tempDir) throws Exception
@@ -106,9 +106,9 @@ class PlaylistParserTest
         Files.writeString(m3u.toPath(), "#MIDRA: -s\n" + midi.getAbsolutePath() + "\n");
 
         assertFalse(common.shuffle);
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertTrue(common.shuffle, "#MIDRA: -s should set shuffle=true (new flag mapping)");
+        assertTrue(result.directives().shuffle(), "#MIDRA: -s should set shuffle=true (new flag mapping)");
     }
 
     @Test void testM3uLoopDirectiveLongFlag(@TempDir Path tempDir) throws Exception
@@ -118,9 +118,9 @@ class PlaylistParserTest
         Files.writeString(m3u.toPath(), "#MIDRA: --loop\n" + midi.getAbsolutePath() + "\n");
 
         assertFalse(common.loop);
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertTrue(common.loop, "#MIDRA: --loop should set loop=true");
+        assertTrue(result.directives().loop(), "#MIDRA: --loop should set loop=true");
     }
 
     @Test void testM3uLoopDirectiveShortFlag(@TempDir Path tempDir) throws Exception
@@ -130,9 +130,9 @@ class PlaylistParserTest
         Files.writeString(m3u.toPath(), "#MIDRA: -r\n" + midi.getAbsolutePath() + "\n");
 
         assertFalse(common.loop);
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertTrue(common.loop, "#MIDRA: -r should set loop=true");
+        assertTrue(result.directives().loop(), "#MIDRA: -r should set loop=true");
     }
 
     @Test void testM3uRecursiveDirectiveLongFlag(@TempDir Path tempDir) throws Exception
@@ -142,9 +142,9 @@ class PlaylistParserTest
         Files.writeString(m3u.toPath(), "#MIDRA: --recursive\n" + midi.getAbsolutePath() + "\n");
 
         assertFalse(common.recursive);
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertTrue(common.recursive, "#MIDRA: --recursive should set recursive=true");
+        assertTrue(result.directives().recursive(), "#MIDRA: --recursive should set recursive=true");
     }
 
     @Test void testM3uRecursiveDirectiveShortFlag(@TempDir Path tempDir) throws Exception
@@ -154,9 +154,9 @@ class PlaylistParserTest
         Files.writeString(m3u.toPath(), "#MIDRA: -R\n" + midi.getAbsolutePath() + "\n");
 
         assertFalse(common.recursive);
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertTrue(common.recursive, "#MIDRA: -R should set recursive=true");
+        assertTrue(result.directives().recursive(), "#MIDRA: -R should set recursive=true");
     }
 
     // ── M3U key-value directives ────────────────────────────────────────────────
@@ -167,10 +167,9 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: --volume 75\n" + midi.getAbsolutePath() + "\n");
 
-        assertEquals(100, common.volume);
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertEquals(75, common.volume, "#MIDRA: --volume 75 should set volume=75");
+        assertEquals(75, result.directives().volume().getAsInt(), "#MIDRA: --volume 75 should set volume=75");
     }
 
     @Test void testM3uVolumeDirectiveEqualsForm(@TempDir Path tempDir) throws Exception
@@ -179,9 +178,9 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: --volume=60\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertEquals(60, common.volume);
+        assertEquals(60, result.directives().volume().getAsInt());
     }
 
     @Test void testM3uVolumeDirectiveShortFlag(@TempDir Path tempDir) throws Exception
@@ -190,9 +189,9 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: -v 80\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertEquals(80, common.volume, "#MIDRA: -v 80 should set volume=80");
+        assertEquals(80, result.directives().volume().getAsInt(), "#MIDRA: -v 80 should set volume=80");
     }
 
     @Test void testM3uSpeedDirective(@TempDir Path tempDir) throws Exception
@@ -201,10 +200,9 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: --speed 1.5\n" + midi.getAbsolutePath() + "\n");
 
-        assertEquals(1.0, common.speed);
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertEquals(1.5, common.speed, 0.001, "#MIDRA: --speed 1.5 should set speed=1.5");
+        assertEquals(1.5, result.directives().speed().getAsDouble(), 0.001, "#MIDRA: --speed 1.5 should set speed=1.5");
     }
 
     @Test void testM3uSpeedDirectiveEqualsForm(@TempDir Path tempDir) throws Exception
@@ -213,9 +211,9 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: -x=2.0\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertEquals(2.0, common.speed, 0.001);
+        assertEquals(2.0, result.directives().speed().getAsDouble(), 0.001);
     }
 
     @Test void testM3uMultipleDirectives(@TempDir Path tempDir) throws Exception
@@ -225,11 +223,11 @@ class PlaylistParserTest
         Files.writeString(
             m3u.toPath(), "#MIDRA: --shuffle --loop --volume 50\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertTrue(common.shuffle, "shuffle should be set");
-        assertTrue(common.loop, "loop should be set");
-        assertEquals(50, common.volume, "volume should be 50");
+        assertTrue(result.directives().shuffle(), "shuffle should be set");
+        assertTrue(result.directives().loop(), "loop should be set");
+        assertEquals(50, result.directives().volume().getAsInt(), "volume should be 50");
     }
 
     // ── M3U comment and blank line handling ─────────────────────────────────────
@@ -241,7 +239,7 @@ class PlaylistParserTest
         Files.writeString(
             m3u.toPath(), "#EXTM3U\n# This is a comment\n\n" + midi.getAbsolutePath() + "\n");
 
-        List<File> result = parser.parse(List.of(m3u), common);
+        List<File> result = parser.parse(List.of(m3u), common).files();
 
         assertEquals(1, result.size());
     }
@@ -252,7 +250,7 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "track.mid\n");
 
-        List<File> result = parser.parse(List.of(m3u), common);
+        List<File> result = parser.parse(List.of(m3u), common).files();
 
         assertEquals(1, result.size());
         assertTrue(result.get(0).exists());
@@ -263,7 +261,7 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "nonexistent.mid\n");
 
-        List<File> result = parser.parse(List.of(m3u), common);
+        List<File> result = parser.parse(List.of(m3u), common).files();
 
         assertEquals(0, result.size());
     }
@@ -274,9 +272,9 @@ class PlaylistParserTest
         File txt = tempDir.resolve("playlist.txt").toFile();
         Files.writeString(txt.toPath(), "#MIDRA: --shuffle\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(txt), common);
+        var result = parser.parse(List.of(txt), common);
 
-        assertTrue(common.shuffle, ".txt playlists should also process #MIDRA: directives");
+        assertTrue(result.directives().shuffle(), ".txt playlists should also process #MIDRA: directives");
     }
 
     // ── normalize ────────────────────────────────────────────────────────────────
@@ -316,9 +314,9 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: -v=80\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertEquals(80, common.volume, "-v=80 short form with equals should set volume=80");
+        assertEquals(80, result.directives().volume().getAsInt(), "-v=80 short form with equals should set volume=80");
     }
 
     @Test void testM3uSpeedDirectiveShortSpace(@TempDir Path tempDir) throws Exception
@@ -327,9 +325,9 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: -x 1.5\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertEquals(1.5, common.speed, 0.001, "-x 1.5 space form should set speed=1.5");
+        assertEquals(1.5, result.directives().speed().getAsDouble(), 0.001, "-x 1.5 space form should set speed=1.5");
     }
 
     @Test void testM3uInvalidVolumeIgnored(@TempDir Path tempDir) throws Exception
@@ -338,9 +336,9 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: --volume=abc\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertEquals(100, common.volume, "invalid number should be silently ignored");
+        assertTrue(result.directives().volume().isEmpty(), "invalid number should leave volume directive absent");
     }
 
     @Test void testM3uCaseInsensitivePrefix(@TempDir Path tempDir) throws Exception
@@ -349,9 +347,9 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#midra: --shuffle\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertTrue(common.shuffle, "lowercase #midra: prefix should be recognized");
+        assertTrue(result.directives().shuffle(), "lowercase #midra: prefix should be recognized");
     }
 
     @Test void testM3uDirectiveNoSpaceAfterColon(@TempDir Path tempDir) throws Exception
@@ -360,9 +358,9 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA:--loop\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertTrue(common.loop, "#MIDRA: without space after colon should work");
+        assertTrue(result.directives().loop(), "#MIDRA: without space after colon should work");
     }
 
     @Test void testM3uVolumeAtEndOfTokens(@TempDir Path tempDir) throws Exception
@@ -372,9 +370,9 @@ class PlaylistParserTest
         // "--volume" with no following token — boundary guard i+1 < tokens.length
         Files.writeString(m3u.toPath(), "#MIDRA: --volume\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u), common);
+        var result = parser.parse(List.of(m3u), common);
 
-        assertEquals(100, common.volume, "missing value token should leave volume unchanged");
+        assertTrue(result.directives().volume().isEmpty(), "missing value token should leave volume directive absent");
     }
 
     @Test void testM3u8Extension(@TempDir Path tempDir) throws Exception
@@ -383,10 +381,10 @@ class PlaylistParserTest
         File m3u8 = tempDir.resolve("playlist.m3u8").toFile();
         Files.writeString(m3u8.toPath(), "#MIDRA: --shuffle\n" + midi.getAbsolutePath() + "\n");
 
-        parser.parse(List.of(m3u8), common);
+        var result = parser.parse(List.of(m3u8), common);
 
-        assertTrue(common.shuffle, ".m3u8 extension should be treated like .m3u");
-        assertEquals(1, parser.parse(List.of(m3u8), new CommonOptions()).size());
+        assertTrue(result.directives().shuffle(), ".m3u8 extension should be treated like .m3u");
+        assertEquals(1, parser.parse(List.of(m3u8), new CommonOptions()).files().size());
     }
 
     // ── parseDirectory sort order ────────────────────────────────────────────────
@@ -397,7 +395,7 @@ class PlaylistParserTest
         createTestMidi(tempDir, "a.mid");
         createTestMidi(tempDir, "b.mid");
 
-        List<File> result = parser.parse(List.of(tempDir.toFile()), common);
+        List<File> result = parser.parse(List.of(tempDir.toFile()), common).files();
 
         assertEquals(3, result.size());
         assertEquals("a.mid", result.get(0).getName());
