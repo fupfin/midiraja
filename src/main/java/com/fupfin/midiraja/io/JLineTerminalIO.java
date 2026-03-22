@@ -55,28 +55,20 @@ public class JLineTerminalIO implements TerminalIO
 
     static KeyMap<TerminalKey> buildKeyMap(Terminal terminal)
     {
-        var km = new KeyMap<TerminalKey>();
-        // Wait up to 100ms to disambiguate ESC-alone from ESC-sequence (e.g. arrow keys).
-        // Windows scheduler granularity is ~15ms, so 50ms is too tight.
-        km.setAmbiguousTimeout(100);
+        // Start with the shared UP/DOWN/ESC/Ctrl+C/q bindings from NavKeyMapFactory,
+        // then add the playback-specific bindings on top.
+        var km = NavKeyMapFactory.buildNavKeyMap(terminal,
+                TerminalKey.PREV_TRACK, TerminalKey.NEXT_TRACK,
+                TerminalKey.NONE,       TerminalKey.QUIT);
 
-        // Arrow keys — use terminal capability strings so JLine maps the right sequences
-        // for the current platform, then also bind ANSI (CSI) and SS3 variants explicitly
-        // as a fallback in case the terminal reports no capabilities.
-        bindArrow(km, terminal, InfoCmp.Capability.key_up,    TerminalKey.PREV_TRACK,    "A");
-        bindArrow(km, terminal, InfoCmp.Capability.key_down,  TerminalKey.NEXT_TRACK,    "B");
-        bindArrow(km, terminal, InfoCmp.Capability.key_right, TerminalKey.SEEK_FORWARD,  "C");
-        bindArrow(km, terminal, InfoCmp.Capability.key_left,  TerminalKey.SEEK_BACKWARD, "D");
+        // Left/right arrows — not part of the minimal nav set
+        NavKeyMapFactory.bindArrow(km, terminal, InfoCmp.Capability.key_right,
+                TerminalKey.SEEK_FORWARD,  "C");
+        NavKeyMapFactory.bindArrow(km, terminal, InfoCmp.Capability.key_left,
+                TerminalKey.SEEK_BACKWARD, "D");
 
-        // ESC alone → quit
-        km.bind(TerminalKey.QUIT, KeyMap.esc());
-        // Ctrl+C (ETX = \x03) → quit. ISIG is disabled in init() so this arrives as a
-        // key character instead of generating SIGINT.
-        km.bind(TerminalKey.QUIT, "\003");
-
-        // Single-character bindings
+        // Playback-specific single-character bindings
         km.bind(TerminalKey.PAUSE,          " ");
-        km.bind(TerminalKey.QUIT,           "q", "Q");
         km.bind(TerminalKey.NEXT_TRACK,     "n", "N");
         km.bind(TerminalKey.PREV_TRACK,     "p", "P");
         km.bind(TerminalKey.VOLUME_UP,      "+", "=", "u", "U");
@@ -87,23 +79,12 @@ public class JLineTerminalIO implements TerminalIO
         km.bind(TerminalKey.TRANSPOSE_DOWN, "/");
         km.bind(TerminalKey.SPEED_UP,       ".", ">");
         km.bind(TerminalKey.SPEED_DOWN,     ",", "<");
-        km.bind(TerminalKey.BOOKMARK,        "*");
-        km.bind(TerminalKey.RESUME_SESSION,  "r", "R");
+        km.bind(TerminalKey.BOOKMARK,       "*");
+        km.bind(TerminalKey.RESUME_SESSION, "r", "R");
         km.bind(TerminalKey.TOGGLE_LOOP,    "l", "L");
         km.bind(TerminalKey.TOGGLE_SHUFFLE, "s", "S");
 
         return km;
-    }
-
-    /** Bind an arrow key using the terminal capability and both CSI/SS3 fallback sequences. */
-    private static void bindArrow(KeyMap<TerminalKey> km, Terminal terminal,
-            InfoCmp.Capability cap, TerminalKey action, String letter)
-    {
-        String capSeq = KeyMap.key(terminal, cap);
-        if (capSeq != null && !capSeq.isEmpty())
-            km.bind(action, capSeq);
-        // Always also bind the explicit ANSI (CSI) and SS3 forms as fallbacks
-        km.bind(action, "\033[" + letter, "\033O" + letter);
     }
 
     @Override

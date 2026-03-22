@@ -8,6 +8,7 @@
 package com.fupfin.midiraja.cli;
 
 import com.fupfin.midiraja.io.JLineTerminalIO;
+import com.fupfin.midiraja.io.NavKeyMapFactory;
 import com.fupfin.midiraja.ui.ScreenBuffer;
 import com.fupfin.midiraja.ui.Theme;
 import java.io.PrintStream;
@@ -21,7 +22,6 @@ import org.jline.keymap.KeyMap;
 import org.jline.terminal.Attributes;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
-import org.jline.utils.InfoCmp;
 import org.jline.utils.NonBlockingReader;
 import org.jspecify.annotations.Nullable;
 
@@ -676,23 +676,13 @@ public final class TerminalSelector
 
     private static KeyMap<String> buildNavKeyMap(Terminal terminal)
     {
-        var km = new KeyMap<String>();
-        km.setAmbiguousTimeout(100);
-        String upSeq = KeyMap.key(terminal, InfoCmp.Capability.key_up);
-        if (upSeq != null && !upSeq.isEmpty()) km.bind("UP", upSeq);
-        km.bind("UP", "\033[A", "\033OA");
-        String downSeq = KeyMap.key(terminal, InfoCmp.Capability.key_down);
-        if (downSeq != null && !downSeq.isEmpty()) km.bind("DOWN", downSeq);
-        km.bind("DOWN", "\033[B", "\033OB");
-        km.bind("SELECT", "\r", "\n");
-        km.bind("QUIT", "q", "Q", "\033", "\003"); // \003 = Ctrl+C (ETX), ISIG disabled
-        return km;
+        return NavKeyMapFactory.buildNavKeyMap(terminal, "UP", "DOWN", "SELECT", "QUIT");
     }
 
     private static KeyMap<String> buildNavKeyMapWithActions(Terminal terminal)
     {
         var km = buildNavKeyMap(terminal);
-        km.bind("DELETE", "d", "D");
+        km.bind("DELETE",  "d", "D");
         km.bind("CONFIRM", "y", "Y");
         km.bind("ABORT",   "n", "N");
         return km;

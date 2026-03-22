@@ -8,6 +8,7 @@
 package com.fupfin.midiraja.cli;
 
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
+import com.fupfin.midiraja.io.NavKeyMapFactory;
 import com.fupfin.midiraja.ui.Logo;
 import com.fupfin.midiraja.ui.ScreenBuffer;
 import com.fupfin.midiraja.ui.Theme;
@@ -17,7 +18,6 @@ import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
 import org.jline.terminal.Attributes;
 import org.jline.terminal.TerminalBuilder;
-import org.jline.utils.InfoCmp;
 import org.jline.utils.NonBlockingReader;
 
 /**
@@ -189,22 +189,12 @@ class DemoTransitionScreen
 
     private static KeyMap<PlaybackStatus> buildKeyMap(org.jline.terminal.Terminal terminal)
     {
-        var km = new KeyMap<PlaybackStatus>();
-        km.setAmbiguousTimeout(100);
-        bindArrow(km, terminal, InfoCmp.Capability.key_up,   PlaybackStatus.PREVIOUS, "A");
-        bindArrow(km, terminal, InfoCmp.Capability.key_down, PlaybackStatus.NEXT,     "B");
-        km.bind(PlaybackStatus.FINISHED, "\r", "\n", " ", "n", "N");
+        var km = NavKeyMapFactory.buildNavKeyMap(terminal,
+                PlaybackStatus.PREVIOUS, PlaybackStatus.NEXT,
+                PlaybackStatus.FINISHED, PlaybackStatus.QUIT_ALL);
+        km.bind(PlaybackStatus.FINISHED, " ", "n", "N");
         km.bind(PlaybackStatus.PREVIOUS, "p", "P");
-        km.bind(PlaybackStatus.QUIT_ALL, "q", "Q", "\033", "\003"); // \003 = Ctrl+C (ETX)
         return km;
-    }
-
-    private static void bindArrow(KeyMap<PlaybackStatus> km, org.jline.terminal.Terminal terminal,
-            InfoCmp.Capability cap, PlaybackStatus action, String letter)
-    {
-        String capSeq = KeyMap.key(terminal, cap);
-        if (capSeq != null && !capSeq.isEmpty()) km.bind(action, capSeq);
-        km.bind(action, "\033[" + letter, "\033O" + letter);
     }
 
     /** Clears the alt-screen content (used when transitioning to prev/next track). */
