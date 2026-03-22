@@ -77,6 +77,7 @@ public class PlaybackEngine
             new AtomicReference<>(PlaybackStatus.FINISHED);
     private final AtomicBoolean playbackActuallyStarted = new AtomicBoolean(false);
     private Optional<String> initialResetType = Optional.empty();
+    private final MidiClock clock;
 
     public void setInitiallyPaused()
     {
@@ -141,6 +142,15 @@ public class PlaybackEngine
             int initialVolumePercent, double initialSpeed, Optional<String> startTimeStr,
             Optional<Integer> initialTranspose)
     {
+        this(sequence, provider, context, initialVolumePercent, initialSpeed,
+                startTimeStr, initialTranspose, MidiClock.SYSTEM);
+    }
+
+    public PlaybackEngine(Sequence sequence, MidiOutProvider provider, PlaylistContext context,
+            int initialVolumePercent, double initialSpeed, Optional<String> startTimeStr,
+            Optional<Integer> initialTranspose, MidiClock clock)
+    {
+        this.clock = clock;
         this.sequence = sequence;
         this.provider = provider;
 
@@ -310,8 +320,8 @@ public class PlaybackEngine
             try
             {
                 pipelineRoot.sendMessage(payload);
-                Thread.sleep(RESET_SETTLE_MS); // Give the hardware synthesizer time to
-                                               // process the reset before slamming it with notes
+                clock.sleepMillis(RESET_SETTLE_MS); // Give the hardware synthesizer time to
+                                                   // process the reset before slamming it with notes
             }
             catch (Exception ignored)
             {
@@ -324,15 +334,15 @@ public class PlaybackEngine
         // STARTUP DELAY (UX Improvement): Wait 500ms before actually starting playback.
         // This allows the user to quickly skip through tracks (Next/Prev)
         // without triggering heavy audio initialization and unwanted noise.
-        long startupWaitEnd = System.currentTimeMillis() + STARTUP_DELAY_MS;
-        while (System.currentTimeMillis() < startupWaitEnd)
+        long startupWaitEndNanos = clock.nanoTime() + STARTUP_DELAY_MS * 1_000_000L;
+        while (clock.nanoTime() < startupWaitEndNanos)
         {
             if (!isPlaying.get())
             {
                 // User hit next/prev/quit during the delay. Abort immediately.
                 return;
             }
-            Thread.sleep(STARTUP_POLL_MS);
+            clock.sleepMillis(STARTUP_POLL_MS);
         }
 
         playbackActuallyStarted.set(true);
@@ -353,7 +363,7 @@ public class PlaybackEngine
         long lastTick = 0;
         int eventIndex = 0;
         long elapsedNanos = 0;
-        long startTimeNanos = System.nanoTime();
+        long startTimeNanos = clock.nanoTime();
         @SuppressWarnings("NullAway")
         double ticksToNanos =
                 (60000000000.0 / (currentBpm.get() * currentSpeed.get() * resolution));
@@ -406,7 +416,7 @@ public class PlaybackEngine
                 // Reset timing reference after seek
                 ticksToNanos =
                         (60000000000.0 / (currentBpm.get() * currentSpeed.get() * resolution));
-                startTimeNanos = System.nanoTime() - elapsedNanos;
+                startTimeNanos = clock.nanoTime() - elapsedNanos;
                 try
                 {
                     provider.onPlaybackStarted();
@@ -432,7 +442,7 @@ public class PlaybackEngine
                 while (isPlaying.get() && seekTarget.get() == -1
                         && endStatus.get() == PlaybackStatus.FINISHED)
                 {
-                    Thread.sleep(PLAYBACK_POLL_MS);
+                    clock.sleepMillis(PLAYBACK_POLL_MS);
                     // If the user presses next/prev, the UI might change endStatus.get() and set
                     // isPlaying.get()=false.
                     // But actually the UI calls next() which sets endStatus.get() = NEXT,
@@ -451,7 +461,7 @@ public class PlaybackEngine
 
             while (isPaused.get() && isPlaying.get())
             {
-                Thread.sleep(PLAYBACK_POLL_MS); // Hold the playback thread
+                clock.sleepMillis(PLAYBACK_POLL_MS); // Hold the playback thread
                 // If user seeks while paused, break out to let the seek logic run
                 if (seekTarget.get() != -1) break;
                 // Keep pushing the startTime forward so we don't instantly "catch up"
@@ -471,7 +481,7 @@ public class PlaybackEngine
                 // are detected within 50ms regardless of the gap between MIDI events.
                 // Also update currentMicroseconds during the wait so the UI clock keeps
                 // moving even when there are long stretches with no MIDI events.
-                long currentNanos = System.nanoTime();
+                long currentNanos = clock.nanoTime();
                 while (currentNanos < targetNanos)
                 {
                     if (seekTarget.get() != -1 || !isPlaying.get()) break;
@@ -481,14 +491,14 @@ public class PlaybackEngine
                     long remainingMs = (targetNanos - currentNanos) / 1_000_000L;
                     if (remainingMs > 1)
                     {
-                        Thread.sleep(min(remainingMs - 1, PLAYBACK_POLL_MS));
+                        clock.sleepMillis(min(remainingMs - 1, PLAYBACK_POLL_MS));
                     }
                     else
                     {
-                        Thread.onSpinWait(); // Spin-wait for the last millisecond for
-                                             // accuracy
+                        clock.onSpinWait(); // Spin-wait for the last millisecond for
+                                            // accuracy
                     }
-                    currentNanos = System.nanoTime();
+                    currentNanos = clock.nanoTime();
                 }
             }
 
@@ -517,7 +527,7 @@ public class PlaybackEngine
             listeners.forEach(l -> l.onTick(currentMicroseconds.get()));
             try
             {
-                Thread.sleep(END_OF_TRACK_MS);
+                clock.sleepMillis(END_OF_TRACK_MS);
             }
             catch (Exception ignored)
             { /* Allow UI to render 100% frame */

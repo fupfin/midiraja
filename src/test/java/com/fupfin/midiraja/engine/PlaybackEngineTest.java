@@ -67,6 +67,21 @@ class PlaybackEngineTest
         }
     }
 
+    /** Advances virtual nanos on sleepMillis; never actually sleeps. */
+    static class FakeClock implements MidiClock {
+        private long nanos = 0;
+
+        @Override public long nanoTime() { return nanos; }
+
+        @Override public void sleepMillis(long ms) {
+            nanos += ms * 1_000_000L;
+        }
+
+        @Override public void onSpinWait() {
+            nanos += 1;
+        }
+    }
+
     private PlaylistContext ctx()
     {
         return new PlaylistContext(List.of(new File("test.mid")), 0, new MidiPort(0, "Mock"), null, false, false);
@@ -343,5 +358,12 @@ class PlaybackEngineTest
         engine.toggleShuffle(); // true → false
 
         assertEquals(List.of(true, false), received);
+    }
+
+    @Test void clock_injection_constructor_compiles() throws Exception {
+        var clock = new FakeClock();
+        var engine = new PlaybackEngine(mockSequence, mockProvider, ctx(),
+                100, 1.0, Optional.empty(), Optional.empty(), clock);
+        assertNotNull(engine);
     }
 }
