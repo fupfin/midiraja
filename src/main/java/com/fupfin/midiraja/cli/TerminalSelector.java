@@ -7,6 +7,7 @@
 
 package com.fupfin.midiraja.cli;
 
+import com.fupfin.midiraja.io.AltScreenScope;
 import com.fupfin.midiraja.io.JLineTerminalIO;
 import com.fupfin.midiraja.io.NavKeyMapFactory;
 import com.fupfin.midiraja.io.TerminalModeManager;
@@ -211,13 +212,12 @@ public final class TerminalSelector
     {
         int selectedIdx = firstSelectable(items);
 
-        try (Terminal terminal = TerminalBuilder.builder().system(true).build())
+        try (Terminal terminal = TerminalBuilder.builder().system(true).build();
+             var alt = AltScreenScope.enter(terminal.writer()))
         {
             TerminalModeManager.enterRawNoIsig(terminal);
             var km = buildNavKeyMap(terminal);
             var bindingReader = new BindingReader(terminal.reader());
-            terminal.writer().print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
-            terminal.writer().flush();
 
             while (true)
             {
@@ -298,20 +298,10 @@ public final class TerminalSelector
 
                 switch (action)
                 {
-                    case "QUIT" -> {
-                        terminal.writer()
-                                .print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
-                        terminal.writer().flush();
-                        return null;
-                    }
-                    case "SELECT" -> {
-                        terminal.writer()
-                                .print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
-                        terminal.writer().flush();
-                        return items.get(selectedIdx).requireValue();
-                    }
-                    case "UP" -> selectedIdx = nextSelectable(items, selectedIdx, -1);
-                    case "DOWN" -> selectedIdx = nextSelectable(items, selectedIdx, 1);
+                    case "QUIT"   -> { alt.exit(); return null; }
+                    case "SELECT" -> { alt.exit(); return items.get(selectedIdx).requireValue(); }
+                    case "UP"     -> selectedIdx = nextSelectable(items, selectedIdx, -1);
+                    case "DOWN"   -> selectedIdx = nextSelectable(items, selectedIdx, 1);
                 }
             }
         }
@@ -418,13 +408,12 @@ public final class TerminalSelector
         int selectedIdx = config.initialIndex() > 0 ? config.initialIndex() : firstSelectable(items);
         boolean confirmingDelete = false;
 
-        try (Terminal terminal = TerminalBuilder.builder().system(true).build())
+        try (Terminal terminal = TerminalBuilder.builder().system(true).build();
+             var alt = AltScreenScope.enter(terminal.writer()))
         {
             TerminalModeManager.enterRawNoIsig(terminal);
             var km = buildNavKeyMapWithActions(terminal);
             var bindingReader = new BindingReader(terminal.reader());
-            terminal.writer().print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
-            terminal.writer().flush();
 
             while (true)
             {
@@ -510,9 +499,7 @@ public final class TerminalSelector
                     switch (action)
                     {
                         case "CONFIRM" -> {
-                            terminal.writer()
-                                    .print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
-                            terminal.writer().flush();
+                            alt.exit();
                             return new SelectResult.Delete<>(items.get(selectedIdx).requireValue());
                         }
                         case "ABORT", "QUIT" -> confirmingDelete = false;
@@ -522,21 +509,14 @@ public final class TerminalSelector
 
                 switch (action)
                 {
-                    case "QUIT" -> {
-                        terminal.writer()
-                                .print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
-                        terminal.writer().flush();
-                        return new SelectResult.Cancelled<>();
-                    }
+                    case "QUIT"   -> { alt.exit(); return new SelectResult.Cancelled<>(); }
                     case "SELECT" -> {
-                        terminal.writer()
-                                .print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
-                        terminal.writer().flush();
+                        alt.exit();
                         return new SelectResult.Chosen<>(items.get(selectedIdx).requireValue());
                     }
                     case "DELETE" -> confirmingDelete = true;
-                    case "UP" -> selectedIdx = nextSelectable(items, selectedIdx, -1);
-                    case "DOWN" -> selectedIdx = nextSelectable(items, selectedIdx, 1);
+                    case "UP"     -> selectedIdx = nextSelectable(items, selectedIdx, -1);
+                    case "DOWN"   -> selectedIdx = nextSelectable(items, selectedIdx, 1);
                 }
             }
         }

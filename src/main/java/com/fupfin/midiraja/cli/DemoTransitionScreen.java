@@ -8,13 +8,13 @@
 package com.fupfin.midiraja.cli;
 
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
+import com.fupfin.midiraja.io.AltScreenScope;
 import com.fupfin.midiraja.io.NavKeyMapFactory;
 import com.fupfin.midiraja.io.TerminalModeManager;
 import com.fupfin.midiraja.ui.Logo;
 import com.fupfin.midiraja.ui.ScreenBuffer;
 import com.fupfin.midiraja.ui.Theme;
 import java.io.PrintStream;
-import java.io.PrintWriter;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
 import org.jline.terminal.TerminalBuilder;
@@ -66,20 +66,20 @@ class DemoTransitionScreen
             // SIGINT; the \003→QUIT_ALL binding below routes it through the clean quit path.
             TerminalModeManager.enterRawNoIsig(terminal);
             var writer = terminal.writer();
-            writer.print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
-            writer.flush();
 
             var keyMap = buildKeyMap(terminal);
             var bindingReader = new BindingReader(terminal.reader());
 
             long deadline = System.currentTimeMillis() + AUTOPLAY_SECONDS * 1000L;
 
-            while (true)
+            try (var alt = AltScreenScope.enter(writer))
             {
+                while (true)
+                {
                     long remaining = (deadline - System.currentTimeMillis() + 999) / 1000;
                     if (remaining <= 0)
                     {
-                        clearScreen(writer);
+                        alt.clearScreen();
                         return PlaybackStatus.FINISHED;
                     }
                     int width = terminal.getWidth();
@@ -100,7 +100,8 @@ class DemoTransitionScreen
                     {
                         int logoPad = Math.max(0, (width - Logo.WIDTH) / 2);
                         for (int li = 0; li < Logo.LINES.size(); li++)
-                            buf.repeat(" ", logoPad).append(Logo.LINE_COLORS.get(li)).append(Logo.LINES.get(li))
+                            buf.repeat(" ", logoPad).append(Logo.LINE_COLORS.get(li))
+                                    .append(Logo.LINES.get(li))
                                     .append(Theme.COLOR_RESET).appendLine();
                         int subtitlePad = Math.max(0, (width - Logo.SUBTITLE.length()) / 2);
                         buf.repeat(" ", subtitlePad)
@@ -174,12 +175,13 @@ class DemoTransitionScreen
 
                     switch (action)
                     {
-                        case QUIT_ALL  -> { exitAltScreen(writer); return PlaybackStatus.QUIT_ALL; }
-                        case PREVIOUS  -> { clearScreen(writer);   return PlaybackStatus.PREVIOUS; }
-                        case NEXT      -> { clearScreen(writer);    return PlaybackStatus.NEXT; }
-                        case FINISHED  -> { clearScreen(writer);    return PlaybackStatus.FINISHED; }
-                        default        -> { /* ignore */ }
+                        case QUIT_ALL -> { alt.exit();        return PlaybackStatus.QUIT_ALL; }
+                        case PREVIOUS -> { alt.clearScreen(); return PlaybackStatus.PREVIOUS; }
+                        case NEXT     -> { alt.clearScreen(); return PlaybackStatus.NEXT; }
+                        case FINISHED -> { alt.clearScreen(); return PlaybackStatus.FINISHED; }
+                        default       -> { /* ignore */ }
                     }
+                }
             }
         }
     }
@@ -194,17 +196,4 @@ class DemoTransitionScreen
         return km;
     }
 
-    /** Clears the alt-screen content (used when transitioning to prev/next track). */
-    private static void clearScreen(PrintWriter writer)
-    {
-        writer.print(Theme.TERM_CURSOR_HOME + Theme.TERM_CLEAR_TO_END);
-        writer.flush();
-    }
-
-    /** Fully exits the alt screen (used when handing off to playback or quitting). */
-    private static void exitAltScreen(PrintWriter writer)
-    {
-        writer.print(Theme.TERM_ALT_SCREEN_DISABLE + Theme.TERM_SHOW_CURSOR);
-        writer.flush();
-    }
 }
