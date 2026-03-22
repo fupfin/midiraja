@@ -67,7 +67,8 @@ public class DemoCommand implements Callable<Integer>
             return 1;
         }
 
-        List<File> allFiles = new PlaylistParser(p.getErr(), common.isVerbose()).parse(List.of(demoDir), common);
+        List<File> allFiles = new PlaylistParser(p.getErr(), common.isVerbose())
+                .parse(List.of(demoDir), common).files();
         if (allFiles.isEmpty())
         {
             p.getErr().println("Error: No MIDI files found in " + demoDir.getPath());

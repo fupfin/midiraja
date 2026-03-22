@@ -13,13 +13,15 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
 
 /**
  * Builds a flat playlist from a mix of .mid files, directories, and .m3u playlists. M3U files may
- * contain {@code #MIDRA:} directives that update the {@link CommonOptions} (volume, speed, shuffle,
- * loop, recursive) as a side effect.
+ * contain {@code #MIDRA:} directives that are returned via {@link ParseResult#directives()}.
  */
 public class PlaylistParser
 {
@@ -37,13 +39,14 @@ public class PlaylistParser
 
     /**
      * Expands {@code rawFiles} into an ordered list of MIDI files. Directories are scanned
-     * according to {@code common.recursive}. M3U directives may mutate {@code common.shuffle},
-     * {@code common.loop}, {@code common.recursive}, {@code common.volume}, and
-     * {@code common.speed}.
+     * according to {@code common.recursive}. M3U {@code #MIDRA:} directives are collected and
+     * returned via {@link ParseResult#directives()}; {@code common} is never modified by this
+     * method.
      */
-    public List<File> parse(List<File> rawFiles, CommonOptions common)
+    public ParseResult parse(List<File> rawFiles, CommonOptions common)
     {
         List<File> playlist = new ArrayList<>();
+        var acc = new DirectiveAccumulator(common.recursive);
         for (File f : rawFiles)
         {
             f = normalize(f);
@@ -55,18 +58,18 @@ public class PlaylistParser
             else if (nameLower.endsWith(".m3u") || nameLower.endsWith(".m3u8")
                     || nameLower.endsWith(".txt"))
             {
-                parsePlaylistFile(f, playlist, common);
+                parsePlaylistFile(f, playlist, acc);
             }
             else
             {
                 playlist.add(f);
             }
         }
-        return playlist;
+        return new ParseResult(Collections.unmodifiableList(playlist), acc.build());
     }
 
     @SuppressWarnings({"StringSplitter", "EmptyCatch"})
-    private void parsePlaylistFile(File playlistFile, List<File> playlist, CommonOptions common)
+    private void parsePlaylistFile(File playlistFile, List<File> playlist, DirectiveAccumulator acc)
     {
         try
         {
@@ -92,17 +95,18 @@ public class PlaylistParser
                         // Boolean flags
                         if (token.equals("--shuffle") || token.equals("-s"))
                         {
-                            common.shuffle = true;
+                            acc.shuffle = true;
                             logVerbose("Applied directive from playlist: --shuffle");
                         }
                         else if (token.equals("--loop") || token.equals("-r"))
                         {
-                            common.loop = true;
+                            acc.loop = true;
                             logVerbose("Applied directive from playlist: --loop");
                         }
                         else if (token.equals("--recursive") || token.equals("-R"))
                         {
-                            common.recursive = true;
+                            acc.directiveRecursive = true;
+                            acc.effectiveRecursive = true;
                             logVerbose("Applied directive from playlist: --recursive");
                         }
 
@@ -111,7 +115,7 @@ public class PlaylistParser
                         {
                             try
                             {
-                                common.volume =
+                                acc.volume =
                                         Integer.parseInt(token.substring(token.indexOf('=') + 1));
                                 logVerbose("Applied directive from playlist: " + token);
                             }
@@ -124,9 +128,9 @@ public class PlaylistParser
                         {
                             try
                             {
-                                common.volume = Integer.parseInt(tokens[++i]);
-                                logVerbose("Applied directive from playlist: " + token + " "
-                                        + common.volume);
+                                acc.volume = Integer.parseInt(tokens[++i]);
+                                logVerbose("Applied directive from playlist: --volume "
+                                        + acc.volume);
                             }
                             catch (NumberFormatException ignored)
                             {
@@ -137,7 +141,7 @@ public class PlaylistParser
                         {
                             try
                             {
-                                common.speed =
+                                acc.speed =
                                         Double.parseDouble(token.substring(token.indexOf('=') + 1));
                                 logVerbose("Applied directive from playlist: " + token);
                             }
@@ -150,9 +154,9 @@ public class PlaylistParser
                         {
                             try
                             {
-                                common.speed = Double.parseDouble(tokens[++i]);
-                                logVerbose("Applied directive from playlist: " + token + " "
-                                        + common.speed);
+                                acc.speed = Double.parseDouble(tokens[++i]);
+                                logVerbose("Applied directive from playlist: --speed "
+                                        + acc.speed);
                             }
                             catch (NumberFormatException ignored)
                             {
@@ -175,7 +179,7 @@ public class PlaylistParser
 
                 if (Files.isDirectory(track.toPath()))
                 {
-                    parseDirectory(track, playlist, common.recursive);
+                    parseDirectory(track, playlist, acc.effectiveRecursive);
                 }
                 else if (track.exists())
                 {
@@ -243,6 +247,38 @@ public class PlaylistParser
         if (verbose)
         {
             err.println("[VERBOSE] " + message);
+        }
+    }
+
+    private static final class DirectiveAccumulator
+    {
+        boolean shuffle;
+        boolean loop;
+        /** Set to {@code true} only when a {@code --recursive} directive was parsed. */
+        boolean directiveRecursive;
+        /**
+         * Working recursive flag for mid-parse directory scanning inside an M3U.
+         * Seeded from {@code common.recursive} at parse start; updated to {@code true}
+         * by the {@code --recursive} directive so that subsequent directory entries in
+         * the same M3U are scanned recursively.
+         */
+        boolean effectiveRecursive;
+        int     volume = -1;         // -1 = no directive
+        double  speed  = Double.NaN; // NaN = no directive
+
+        DirectiveAccumulator(boolean initialRecursive)
+        {
+            this.effectiveRecursive = initialRecursive;
+        }
+
+        PlaylistDirectives build()
+        {
+            if (volume == -1 && Double.isNaN(speed) && !shuffle && !loop && !directiveRecursive)
+                return PlaylistDirectives.NONE;
+            return new PlaylistDirectives(
+                    volume == -1 ? OptionalInt.empty() : OptionalInt.of(volume),
+                    Double.isNaN(speed) ? OptionalDouble.empty() : OptionalDouble.of(speed),
+                    shuffle, loop, directiveRecursive);
         }
     }
 }

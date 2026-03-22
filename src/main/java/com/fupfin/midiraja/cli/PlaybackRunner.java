@@ -122,7 +122,8 @@ public class PlaybackRunner
      * @param soundbankArg for soft synths: argument to pass to
      *        {@link SoftSynthProvider#loadSoundbank}
      * @param rawFiles raw file/dir/playlist arguments from the command line
-     * @param common shared playback options (may be mutated by M3U directives)
+     * @param common shared playback options; M3U playlist directives are applied to this
+     *        object via {@link PlaylistDirectives#applyTo} after parsing
      * @return picocli exit code (0 = success, 1 = error)
      */
     public int run(MidiOutProvider provider, boolean isSoftSynth, Optional<String> portQuery,
@@ -141,7 +142,9 @@ public class PlaybackRunner
 
         // ── Playlist ──────────────────────────────────────────────────────────
         PlaylistParser parser = new PlaylistParser(err, common.isVerbose());
-        List<File> playlist = parser.parse(rawFiles, common);
+        var parseResult = parser.parse(rawFiles, common);
+        parseResult.directives().applyTo(common);
+        List<File> playlist = parseResult.files();
 
         if (playlist.isEmpty())
         {
