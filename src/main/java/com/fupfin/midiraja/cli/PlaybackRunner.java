@@ -12,6 +12,7 @@ import static java.util.Locale.ROOT;
 
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.engine.PlaybackEngine;
+import com.fupfin.midiraja.engine.PlaybackEngineFactory;
 
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaylistContext;
@@ -58,6 +59,7 @@ public class PlaybackRunner
     @Nullable
     private FxOptions fxOptions = null;
     private boolean includeRetroInSuffix = false;
+    private final PlaybackEngineFactory engineFactory;
 
     public void setFxOptions(FxOptions fx) { this.fxOptions = fx; }
 
@@ -97,10 +99,18 @@ public class PlaybackRunner
     public PlaybackRunner(PrintStream out, PrintStream err, @Nullable TerminalIO terminalIO,
             boolean isTestMode)
     {
+        this(out, err, terminalIO, isTestMode, PlaybackEngine::new);
+    }
+
+    /** Test constructor: injects a custom engine factory. */
+    public PlaybackRunner(PrintStream out, PrintStream err, @Nullable TerminalIO terminalIO,
+            boolean isTestMode, PlaybackEngineFactory engineFactory)
+    {
         this.out = out;
         this.err = err;
         this.terminalIO = terminalIO;
         this.isTestMode = isTestMode;
+        this.engineFactory = engineFactory;
     }
 
     /**
@@ -458,7 +468,7 @@ public class PlaybackRunner
                 var context = new PlaylistContext(orderedFiles, currentIdxHolder[0], port, title,
                         common.loop, common.shuffle);
 
-                var engine = new PlaybackEngine(sequence, provider, context, common.volume,
+                var engine = engineFactory.create(sequence, provider, context, common.volume,
                         common.speed, currentStartTime, common.transpose);
 
                 if (common.ignoreSysex) engine.setIgnoreSysex(true);
