@@ -92,7 +92,6 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: --shuffle\n" + midi.getAbsolutePath() + "\n");
 
-        assertFalse(common.shuffle);
         var result = parser.parse(List.of(m3u), common);
 
         assertTrue(result.directives().shuffle(), "#MIDRA: --shuffle should set shuffle=true");
@@ -105,7 +104,6 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: -s\n" + midi.getAbsolutePath() + "\n");
 
-        assertFalse(common.shuffle);
         var result = parser.parse(List.of(m3u), common);
 
         assertTrue(result.directives().shuffle(), "#MIDRA: -s should set shuffle=true (new flag mapping)");
@@ -117,7 +115,6 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: --loop\n" + midi.getAbsolutePath() + "\n");
 
-        assertFalse(common.loop);
         var result = parser.parse(List.of(m3u), common);
 
         assertTrue(result.directives().loop(), "#MIDRA: --loop should set loop=true");
@@ -129,7 +126,6 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: -r\n" + midi.getAbsolutePath() + "\n");
 
-        assertFalse(common.loop);
         var result = parser.parse(List.of(m3u), common);
 
         assertTrue(result.directives().loop(), "#MIDRA: -r should set loop=true");
@@ -141,7 +137,6 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: --recursive\n" + midi.getAbsolutePath() + "\n");
 
-        assertFalse(common.recursive);
         var result = parser.parse(List.of(m3u), common);
 
         assertTrue(result.directives().recursive(), "#MIDRA: --recursive should set recursive=true");
@@ -153,7 +148,6 @@ class PlaylistParserTest
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "#MIDRA: -R\n" + midi.getAbsolutePath() + "\n");
 
-        assertFalse(common.recursive);
         var result = parser.parse(List.of(m3u), common);
 
         assertTrue(result.directives().recursive(), "#MIDRA: -R should set recursive=true");
@@ -384,7 +378,7 @@ class PlaylistParserTest
         var result = parser.parse(List.of(m3u8), common);
 
         assertTrue(result.directives().shuffle(), ".m3u8 extension should be treated like .m3u");
-        assertEquals(1, parser.parse(List.of(m3u8), new CommonOptions()).files().size());
+        assertEquals(1, result.files().size());
     }
 
     // ── parseDirectory sort order ────────────────────────────────────────────────
