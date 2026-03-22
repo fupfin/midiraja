@@ -114,7 +114,6 @@ task downloadFluidR3Sf3(type: Exec) {
     outputs.file(destFile)
     doFirst { destFile.parentFile.mkdirs() }
     commandLine 'curl', '-L', url, '-o', destFile.absolutePath
-    onlyIf { !destFile.exists() }
 }
 
 dependencies {
