@@ -9,6 +9,7 @@ package com.fupfin.midiraja.cli;
 
 import com.fupfin.midiraja.io.JLineTerminalIO;
 import com.fupfin.midiraja.io.NavKeyMapFactory;
+import com.fupfin.midiraja.io.TerminalModeManager;
 import com.fupfin.midiraja.ui.ScreenBuffer;
 import com.fupfin.midiraja.ui.Theme;
 import java.io.PrintStream;
@@ -19,7 +20,6 @@ import java.util.Scanner;
 import java.util.function.BiConsumer;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
-import org.jline.terminal.Attributes;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.NonBlockingReader;
@@ -213,8 +213,7 @@ public final class TerminalSelector
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build())
         {
-            terminal.enterRawMode();
-            disableIsig(terminal);
+            TerminalModeManager.enterRawNoIsig(terminal);
             var km = buildNavKeyMap(terminal);
             var bindingReader = new BindingReader(terminal.reader());
             terminal.writer().print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
@@ -328,8 +327,7 @@ public final class TerminalSelector
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build())
         {
-            terminal.enterRawMode();
-            disableIsig(terminal);
+            TerminalModeManager.enterRawNoIsig(terminal);
             var km = buildNavKeyMap(terminal);
             var bindingReader = new BindingReader(terminal.reader());
             terminal.writer().print(Theme.TERM_HIDE_CURSOR);
@@ -422,8 +420,7 @@ public final class TerminalSelector
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build())
         {
-            terminal.enterRawMode();
-            disableIsig(terminal);
+            TerminalModeManager.enterRawNoIsig(terminal);
             var km = buildNavKeyMapWithActions(terminal);
             var bindingReader = new BindingReader(terminal.reader());
             terminal.writer().print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
@@ -556,8 +553,7 @@ public final class TerminalSelector
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build())
         {
-            terminal.enterRawMode();
-            disableIsig(terminal);
+            TerminalModeManager.enterRawNoIsig(terminal);
             var km = buildNavKeyMapWithActions(terminal);
             var bindingReader = new BindingReader(terminal.reader());
             terminal.writer().print(Theme.TERM_HIDE_CURSOR);
@@ -659,19 +655,6 @@ public final class TerminalSelector
             if (++idx == sel) return new SelectResult.Chosen<>(item.requireValue());
         }
         return new SelectResult.Cancelled<>();
-    }
-
-    /**
-     * Disables ISIG so Ctrl+C is delivered as the character {@code \x03} (ETX) rather than
-     * generating SIGINT. Combined with the {@code \003} → QUIT binding, this routes Ctrl+C
-     * through the normal quit path and ensures the terminal is restored cleanly on exit.
-     * Same rationale as {@link com.fupfin.midiraja.io.JLineTerminalIO#init()}.
-     */
-    private static void disableIsig(Terminal terminal)
-    {
-        Attributes attr = terminal.getAttributes();
-        attr.setLocalFlag(Attributes.LocalFlag.ISIG, false);
-        terminal.setAttributes(attr);
     }
 
     private static KeyMap<String> buildNavKeyMap(Terminal terminal)

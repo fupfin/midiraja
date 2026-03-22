@@ -9,6 +9,7 @@ package com.fupfin.midiraja.cli;
 
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.io.NavKeyMapFactory;
+import com.fupfin.midiraja.io.TerminalModeManager;
 import com.fupfin.midiraja.ui.Logo;
 import com.fupfin.midiraja.ui.ScreenBuffer;
 import com.fupfin.midiraja.ui.Theme;
@@ -16,7 +17,6 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
-import org.jline.terminal.Attributes;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.NonBlockingReader;
 
@@ -62,12 +62,9 @@ class DemoTransitionScreen
                 return PlaybackStatus.NEXT;
             }
 
-            terminal.enterRawMode();
-            // Disable ISIG so Ctrl+C is delivered as \x03 (ETX) rather than SIGINT.
-            // Combined with the \003→QUIT_ALL binding below, this restores the terminal cleanly.
-            Attributes attr = terminal.getAttributes();
-            attr.setLocalFlag(Attributes.LocalFlag.ISIG, false);
-            terminal.setAttributes(attr);
+            // enterRawNoIsig disables ISIG so Ctrl+C is delivered as \x03 (ETX) rather than
+            // SIGINT; the \003→QUIT_ALL binding below routes it through the clean quit path.
+            TerminalModeManager.enterRawNoIsig(terminal);
             var writer = terminal.writer();
             writer.print(Theme.TERM_ALT_SCREEN_ENABLE + Theme.TERM_HIDE_CURSOR);
             writer.flush();

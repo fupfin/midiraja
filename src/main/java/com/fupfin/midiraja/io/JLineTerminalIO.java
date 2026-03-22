@@ -12,7 +12,8 @@ import static java.lang.IO.*;
 import java.io.IOException;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
-import org.jline.terminal.*;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.InfoCmp;
 import org.jline.utils.NonBlockingReader;
 import org.jspecify.annotations.Nullable;
@@ -38,16 +39,12 @@ public class JLineTerminalIO implements TerminalIO
     public void init() throws IOException
     {
         terminal = TerminalBuilder.builder().system(true).build();
-        terminal.enterRawMode();
-        Attributes attr = terminal.getAttributes();
-        attr.setLocalFlag(Attributes.LocalFlag.ECHO, false);
-        // Disable ISIG so Ctrl+C is delivered as the character \x03 (ETX) rather than
+        // enterRawNoIsig disables ISIG so Ctrl+C is delivered as \x03 (ETX) rather than
         // generating SIGINT. This lets JLine route it through the normal QUIT key path,
         // which cleanly stops the render loop before restoring the terminal. Without this,
         // SIGINT causes System.exit() while the render loop is still running, and the loop
         // overwrites the terminal-restore sequences written by the shutdown hook.
-        attr.setLocalFlag(Attributes.LocalFlag.ISIG, false);
-        terminal.setAttributes(attr);
+        TerminalModeManager.enterRawNoIsig(terminal);
 
         keyMap = buildKeyMap(terminal);
         bindingReader = new BindingReader(terminal.reader());
