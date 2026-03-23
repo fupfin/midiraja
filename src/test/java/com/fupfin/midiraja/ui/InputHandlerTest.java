@@ -9,48 +9,13 @@ package com.fupfin.midiraja.ui;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.fupfin.midiraja.engine.PlaybackCommands;
-import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
-import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.io.TerminalIO.TerminalKey;
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class InputHandlerTest
 {
-    /** Records every call made so tests can verify routing. */
-    static class RecordingCommands implements PlaybackCommands
-    {
-        final List<String> calls = new ArrayList<>();
-
-        @Override public boolean isPlaying() { return true; }
-
-        @Override public void requestStop(PlaybackStatus s) { calls.add("requestStop:" + s); }
-
-        @Override public void adjustVolume(double d) { calls.add("adjustVolume:" + d); }
-
-        @Override public void adjustSpeed(double d) { calls.add("adjustSpeed:" + d); }
-
-        @Override public void adjustTranspose(int d) { calls.add("adjustTranspose:" + d); }
-
-        @Override public void seekRelative(long us) { calls.add("seekRelative:" + us); }
-
-        @Override public void togglePause() { calls.add("togglePause"); }
-
-        @Override public void toggleLoop() { calls.add("toggleLoop"); }
-
-        @Override public void toggleShuffle() { calls.add("toggleShuffle"); }
-
-        @Override public void fireBookmark() { calls.add("fireBookmark"); }
-
-        @Override public void firePlayOrderChanged(PlaylistContext ctx)
-        {
-            calls.add("firePlayOrderChanged");
-        }
-    }
-
     RecordingCommands engine;
 
     @BeforeEach void setUp() { engine = new RecordingCommands(); }

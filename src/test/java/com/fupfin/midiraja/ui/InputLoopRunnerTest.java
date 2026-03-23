@@ -9,58 +9,15 @@ package com.fupfin.midiraja.ui;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.fupfin.midiraja.engine.PlaybackCommands;
-import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
-import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.io.MockTerminalIO;
 import com.fupfin.midiraja.io.TerminalIO;
 import com.fupfin.midiraja.io.TerminalIO.TerminalKey;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class InputLoopRunnerTest
 {
-    /** Records every call made so tests can verify routing. */
-    static class RecordingCommands implements PlaybackCommands
-    {
-        final List<String>   calls      = new ArrayList<>();
-        private final int    stopAfter; // isPlaying() returns false after this many calls
-        private final AtomicInteger callCount = new AtomicInteger(0);
-
-        RecordingCommands(int stopAfter) { this.stopAfter = stopAfter; }
-
-        @Override public boolean isPlaying()
-        {
-            return callCount.incrementAndGet() <= stopAfter;
-        }
-
-        @Override public void requestStop(PlaybackStatus s) { calls.add("requestStop:" + s); }
-
-        @Override public void adjustVolume(double d)      { calls.add("adjustVolume:" + d); }
-
-        @Override public void adjustSpeed(double d)       { calls.add("adjustSpeed:" + d); }
-
-        @Override public void adjustTranspose(int d)      { calls.add("adjustTranspose:" + d); }
-
-        @Override public void seekRelative(long us)       { calls.add("seekRelative:" + us); }
-
-        @Override public void togglePause()               { calls.add("togglePause"); }
-
-        @Override public void toggleLoop()                { calls.add("toggleLoop"); }
-
-        @Override public void toggleShuffle()             { calls.add("toggleShuffle"); }
-
-        @Override public void fireBookmark()              { calls.add("fireBookmark"); }
-
-        @Override public void firePlayOrderChanged(PlaylistContext ctx)
-        {
-            calls.add("firePlayOrderChanged");
-        }
-    }
-
     /** MockTerminalIO that throws IOException on readKey(). */
     static class ThrowingTerminalIO extends MockTerminalIO
     {
@@ -76,7 +33,8 @@ class InputLoopRunnerTest
     @Test void run_callsHandlerForEachKey_untilNotPlaying() throws Exception
     {
         // isPlaying() returns true for the first 3 checks, then false
-        RecordingCommands engine = new RecordingCommands(3);
+        RecordingCommands engine = new RecordingCommands();
+        engine.stopAfter(3);
 
         MockTerminalIO mockIO = new MockTerminalIO();
         mockIO.injectKey(TerminalKey.VOLUME_UP);
@@ -99,7 +57,8 @@ class InputLoopRunnerTest
     @Test void run_stopsWhenNotPlaying_withoutProcessingMoreKeys() throws Exception
     {
         // isPlaying() returns false on the very first call
-        RecordingCommands engine = new RecordingCommands(0);
+        RecordingCommands engine = new RecordingCommands();
+        engine.stopAfter(0);
 
         MockTerminalIO mockIO = new MockTerminalIO();
         mockIO.injectKey(TerminalKey.VOLUME_UP);
@@ -122,7 +81,7 @@ class InputLoopRunnerTest
     @Test void run_onIOException_callsRequestStopQuitAll() throws Exception
     {
         // Engine always reports playing so the loop doesn't exit on its own
-        RecordingCommands engine = new RecordingCommands(Integer.MAX_VALUE);
+        RecordingCommands engine = new RecordingCommands(); // default: Integer.MAX_VALUE
 
         ThrowingTerminalIO throwingIO = new ThrowingTerminalIO();
 

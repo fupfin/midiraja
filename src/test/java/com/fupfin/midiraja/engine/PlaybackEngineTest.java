@@ -30,6 +30,7 @@ import javax.sound.midi.SysexMessage;
 import javax.sound.midi.Track;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 class PlaybackEngineTest
 {
@@ -595,7 +596,7 @@ class PlaybackEngineTest
     // -------------------------------------------------------------------------
     // A10. startup_abortedByRequestStop_returnsEarlyWithNoMidiEvents
     // -------------------------------------------------------------------------
-    @Test void startup_abortedByRequestStop_returnsEarlyWithNoMidiEvents() throws Exception {
+    @Test @Timeout(5) void startup_abortedByRequestStop_returnsEarlyWithNoMidiEvents() throws Exception {
         Sequence seq = new Sequence(Sequence.PPQ, 24);
         Track track = seq.createTrack();
         track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60, 100), 0L));
@@ -651,7 +652,7 @@ class PlaybackEngineTest
     // -------------------------------------------------------------------------
     // A12. setHoldAtEnd_true_engineWaitsUntilRequestStop
     // -------------------------------------------------------------------------
-    @Test void setHoldAtEnd_true_engineWaitsUntilRequestStop() throws Exception {
+    @Test @Timeout(5) void setHoldAtEnd_true_engineWaitsUntilRequestStop() throws Exception {
         // One NoteOn at tick 0; FakeClock so playback completes instantly
         Sequence seq = new Sequence(Sequence.PPQ, 24);
         Track track = seq.createTrack();
