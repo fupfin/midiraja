@@ -13,8 +13,12 @@ import com.fupfin.midiraja.io.MockTerminalIO;
 import com.fupfin.midiraja.io.TerminalIO;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
+import com.fupfin.midiraja.midi.SysexFilter;
+import com.fupfin.midiraja.midi.TransposeFilter;
+import com.fupfin.midiraja.midi.VolumeFilter;
 import com.fupfin.midiraja.engine.MidiPlaybackEngine;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
+import com.fupfin.midiraja.engine.PlaybackPipeline;
 import com.fupfin.midiraja.ui.DumbUI;
 import java.io.File;
 import java.util.ArrayList;
@@ -93,6 +97,23 @@ class PlaybackEngineTest
         return new PlaylistContext(List.of(new File("test.mid")), 0, new MidiPort(0, "Mock"), null, false, false);
     }
 
+    private static PlaybackPipeline testPipeline(MidiOutProvider provider) {
+        var sysexFilter    = new SysexFilter(provider, false);
+        var volumeFilter   = new VolumeFilter(sysexFilter, 1.0);
+        var transposeFilter = new TransposeFilter(volumeFilter, 0);
+        return new PlaybackPipeline() {
+            @Override public void sendMessage(byte[] d) throws Exception { transposeFilter.sendMessage(d); }
+            @Override public void adjustVolume(double d) { volumeFilter.adjust(d); }
+            @Override public double getVolumeScale() { return volumeFilter.getVolumeScale(); }
+            @Override public void adjustTranspose(int s) {
+                transposeFilter.adjust(s);
+                try { provider.panic(); } catch (Exception ignored) {}
+            }
+            @Override public int getCurrentTranspose() { return transposeFilter.getSemitones(); }
+            @Override public void setIgnoreSysex(boolean i) { sysexFilter.setIgnoreSysex(i); }
+        };
+    }
+
     @BeforeEach void setUp() throws Exception
     {
         mockSequence = new Sequence(Sequence.PPQ, 24);
@@ -106,7 +127,8 @@ class PlaybackEngineTest
         PlaybackEngine engine = new MidiPlaybackEngine(mockSequence, mockProvider,
             new PlaylistContext(java.util.List.of(new java.io.File("test.mid")), 0,
                 new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null, false, false),
-            100, 1.0, java.util.Optional.empty(), java.util.Optional.empty());
+            testPipeline(mockProvider), () -> false,
+            1.0, java.util.Optional.empty());
 
         mockIO.injectKey(TerminalIO.TerminalKey.VOLUME_DOWN);
         mockIO.injectKey(TerminalIO.TerminalKey.QUIT);
@@ -124,7 +146,8 @@ class PlaybackEngineTest
         PlaybackEngine engine = new MidiPlaybackEngine(mockSequence, mockProvider,
             new PlaylistContext(java.util.List.of(new java.io.File("test.mid")), 0,
                 new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null, false, false),
-            100, 1.0, java.util.Optional.empty(), java.util.Optional.empty());
+            testPipeline(mockProvider), () -> false,
+            1.0, java.util.Optional.empty());
 
         // Seek forward multiple times beyond end
         mockIO.injectKey(TerminalIO.TerminalKey.SEEK_FORWARD);
@@ -144,7 +167,8 @@ class PlaybackEngineTest
         PlaybackEngine engine = new MidiPlaybackEngine(mockSequence, mockProvider,
             new PlaylistContext(java.util.List.of(new java.io.File("test.mid")), 0,
                 new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null, false, false),
-            100, 1.0, java.util.Optional.empty(), java.util.Optional.empty());
+            testPipeline(mockProvider), () -> false,
+            1.0, java.util.Optional.empty());
 
         // Seek backward early in the song (should stay at 0)
         mockIO.injectKey(TerminalIO.TerminalKey.SEEK_BACKWARD);
@@ -160,7 +184,8 @@ class PlaybackEngineTest
         PlaybackEngine engine = new MidiPlaybackEngine(mockSequence, mockProvider,
             new PlaylistContext(java.util.List.of(new java.io.File("test.mid")), 0,
                 new com.fupfin.midiraja.midi.MidiPort(0, "Mock"), null, false, false),
-            100, 1.0, java.util.Optional.empty(), java.util.Optional.empty());
+            testPipeline(mockProvider), () -> false,
+            1.0, java.util.Optional.empty());
 
         // Volume down multiple times (should clamp at 0%)
         for (int i = 0; i < 30; i++) mockIO.injectKey(TerminalIO.TerminalKey.VOLUME_DOWN);
@@ -177,7 +202,8 @@ class PlaybackEngineTest
     @Test void testSpeedBoundaries()
     {
         PlaybackEngine engine = new MidiPlaybackEngine(
-            mockSequence, mockProvider, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+            mockSequence, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+            1.0, Optional.empty());
 
         assertEquals(1.0, engine.getCurrentSpeed(), 1e-9);
 
@@ -194,7 +220,8 @@ class PlaybackEngineTest
     @Test void testTransposeAdjustment()
     {
         PlaybackEngine engine = new MidiPlaybackEngine(
-            mockSequence, mockProvider, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+            mockSequence, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+            1.0, Optional.empty());
 
         assertEquals(0, engine.getCurrentTranspose());
 
@@ -208,7 +235,8 @@ class PlaybackEngineTest
     @Test void testTogglePause()
     {
         PlaybackEngine engine = new MidiPlaybackEngine(
-            mockSequence, mockProvider, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+            mockSequence, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+            1.0, Optional.empty());
 
         assertFalse(engine.isPaused());
         engine.togglePause();
@@ -227,7 +255,8 @@ class PlaybackEngineTest
 
         RecordingMidiProvider recording = new RecordingMidiProvider();
         PlaybackEngine engine = new MidiPlaybackEngine(
-            seq, recording, ctx(), 100, 1000.0, Optional.empty(), Optional.empty());
+            seq, recording, ctx(), testPipeline(recording), () -> false,
+            1000.0, Optional.empty());
 
         ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
             engine.start(new DumbUI());
@@ -257,7 +286,8 @@ class PlaybackEngineTest
 
         RecordingMidiProvider recording = new RecordingMidiProvider();
         PlaybackEngine engine = new MidiPlaybackEngine(
-            seq, recording, ctx(), 100, 1000.0, Optional.of(2_000_000L), Optional.empty());
+            seq, recording, ctx(), testPipeline(recording), () -> false,
+            1000.0, Optional.of(2_000_000L));
 
         ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
             engine.start(new DumbUI());
@@ -290,7 +320,8 @@ class PlaybackEngineTest
 
         RecordingMidiProvider recording = new RecordingMidiProvider();
         PlaybackEngine engine = new MidiPlaybackEngine(
-            seq, recording, ctx(), 100, 1000.0, Optional.of(2_000_000L), Optional.empty());
+            seq, recording, ctx(), testPipeline(recording), () -> false,
+            1000.0, Optional.of(2_000_000L));
 
         ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
             engine.start(new DumbUI());
@@ -314,7 +345,8 @@ class PlaybackEngineTest
 
         RecordingMidiProvider recording = new RecordingMidiProvider();
         PlaybackEngine engine = new MidiPlaybackEngine(
-            seq, recording, ctx(), 100, 1000.0, Optional.of(2_000_000L), Optional.empty());
+            seq, recording, ctx(), testPipeline(recording), () -> false,
+            1000.0, Optional.of(2_000_000L));
 
         ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
             engine.start(new DumbUI());
@@ -327,7 +359,8 @@ class PlaybackEngineTest
 
     @Test void testToggleLoop() {
         PlaybackEngine engine = new MidiPlaybackEngine(
-            mockSequence, mockProvider, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+            mockSequence, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+            1.0, Optional.empty());
 
         assertTrue(engine.isLoopEnabled() == false); // default: loop off
         engine.toggleLoop();
@@ -340,13 +373,15 @@ class PlaybackEngineTest
         var ctxWithLoop = new PlaylistContext(
             List.of(new File("test.mid")), 0, new MidiPort(0, "Mock"), null, true, false);
         PlaybackEngine engine = new MidiPlaybackEngine(
-            mockSequence, mockProvider, ctxWithLoop, 100, 1.0, Optional.empty(), Optional.empty());
+            mockSequence, mockProvider, ctxWithLoop, testPipeline(mockProvider), () -> false,
+            1.0, Optional.empty());
         assertTrue(engine.isLoopEnabled());
     }
 
     @Test void testToggleShuffle() {
         PlaybackEngine engine = new MidiPlaybackEngine(
-            mockSequence, mockProvider, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+            mockSequence, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+            1.0, Optional.empty());
 
         assertFalse(engine.isShuffleEnabled());
         engine.toggleShuffle();
@@ -355,7 +390,8 @@ class PlaybackEngineTest
 
     @Test void testShuffleCallbackFired() {
         PlaybackEngine engine = new MidiPlaybackEngine(
-            mockSequence, mockProvider, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+            mockSequence, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+            1.0, Optional.empty());
 
         List<Boolean> received = new ArrayList<>();
         engine.setShuffleCallback(received::add);
@@ -369,7 +405,7 @@ class PlaybackEngineTest
     @Test void clock_injection_constructor_compiles() throws Exception {
         var clock = new FakeClock();
         var engine = new MidiPlaybackEngine(mockSequence, mockProvider, ctx(),
-                100, 1.0, Optional.empty(), Optional.empty(), clock);
+                testPipeline(mockProvider), () -> false, 1.0, Optional.empty(), clock);
         assertNotNull(engine);
     }
 
@@ -400,7 +436,7 @@ class PlaybackEngineTest
         singleEventSeq.createTrack();
 
         var engine = new MidiPlaybackEngine(singleEventSeq, mockProvider, ctx(),
-                100, 1.0, Optional.empty(), Optional.empty(), clock);
+                testPipeline(mockProvider), () -> false, 1.0, Optional.empty(), clock);
 
         ScopedValue.where(TerminalIO.CONTEXT, mockIO)
                 .call(() -> engine.start(new DumbUI()));
@@ -424,7 +460,7 @@ class PlaybackEngineTest
         RecordingMidiProvider recording = new RecordingMidiProvider();
         var clock = new FakeClock();
         PlaybackEngine engine = new MidiPlaybackEngine(seq, recording, ctx(),
-                100, 1000.0, Optional.empty(), Optional.empty(), clock);
+                testPipeline(recording), () -> false, 1000.0, Optional.empty(), clock);
         engine.setIgnoreSysex(true);
 
         ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
@@ -450,7 +486,7 @@ class PlaybackEngineTest
         RecordingMidiProvider recording = new RecordingMidiProvider();
         var clock = new FakeClock();
         PlaybackEngine engine = new MidiPlaybackEngine(seq, recording, ctx(),
-                100, 1000.0, Optional.empty(), Optional.empty(), clock);
+                testPipeline(recording), () -> false, 1000.0, Optional.empty(), clock);
         engine.setIgnoreSysex(false); // default — explicit here for clarity
 
         ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
@@ -474,7 +510,7 @@ class PlaybackEngineTest
         RecordingMidiProvider recording = new RecordingMidiProvider();
         var clock = new FakeClock();
         PlaybackEngine engine = new MidiPlaybackEngine(seq, recording, ctx(),
-                100, 1000.0, Optional.empty(), Optional.empty(), clock);
+                testPipeline(recording), () -> false, 1000.0, Optional.empty(), clock);
         engine.setInitialResetType(Optional.of("gm"));
 
         ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
@@ -497,7 +533,7 @@ class PlaybackEngineTest
         RecordingMidiProvider recording = new RecordingMidiProvider();
         var clock = new FakeClock();
         PlaybackEngine engine = new MidiPlaybackEngine(seq, recording, ctx(),
-                100, 1000.0, Optional.empty(), Optional.empty(), clock);
+                testPipeline(recording), () -> false, 1000.0, Optional.empty(), clock);
         engine.setInitialResetType(Optional.of("F07E7F09010F")); // 12 hex chars = 6 bytes
 
         ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
@@ -520,7 +556,7 @@ class PlaybackEngineTest
         RecordingMidiProvider recording = new RecordingMidiProvider();
         var clock = new FakeClock();
         PlaybackEngine engine = new MidiPlaybackEngine(seq, recording, ctx(),
-                100, 1000.0, Optional.empty(), Optional.empty(), clock);
+                testPipeline(recording), () -> false, 1000.0, Optional.empty(), clock);
         engine.setInitialResetType(Optional.of("F07")); // odd length — should be ignored
 
         ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
@@ -543,7 +579,7 @@ class PlaybackEngineTest
         RecordingMidiProvider recording = new RecordingMidiProvider();
         var clock = new FakeClock();
         PlaybackEngine engine = new MidiPlaybackEngine(seq, recording, ctx(),
-                100, 1000.0, Optional.empty(), Optional.empty(), clock);
+                testPipeline(recording), () -> false, 1000.0, Optional.empty(), clock);
         engine.setInitialResetType(Optional.of("unknown-format"));
 
         ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
@@ -560,7 +596,8 @@ class PlaybackEngineTest
     // -------------------------------------------------------------------------
     @Test void bookmarkCallback_firedOnFireBookmark() {
         PlaybackEngine engine = new MidiPlaybackEngine(
-                mockSequence, mockProvider, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+                mockSequence, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+                1.0, Optional.empty());
 
         List<Boolean> received = new ArrayList<>();
         engine.setBookmarkCallback(received::add);
@@ -576,7 +613,8 @@ class PlaybackEngineTest
     // -------------------------------------------------------------------------
     @Test void setFilterDescription_getFilterDescription_roundTrip() {
         PlaybackEngine engine = new MidiPlaybackEngine(
-                mockSequence, mockProvider, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+                mockSequence, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+                1.0, Optional.empty());
 
         engine.setFilterDescription("EQ+Reverb");
         assertEquals("EQ+Reverb", engine.getFilterDescription());
@@ -587,7 +625,8 @@ class PlaybackEngineTest
     // -------------------------------------------------------------------------
     @Test void setPortSuffix_getPortSuffix_roundTrip() {
         PlaybackEngine engine = new MidiPlaybackEngine(
-                mockSequence, mockProvider, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+                mockSequence, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+                1.0, Optional.empty());
 
         engine.setPortSuffix("[MT-32]");
         assertEquals("[MT-32]", engine.getPortSuffix());
@@ -604,7 +643,7 @@ class PlaybackEngineTest
         RecordingMidiProvider recording = new RecordingMidiProvider();
         // Use the 7-arg constructor (real system clock, NOT FakeClock) so real time passes
         PlaybackEngine engine = new MidiPlaybackEngine(
-                seq, recording, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+                seq, recording, ctx(), testPipeline(recording), () -> false, 1.0, Optional.empty());
 
         CompletableFuture<PlaybackStatus> future = new CompletableFuture<>();
         var mockIO2 = new MockTerminalIO(); // no keys injected — engine will wait
@@ -639,7 +678,8 @@ class PlaybackEngineTest
 
         var clock = new FakeClock();
         PlaybackEngine engine = new MidiPlaybackEngine(
-                seq, mockProvider, ctx(), 100, 1000.0, Optional.empty(), Optional.empty(), clock);
+                seq, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+                1000.0, Optional.empty(), clock);
         engine.setInitiallyPaused();
 
         assertTrue(engine.isPaused(), "Engine should report paused immediately after setInitiallyPaused()");
@@ -659,7 +699,8 @@ class PlaybackEngineTest
         track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60, 64), 0L));
 
         PlaybackEngine engine = new MidiPlaybackEngine(
-                seq, mockProvider, ctx(), 100, 1.0, Optional.empty(), Optional.empty());
+                seq, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+                1.0, Optional.empty());
         engine.setHoldAtEnd(true);
 
         CompletableFuture<PlaybackStatus> future = new CompletableFuture<>();

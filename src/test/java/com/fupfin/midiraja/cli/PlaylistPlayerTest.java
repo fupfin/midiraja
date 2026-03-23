@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.fupfin.midiraja.engine.PlaybackEngine;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaybackEngineFactory;
+import com.fupfin.midiraja.engine.PlaybackPipeline;
 import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.io.MockTerminalIO;
 import com.fupfin.midiraja.midi.MidiOutProvider;
@@ -46,17 +47,15 @@ class PlaylistPlayerTest {
 
     static class MockPlaybackEngine implements PlaybackEngine {
         private final PlaylistContext ctx;
-        private final int vol;
+        private final PlaybackPipeline pipeline;
         private final double speed;
-        private final int transpose;
         private final PlaybackStatus exitStatus;
         MockPlaybackEngine(Sequence seq, MidiOutProvider p, PlaylistContext ctx,
-                           int vol, double speed, Optional<Long> start,
-                           Optional<Integer> transpose, PlaybackStatus exitStatus) {
+                           PlaybackPipeline pipeline, java.util.function.BooleanSupplier isShuttingDown,
+                           double speed, Optional<Long> start, PlaybackStatus exitStatus) {
             this.ctx = ctx;
-            this.vol = vol;
+            this.pipeline = pipeline;
             this.speed = speed;
-            this.transpose = transpose.orElse(0);
             this.exitStatus = exitStatus;
         }
         @Override public PlaybackStatus start(com.fupfin.midiraja.ui.PlaybackUI ui) {
@@ -70,8 +69,8 @@ class PlaylistPlayerTest {
         @Override public int[] getChannelPrograms() { return new int[0]; }
         @Override public float getCurrentBpm() { return 120f; }
         @Override public double getCurrentSpeed() { return speed; }
-        @Override public int getCurrentTranspose() { return transpose; }
-        @Override public double getVolumeScale() { return vol / 100.0; }
+        @Override public int getCurrentTranspose() { return pipeline.getCurrentTranspose(); }
+        @Override public double getVolumeScale() { return pipeline.getVolumeScale(); }
         @Override public boolean isPlaying() { return false; }
         @Override public boolean isPaused() { return false; }
         @Override public boolean isLoopEnabled() { return ctx.loop(); }
@@ -184,9 +183,9 @@ class PlaylistPlayerTest {
         var f1 = createTestMidi(tempDir, "a.mid");
         var f2 = createTestMidi(tempDir, "b.mid");
         var callCount = new AtomicInteger(0);
-        PlaybackEngineFactory factory = (seq, p, ctx, vol, speed, start, transpose) -> {
+        PlaybackEngineFactory factory = (seq, p, ctx, pipeline, isShuttingDown, speed, start) -> {
             callCount.incrementAndGet();
-            return new MockPlaybackEngine(seq, p, ctx, vol, speed, start, transpose, PlaybackStatus.QUIT_ALL);
+            return new MockPlaybackEngine(seq, p, ctx, pipeline, isShuttingDown, speed, start, PlaybackStatus.QUIT_ALL);
         };
         player(factory).play(List.of(f1, f2), new MockMidiProvider(),
                 new MidiPort(0, "Mock"), common, new DumbUI(), mockIO,
@@ -199,9 +198,9 @@ class PlaylistPlayerTest {
         var f2 = createTestMidi(tempDir, "b.mid");
         var f3 = createTestMidi(tempDir, "c.mid");
         var callCount = new AtomicInteger(0);
-        PlaybackEngineFactory factory = (seq, p, ctx, vol, speed, start, transpose) -> {
+        PlaybackEngineFactory factory = (seq, p, ctx, pipeline, isShuttingDown, speed, start) -> {
             callCount.incrementAndGet();
-            return new MockPlaybackEngine(seq, p, ctx, vol, speed, start, transpose, PlaybackStatus.FINISHED);
+            return new MockPlaybackEngine(seq, p, ctx, pipeline, isShuttingDown, speed, start, PlaybackStatus.FINISHED);
         };
         player(factory).play(List.of(f1, f2, f3), new MockMidiProvider(),
                 new MidiPort(0, "Mock"), common, new DumbUI(), mockIO,
@@ -214,9 +213,9 @@ class PlaylistPlayerTest {
         var f2 = createTestMidi(tempDir, "b.mid");
         var f3 = createTestMidi(tempDir, "c.mid");
         var callCount = new AtomicInteger(0);
-        PlaybackEngineFactory factory = (seq, p, ctx, vol, speed, start, transpose) -> {
+        PlaybackEngineFactory factory = (seq, p, ctx, pipeline, isShuttingDown, speed, start) -> {
             callCount.incrementAndGet();
-            return new MockPlaybackEngine(seq, p, ctx, vol, speed, start, transpose, PlaybackStatus.NEXT);
+            return new MockPlaybackEngine(seq, p, ctx, pipeline, isShuttingDown, speed, start, PlaybackStatus.NEXT);
         };
         var p = new PlaylistPlayer(factory, null, false, false, true, errStream);
         p.play(List.of(f1, f2, f3), new MockMidiProvider(),
@@ -230,10 +229,10 @@ class PlaylistPlayerTest {
         var f2 = createTestMidi(tempDir, "b.mid");
         var f3 = createTestMidi(tempDir, "c.mid");
         var callCount = new AtomicInteger(0);
-        PlaybackEngineFactory factory = (seq, p, ctx, vol, speed, start, transpose) -> {
+        PlaybackEngineFactory factory = (seq, p, ctx, pipeline, isShuttingDown, speed, start) -> {
             int call = callCount.incrementAndGet();
             PlaybackStatus status = call < 4 ? PlaybackStatus.FINISHED : PlaybackStatus.QUIT_ALL;
-            return new MockPlaybackEngine(seq, p, ctx, vol, speed, start, transpose, status);
+            return new MockPlaybackEngine(seq, p, ctx, pipeline, isShuttingDown, speed, start, status);
         };
         common.loop = true;
         player(factory).play(List.of(f1, f2, f3), new MockMidiProvider(),
@@ -247,14 +246,14 @@ class PlaylistPlayerTest {
         var f2 = createTestMidi(tempDir, "b.mid");
         var f3 = createTestMidi(tempDir, "c.mid");
         var callCount = new AtomicInteger(0);
-        PlaybackEngineFactory factory = (seq, p, ctx, vol, speed, start, transpose) -> {
+        PlaybackEngineFactory factory = (seq, p, ctx, pipeline, isShuttingDown, speed, start) -> {
             int call = callCount.incrementAndGet();
             PlaybackStatus status = switch (call) {
                 case 1 -> PlaybackStatus.NEXT;
                 case 2 -> PlaybackStatus.PREVIOUS;
                 default -> PlaybackStatus.QUIT_ALL;
             };
-            return new MockPlaybackEngine(seq, p, ctx, vol, speed, start, transpose, status);
+            return new MockPlaybackEngine(seq, p, ctx, pipeline, isShuttingDown, speed, start, status);
         };
         player(factory).play(List.of(f1, f2, f3), new MockMidiProvider(),
                 new MidiPort(0, "Mock"), common, new DumbUI(), mockIO,

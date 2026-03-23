@@ -13,13 +13,9 @@ import static java.util.Locale.ROOT;
 
 import org.jspecify.annotations.Nullable;
 
-import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.midi.MidiOutProvider;
-import com.fupfin.midiraja.midi.MidiProcessor;
-import com.fupfin.midiraja.midi.SysexFilter;
-import com.fupfin.midiraja.midi.TransposeFilter;
-import com.fupfin.midiraja.midi.VolumeFilter;
 import com.fupfin.midiraja.ui.PlaybackEventListener;
+import java.util.function.BooleanSupplier;
 import com.fupfin.midiraja.ui.PlaybackUI;
 import java.util.*;
 import java.util.concurrent.*;
@@ -35,10 +31,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
 {
     private final Sequence sequence;
     private final MidiOutProvider provider;
-    private final MidiProcessor pipelineRoot;
-    private final TransposeFilter transposeFilter;
-    private final VolumeFilter volumeFilter;
-    private final SysexFilter sysexFilter;
+    private final PlaybackPipeline pipeline;
+    private final BooleanSupplier isShuttingDown;
 
     private final AtomicLong currentMicroseconds = new AtomicLong(0);
     private final AtomicLong seekTarget = new AtomicLong(-1);
@@ -81,7 +75,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     public void setIgnoreSysex(boolean ignoreSysex)
     {
-        sysexFilter.setIgnoreSysex(ignoreSysex);
+        pipeline.setIgnoreSysex(ignoreSysex);
     }
 
     public void setInitialResetType(Optional<String> resetType)
@@ -131,42 +125,31 @@ public class MidiPlaybackEngine implements PlaybackEngine
             });
 
     public MidiPlaybackEngine(Sequence sequence, MidiOutProvider provider, PlaylistContext context,
-            int initialVolumePercent, double initialSpeed, Optional<Long> startTimeMicroseconds,
-            Optional<Integer> initialTranspose)
+            PlaybackPipeline pipeline, BooleanSupplier isShuttingDown,
+            double initialSpeed, Optional<Long> startTimeMicroseconds)
     {
-        this(sequence, provider, context, initialVolumePercent, initialSpeed,
-                startTimeMicroseconds, initialTranspose, MidiClock.SYSTEM);
+        this(sequence, provider, context, pipeline, isShuttingDown,
+                initialSpeed, startTimeMicroseconds, MidiClock.SYSTEM);
     }
 
     public MidiPlaybackEngine(Sequence sequence, MidiOutProvider provider, PlaylistContext context,
-            int initialVolumePercent, double initialSpeed, Optional<Long> startTimeMicroseconds,
-            Optional<Integer> initialTranspose, MidiClock clock)
+            PlaybackPipeline pipeline, BooleanSupplier isShuttingDown,
+            double initialSpeed, Optional<Long> startTimeMicroseconds, MidiClock clock)
     {
         this.clock = clock;
         this.sequence = sequence;
         this.provider = provider;
-
+        this.pipeline = pipeline;
+        this.isShuttingDown = isShuttingDown;
         this.currentSpeed.set(initialSpeed);
-        // If the provider owns a DSP output gain, volume is controlled there. VolumeFilter is
-        // kept at 1.0 so MIDI CC 7 messages from the song pass through unscaled.
-        double initVol = provider.outputGain().isPresent() ? 1.0
-                : max(0, min(100, initialVolumePercent)) / 100.0;
-        this.sysexFilter = new SysexFilter(provider, false);
-        this.volumeFilter = new VolumeFilter(this.sysexFilter, initVol);
-        this.transposeFilter = new TransposeFilter(this.volumeFilter,
-                initialTranspose.orElse(0));
-        this.pipelineRoot = this.transposeFilter;
         this.resolution = sequence.getResolution();
         this.context = context;
         this.loopEnabled = context.loop();
         this.shuffleEnabled = context.shuffle();
-
         this.sortedEvents = Arrays.stream(sequence.getTracks())
                 .flatMap(track -> IntStream.range(0, track.size()).mapToObj(track::get))
                 .sorted(Comparator.comparingLong(MidiEvent::getTick)).toList();
-
-        startTimeMicroseconds.ifPresent(
-                us -> this.seekTarget.set(getTickForTime(us)));
+        startTimeMicroseconds.ifPresent(us -> this.seekTarget.set(getTickForTime(us)));
     }
 
     public void addPlaybackEventListener(PlaybackEventListener listener)
@@ -251,7 +234,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
         {
             try
             {
-                pipelineRoot.sendMessage(payload);
+                pipeline.sendMessage(payload);
                 clock.sleepMillis(RESET_SETTLE_MS); // Give the hardware synthesizer time to
                                                    // process the reset before slamming it with notes
             }
@@ -467,7 +450,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     private void processChaseEvent(MidiEvent event)
     {
-        if (MidirajaCommand.SHUTTING_DOWN) return;
+        if (isShuttingDown.getAsBoolean()) return;
         var msg = event.getMessage();
         var raw = msg.getMessage();
 
@@ -489,7 +472,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
         {
             try
             {
-                pipelineRoot.sendMessage(raw);
+                pipeline.sendMessage(raw);
             }
             catch (Exception ignored)
             {
@@ -512,7 +495,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 }
                 try
                 {
-                    pipelineRoot.sendMessage(raw);
+                    pipeline.sendMessage(raw);
                 }
                 catch (Exception ignored)
                 {
@@ -524,11 +507,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     private void processEvent(MidiEvent event)
     {
-        if (MidirajaCommand.SHUTTING_DOWN) return;
+        if (isShuttingDown.getAsBoolean()) return;
         var msg = event.getMessage();
-
-
-
         var raw = msg.getMessage();
 
         int mspqn = extractTempoMspqn(raw);
@@ -549,7 +529,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
         {
             try
             {
-                pipelineRoot.sendMessage(raw);
+                pipeline.sendMessage(raw);
             }
             catch (Exception e)
             {
@@ -566,14 +546,6 @@ public class MidiPlaybackEngine implements PlaybackEngine
             if (cmd == 0xC0 && raw.length >= 2)
             {
                 channelPrograms[ch] = raw[1] & 0xFF;
-            }
-
-
-
-            if (cmd == 0xB0 && raw.length >= 3 && raw[1] == 7)
-            {
-                // REMOVED
-                // REMOVED
             }
 
             if (cmd == 0x90 && raw.length >= 3 && (raw[2] & 0xFF) > 0)
@@ -595,7 +567,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
             try
             {
-                pipelineRoot.sendMessage(raw);
+                pipeline.sendMessage(raw);
             }
             catch (Exception e)
             {
@@ -645,14 +617,12 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     public int getCurrentTranspose()
     {
-        return transposeFilter.getSemitones();
+        return pipeline.getCurrentTranspose();
     }
 
     public double getVolumeScale()
     {
-        return provider.outputGain()
-                .map(g -> (double) g.getVolumeScale())
-                .orElseGet(() -> volumeFilter.getVolumeScale());
+        return pipeline.getVolumeScale();
     }
 
     public boolean isPlaying()
@@ -668,27 +638,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     public void adjustVolume(double delta)
     {
-        var og = provider.outputGain();
-        if (og.isPresent())
-        {
-            double newScale = max(0.0, min(1.5, og.get().getVolumeScale() + delta));
-            og.get().setVolumeScale((float) newScale);
-        }
-        else
-        {
-            volumeFilter.adjust(delta);
-            for (int ch = 0; ch < 16; ch++)
-            {
-                byte[] msg = new byte[] {(byte) (0xB0 | ch), 7, (byte) 100};
-                try
-                {
-                    pipelineRoot.sendMessage(msg);
-                }
-                catch (Exception ignored)
-                { /* Ignore */
-                }
-            }
-        }
+        pipeline.adjustVolume(delta);
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
 
@@ -760,14 +710,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     public synchronized void adjustTranspose(int delta)
     {
-        transposeFilter.adjust(delta);
-        try
-        {
-            provider.panic();
-        }
-        catch (Exception ignored)
-        { /* Ignore */
-        }
+        pipeline.adjustTranspose(delta);
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
 

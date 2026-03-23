@@ -7,6 +7,7 @@
 
 package com.fupfin.midiraja.cli;
 
+import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaybackEngineFactory;
 import com.fupfin.midiraja.engine.PlaylistContext;
@@ -88,8 +89,11 @@ class PlaylistPlayer {
                 var context = new PlaylistContext(orderedFiles, currentIdxHolder[0], port, title,
                         common.loop, common.shuffle);
 
-                var engine = engineFactory.create(sequence, provider, context, common.volume,
-                        common.speed, currentStartTime, common.transpose);
+                var engine = engineFactory.create(sequence, provider, context,
+                        new StandardPlaybackPipeline(provider, common.volume,
+                                common.transpose.orElse(0)),
+                        () -> MidirajaCommand.SHUTTING_DOWN,
+                        common.speed, currentStartTime);
 
                 if (common.ignoreSysex) engine.setIgnoreSysex(true);
                 if (common.resetType.isPresent()) engine.setInitialResetType(common.resetType);

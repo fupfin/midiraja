@@ -10,9 +10,11 @@ package com.fupfin.midiraja.engine;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.fupfin.midiraja.engine.MidiPlaybackEngine;
+import com.fupfin.midiraja.engine.PlaybackPipeline;
 import com.fupfin.midiraja.io.MockTerminalIO;
 import com.fupfin.midiraja.io.TerminalIO;
 import com.fupfin.midiraja.midi.MidiPort;
+import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MuntNativeBridge;
 import com.fupfin.midiraja.midi.MuntSynthProvider;
 import com.fupfin.midiraja.ui.DumbUI;
@@ -35,6 +37,17 @@ import org.junit.jupiter.api.condition.EnabledIf;
     static boolean monkeyIslandMidPresent()
     {
         return new File("monkey_island.mid").exists();
+    }
+
+    private static PlaybackPipeline minimalPipeline(MidiOutProvider provider) {
+        return new PlaybackPipeline() {
+            @Override public void sendMessage(byte[] d) throws Exception { provider.sendMessage(d); }
+            @Override public void adjustVolume(double d) {}
+            @Override public double getVolumeScale() { return 1.0; }
+            @Override public void adjustTranspose(int s) {}
+            @Override public int getCurrentTranspose() { return 0; }
+            @Override public void setIgnoreSysex(boolean i) {}
+        };
     }
 
     static class CountingMuntBridge implements MuntNativeBridge
@@ -124,7 +137,8 @@ import org.junit.jupiter.api.condition.EnabledIf;
             List.of(new File("monkey_island.mid")), 0, new MidiPort(0, "Test"), null, false, false);
 
         PlaybackEngine engine =
-            new MidiPlaybackEngine(seq, provider, ctx, 100, 1000.0, Optional.empty(), Optional.empty());
+            new MidiPlaybackEngine(seq, provider, ctx, minimalPipeline(provider), () -> false,
+                    1000.0, Optional.empty());
 
         MockTerminalIO mockIO = new MockTerminalIO();
         ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> {

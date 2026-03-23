@@ -9,6 +9,7 @@ package com.fupfin.midiraja.engine;
 
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import javax.sound.midi.Sequence;
 
 /**
@@ -27,7 +28,7 @@ public interface PlaybackEngineFactory
      */
     PlaybackEngine create(Sequence sequence, MidiOutProvider provider,
             PlaylistContext context,
-            int initialVolumePercent, double initialSpeed,
-            Optional<Long> startTimeMicroseconds,
-            Optional<Integer> initialTranspose) throws Exception;
+            PlaybackPipeline pipeline, BooleanSupplier isShuttingDown,
+            double initialSpeed,
+            Optional<Long> startTimeMicroseconds) throws Exception;
 }
