@@ -67,7 +67,6 @@ class PlaylistPlayer {
         int[] currentIdxHolder = {0};
         Optional<String> currentStartTime = initialStartTime;
         boolean wasPaused = false;
-        PlaybackStatus prevStatus = PlaybackStatus.FINISHED;
         PlaybackStatus lastRawStatus = PlaybackStatus.FINISHED;
 
         while (currentIdxHolder[0] >= 0 && currentIdxHolder[0] < playlist.size())
@@ -116,7 +115,7 @@ class PlaylistPlayer {
                     reshuffleRemaining(playOrderHolder[0], currentIdxHolder[0], newState);
                     var newOrdered = java.util.stream.IntStream.of(playOrderHolder[0])
                             .mapToObj(playlist::get).toList();
-                    var newCtx = new com.fupfin.midiraja.engine.PlaylistContext(
+                    var newCtx = new PlaylistContext(
                             newOrdered, currentIdxHolder[0], port,
                             engine.getContext().sequenceTitle(),
                             engine.isLoopEnabled(), newState);
@@ -131,7 +130,6 @@ class PlaylistPlayer {
 
                 var status = ScopedValue.where(TerminalIO.CONTEXT, io).call(() -> engine.start(ui));
                 lastRawStatus = status;
-                prevStatus = status;
 
                 currentStartTime = Optional.empty();
                 common.volume = (int) (engine.getVolumeScale() * 100);
@@ -144,7 +142,7 @@ class PlaylistPlayer {
                 int nextIdx = handlePlaybackStatus(status, currentIdxHolder[0], playlist, common);
 
                 // Rebuild play order when loop wraps around to the beginning
-                if (prevStatus == PlaybackStatus.FINISHED && nextIdx == 0
+                if (status == PlaybackStatus.FINISHED && nextIdx == 0
                         && currentIdxHolder[0] == playlist.size() - 1)
                 {
                     playOrderHolder[0] = buildPlayOrder(playlist.size(), engine.isShuffleEnabled());
