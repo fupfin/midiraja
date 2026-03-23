@@ -17,7 +17,6 @@ public interface PlaybackState
     Sequence getSequence();
     long getCurrentMicroseconds();
     long getTotalMicroseconds();
-    double[] getChannelLevels();
     int[] getChannelPrograms();
     float getCurrentBpm();
     double getCurrentSpeed();
@@ -30,6 +29,5 @@ public interface PlaybackState
     boolean isBookmarked();
     String getFilterDescription();
     String getPortSuffix();
-    void decayChannelLevels(double decayAmount);
     void addPlaybackEventListener(PlaybackEventListener listener);
 }

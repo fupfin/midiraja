@@ -23,6 +23,17 @@ public class LineUI implements PlaybackUI
     @Override
     public void runRenderLoop(PlaybackState engine)
     {
+        double[] channelLevels = new double[16];
+        engine.addPlaybackEventListener(new PlaybackEventListener() {
+            @Override public void onPlaybackStateChanged() {}
+            @Override public void onTick(long currentMicroseconds) {}
+            @Override public void onTempoChanged(float bpm) {}
+            @Override public void onChannelActivity(int channel, int velocity) {
+                if (channel >= 0 && channel < 16)
+                    channelLevels[channel] = Math.max(channelLevels[channel], velocity / 127.0);
+            }
+        });
+
         var term = TerminalIO.CONTEXT.get();
         if (term.isInteractive())
         {
@@ -70,8 +81,8 @@ public class LineUI implements PlaybackUI
             while (engine.isPlaying())
             {
                 // Apply classic decay
-                engine.decayChannelLevels(0.15);
-                double[] levels = engine.getChannelLevels();
+                for (int i = 0; i < 16; i++) channelLevels[i] = Math.max(0, channelLevels[i] - 0.15);
+                double[] levels = channelLevels;
 
                 ScreenBuffer buffer = new ScreenBuffer();
                 buffer.append("\r\033[38;5;215mVol:[\033[0m");

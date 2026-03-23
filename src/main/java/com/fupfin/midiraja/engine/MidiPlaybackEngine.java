@@ -116,9 +116,6 @@ public class MidiPlaybackEngine implements PlaybackEngine
         for (var listener : listeners) listener.onPlayOrderChanged(ctx);
     }
 
-    // Accessed from the playback thread, the notificationScheduler, and the render loop.
-    // AtomicLongArray provides per-element volatile semantics without locks.
-    private final AtomicLongArray channelLevels = new AtomicLongArray(16);
     private final List<MidiEvent> sortedEvents;
     private final int resolution;
     private final PlaylistContext context;
@@ -375,7 +372,6 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 provider.panic(); // Silence lingering notes
 
                 currentBpm.set(120.0f);
-                for (int i = 0; i < 16; i++) channelLevels.set(i, 0);
 
                 // Fast-forward silently to accumulate correct program/control state up
                 // to the target
@@ -653,13 +649,11 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 if (latencyNanos > 0)
                 {
                     var unused = notificationScheduler.schedule(() -> {
-                        setChannelLevel(channel, velocity / 127.0);
                         listeners.forEach(l -> l.onChannelActivity(channel, velocity));
                     }, latencyNanos, TimeUnit.NANOSECONDS);
                 }
                 else
                 {
-                    setChannelLevel(ch, velocity / 127.0);
                     listeners.forEach(l -> l.onChannelActivity(ch, velocity));
                 }
             }
@@ -695,14 +689,6 @@ public class MidiPlaybackEngine implements PlaybackEngine
     public long getTotalMicroseconds()
     {
         return sequence.getMicrosecondLength();
-    }
-
-    public double[] getChannelLevels()
-    {
-        double[] snapshot = new double[16];
-        for (int i = 0; i < 16; i++)
-            snapshot[i] = Double.longBitsToDouble(channelLevels.get(i));
-        return snapshot;
     }
 
     public int[] getChannelPrograms()
@@ -859,25 +845,4 @@ public class MidiPlaybackEngine implements PlaybackEngine
         }
     }
 
-    public void decayChannelLevels(double decayAmount)
-    {
-        for (int i = 0; i < 16; i++)
-        {
-            double current = Double.longBitsToDouble(channelLevels.get(i));
-            channelLevels.set(i, Double.doubleToRawLongBits(max(0, current - decayAmount)));
-        }
-    }
-
-    /** Atomically sets channelLevels[ch] to max(current, level). */
-    private void setChannelLevel(int ch, double level)
-    {
-        long newBits = Double.doubleToRawLongBits(level);
-        long cur;
-        do
-        {
-            cur = channelLevels.get(ch);
-            if (Double.longBitsToDouble(cur) >= level) return;
-        }
-        while (!channelLevels.compareAndSet(ch, cur, newBits));
-    }
 }

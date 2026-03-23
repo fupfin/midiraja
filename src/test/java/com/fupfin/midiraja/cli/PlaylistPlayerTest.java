@@ -67,7 +67,6 @@ class PlaylistPlayerTest {
         @Override public Sequence getSequence() { return null; }
         @Override public long getCurrentMicroseconds() { return 0; }
         @Override public long getTotalMicroseconds() { return 0; }
-        @Override public double[] getChannelLevels() { return new double[0]; }
         @Override public int[] getChannelPrograms() { return new int[0]; }
         @Override public float getCurrentBpm() { return 120f; }
         @Override public double getCurrentSpeed() { return speed; }
@@ -80,7 +79,6 @@ class PlaylistPlayerTest {
         @Override public boolean isBookmarked() { return false; }
         @Override public String getFilterDescription() { return ""; }
         @Override public String getPortSuffix() { return ""; }
-        @Override public void decayChannelLevels(double decayAmount) {}
         @Override public void addPlaybackEventListener(com.fupfin.midiraja.ui.PlaybackEventListener listener) {}
         // PlaybackCommands no-ops
         @Override public void requestStop(PlaybackStatus status) {}
