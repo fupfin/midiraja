@@ -24,11 +24,13 @@ public class CovoxDacFilter implements AudioProcessor
     private static final float LPF_ALPHA = 0.26f;
     private float lastOut = 0.0f;
 
-    // Zero-Order Hold state for ~11kHz simulation (1/4 of 44.1kHz)
+    // Linear-interpolated hold state for ~11kHz simulation (1/4 of 44.1kHz).
     // Wikipedia notes 80286 systems typically reached ~12 kHz.
-    // We will hold for 4 frames (11.025 kHz) to represent typical 286/386 gameplay.
+    // We hold for 4 frames (11.025 kHz) to represent typical 286/386 gameplay,
+    // with linear interpolation between DAC steps instead of a ZOH staircase.
     private int holdCounter = 0;
     private float heldVal = 0;
+    private float prevHeldVal = 0;
 
     public CovoxDacFilter(boolean enabled, AudioProcessor next)
     {
@@ -79,15 +81,17 @@ public class CovoxDacFilter implements AudioProcessor
                 // Quantize and convert through non-linear R-2R LUT
                 float inClamp = Math.max(-1.0f, Math.min(1.0f, monoIn));
                 int idx = Math.max(0, Math.min(255, Math.round((inClamp * 0.5f + 0.5f) * 255f)));
+                prevHeldVal = heldVal;
                 heldVal = dacLut[idx];
             }
 
-            // Hold for 4 samples (~11.025 kHz typical DOS CPU limit)
+            // Linear interpolation over 4 samples (~11.025 kHz typical DOS CPU limit)
+            float interp = prevHeldVal + (holdCounter / 4.0f) * (heldVal - prevHeldVal);
             holdCounter++;
             if (holdCounter >= 4) holdCounter = 0;
 
             // Apply analog RC smoothing LPF (2.12 kHz)
-            lastOut += LPF_ALPHA * (heldVal - lastOut);
+            lastOut += LPF_ALPHA * (interp - lastOut);
 
             // Output mono signal to both channels
             left[i] = lastOut;
@@ -117,13 +121,15 @@ public class CovoxDacFilter implements AudioProcessor
                 }
 
                 int idx = Math.max(0, Math.min(255, Math.round((monoIn * 0.5f + 0.5f) * 255f)));
+                prevHeldVal = heldVal;
                 heldVal = dacLut[idx];
             }
 
+            float interp = prevHeldVal + (holdCounter / 4.0f) * (heldVal - prevHeldVal);
             holdCounter++;
             if (holdCounter >= 4) holdCounter = 0;
 
-            lastOut += LPF_ALPHA * (heldVal - lastOut);
+            lastOut += LPF_ALPHA * (interp - lastOut);
             short outShort = (short) Math.max(-32768, Math.min(32767, lastOut * 32768.0f));
 
             interleavedPcm[leftIdx] = outShort;
@@ -140,6 +146,7 @@ public class CovoxDacFilter implements AudioProcessor
     {
         lastOut = 0;
         heldVal = 0;
+        prevHeldVal = 0;
         holdCounter = 0;
         next.reset();
     }

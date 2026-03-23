@@ -36,6 +36,7 @@ public class AmigaPaulaFilter implements AudioProcessor
     // Left channel state
     private int holdCounterL = 0;
     private float heldValL = 0;
+    private float prevHeldValL = 0;
     private float staticLpfL = 0;
     private float ledLp1L = 0;
     private float ledLp2L = 0;
@@ -43,6 +44,7 @@ public class AmigaPaulaFilter implements AudioProcessor
     // Right channel state
     private int holdCounterR = 0;
     private float heldValR = 0;
+    private float prevHeldValR = 0;
     private float staticLpfR = 0;
     private float ledLp1R = 0;
     private float ledLp2R = 0;
@@ -101,15 +103,17 @@ public class AmigaPaulaFilter implements AudioProcessor
         for (int i = 0; i < frames; i++)
         {
             // Left channel
-            if (holdCounterL == 0) heldValL = dacLut[dacIndex(left[i])];
+            if (holdCounterL == 0) { prevHeldValL = heldValL; heldValL = dacLut[dacIndex(left[i])]; }
+            float interpL = prevHeldValL + (holdCounterL / 2.0f) * (heldValL - prevHeldValL);
             holdCounterL = (holdCounterL + 1) % 2;
-            staticLpfL += staticAlpha * (heldValL - staticLpfL);
+            staticLpfL += staticAlpha * (interpL - staticLpfL);
             ledLp1L += LED_LPF_ALPHA * (staticLpfL - ledLp1L);
             ledLp2L += LED_LPF_ALPHA * (ledLp1L - ledLp2L);
             // Right channel
-            if (holdCounterR == 0) heldValR = dacLut[dacIndex(right[i])];
+            if (holdCounterR == 0) { prevHeldValR = heldValR; heldValR = dacLut[dacIndex(right[i])]; }
+            float interpR = prevHeldValR + (holdCounterR / 2.0f) * (heldValR - prevHeldValR);
             holdCounterR = (holdCounterR + 1) % 2;
-            staticLpfR += staticAlpha * (heldValR - staticLpfR);
+            staticLpfR += staticAlpha * (interpR - staticLpfR);
             ledLp1R += LED_LPF_ALPHA * (staticLpfR - ledLp1R);
             ledLp2R += LED_LPF_ALPHA * (ledLp1R - ledLp2R);
 
@@ -136,18 +140,20 @@ public class AmigaPaulaFilter implements AudioProcessor
 
             // Left channel
             float inL = interleavedPcm[li] / 32768.0f;
-            if (holdCounterL == 0) heldValL = dacLut[dacIndex(inL)];
+            if (holdCounterL == 0) { prevHeldValL = heldValL; heldValL = dacLut[dacIndex(inL)]; }
+            float interpL = prevHeldValL + (holdCounterL / 2.0f) * (heldValL - prevHeldValL);
             holdCounterL = (holdCounterL + 1) % 2;
-            staticLpfL += staticAlpha * (heldValL - staticLpfL);
+            staticLpfL += staticAlpha * (interpL - staticLpfL);
             ledLp1L += LED_LPF_ALPHA * (staticLpfL - ledLp1L);
             ledLp2L += LED_LPF_ALPHA * (ledLp1L - ledLp2L);
             if (channels > 1)
             {
                 // Right channel
                 float inR = interleavedPcm[li + 1] / 32768.0f;
-                if (holdCounterR == 0) heldValR = dacLut[dacIndex(inR)];
+                if (holdCounterR == 0) { prevHeldValR = heldValR; heldValR = dacLut[dacIndex(inR)]; }
+                float interpR = prevHeldValR + (holdCounterR / 2.0f) * (heldValR - prevHeldValR);
                 holdCounterR = (holdCounterR + 1) % 2;
-                staticLpfR += staticAlpha * (heldValR - staticLpfR);
+                staticLpfR += staticAlpha * (interpR - staticLpfR);
                 ledLp1R += LED_LPF_ALPHA * (staticLpfR - ledLp1R);
                 ledLp2R += LED_LPF_ALPHA * (ledLp1R - ledLp2R);
 
@@ -168,8 +174,8 @@ public class AmigaPaulaFilter implements AudioProcessor
     @Override
     public void reset()
     {
-        holdCounterL = 0; heldValL = 0; staticLpfL = 0; ledLp1L = 0; ledLp2L = 0;
-        holdCounterR = 0; heldValR = 0; staticLpfR = 0; ledLp1R = 0; ledLp2R = 0;
+        holdCounterL = 0; heldValL = 0; prevHeldValL = 0; staticLpfL = 0; ledLp1L = 0; ledLp2L = 0;
+        holdCounterR = 0; heldValR = 0; prevHeldValR = 0; staticLpfR = 0; ledLp1R = 0; ledLp2R = 0;
         next.reset();
     }
 }

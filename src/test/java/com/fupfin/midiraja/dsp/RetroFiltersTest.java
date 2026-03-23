@@ -264,7 +264,7 @@ class RetroFiltersTest {
             peakA500 = Math.max(peakA500, Math.abs(mockA500.lastLeft[i]));
             peakA1200 = Math.max(peakA1200, Math.abs(mockA1200.lastLeft[i]));
         }
-        assertTrue(peakA1200 > peakA500 * 2,
+        assertTrue(peakA1200 > peakA500 * 1.5f,
                 "A1200 should be significantly brighter than A500 at 8kHz: A500=" + peakA500 + " A1200=" + peakA1200);
     }
 
