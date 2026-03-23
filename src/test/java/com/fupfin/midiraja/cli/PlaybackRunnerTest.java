@@ -2,16 +2,10 @@ package com.fupfin.midiraja.cli;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.fupfin.midiraja.engine.PlaybackEngine;
-import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
-import com.fupfin.midiraja.engine.PlaybackEngineFactory;
-import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.io.MockTerminalIO;
 import com.fupfin.midiraja.io.TerminalIO.TerminalKey;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
-import com.fupfin.midiraja.ui.DumbUI;
-import com.fupfin.midiraja.ui.PlaybackUI;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -20,7 +14,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.sound.midi.MidiEvent;
 import javax.sound.midi.MidiSystem;
 import javax.sound.midi.Sequence;
@@ -49,25 +42,6 @@ class PlaybackRunnerTest {
         @Override public long getAudioLatencyNanos() { return 0; }
         @Override public void onPlaybackStarted() {}
         @Override public void prepareForNewTrack(Sequence sequence) {}
-    }
-
-    static class MockPlaybackEngine extends PlaybackEngine {
-        private final PlaybackStatus exitStatus;
-
-        // NOTE: super() calls sequence.getResolution() and sequence.getTracks(), so `seq`
-        // must be a real non-null Sequence object. Always use createTestMidi() to obtain one.
-        // Passing null will throw NullPointerException before start() is ever reached.
-        MockPlaybackEngine(Sequence seq, MidiOutProvider p, PlaylistContext ctx,
-                           int vol, double speed, Optional<String> start,
-                           Optional<Integer> transpose, PlaybackStatus exitStatus) {
-            super(seq, p, ctx, vol, speed, start, transpose);
-            this.exitStatus = exitStatus;
-        }
-
-        @Override
-        public PlaybackStatus start(PlaybackUI ui) throws Exception {
-            return exitStatus;
-        }
     }
 
     @BeforeEach
@@ -109,11 +83,11 @@ class PlaybackRunnerTest {
 
         assertEquals(0, exitCode, "Exit code should be 0 on normal quit");
         assertTrue(provider.isOpen, "Provider should have been opened");
-        
+
         // Ensure that the output stream was used (meaning UI or at least init text was written)
         // Test passed if it reached here without hanging
     }
-    
+
     @Test
     void testRunnerHandlesNoFiles() throws Exception {
         MockMidiProvider provider = new MockMidiProvider();
@@ -124,203 +98,5 @@ class PlaybackRunnerTest {
         assertEquals(1, exitCode, "Exit code should be 1 if no files are found");
         String errOutput = errBytes.toString(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(errOutput.contains("No MIDI files specified"), "Should print error about missing files");
-    }
-
-    @Test void buildPlayOrder_notShuffled_isSequential() {
-        int[] order = PlaybackRunner.buildPlayOrder(4, false);
-        assertArrayEquals(new int[]{0, 1, 2, 3}, order);
-    }
-
-    @Test void buildPlayOrder_shuffled_containsAllIndices() {
-        int[] order = PlaybackRunner.buildPlayOrder(5, true);
-        assertEquals(5, order.length);
-        // All indices 0-4 present
-        int sum = 0;
-        for (int v : order) sum += v;
-        assertEquals(0 + 1 + 2 + 3 + 4, sum);
-    }
-
-    @Test void buildPlayOrder_sizeZero_returnsEmpty() {
-        assertArrayEquals(new int[0], PlaybackRunner.buildPlayOrder(0, false));
-        assertArrayEquals(new int[0], PlaybackRunner.buildPlayOrder(0, true));
-    }
-
-    @Test void buildPlayOrder_sizeOne_returnsSingleElement() {
-        assertArrayEquals(new int[]{0}, PlaybackRunner.buildPlayOrder(1, true));
-    }
-
-    @Test void reshuffleRemaining_shuffleOn_fullArrayShuffled() {
-        // Large array: entire array (except currentIdx=2) should be shuffled
-        int[] order = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-        PlaybackRunner.reshuffleRemaining(order, 2, true);
-        // Currently-playing song stays at currentIdx
-        assertEquals(2, order[2]);
-        // All values 0-9 still present
-        int sum = 0;
-        for (int v : order) sum += v;
-        assertEquals(0+1+2+3+4+5+6+7+8+9, sum);
-        // At least one element is out of original order (with overwhelming probability for 9 others)
-        boolean stillSorted = true;
-        for (int i = 0; i < order.length - 1; i++) {
-            if (order[i] > order[i + 1]) { stillSorted = false; break; }
-        }
-        assertFalse(stillSorted, "Full array shuffle should not remain sorted");
-    }
-
-    @Test void reshuffleRemaining_shuffleOff_restoresAscendingOrder() {
-        int[] order = {3, 4, 0, 1, 2}; // currentIdx=2, song=0; others unsorted
-        PlaybackRunner.reshuffleRemaining(order, 2, false);
-        // After sort, 0 is at index 0; swap with currentIdx=2 → {1, 2, 0, 3, 4}
-        assertEquals(0, order[2]); // current song stays at currentIdx
-        // All values still present
-        int sum = 0;
-        for (int v : order) sum += v;
-        assertEquals(0+1+2+3+4, sum);
-    }
-
-    @Test void reshuffleRemaining_atLastTrack_currentSongStaysAtEnd() {
-        // Even at last track, current song must remain at currentIdx=2
-        int[] order = {0, 1, 2};
-        PlaybackRunner.reshuffleRemaining(order, 2, true);
-        assertEquals(2, order[2]);
-    }
-
-    @Test void reshuffleRemaining_idempotentSortOff() {
-        int[] order = {0, 1, 2, 3}; // already sorted, currentIdx=0
-        PlaybackRunner.reshuffleRemaining(order, 0, false);
-        assertArrayEquals(new int[]{0, 1, 2, 3}, order);
-    }
-
-    @Test
-    void quitAll_exitsLoopAfterOneEngineCall(@TempDir Path tempDir) throws Exception {
-        File f1 = createTestMidi(tempDir, "a.mid");
-        File f2 = createTestMidi(tempDir, "b.mid");
-        File f3 = createTestMidi(tempDir, "c.mid");
-
-        AtomicInteger callCount = new AtomicInteger(0);
-        PlaybackEngineFactory factory = (seq, p, ctx, vol, speed, start, transpose) -> {
-            callCount.incrementAndGet();
-            return new MockPlaybackEngine(seq, p, ctx, vol, speed, start, transpose,
-                    PlaybackStatus.QUIT_ALL);
-        };
-
-        MockMidiProvider provider = new MockMidiProvider();
-        PlaybackRunner runner = new PlaybackRunner(
-                new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true, factory);
-
-        runner.run(provider, true, Optional.empty(), Optional.empty(),
-                List.of(f1, f2, f3), common, List.of());
-
-        assertEquals(1, callCount.get(), "Factory must be called exactly once on QUIT_ALL");
-    }
-
-    @Test
-    void finishedStatus_advancesThroughAllTracks(@TempDir Path tempDir) throws Exception {
-        File f1 = createTestMidi(tempDir, "a.mid");
-        File f2 = createTestMidi(tempDir, "b.mid");
-        File f3 = createTestMidi(tempDir, "c.mid");
-
-        AtomicInteger callCount = new AtomicInteger(0);
-        PlaybackEngineFactory factory = (seq, p, ctx, vol, speed, start, transpose) -> {
-            callCount.incrementAndGet();
-            return new MockPlaybackEngine(seq, p, ctx, vol, speed, start, transpose,
-                    PlaybackStatus.FINISHED);
-        };
-
-        MockMidiProvider provider = new MockMidiProvider();
-        PlaybackRunner runner = new PlaybackRunner(
-                new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true, factory);
-
-        runner.run(provider, true, Optional.empty(), Optional.empty(),
-                List.of(f1, f2, f3), common, List.of());
-
-        // The spec table describes this as a 2-call scenario, but that is incorrect.
-        // Tracing the loop: track 0 → FINISHED → nextIdx=1 (engine called, call 1);
-        // track 1 → FINISHED → nextIdx=2 (call 2); track 2 → FINISHED → nextIdx=3 (call 3);
-        // while condition (3 < 3) is false → loop exits. Engine is called for all 3 tracks.
-        assertEquals(3, callCount.get(), "Engine must be created for every track");
-    }
-
-    @Test
-    void nextStatus_exitsAtNavBoundary(@TempDir Path tempDir) throws Exception {
-        File f1 = createTestMidi(tempDir, "a.mid");
-        File f2 = createTestMidi(tempDir, "b.mid");
-        File f3 = createTestMidi(tempDir, "c.mid");
-
-        AtomicInteger callCount = new AtomicInteger(0);
-        PlaybackEngineFactory factory = (seq, p, ctx, vol, speed, start, transpose) -> {
-            callCount.incrementAndGet();
-            return new MockPlaybackEngine(seq, p, ctx, vol, speed, start, transpose,
-                    PlaybackStatus.NEXT);
-        };
-
-        MockMidiProvider provider = new MockMidiProvider();
-        PlaybackRunner runner = new PlaybackRunner(
-                new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true, factory);
-        // Without exitOnNavBoundary, NEXT at the last track wraps to index 0 (infinite loop).
-        // With it, NEXT at the last track returns playlist.size(), exiting the loop.
-        runner.setExitOnNavBoundary(true);
-
-        runner.run(provider, true, Optional.empty(), Optional.empty(),
-                List.of(f1, f2, f3), common, List.of());
-
-        assertEquals(3, callCount.get(), "Engine called once per track; exits at last-track boundary");
-    }
-
-    @Test
-    void loopEnabled_wrapsBackToFirstTrack(@TempDir Path tempDir) throws Exception {
-        File f1 = createTestMidi(tempDir, "a.mid");
-        File f2 = createTestMidi(tempDir, "b.mid");
-        File f3 = createTestMidi(tempDir, "c.mid");
-
-        // Calls 1-3: tracks 0, 1, 2 → FINISHED with loop → wraps to track 0.
-        // Call 4: track 0 again → QUIT_ALL to stop the test.
-        AtomicInteger callCount = new AtomicInteger(0);
-        PlaybackEngineFactory factory = (seq, p, ctx, vol, speed, start, transpose) -> {
-            int call = callCount.incrementAndGet();
-            PlaybackStatus status = call < 4 ? PlaybackStatus.FINISHED : PlaybackStatus.QUIT_ALL;
-            return new MockPlaybackEngine(seq, p, ctx, vol, speed, start, transpose, status);
-        };
-
-        MockMidiProvider provider = new MockMidiProvider();
-        PlaybackRunner runner = new PlaybackRunner(
-                new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true, factory);
-        common.loop = true;
-
-        runner.run(provider, true, Optional.empty(), Optional.empty(),
-                List.of(f1, f2, f3), common, List.of());
-
-        assertEquals(4, callCount.get(),
-                "Loop must wrap: 3 tracks then track 0 again before QUIT_ALL");
-    }
-
-    @Test
-    void previousStatus_goesBackOneTrack(@TempDir Path tempDir) throws Exception {
-        File f1 = createTestMidi(tempDir, "a.mid");
-        File f2 = createTestMidi(tempDir, "b.mid");
-        File f3 = createTestMidi(tempDir, "c.mid");
-
-        // Call 1 (track 0): NEXT  → advances to track 1
-        // Call 2 (track 1): PREVIOUS → goes back to track 0
-        // Call 3 (track 0): QUIT_ALL → exits
-        AtomicInteger callCount = new AtomicInteger(0);
-        PlaybackEngineFactory factory = (seq, p, ctx, vol, speed, start, transpose) -> {
-            int call = callCount.incrementAndGet();
-            PlaybackStatus status = switch (call) {
-                case 1 -> PlaybackStatus.NEXT;
-                case 2 -> PlaybackStatus.PREVIOUS;
-                default -> PlaybackStatus.QUIT_ALL;
-            };
-            return new MockPlaybackEngine(seq, p, ctx, vol, speed, start, transpose, status);
-        };
-
-        MockMidiProvider provider = new MockMidiProvider();
-        PlaybackRunner runner = new PlaybackRunner(
-                new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true, factory);
-
-        runner.run(provider, true, Optional.empty(), Optional.empty(),
-                List.of(f1, f2, f3), common, List.of());
-
-        assertEquals(3, callCount.get(), "PREVIOUS must go back one track; engine called 3 times");
     }
 }

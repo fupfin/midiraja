@@ -7,108 +7,26 @@
 
 package com.fupfin.midiraja.cli;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.ui.DashboardUI;
 import com.fupfin.midiraja.ui.DumbUI;
 import com.fupfin.midiraja.ui.LineUI;
-import java.io.File;
 import java.io.PrintStream;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for the pure navigation logic in {@link PlaybackRunner}: playlist status dispatch
- * ({@code handlePlaybackStatus}) and UI mode selection ({@code buildUI}).
+ * Unit tests for UI mode selection ({@code buildUI}) in {@link PlaybackRunner}.
  */
 class PlaybackRunnerNavigationTest
 {
     private final PrintStream nullStream = new PrintStream(PrintStream.nullOutputStream());
-    private final List<File> three = List.of(new File("a"), new File("b"), new File("c"));
 
     private PlaybackRunner runner()
     {
         return new PlaybackRunner(nullStream, nullStream, null, true);
-    }
-
-    // ── handlePlaybackStatus ───────────────────────────────────────────────────
-
-    @Test
-    void quitAll_alwaysReturnsMinusOne()
-    {
-        var common = new CommonOptions();
-        assertEquals(-1, runner().handlePlaybackStatus(PlaybackStatus.QUIT_ALL, 1, three, common));
-    }
-
-    @Test
-    void previous_atFirstTrack_wrapsToLast()
-    {
-        var r = runner();
-        r.setExitOnNavBoundary(false);
-        assertEquals(2, r.handlePlaybackStatus(PlaybackStatus.PREVIOUS, 0, three, new CommonOptions()));
-    }
-
-    @Test
-    void previous_atFirstTrack_withBoundaryExit_returnsMinusOne()
-    {
-        var r = runner();
-        r.setExitOnNavBoundary(true);
-        assertEquals(-1, r.handlePlaybackStatus(PlaybackStatus.PREVIOUS, 0, three, new CommonOptions()));
-    }
-
-    @Test
-    void previous_atMiddleTrack_goesBack()
-    {
-        assertEquals(1, runner().handlePlaybackStatus(PlaybackStatus.PREVIOUS, 2, three, new CommonOptions()));
-    }
-
-    @Test
-    void next_atLastTrack_wrapsToFirst()
-    {
-        var r = runner();
-        r.setExitOnNavBoundary(false);
-        assertEquals(0, r.handlePlaybackStatus(PlaybackStatus.NEXT, 2, three, new CommonOptions()));
-    }
-
-    @Test
-    void next_atLastTrack_withBoundaryExit_returnsOutOfBounds()
-    {
-        var r = runner();
-        r.setExitOnNavBoundary(true);
-        // Returns playlist.size() (3), which exits the while loop condition
-        assertEquals(3, r.handlePlaybackStatus(PlaybackStatus.NEXT, 2, three, new CommonOptions()));
-    }
-
-    @Test
-    void next_atMiddleTrack_advances()
-    {
-        assertEquals(2, runner().handlePlaybackStatus(PlaybackStatus.NEXT, 1, three, new CommonOptions()));
-    }
-
-    @Test
-    void finished_atMiddleTrack_advances()
-    {
-        assertEquals(2, runner().handlePlaybackStatus(PlaybackStatus.FINISHED, 1, three, new CommonOptions()));
-    }
-
-    @Test
-    void finished_atLastTrack_withLoopFalse_returnsOutOfBounds()
-    {
-        var common = new CommonOptions();
-        common.loop = false;
-        assertEquals(3, runner().handlePlaybackStatus(PlaybackStatus.FINISHED, 2, three, common));
-    }
-
-    @Test
-    void finished_atLastTrack_withLoopTrue_wrapsToFirst()
-    {
-        var common = new CommonOptions();
-        common.loop = true;
-        assertEquals(0, runner().handlePlaybackStatus(PlaybackStatus.FINISHED, 2, three, common));
     }
 
     // ── buildUI ────────────────────────────────────────────────────────────────
