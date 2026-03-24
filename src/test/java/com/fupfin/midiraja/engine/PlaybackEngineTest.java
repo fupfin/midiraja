@@ -32,6 +32,7 @@ import javax.sound.midi.Sequence;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.SysexMessage;
 import javax.sound.midi.Track;
+import com.fupfin.midiraja.ui.PlaybackEventListener;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -687,6 +688,189 @@ class PlaybackEngineTest
         // Unpause so the engine can complete
         engine.togglePause();
         assertFalse(engine.isPaused(), "Engine should be unpaused after togglePause()");
+    }
+
+    // -------------------------------------------------------------------------
+    // B1. getTickForTime_acrossTempoChange_seeksCorrectly
+    // -------------------------------------------------------------------------
+    @Test void getTickForTime_acrossTempoChange_seeksCorrectly() throws Exception {
+        Sequence seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        // tick 0: PC ch0 prog=3 (default 120 BPM section)
+        track.add(new MidiEvent(new ShortMessage(0xC0, 0, 3, 0), 0L));
+        // tick 480 = 0.5s @120BPM: tempo change → 60 BPM (1,000,000 µs/beat)
+        MetaMessage tempo60 = new MetaMessage();
+        tempo60.setMessage(0x51, new byte[]{0x0F, 0x42, 0x40}, 3);
+        track.add(new MidiEvent(tempo60, 480L));
+        // tick 960 = 0.5s + 1s @60BPM = 1.5s total: CC ch0 vol=80
+        track.add(new MidiEvent(new ShortMessage(0xB0, 0, 7, 80), 960L));
+        MetaMessage pad = new MetaMessage(0x01, new byte[]{}, 0);
+        track.add(new MidiEvent(pad, 1920L));
+
+        RecordingMidiProvider recording = new RecordingMidiProvider();
+        PlaybackEngine engine = new MidiPlaybackEngine(
+            seq, recording, ctx(), testPipeline(recording), () -> false,
+            1000.0, Optional.of(2_500_000L)); // seek past both tempo sections
+
+        ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO()).call(() -> {
+            engine.start(new DumbUI()); return null;
+        });
+
+        assertTrue(recording.messages.stream().anyMatch(m -> (m[0] & 0xF0) == 0xC0),
+            "PC should be chased (before tempo change)");
+        assertTrue(recording.messages.stream().anyMatch(m -> (m[0] & 0xF0) == 0xB0),
+            "CC should be chased (after tempo change)");
+    }
+
+    // -------------------------------------------------------------------------
+    // B2. seekWhilePaused_thenUnpause_resumesFromNewPosition
+    // -------------------------------------------------------------------------
+    @Test @Timeout(5) void seekWhilePaused_thenUnpause_resumesFromNewPosition() throws Exception {
+        Sequence seq = new Sequence(Sequence.PPQ, 24);
+        Track track = seq.createTrack();
+        track.add(new MidiEvent(new ShortMessage(0xC0, 0, 7, 0), 0L));
+        MetaMessage pad = new MetaMessage(0x01, new byte[]{}, 0);
+        track.add(new MidiEvent(pad, 500L));
+
+        RecordingMidiProvider recording = new RecordingMidiProvider();
+        // Use real clock so the pause loop actually blocks and allows interleaving
+        PlaybackEngine engine = new MidiPlaybackEngine(
+            seq, recording, ctx(), testPipeline(recording), () -> false,
+            1000.0, Optional.empty());
+        engine.setInitiallyPaused();
+
+        CompletableFuture<PlaybackEngine.PlaybackStatus> future = new CompletableFuture<>();
+        Thread.ofVirtual().start(() -> {
+            try {
+                future.complete(ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO())
+                    .call(() -> engine.start(new DumbUI())));
+            } catch (Exception e) { future.completeExceptionally(e); }
+        });
+
+        // Wait for engine to enter paused state (after startup delay)
+        Thread.sleep(600);
+        engine.seekRelative(1_000_000L);
+        engine.togglePause(); // resume
+
+        assertEquals(PlaybackEngine.PlaybackStatus.FINISHED, future.get());
+    }
+
+    // -------------------------------------------------------------------------
+    // B3. rapidConsecutiveSeeks_doNotThrow
+    // -------------------------------------------------------------------------
+    @Test @Timeout(5) void rapidConsecutiveSeeks_doNotThrow() throws Exception {
+        Sequence seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        for (int i = 0; i < 20; i++)
+            track.add(new MidiEvent(new ShortMessage(0xB0, 0, 7, i * 5), i * 100L));
+        MetaMessage pad = new MetaMessage(0x01, new byte[]{}, 0);
+        track.add(new MidiEvent(pad, 5000L));
+
+        // Use real clock so engine actually runs and seeks are meaningful
+        PlaybackEngine engine = new MidiPlaybackEngine(
+            seq, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+            1.0, Optional.empty());
+
+        CompletableFuture<PlaybackEngine.PlaybackStatus> future = new CompletableFuture<>();
+        Thread.ofVirtual().start(() -> {
+            try {
+                future.complete(ScopedValue.where(TerminalIO.CONTEXT, new MockTerminalIO())
+                    .call(() -> engine.start(new DumbUI())));
+            } catch (Exception e) { future.completeExceptionally(e); }
+        });
+
+        Thread.sleep(200);
+        for (int i = 0; i < 10; i++) engine.seekRelative(200_000L);
+        for (int i = 0; i < 10; i++) engine.seekRelative(-200_000L);
+        engine.requestStop(PlaybackEngine.PlaybackStatus.FINISHED);
+
+        assertDoesNotThrow(() -> future.get());
+    }
+
+    // -------------------------------------------------------------------------
+    // B4. tempoChangeMeta_updateCurrentBpm
+    // -------------------------------------------------------------------------
+    @Test void tempoChangeMeta_updateCurrentBpm() throws Exception {
+        Sequence seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        MetaMessage tempo60 = new MetaMessage();
+        tempo60.setMessage(0x51, new byte[]{0x0F, 0x42, 0x40}, 3); // 60 BPM
+        track.add(new MidiEvent(tempo60, 0L));
+        MetaMessage pad = new MetaMessage(0x01, new byte[]{}, 0);
+        track.add(new MidiEvent(pad, 100L));
+
+        var clock = new FakeClock();
+        PlaybackEngine engine = new MidiPlaybackEngine(
+            seq, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+            1000.0, Optional.empty(), clock);
+
+        ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> {
+            engine.start(new DumbUI()); return null;
+        });
+
+        assertEquals(60.0f, engine.getCurrentBpm(), 0.5f,
+            "getCurrentBpm() should reflect the tempo meta event");
+    }
+
+    // -------------------------------------------------------------------------
+    // B5. addPlaybackEventListener_receivesOnTickNotification
+    // -------------------------------------------------------------------------
+    @Test void addPlaybackEventListener_receivesOnTickNotification() throws Exception {
+        Sequence seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        track.add(new MidiEvent(new ShortMessage(0x90, 0, 60, 64), 0L));
+        MetaMessage pad = new MetaMessage(0x01, new byte[]{}, 0);
+        track.add(new MidiEvent(pad, 100L));
+
+        var clock = new FakeClock();
+        PlaybackEngine engine = new MidiPlaybackEngine(
+            seq, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+            1000.0, Optional.empty(), clock);
+
+        List<Long> ticks = new ArrayList<>();
+        engine.addPlaybackEventListener(new PlaybackEventListener() {
+            @Override public void onPlaybackStateChanged() {}
+            @Override public void onTick(long microseconds) { ticks.add(microseconds); }
+            @Override public void onTempoChanged(float bpm) {}
+            @Override public void onChannelActivity(int ch, int vel) {}
+        });
+
+        ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> {
+            engine.start(new DumbUI()); return null;
+        });
+
+        assertFalse(ticks.isEmpty(), "onTick should have been called at least once");
+    }
+
+    // -------------------------------------------------------------------------
+    // B6. channelActivityListener_receivesNoteOnEvent
+    // -------------------------------------------------------------------------
+    @Test void channelActivityListener_receivesNoteOnEvent() throws Exception {
+        Sequence seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        track.add(new MidiEvent(new ShortMessage(0x90, 0, 60, 127), 0L)); // NoteOn ch0 vel=127
+        MetaMessage pad = new MetaMessage(0x01, new byte[]{}, 0);
+        track.add(new MidiEvent(pad, 100L));
+
+        var clock = new FakeClock();
+        PlaybackEngine engine = new MidiPlaybackEngine(
+            seq, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+            1000.0, Optional.empty(), clock);
+
+        List<int[]> activity = new ArrayList<>();
+        engine.addPlaybackEventListener(new PlaybackEventListener() {
+            @Override public void onPlaybackStateChanged() {}
+            @Override public void onTick(long microseconds) {}
+            @Override public void onTempoChanged(float bpm) {}
+            @Override public void onChannelActivity(int ch, int vel) { activity.add(new int[]{ch, vel}); }
+        });
+
+        ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> {
+            engine.start(new DumbUI()); return null;
+        });
+
+        assertTrue(activity.stream().anyMatch(a -> a[0] == 0 && a[1] == 127),
+            "onChannelActivity should have been called with channel=0, velocity=127");
     }
 
     // -------------------------------------------------------------------------
