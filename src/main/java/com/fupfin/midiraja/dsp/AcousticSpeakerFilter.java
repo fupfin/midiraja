@@ -8,7 +8,7 @@ public class AcousticSpeakerFilter implements AudioProcessor
 {
     public enum Profile
     {
-        NONE, TIN_CAN, WARM_RADIO
+        NONE, TIN_CAN, WARM_RADIO, TELEPHONE, PC
     }
 
     private final boolean enabled;
@@ -45,6 +45,26 @@ public class AcousticSpeakerFilter implements AudioProcessor
             lpfL.setLowPass(fs, 12000.0f, 0.5f);
             lpfR.setLowPass(fs, 12000.0f, 0.5f);
         }
+        else if (profile == Profile.TELEPHONE)
+        {
+            // POTS telephone earpiece: ITU G.711 band (300 Hz – 3.4 kHz)
+            hpfL.setHighPass(fs, 300.0f, 0.707f);
+            hpfR.setHighPass(fs, 300.0f, 0.707f);
+            lpfL.setLowPass(fs, 3400.0f, 0.707f);
+            lpfR.setLowPass(fs, 3400.0f, 0.707f);
+            peakL.setPeaking(fs, 1000.0f, 1.5f, 3.0f);
+            peakR.setPeaking(fs, 1000.0f, 1.5f, 3.0f);
+        }
+        else if (profile == Profile.PC)
+        {
+            // IBM PC internal speaker: small cone, less extreme than tin-can
+            hpfL.setHighPass(fs, 250.0f, 0.707f);
+            hpfR.setHighPass(fs, 250.0f, 0.707f);
+            lpfL.setLowPass(fs, 9000.0f, 0.707f);
+            lpfR.setLowPass(fs, 9000.0f, 0.707f);
+            peakL.setPeaking(fs, 2000.0f, 1.5f, 4.0f);
+            peakR.setPeaking(fs, 2000.0f, 1.5f, 4.0f);
+        }
     }
 
     @Override
@@ -68,6 +88,11 @@ public class AcousticSpeakerFilter implements AudioProcessor
                 l = lpfL.process(l);
                 r = lpfR.process(r);
             }
+            else if (profile == Profile.TELEPHONE || profile == Profile.PC)
+            {
+                l = lpfL.process(hpfL.process(peakL.process(l)));
+                r = lpfR.process(hpfR.process(peakR.process(r)));
+            }
             left[i] = l;
             right[i] = r;
         }
@@ -88,6 +113,7 @@ public class AcousticSpeakerFilter implements AudioProcessor
             float l = interleavedPcm[lIdx] / 32768.0f;
             if (profile == Profile.TIN_CAN) l = lpfL.process(hpfL.process(peakL.process(l)));
             else if (profile == Profile.WARM_RADIO) l = lpfL.process(l);
+            else if (profile == Profile.TELEPHONE || profile == Profile.PC) l = lpfL.process(hpfL.process(peakL.process(l)));
             interleavedPcm[lIdx] = (short) (l * 32767.0f);
 
             if (channels > 1)
@@ -96,6 +122,7 @@ public class AcousticSpeakerFilter implements AudioProcessor
                 float r = interleavedPcm[rIdx] / 32768.0f;
                 if (profile == Profile.TIN_CAN) r = lpfR.process(hpfR.process(peakR.process(r)));
                 else if (profile == Profile.WARM_RADIO) r = lpfR.process(r);
+                else if (profile == Profile.TELEPHONE || profile == Profile.PC) r = lpfR.process(hpfR.process(peakR.process(r)));
                 interleavedPcm[rIdx] = (short) (r * 32767.0f);
             }
         }

@@ -132,7 +132,7 @@ public class CommonOptions
     public Optional<Integer> paulaWidth = Optional.empty();
 
     @Option(names = {"--speaker"},
-            description = "Vintage speaker acoustic simulation (tin-can, warm-radio, none)")
+            description = "Vintage speaker acoustic simulation (tin-can, warm-radio, telephone, pc, none)")
     public Optional<String> speakerProfile = Optional.empty();
 
     @Option(names = {"--aux"},
@@ -247,7 +247,7 @@ public class CommonOptions
             return new AcousticSpeakerFilter(true, p, next);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
-                    "Unknown speaker profile '" + profile + "'. Valid values: tin-can, warm-radio");
+                    "Unknown speaker profile '" + profile + "'. Valid values: tin-can, warm-radio, telephone, pc");
         }
     }
 

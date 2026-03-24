@@ -557,4 +557,165 @@ class RetroFiltersTest {
         assertTrue(peakAux > peakSpeaker * 2.0f,
                 "Apple II aux mode should be louder at 8 kHz. speaker=" + peakSpeaker + " aux=" + peakAux);
     }
+
+    @Test
+    void testTelephoneAttentuatesLowFreq() {
+        // TELEPHONE has 300 Hz HPF — subsonic content should be heavily cut
+        AcousticSpeakerFilter filter = new AcousticSpeakerFilter(
+                true, AcousticSpeakerFilter.Profile.TELEPHONE, mock);
+        float[] left = new float[4096], right = new float[4096];
+        for (int i = 0; i < 4096; i++) {
+            left[i] = (float) Math.sin(2.0 * Math.PI * 50.0 * i / 44100.0);
+            right[i] = left[i];
+        }
+        filter.process(left, right, 4096);
+        float max = 0;
+        for (float v : mock.lastLeft) max = Math.max(max, Math.abs(v));
+        assertTrue(max < 0.1f, "50 Hz should be attenuated by TELEPHONE 300 Hz HPF, got: " + max);
+    }
+
+    @Test
+    void testTelephoneAttenuatesHighFreq() {
+        // TELEPHONE has 3400 Hz LPF — high-freq content should be cut
+        MockProcessor mockHi = new MockProcessor();
+        AcousticSpeakerFilter filter = new AcousticSpeakerFilter(
+                true, AcousticSpeakerFilter.Profile.TELEPHONE, mockHi);
+        int n = 4096;
+        float[] left = new float[n], right = new float[n];
+        for (int i = 0; i < n; i++) {
+            left[i] = (float) Math.sin(2.0 * Math.PI * 8000.0 * i / 44100.0);
+            right[i] = left[i];
+        }
+        filter.process(left, right, n);
+        float max = 0;
+        for (int i = n / 2; i < n; i++) max = Math.max(max, Math.abs(mockHi.lastLeft[i]));
+        assertTrue(max < 0.2f, "8 kHz should be attenuated by TELEPHONE 3.4 kHz LPF, got: " + max);
+    }
+
+    @Test
+    void testPcSpeakerAttenuatesLowFreq() {
+        // PC_SPEAKER has 250 Hz HPF
+        AcousticSpeakerFilter filter = new AcousticSpeakerFilter(
+                true, AcousticSpeakerFilter.Profile.PC, mock);
+        float[] left = new float[4096], right = new float[4096];
+        for (int i = 0; i < 4096; i++) {
+            left[i] = (float) Math.sin(2.0 * Math.PI * 50.0 * i / 44100.0);
+            right[i] = left[i];
+        }
+        filter.process(left, right, 4096);
+        float max = 0;
+        for (float v : mock.lastLeft) max = Math.max(max, Math.abs(v));
+        assertTrue(max < 0.1f, "50 Hz should be attenuated by PC_SPEAKER 250 Hz HPF, got: " + max);
+    }
+
+    @Test
+    void testPcSpeakerAttenuatesHighFreq() {
+        // PC_SPEAKER has 9 kHz LPF — 15 kHz should be cut
+        MockProcessor mockHi = new MockProcessor();
+        AcousticSpeakerFilter filter = new AcousticSpeakerFilter(
+                true, AcousticSpeakerFilter.Profile.PC, mockHi);
+        int n = 4096;
+        float[] left = new float[n], right = new float[n];
+        for (int i = 0; i < n; i++) {
+            left[i] = (float) Math.sin(2.0 * Math.PI * 15000.0 * i / 44100.0);
+            right[i] = left[i];
+        }
+        filter.process(left, right, n);
+        float max = 0;
+        for (int i = n / 2; i < n; i++) max = Math.max(max, Math.abs(mockHi.lastLeft[i]));
+        assertTrue(max < 0.2f, "15 kHz should be attenuated by PC_SPEAKER 9 kHz LPF, got: " + max);
+    }
+
+    // ── peak boost regression tests ───────────────────────────────────────────
+
+    private double fftMag(float[] signal, double freq, int sr) {
+        int n = signal.length;
+        double w = 2.0 * Math.PI * freq / sr;
+        double re = 0, im = 0;
+        for (int i = 0; i < n; i++) {
+            re += signal[i] * Math.cos(w * i);
+            im += signal[i] * Math.sin(w * i);
+        }
+        return Math.sqrt(re * re + im * im) / n;
+    }
+
+    @Test
+    void testTelephonePeakBoostsAt1kHz() {
+        // TELEPHONE has +3 dB peak at 1 kHz — output at 1 kHz should exceed 500 Hz
+        MockProcessor m1k = new MockProcessor(), m500 = new MockProcessor();
+        int n = 4096;
+        float[] l1k = new float[n], r1k = new float[n];
+        float[] l500 = new float[n], r500 = new float[n];
+        for (int i = 0; i < n; i++) {
+            l1k[i] = r1k[i]   = (float) Math.sin(2.0 * Math.PI * 1000.0 * i / 44100.0);
+            l500[i] = r500[i]  = (float) Math.sin(2.0 * Math.PI *  500.0 * i / 44100.0);
+        }
+        new AcousticSpeakerFilter(true, AcousticSpeakerFilter.Profile.TELEPHONE, m1k).process(l1k, r1k, n);
+        new AcousticSpeakerFilter(true, AcousticSpeakerFilter.Profile.TELEPHONE, m500).process(l500, r500, n);
+        double mag1k  = fftMag(m1k.lastLeft,  1000.0, 44100);
+        double mag500 = fftMag(m500.lastLeft,  500.0, 44100);
+        assertTrue(mag1k > mag500 * 1.1,
+                "TELEPHONE 1 kHz peak should boost output above 500 Hz level. 1kHz=" + mag1k + " 500Hz=" + mag500);
+    }
+
+    @Test
+    void testPcSpeakerPeakBoostsAt2kHz() {
+        // PC has +4 dB peak at 2 kHz — output at 2 kHz should exceed 500 Hz
+        MockProcessor m2k = new MockProcessor(), m500 = new MockProcessor();
+        int n = 4096;
+        float[] l2k = new float[n], r2k = new float[n];
+        float[] l500 = new float[n], r500 = new float[n];
+        for (int i = 0; i < n; i++) {
+            l2k[i] = r2k[i]   = (float) Math.sin(2.0 * Math.PI * 2000.0 * i / 44100.0);
+            l500[i] = r500[i]  = (float) Math.sin(2.0 * Math.PI *  500.0 * i / 44100.0);
+        }
+        new AcousticSpeakerFilter(true, AcousticSpeakerFilter.Profile.PC, m2k).process(l2k, r2k, n);
+        new AcousticSpeakerFilter(true, AcousticSpeakerFilter.Profile.PC, m500).process(l500, r500, n);
+        double mag2k  = fftMag(m2k.lastLeft,  2000.0, 44100);
+        double mag500 = fftMag(m500.lastLeft,   500.0, 44100);
+        assertTrue(mag2k > mag500 * 1.1,
+                "PC 2 kHz peak should boost output above 500 Hz level. 2kHz=" + mag2k + " 500Hz=" + mag500);
+    }
+
+    // ── processInterleaved regression tests ───────────────────────────────────
+
+    @Test
+    void testTelephoneProcessInterleavedCutsHighFreq() {
+        // processInterleaved path must apply the same filters as process()
+        MockProcessor mockHi = new MockProcessor();
+        AcousticSpeakerFilter filter = new AcousticSpeakerFilter(
+                true, AcousticSpeakerFilter.Profile.TELEPHONE, mockHi);
+        int n = 4096;
+        short[] pcm = new short[n * 2];
+        for (int i = 0; i < n; i++) {
+            short v = (short) (Math.sin(2.0 * Math.PI * 8000.0 * i / 44100.0) * 16384);
+            pcm[i * 2]     = v;
+            pcm[i * 2 + 1] = v;
+        }
+        filter.processInterleaved(pcm, n, 2);
+        float max = 0;
+        for (int i = n; i < n * 2; i++) max = Math.max(max, Math.abs(mockHi.lastInterleaved[i]));
+        assertTrue(max < 3276, // < 0.1 * 32767
+                "TELEPHONE processInterleaved: 8 kHz should be cut by LPF, got max short: " + max);
+    }
+
+    @Test
+    void testPcSpeakerProcessInterleavedCutsHighFreq() {
+        // processInterleaved path must apply the same filters as process()
+        MockProcessor mockHi = new MockProcessor();
+        AcousticSpeakerFilter filter = new AcousticSpeakerFilter(
+                true, AcousticSpeakerFilter.Profile.PC, mockHi);
+        int n = 4096;
+        short[] pcm = new short[n * 2];
+        for (int i = 0; i < n; i++) {
+            short v = (short) (Math.sin(2.0 * Math.PI * 15000.0 * i / 44100.0) * 16384);
+            pcm[i * 2]     = v;
+            pcm[i * 2 + 1] = v;
+        }
+        filter.processInterleaved(pcm, n, 2);
+        float max = 0;
+        for (int i = n; i < n * 2; i++) max = Math.max(max, Math.abs(mockHi.lastInterleaved[i]));
+        assertTrue(max < 6554, // < 0.2 * 32767
+                "PC processInterleaved: 15 kHz should be cut by LPF, got max short: " + max);
+    }
 }
