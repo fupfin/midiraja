@@ -52,7 +52,7 @@ import com.fupfin.midiraja.ui.Logo;
         subcommands = {FmCommand.class, MuntCommand.class, FluidCommand.class,
                 TsfCommand.class, GusCommand.class, BeepCommand.class,
                 DeviceCommand.class, PsgCommand.class, DemoCommand.class,
-                InfoCommand.class, ResumeCommand.class, CommandLine.HelpCommand.class},
+                InfoCommand.class, MidiInfoCommand.class, ResumeCommand.class, CommandLine.HelpCommand.class},
         footer = {"",
                 "Run 'midra <command> --help' for command-specific options.", "",
                 "Playlist Features:",

@@ -120,6 +120,24 @@
             "allPublicMethods": true
         },
         {
+            "type": "com.fupfin.midiraja.cli.MidiInfoCommand",
+            "allDeclaredFields": true,
+            "allDeclaredMethods": true,
+            "allDeclaredConstructors": true
+        },
+        {
+            "type": "com.fupfin.midiraja.cli.MidiMetaExtractor",
+            "allDeclaredFields": true,
+            "allDeclaredMethods": true,
+            "allDeclaredConstructors": true
+        },
+        {
+            "type": "com.fupfin.midiraja.cli.MidiMetaExtractor$MidiMeta",
+            "allDeclaredFields": true,
+            "allDeclaredMethods": true,
+            "allDeclaredConstructors": true
+        },
+        {
             "type": "com.fupfin.midiraja.cli.ResumeCommand",
             "allDeclaredFields": true,
             "allDeclaredMethods": true,
