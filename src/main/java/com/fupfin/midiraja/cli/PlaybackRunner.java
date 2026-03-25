@@ -183,74 +183,15 @@ public class PlaybackRunner
             activeIO.init();
             boolean isInteractive = activeIO.isInteractive();
 
-            // Shutdown hook for Ctrl+C
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                MidirajaCommand.SHUTTING_DOWN = true;
-                // Always include alt-screen exit: harmless no-op if not in alt screen.
-                // Use the same output path (System.out) that was used to enter alt screen
-                // so the sequence reaches the terminal reliably.
-                String safeRestore = Theme.TERM_ALT_SCREEN_DISABLE
-                                + Theme.TERM_MOUSE_DISABLE + Theme.COLOR_RESET + Theme.TERM_AUTOWRAP_ON
-                                + Theme.TERM_SHOW_CURSOR + "\r\033[K\n";
-                if (isInteractive)
-                {
-                    // Write via System.out first (same channel used to enter alt screen).
-                    try
-                    {
-                        System.out.print(safeRestore);
-                        System.out.flush();
-                    }
-                    catch (Exception ignored)
-                    {
-                    }
-                    // Also write directly to /dev/tty for robustness.
-                    try (var tty = new java.io.FileOutputStream("/dev/tty"))
-                    {
-                        tty.write(safeRestore.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                        tty.flush();
-                    }
-                    catch (Exception ignored)
-                    {
-                    }
-                }
-                try
-                {
-                    activeIO.close();
-                }
-                catch (Exception e)
-                {
-                    log.warning("Error closing terminal IO: " + e.getMessage());
-                }
-                try
-                {
-                    if (portClosed.compareAndSet(false, true))
-                    {
-                        provider.panic();
-                        long endWait = System.currentTimeMillis() + 200;
-                        while (System.currentTimeMillis() < endWait)
-                        {
-                            try
-                            {
-                                Thread.sleep(max(1, endWait - System.currentTimeMillis()));
-                            }
-                            catch (Exception ignored)
-                            {
-                                log.warning("Error during shutdown sleep: " + ignored.getMessage());
-                            }
-                        }
-                        provider.closePort();
-                    }
-                }
-                catch (Exception e)
-                {
-                    log.warning("Error during shutdown: " + e.getMessage());
-                }
-            }));
-
             // ── UI mode ───────────────────────────────────────────────────────
             var uiResult = buildUI(common.uiOptions, isInteractive, activeIO.getHeight());
             PlaybackUI ui = uiResult.ui();
             boolean useAltScreen = uiResult.useAltScreen();
+
+            // Shutdown hook for Ctrl+C
+            Runtime.getRuntime().addShutdownHook(
+                    new Thread(new ShutdownCleaner(isInteractive, activeIO, provider, portClosed,
+                            useAltScreen)));
 
             // Install SIGTSTP/SIGCONT handlers so Ctrl+Z cleanly suspends and restores the UI.
             // Each UI mode encapsulates its own terminal state (alt screen, cursor, autowrap).
@@ -304,6 +245,8 @@ public class PlaybackRunner
         }
         finally
         {
+            // Normal-path port close. The shutdown hook (ShutdownCleaner) also
+            // closes the port; portClosed guards against double-close.
             if (portClosed.compareAndSet(false, true))
             {
                 provider.panic();
@@ -314,9 +257,10 @@ public class PlaybackRunner
                     {
                         Thread.sleep(max(1, endWait - System.currentTimeMillis()));
                     }
-                    catch (Exception ignored)
+                    catch (InterruptedException ignored)
                     {
-                        log.warning("Error during cleanup sleep: " + ignored.getMessage());
+                        Thread.currentThread().interrupt();
+                        break;
                     }
                 }
                 provider.closePort();

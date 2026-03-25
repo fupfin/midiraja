@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Builds a flat playlist from a mix of .mid files, directories, and .m3u playlists. M3U files may
@@ -110,56 +111,34 @@ public class PlaylistParser
                         }
 
                         // Key-value directives
-                        if (token.startsWith("--volume=") || token.startsWith("-v="))
+                        int[] vIdx = {i};
+                        String rawVolume = parseKeyValue(tokens, i, vIdx, "--volume", "-v");
+                        if (rawVolume != null)
                         {
                             try
                             {
-                                acc.volume =
-                                        Integer.parseInt(token.substring(token.indexOf('=') + 1));
-                                logVerbose("Applied directive from playlist: " + token);
+                                acc.volume = Integer.parseInt(rawVolume);
+                                logVerbose("Applied directive from playlist: --volume " + acc.volume);
                             }
                             catch (NumberFormatException ignored)
                             {
                             }
-                        }
-                        else if ((token.equals("--volume") || token.equals("-v"))
-                                && i + 1 < tokens.length)
-                        {
-                            try
-                            {
-                                acc.volume = Integer.parseInt(tokens[++i]);
-                                logVerbose("Applied directive from playlist: --volume "
-                                        + acc.volume);
-                            }
-                            catch (NumberFormatException ignored)
-                            {
-                            }
+                            i = vIdx[0];
                         }
 
-                        if (token.startsWith("--speed=") || token.startsWith("-x="))
+                        int[] xIdx = {i};
+                        String rawSpeed = parseKeyValue(tokens, i, xIdx, "--speed", "-x");
+                        if (rawSpeed != null)
                         {
                             try
                             {
-                                acc.speed =
-                                        Double.parseDouble(token.substring(token.indexOf('=') + 1));
-                                logVerbose("Applied directive from playlist: " + token);
+                                acc.speed = Double.parseDouble(rawSpeed);
+                                logVerbose("Applied directive from playlist: --speed " + acc.speed);
                             }
                             catch (NumberFormatException ignored)
                             {
                             }
-                        }
-                        else if ((token.equals("--speed") || token.equals("-x"))
-                                && i + 1 < tokens.length)
-                        {
-                            try
-                            {
-                                acc.speed = Double.parseDouble(tokens[++i]);
-                                logVerbose("Applied directive from playlist: --speed "
-                                        + acc.speed);
-                            }
-                            catch (NumberFormatException ignored)
-                            {
-                            }
+                            i = xIdx[0];
                         }
                     }
                     continue;
@@ -239,6 +218,32 @@ public class PlaylistParser
             end--;
         }
         return end == path.length() ? f : new File(path.substring(0, end));
+    }
+
+    /**
+     * Tries to extract the value for a key-value directive in either {@code --key=val} or
+     * {@code --key val} form.
+     *
+     * @param tokens   full token array
+     * @param i        current index
+     * @param indexRef single-element array; updated to the new index when {@code --key val} form
+     *                 consumes the next token (otherwise left unchanged)
+     * @param longKey  long form, e.g. {@code "--volume"}
+     * @param shortKey short form, e.g. {@code "-v"}
+     * @return the raw string value, or {@code null} if the token does not match either form
+     */
+    private static @Nullable String parseKeyValue(String[] tokens, int i, int[] indexRef,
+            String longKey, String shortKey)
+    {
+        String token = tokens[i];
+        if (token.startsWith(longKey + "=") || token.startsWith(shortKey + "="))
+            return token.substring(token.indexOf('=') + 1);
+        if ((token.equals(longKey) || token.equals(shortKey)) && i + 1 < tokens.length)
+        {
+            indexRef[0] = i + 1;
+            return tokens[i + 1];
+        }
+        return null;
     }
 
     private void logVerbose(String message)

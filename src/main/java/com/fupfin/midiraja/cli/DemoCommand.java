@@ -13,8 +13,10 @@ import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.ui.Theme;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 import com.fupfin.midiraja.dsp.AudioProcessor;
 import com.fupfin.midiraja.dsp.FloatToShortSink;
 import com.fupfin.midiraja.dsp.ShortToFloatFilter;
@@ -121,7 +123,7 @@ public class DemoCommand implements Callable<Integer>
                 runner.setSuppressHoldAtEnd(true);
                 runner.setExitOnNavBoundary(true);
 
-                int exitCode = runner.run(pwa.provider, true, Optional.empty(), pwa.soundbank, List.of(file), common, List.of());
+                int exitCode = runner.run(pwa.provider(), true, Optional.empty(), pwa.soundbank(), List.of(file), common, List.of());
 
                 if (exitCode != 0 || MidirajaCommand.SHUTTING_DOWN)
                 {
@@ -155,39 +157,43 @@ public class DemoCommand implements Callable<Integer>
         return 0;
     }
 
-    private static class ProviderWithArgs {
-        final MidiOutProvider provider;
-        final Optional<String> soundbank;
-        ProviderWithArgs(MidiOutProvider p, Optional<String> s) {
-            this.provider = p;
-            this.soundbank = s;
-        }
+    private record ProviderWithArgs(MidiOutProvider provider, Optional<String> soundbank) {}
+
+    private static boolean hasTag(String fileName, String tag)
+    {
+        return fileName.contains("-" + tag + "-");
     }
 
     private ProviderWithArgs selectProviderForTrack(String fileName) throws Exception
     {
-        if (fileName.contains("-tsf-")) {
+        if (hasTag(fileName, "tsf"))
+        {
             var provider = new TsfSynthProvider(new FFMTsfNativeBridge(), buildPipeline(2), null);
             return withGain(provider, Optional.ofNullable(findResource("soundfonts/FluidR3_GM.sf3")), provider::setMasterGain);
         }
-        if (fileName.contains("-gus-")) {
+        if (hasTag(fileName, "gus"))
+        {
             var patchDir = findResource("freepats");
             var provider = new GusSynthProvider(buildPipeline(2), patchDir);
             return withGain(provider, Optional.ofNullable(patchDir), provider::setMasterGain);
         }
-        if (fileName.contains("-opl3-")) {
+        if (hasTag(fileName, "opl3"))
+        {
             var provider = new AdlMidiSynthProvider(new FFMAdlMidiNativeBridge(), buildPipeline(2), 0, 4, common.retroMode.orElse(null));
             return withGain(provider, Optional.of("bank:0"), provider::setMasterGain);
         }
-        if (fileName.contains("-opn2-")) {
+        if (hasTag(fileName, "opn2"))
+        {
             var provider = new OpnMidiSynthProvider(new FFMOpnMidiNativeBridge(), buildPipeline(2), 0, 4, common.retroMode.orElse(null));
             return withGain(provider, Optional.of(""), provider::setMasterGain);
         }
-        if (fileName.contains("-psg-")) {
+        if (hasTag(fileName, "psg"))
+        {
             var provider = new PsgSynthProvider(buildPipeline(1), 4, 5.0, 25.0, false, false);
             return withGain(provider, Optional.empty(), provider::setMasterGain);
         }
-        if (fileName.contains("-beep-")) {
+        if (hasTag(fileName, "beep"))
+        {
             var provider = new BeepSynthProvider(buildPipeline(1), 2, 1.0, 1.1, 1, "dsd", "square");
             return withGain(provider, Optional.empty(), provider::setMasterGain);
         }
@@ -201,10 +207,12 @@ public class DemoCommand implements Callable<Integer>
         return new ProviderWithArgs(provider, soundbank);
     }
 
-    private AudioProcessor buildPipeline(int channels) throws Exception {
+    private AudioProcessor buildPipeline(int channels) throws Exception
+    {
         var audio = new NativeAudioEngine(AudioLibResolver.resolve());
         audio.init(44100, channels, 4096);
-        if (common.dumpWav.isPresent()) {
+        if (common.dumpWav.isPresent())
+        {
             audio.enableDump(common.dumpWav.get());
         }
         AudioProcessor pipeline = new FloatToShortSink(audio, channels);
@@ -222,23 +230,27 @@ public class DemoCommand implements Callable<Integer>
             "share/demomidi",
             "../share/midra/demomidi"
         };
-        
+
         String midraData = System.getenv("MIDRA_DATA");
-        if (midraData != null) {
+        if (midraData != null)
+        {
             File f = new File(midraData, "demomidi");
             if (f.exists()) return f;
         }
 
-        for (String p : paths) {
+        for (String p : paths)
+        {
             File f = new File(p);
             if (f.exists()) return f;
         }
         return null;
     }
 
-    private @Nullable String findResource(String subPath) {
+    private @Nullable String findResource(String subPath)
+    {
         String midraData = System.getenv("MIDRA_DATA");
-        if (midraData != null) {
+        if (midraData != null)
+        {
             File f = new File(midraData, subPath);
             if (f.exists()) return f.getAbsolutePath();
         }
@@ -247,12 +259,25 @@ public class DemoCommand implements Callable<Integer>
         return null;
     }
 
-    private String getSearchPaths() {
+    private String getSearchPaths()
+    {
         return "MIDRA_DATA/demomidi, src/main/resources/demomidi, or share/midra/demomidi";
     }
 
-    private static final Set<String> ENGINE_TAGS =
-            Set.of("tsf", "gus", "opl3", "opn2", "psg", "beep", "munt", "fluid");
+    private static final Map<String, String> ENGINE_DISPLAY_NAMES;
+    static
+    {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("tsf",   "TinySoundFont (General MIDI SF3)");
+        m.put("gus",   "GUS Patches (FreePats)");
+        m.put("opl3",  "OPL3 FM Synthesis (libADLMIDI)");
+        m.put("opn2",  "OPN2 FM Synthesis (libOPNMIDI)");
+        m.put("psg",   "PSG Chip Synthesis (AY-3-8910)");
+        m.put("beep",  "PC Beeper");
+        m.put("munt",  "MT-32 Emulation (Munt)");
+        m.put("fluid", "FluidSynth");
+        ENGINE_DISPLAY_NAMES = Collections.unmodifiableMap(m);
+    }
 
     /** Extracts a human-readable title from a demo filename like {@code 03-gus-entertainer.mid}. */
     static String extractSongTitle(String fileName)
@@ -263,7 +288,7 @@ public class DemoCommand implements Callable<Integer>
         for (int i = 0; i < parts.length; i++)
         {
             if (i == 0) continue;                               // skip leading number
-            if (i == 1 && ENGINE_TAGS.contains(parts[i].toLowerCase(Locale.ROOT))) continue;
+            if (i == 1 && ENGINE_DISPLAY_NAMES.containsKey(parts[i].toLowerCase(Locale.ROOT))) continue;
             if (!sb.isEmpty()) sb.append(' ');
             String word = parts[i];
             sb.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
@@ -275,14 +300,10 @@ public class DemoCommand implements Callable<Integer>
     static String extractEngineName(String fileName)
     {
         String lower = fileName.toLowerCase(Locale.ROOT);
-        if (lower.contains("-tsf-"))  return "TinySoundFont (General MIDI SF3)";
-        if (lower.contains("-gus-"))  return "GUS Patches (FreePats)";
-        if (lower.contains("-opl3-")) return "OPL3 FM Synthesis (libADLMIDI)";
-        if (lower.contains("-opn2-")) return "OPN2 FM Synthesis (libOPNMIDI)";
-        if (lower.contains("-psg-"))  return "PSG Chip Synthesis (AY-3-8910)";
-        if (lower.contains("-beep-")) return "PC Beeper";
-        if (lower.contains("-munt-")) return "MT-32 Emulation (Munt)";
-        if (lower.contains("-fluid-")) return "FluidSynth";
-        return "TinySoundFont (General MIDI SF3)";
+        return ENGINE_DISPLAY_NAMES.keySet().stream()
+                .filter(tag -> lower.contains("-" + tag + "-"))
+                .map(ENGINE_DISPLAY_NAMES::get)
+                .findFirst()
+                .orElseGet(() -> ENGINE_DISPLAY_NAMES.get("tsf"));
     }
 }
