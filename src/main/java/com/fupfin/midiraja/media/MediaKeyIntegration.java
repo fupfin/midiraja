@@ -41,6 +41,18 @@ public interface MediaKeyIntegration extends AutoCloseable
      */
     static MediaKeyIntegration create()
     {
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (os.contains("mac"))
+        {
+            try
+            {
+                return new MacOSMediaSession();
+            }
+            catch (Throwable e)
+            {
+                System.err.println("Warning: media key integration unavailable: " + e.getMessage());
+            }
+        }
         return NoOpMediaIntegration.INSTANCE;
     }
 }

@@ -231,6 +231,30 @@
                     "name": "versionRequested"
                 }
             ]
+        },
+        {
+            "type": "com.fupfin.midiraja.media.MacOSMediaSession",
+            "allDeclaredFields": true,
+            "allDeclaredConstructors": true,
+            "allDeclaredMethods": true
+        },
+        {
+            "type": "com.fupfin.midiraja.media.MediaKeyIntegration",
+            "allDeclaredFields": true,
+            "allDeclaredConstructors": true,
+            "allDeclaredMethods": true
+        },
+        {
+            "type": "com.fupfin.midiraja.media.NoOpMediaIntegration",
+            "allDeclaredFields": true,
+            "allDeclaredConstructors": true,
+            "allDeclaredMethods": true
+        },
+        {
+            "type": "com.fupfin.midiraja.media.NowPlayingInfo",
+            "allDeclaredFields": true,
+            "allDeclaredConstructors": true,
+            "allDeclaredMethods": true
         }
     ],
     "foreign": {
@@ -578,6 +602,28 @@
                     "jint"
                 ],
                 "returnType": "jint"
+            },
+            {
+                "parameterTypes": [],
+                "returnType": "void"
+            },
+            {
+                "parameterTypes": [
+                    "void*",
+                    "void*",
+                    "jdouble",
+                    "jdouble",
+                    "jint"
+                ],
+                "returnType": "void"
+            }
+        ],
+        "upcalls": [
+            {
+                "parameterTypes": [
+                    "jint"
+                ],
+                "returnType": "void"
             }
         ]
     }
