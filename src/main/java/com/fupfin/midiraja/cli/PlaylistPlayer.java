@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.jspecify.annotations.Nullable;
 
@@ -19,10 +20,13 @@ import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaybackEngineFactory;
 import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.io.TerminalIO;
+import com.fupfin.midiraja.media.MediaKeyIntegration;
+import com.fupfin.midiraja.media.NowPlayingInfo;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.midi.MidiUtils;
 import com.fupfin.midiraja.ui.DashboardUI;
+import com.fupfin.midiraja.ui.PlaybackEventListener;
 import com.fupfin.midiraja.ui.PlaybackUI;
 
 /**
@@ -38,13 +42,15 @@ class PlaylistPlayer {
     private final boolean suppressHoldAtEnd;
     private final boolean exitOnNavBoundary;
     private final PrintStream err;
+    private final MediaKeyIntegration mediaKeys;
 
     PlaylistPlayer(PlaybackEngineFactory engineFactory,
                    @Nullable FxOptions fxOptions,
                    boolean includeRetroInSuffix,
                    boolean suppressHoldAtEnd,
                    boolean exitOnNavBoundary,
-                   PrintStream err)
+                   PrintStream err,
+                   MediaKeyIntegration mediaKeys)
     {
         this.engineFactory = engineFactory;
         this.fxOptions = fxOptions;
@@ -52,6 +58,7 @@ class PlaylistPlayer {
         this.suppressHoldAtEnd = suppressHoldAtEnd;
         this.exitOnNavBoundary = exitOnNavBoundary;
         this.err = err;
+        this.mediaKeys = mediaKeys;
     }
 
     /**
@@ -71,6 +78,10 @@ class PlaylistPlayer {
         Optional<Long> currentStartTime = initialStartTime;
         boolean wasPaused = false;
         PlaybackStatus lastRawStatus = PlaybackStatus.FINISHED;
+
+        var activeCommands = new AtomicReference<com.fupfin.midiraja.engine.PlaybackCommands>();
+        var commandsProxy = new PlaybackCommandsProxy(activeCommands);
+        mediaKeys.start(commandsProxy);
 
         while (currentIdxHolder[0] >= 0 && currentIdxHolder[0] < playlist.size())
         {
@@ -96,6 +107,34 @@ class PlaylistPlayer {
                                 common.transpose.orElse(0)),
                         () -> MidirajaCommand.SHUTTING_DOWN,
                         common.speed, currentStartTime);
+
+                // ── Media key integration ─────────────────────────────────────────────────
+                activeCommands.set(engine);
+
+                final String trackTitle = title != null ? title : file.getName();
+                final long durationMicros = sequence.getMicrosecondLength();
+
+                mediaKeys.drainAndUpdate(new NowPlayingInfo(trackTitle, "", durationMicros, 0L, true));
+
+                engine.addPlaybackEventListener(new PlaybackEventListener()
+                {
+                    @Override public void onTempoChanged(float bpm) {}
+                    @Override public void onChannelActivity(int ch, int vel) {}
+
+                    @Override public void onTick(long currentMicroseconds)
+                    {
+                        mediaKeys.drainAndUpdate(new NowPlayingInfo(
+                                trackTitle, "", durationMicros, currentMicroseconds, !engine.isPaused()));
+                    }
+
+                    @Override public void onPlaybackStateChanged()
+                    {
+                        mediaKeys.drainAndUpdate(new NowPlayingInfo(
+                                trackTitle, "", durationMicros, engine.getCurrentMicroseconds(),
+                                !engine.isPaused()));
+                    }
+                });
+                // ── End media key integration ─────────────────────────────────────────────
 
                 if (common.ignoreSysex) engine.setIgnoreSysex(true);
                 if (common.resetType.isPresent()) engine.setInitialResetType(common.resetType);
@@ -136,6 +175,7 @@ class PlaylistPlayer {
 
                 var status = ScopedValue.where(TerminalIO.CONTEXT, io).call(() -> engine.start(ui));
                 lastRawStatus = status;
+                activeCommands.set(null);  // commands between tracks are silently dropped
 
                 currentStartTime = Optional.empty();
                 common.volume = (int) (engine.getVolumeScale() * 100);

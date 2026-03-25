@@ -26,6 +26,7 @@ import com.fupfin.midiraja.engine.PlaybackEngineFactory;
 import com.fupfin.midiraja.engine.PlaybackPipeline;
 import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.io.MockTerminalIO;
+import com.fupfin.midiraja.media.NoOpMediaIntegration;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.ui.DumbUI;
@@ -121,7 +122,8 @@ class PlaylistPlayerTest {
     }
 
     private PlaylistPlayer player(PlaybackEngineFactory factory) {
-        return new PlaylistPlayer(factory, null, false, false, false, errStream);
+        return new PlaylistPlayer(factory, null, false, false, false, errStream,
+                NoOpMediaIntegration.INSTANCE);
     }
 
     // ── static helpers ────────────────────────────────────────────────────────
@@ -219,7 +221,8 @@ class PlaylistPlayerTest {
             callCount.incrementAndGet();
             return new MockPlaybackEngine(seq, p, ctx, pipeline, isShuttingDown, speed, start, PlaybackStatus.NEXT);
         };
-        var p = new PlaylistPlayer(factory, null, false, false, true, errStream);
+        var p = new PlaylistPlayer(factory, null, false, false, true, errStream,
+                NoOpMediaIntegration.INSTANCE);
         p.play(List.of(f1, f2, f3), new MockMidiProvider(),
                 new MidiPort(0, "Mock"), common, new DumbUI(), mockIO,
                 Optional.empty(), List.of());

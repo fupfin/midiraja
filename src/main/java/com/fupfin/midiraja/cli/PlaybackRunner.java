@@ -21,6 +21,7 @@ import org.jspecify.annotations.Nullable;
 
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.engine.MidiPlaybackEngine;
+import com.fupfin.midiraja.media.MediaKeyIntegration;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaybackEngineFactory;
 import com.fupfin.midiraja.io.JLineTerminalIO;
@@ -211,10 +212,11 @@ public class PlaybackRunner
                 System.setErr(new PrintStream(errBuffer, true));
             }
 
+            var mediaKeys = MediaKeyIntegration.create();
             try
             {
                 var player = new PlaylistPlayer(engineFactory, fxOptions, includeRetroInSuffix,
-                        suppressHoldAtEnd, exitOnNavBoundary, err);
+                        suppressHoldAtEnd, exitOnNavBoundary, err, mediaKeys);
                 lastRawStatus = player.play(playlist, provider, ports.get(portIndex), common,
                         ui, activeIO, currentStartTime, originalArgs);
             }
@@ -222,6 +224,7 @@ public class PlaybackRunner
             {
                 System.setErr(savedErr);
                 MidirajaCommand.ALT_SCREEN_ACTIVE = false;
+                mediaKeys.close();    // stop native thread BEFORE tearing down terminal I/O
                 activeIO.close();
                 if (isInteractive)
                 {
