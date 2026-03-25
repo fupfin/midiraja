@@ -21,7 +21,12 @@ import com.fupfin.midiraja.io.TerminalIO;
  */
 public class DumbUI implements PlaybackUI
 {
+    private final boolean quiet;
     private boolean headerPrinted = false;
+
+    public DumbUI() { this(false); }
+
+    public DumbUI(boolean quiet) { this.quiet = quiet; }
 
     @Override
     public void runRenderLoop(PlaybackState engine)
@@ -33,48 +38,51 @@ public class DumbUI implements PlaybackUI
         int idx = context.currentIndex();
         String portName = context.targetPort().name();
 
-        // 1. 첫 줄 프로그램 소개 (한 번만 출력)
-        if (!headerPrinted)
+        if (!quiet)
         {
-            term.println(
-                    String.format("\033[7m MIDIraja v%s - " + Logo.TAGLINE + "\033[0m",
-                            Version.VERSION));
-
-            // 2. 재생 목록 요약
-            if (listSize == 1)
+            // 1. 첫 줄 프로그램 소개 (한 번만 출력)
+            if (!headerPrinted)
             {
-                String title = context.sequenceTitle();
-                String fileName = context.files().get(idx).getName();
-                String displayTitle =
-                        title != null && !title.isEmpty() ? title + " (" + fileName + ")"
-                                : fileName;
+                term.println(
+                        String.format("\033[7m MIDIraja v%s - " + Logo.TAGLINE + "\033[0m",
+                                Version.VERSION));
 
-                term.println(String.format("Playing: %s to port '%s'", displayTitle, portName));
+                // 2. 재생 목록 요약
+                if (listSize == 1)
+                {
+                    String title = context.sequenceTitle();
+                    String fileName = context.files().get(idx).getName();
+                    String displayTitle =
+                            title != null && !title.isEmpty() ? title + " (" + fileName + ")"
+                                    : fileName;
+
+                    term.println(String.format("Playing: %s to port '%s'", displayTitle, portName));
+                }
+                else
+                {
+                    term.println(String.format("Playing %d files to port '%s'", listSize, portName));
+                }
+                headerPrinted = true; // 이후 곡 전환 시에는 생략
+            }
+
+            // 3. 현재 재생 중인 곡 정보 출력
+            String title = context.sequenceTitle();
+            String fileName = context.files().get(idx).getName();
+            String displayTitle =
+                    title != null && !title.isEmpty() ? title + " (" + fileName + ")" : fileName;
+
+            long totalMicros = engine.getTotalMicroseconds();
+            String lengthStr = formatTime(totalMicros, (totalMicros / 1000000) >= 3600);
+
+            if (listSize > 1)
+            {
+                term.println(String.format("  [%d/%d] %s - %s", (idx + 1), listSize, displayTitle,
+                        lengthStr));
             }
             else
             {
-                term.println(String.format("Playing %d files to port '%s'", listSize, portName));
+                term.println(String.format("  Length: %s", lengthStr));
             }
-            headerPrinted = true; // 이후 곡 전환 시에는 생략
-        }
-
-        // 3. 현재 재생 중인 곡 정보 출력
-        String title = context.sequenceTitle();
-        String fileName = context.files().get(idx).getName();
-        String displayTitle =
-                title != null && !title.isEmpty() ? title + " (" + fileName + ")" : fileName;
-
-        long totalMicros = engine.getTotalMicroseconds();
-        String lengthStr = formatTime(totalMicros, (totalMicros / 1000000) >= 3600);
-
-        if (listSize > 1)
-        {
-            term.println(String.format("  [%d/%d] %s - %s", (idx + 1), listSize, displayTitle,
-                    lengthStr));
-        }
-        else
-        {
-            term.println(String.format("  Length: %s", lengthStr));
         }
 
         try
