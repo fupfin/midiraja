@@ -233,6 +233,12 @@
             ]
         },
         {
+            "type": "com.fupfin.midiraja.media.LinuxMediaSession",
+            "allDeclaredFields": true,
+            "allDeclaredConstructors": true,
+            "allDeclaredMethods": true
+        },
+        {
             "type": "com.fupfin.midiraja.media.MacOSMediaSession",
             "allDeclaredFields": true,
             "allDeclaredConstructors": true,
@@ -613,6 +619,16 @@
                     "void*",
                     "jdouble",
                     "jdouble",
+                    "jint"
+                ],
+                "returnType": "void"
+            },
+            {
+                "parameterTypes": [
+                    "void*",
+                    "void*",
+                    "jlong",
+                    "jlong",
                     "jint"
                 ],
                 "returnType": "void"

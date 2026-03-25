@@ -153,4 +153,16 @@ if [ "$OS_FAMILY" = "macos" ]; then
         "$PROJECT_ROOT/src/main/c/mediakeys/macos_media_session.m"
 fi
 
+# 7. Build Linux media keys wrapper (MPRIS2 D-Bus)
+if [ "$OS_FAMILY" = "linux" ]; then
+    echo "==> Building libmidiraja_mediakeys (Linux MPRIS2)..."
+    MEDIAKEYS_OUT="$NATIVE_LIBS/mediakeys"
+    mkdir -p "$MEDIAKEYS_OUT"
+    gcc $(pkg-config --cflags --libs dbus-1) \
+        -shared -fPIC \
+        -o "$MEDIAKEYS_OUT/libmidiraja_mediakeys.so" \
+        "$PROJECT_ROOT/src/main/c/mediakeys/linux_media_session.c"
+    echo "  → $MEDIAKEYS_OUT/libmidiraja_mediakeys.so"
+fi
+
 echo "Native libraries built successfully → $NATIVE_LIBS"
