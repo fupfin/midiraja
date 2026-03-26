@@ -14,7 +14,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
@@ -31,8 +30,8 @@ import com.fupfin.midiraja.midi.AbstractFFMBridge;
  * <p>Call sequence: {@code start()} → any number of {@code drainAndUpdate()} → {@code close()}.
  * All methods are safe to call out of order or multiple times.
  *
- * <p>Native commands are enqueued from the native callback thread and drained on the caller's
- * thread (the engine playback thread) in {@link #drainAndUpdate}.
+ * <p>Native commands are dispatched directly from the macOS RunLoop thread; all
+ * {@link com.fupfin.midiraja.engine.PlaybackCommands} methods are thread-safe so no queue is needed.
  */
 public final class MacOSMediaSession implements MediaKeyIntegration
 {
@@ -68,7 +67,6 @@ public final class MacOSMediaSession implements MediaKeyIntegration
     private final MethodHandle updateNowPlaying;
     private final MethodHandle unregister;
 
-    private final ConcurrentLinkedQueue<Integer> pendingCommands = new ConcurrentLinkedQueue<>();
     private final AtomicBoolean started = new AtomicBoolean(false);
     private volatile @Nullable PlaybackCommands commands;
 
@@ -115,7 +113,6 @@ public final class MacOSMediaSession implements MediaKeyIntegration
     public void drainAndUpdate(NowPlayingInfo info)
     {
         if (!started.get()) return;
-        drainQueue();
         try
         {
             var titleSeg  = arena.allocateFrom(info.title());
@@ -156,30 +153,24 @@ public final class MacOSMediaSession implements MediaKeyIntegration
 
     // ── Private ───────────────────────────────────────────────────────────────
 
-    /** Called from native thread — enqueue only, never call PlaybackCommands directly. */
+    /**
+     * Called from the native macOS RunLoop thread.
+     * All {@link PlaybackCommands} methods are thread-safe (AtomicBoolean / volatile-backed),
+     * so dispatch directly — no queue needed, and commands work even while paused.
+     */
     @SuppressWarnings("unused")
     private static void onNativeCommand(MacOSMediaSession self, int command)
     {
-        self.pendingCommands.add(command);
-    }
-
-    /** Drains pending commands on the caller's thread (the engine playback thread). */
-    private void drainQueue()
-    {
-        var cmds = commands;
+        var cmds = self.commands;
         if (cmds == null) return;
-        Integer cmd;
-        while ((cmd = pendingCommands.poll()) != null)
+        switch (command)
         {
-            switch (cmd)
-            {
-                case 0 -> cmds.togglePause();
-                case 1 -> cmds.requestStop(PlaybackStatus.NEXT);
-                case 2 -> cmds.requestStop(PlaybackStatus.PREVIOUS);
-                case 3 -> cmds.seekRelative(+10_000_000L);
-                case 4 -> cmds.seekRelative(-10_000_000L);
-                default -> log.fine("Unknown media command: " + cmd);
-            }
+            case 0 -> cmds.togglePause();
+            case 1 -> cmds.requestStop(PlaybackStatus.NEXT);
+            case 2 -> cmds.requestStop(PlaybackStatus.PREVIOUS);
+            case 3 -> cmds.seekRelative(+10_000_000L);
+            case 4 -> cmds.seekRelative(-10_000_000L);
+            default -> log.fine("Unknown media command: " + command);
         }
     }
 }

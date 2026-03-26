@@ -35,15 +35,17 @@ void macos_register_commands(void (*callback)(int command))
     [cc.togglePlayPauseCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *e) {
         if (g_callback) g_callback(0); return MPRemoteCommandHandlerStatusSuccess;
     }];
+    // nextTrack/previousTrack keyboard keys (⏭/⏮) and skipForward/skipBackward (Control Center)
+    // all map to seek ±10s. There is no dedicated "change track" media key gesture.
     [cc.nextTrackCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *e) {
-        if (g_callback) g_callback(1); return MPRemoteCommandHandlerStatusSuccess;
+        if (g_callback) g_callback(3); return MPRemoteCommandHandlerStatusSuccess;
     }];
     [cc.previousTrackCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *e) {
-        if (g_callback) g_callback(2); return MPRemoteCommandHandlerStatusSuccess;
+        if (g_callback) g_callback(4); return MPRemoteCommandHandlerStatusSuccess;
     }];
-    // skipForwardCommand / skipBackwardCommand handle the keyboard skip buttons.
-    // changePlaybackPositionCommand handles the scrubber bar; not registered here
-    // because it delivers an absolute position, not a ±10s delta.
+    // preferredIntervals must be set or macOS renders these buttons as disabled.
+    cc.skipForwardCommand.preferredIntervals = @[@10];
+    cc.skipBackwardCommand.preferredIntervals = @[@10];
     [cc.skipForwardCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *e) {
         if (g_callback) g_callback(3); return MPRemoteCommandHandlerStatusSuccess;
     }];
