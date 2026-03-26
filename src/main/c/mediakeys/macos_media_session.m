@@ -35,9 +35,8 @@ void macos_register_commands(void (*callback)(int command))
     [cc.togglePlayPauseCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *e) {
         if (g_callback) g_callback(0); return MPRemoteCommandHandlerStatusSuccess;
     }];
-    // Map ⏭/⏮ (nextTrack/previousTrack) to seek ±10s.
-    // skipForwardCommand/skipBackwardCommand remain unregistered: macOS disables them for
-    // CLI processes without an audio session, while nextTrack/previousTrack always activate.
+    // Map ⏭/⏮ to seek ±10s. skipForwardCommand/skipBackwardCommand are not used
+    // because macOS disables them for CLI processes without an audio session.
     [cc.nextTrackCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *e) {
         if (g_callback) g_callback(3); return MPRemoteCommandHandlerStatusSuccess;
     }];
