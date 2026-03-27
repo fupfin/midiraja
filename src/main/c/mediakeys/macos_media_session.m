@@ -108,6 +108,12 @@ void macos_unregister(void)
     g_guard = 0;
     g_callback = NULL;
     [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
+    MPRemoteCommandCenter *cc = [MPRemoteCommandCenter sharedCommandCenter];
+    [cc.playCommand removeTarget:nil];
+    [cc.pauseCommand removeTarget:nil];
+    [cc.togglePlayPauseCommand removeTarget:nil];
+    [cc.nextTrackCommand removeTarget:nil];
+    [cc.previousTrackCommand removeTarget:nil];
     [g_thread cancel];
     g_thread = nil;
 }

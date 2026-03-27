@@ -38,7 +38,7 @@ def load_wav(path, target_sr):
         new_len = int(len(mono) * target_sr / sr)
         mono = np.interp(np.linspace(0, len(mono) - 1, new_len),
                          np.arange(len(mono)), mono)
-    return mono, sr
+    return mono, target_sr
 
 
 def load_raw(path, target_sr):
