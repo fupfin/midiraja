@@ -107,13 +107,22 @@ void macos_unregister(void)
     if (!g_guard) return;
     g_guard = 0;
     g_callback = NULL;
-    [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
+
     MPRemoteCommandCenter *cc = [MPRemoteCommandCenter sharedCommandCenter];
     [cc.playCommand removeTarget:nil];
     [cc.pauseCommand removeTarget:nil];
     [cc.togglePlayPauseCommand removeTarget:nil];
     [cc.nextTrackCommand removeTarget:nil];
     [cc.previousTrackCommand removeTarget:nil];
+
+    // Setting playbackState to Stopped signals mediaremoted to remove the
+    // now-playing session immediately. Without this, mediaremoted keeps the
+    // icon visible for several seconds waiting for the app to resume.
+    // Requires macOS 10.14+.
+    MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
+    center.playbackState = MPNowPlayingPlaybackStateStopped;
+    center.nowPlayingInfo = nil;
+
     [g_thread cancel];
     g_thread = nil;
 }
