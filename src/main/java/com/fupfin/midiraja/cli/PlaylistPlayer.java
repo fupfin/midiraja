@@ -26,6 +26,9 @@ import com.fupfin.midiraja.media.NowPlayingInfo;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.midi.MidiUtils;
+import com.fupfin.midiraja.vgm.VgmFileDetector;
+import com.fupfin.midiraja.vgm.VgmParser;
+import com.fupfin.midiraja.vgm.VgmToMidiConverter;
 import com.fupfin.midiraja.ui.DashboardUI;
 import com.fupfin.midiraja.ui.PlaybackEventListener;
 import com.fupfin.midiraja.ui.PlaybackUI;
@@ -89,7 +92,9 @@ class PlaylistPlayer {
             var file = playlist.get(playOrderHolder[0][currentIdxHolder[0]]);
             try
             {
-                var sequence = MidiUtils.loadSequence(file);
+                var sequence = VgmFileDetector.isVgmFile(file)
+                        ? new VgmToMidiConverter().convert(new VgmParser().parse(file))
+                        : MidiUtils.loadSequence(file);
                 logVerbose(common.isVerbose(),
                         String.format("Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d",
                                 file.getName(), sequence.getResolution(),

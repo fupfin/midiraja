@@ -193,7 +193,8 @@ public class PlaylistParser
                         .map(Path::toFile)
                         .filter(f -> {
                             String name = f.getName().toLowerCase(Locale.ROOT);
-                            return name.endsWith(".mid") || name.endsWith(".midi");
+                            return name.endsWith(".mid") || name.endsWith(".midi")
+                                    || name.endsWith(".vgm") || name.endsWith(".vgz");
                         }).forEach(playlist::add);
             }
         }
