@@ -4,6 +4,9 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# Build native C/C++ libraries (fast if already up-to-date)
+./scripts/build-native-libs.sh
+
 # Ensure resources are available in the build directory
 # (These gradle tasks are fast if resources already exist)
 ./gradlew downloadFluidR3Sf3 setupFreepats -q

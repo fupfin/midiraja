@@ -1,14 +1,36 @@
+// macOS Now Playing integration via MPRemoteCommandCenter / MPNowPlayingInfoCenter.
+//
+// Keyboard media keys (play/pause, next, previous) work reliably through
+// the handlers registered below.
+//
+// Control Centre widget: play/pause button works, but the << / >> navigation
+// buttons appear disabled ~90% of the time. This is a known limitation of
+// CLI (non-bundle) processes — macOS's mediaremoted daemon does not reliably
+// activate navigation buttons without a full NSApplication on the main thread.
+// Attempted workarounds that did NOT solve the problem:
+//   - NSLog(@"") on calling thread (Foundation runtime init)
+//   - [NSApplication sharedApplication] + setActivationPolicy on calling thread
+//   - [NSApplication sharedApplication] + [NSApp run] on RunLoop thread (crash)
+//   - MRMediaRemoteSetCanBeNowPlayingApplication(true) via private MediaRemote.framework
+//   - Periodic NSTimer re-asserting enabled=YES every 0.5s
+//   - Placeholder nowPlayingInfo with playbackRate=1 before real metadata
+//   - 1-second RunLoop drain before signalling caller
+//   - PlaybackQueueCount/Index hints (9999/4999)
+//   - skipForwardCommand/skipBackwardCommand (position-dependent, worse)
+//   - Various combinations of the above
+// The root cause is that NSApplication must run on the process main thread,
+// which is occupied by the JVM. A helper-process architecture would solve
+// this but adds significant complexity. For now, only play/pause is
+// guaranteed in the Control Centre widget; keyboard media keys work fully.
+
 #import <Foundation/Foundation.h>
 #import <MediaPlayer/MediaPlayer.h>
 
 static void (*g_callback)(int) = NULL;
 static NSThread *g_thread = NULL;
-static int g_guard = 0;  // 1 = registered
+static int g_guard = 0;
 static dispatch_semaphore_t g_registered_sem = NULL;
 
-// MediaSessionRunner starts a dedicated ObjC RunLoop thread.
-// All MPRemoteCommandCenter work happens on this thread — Java FFM threads do not
-// have an NSAutoreleasePool or ObjC RunLoop which macOS requires for media commands.
 @interface MediaSessionRunner : NSObject
 - (void)runLoop:(id)arg;
 @end
@@ -27,7 +49,10 @@ static dispatch_semaphore_t g_registered_sem = NULL;
         [cc.togglePlayPauseCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *e) {
             if (g_callback) g_callback(0); return MPRemoteCommandHandlerStatusSuccess;
         }];
-        // Map ⏭/⏮ to seek ±10s.
+
+        // Keyboard next/previous media keys are delivered through these handlers.
+        // The corresponding Control Centre widget buttons may appear disabled
+        // (see file header comment) but the keyboard keys still work.
         [cc.nextTrackCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *e) {
             if (g_callback) g_callback(3); return MPRemoteCommandHandlerStatusSuccess;
         }];
@@ -35,10 +60,8 @@ static dispatch_semaphore_t g_registered_sem = NULL;
             if (g_callback) g_callback(4); return MPRemoteCommandHandlerStatusSuccess;
         }];
 
-        // Signal that registration is complete before entering the run loop.
         dispatch_semaphore_signal(g_registered_sem);
 
-        // Spin the run loop so MPRemoteCommandCenter keeps delivering events.
         [[NSRunLoop currentRunLoop] runUntilDate:[NSDate distantFuture]];
     }
 }
@@ -58,8 +81,6 @@ void macos_register_commands(void (*callback)(int command))
                                          object:nil];
     [g_thread start];
 
-    // Wait (up to 2 s) for the RunLoop thread to finish registering commands
-    // before returning — ensures handlers are active when the caller proceeds.
     dispatch_semaphore_wait(g_registered_sem,
                             dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC));
 }
@@ -78,9 +99,6 @@ void macos_update_now_playing(const char *title, const char *artist,
     info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(position_sec);
     info[MPNowPlayingInfoPropertyPlaybackRate] = @(is_playing ? 1.0 : 0.0);
     info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = @(1.0);
-    // A queue with items before and after the current track activates ⏮/⏭ buttons.
-    info[MPNowPlayingInfoPropertyPlaybackQueueCount] = @(9999);
-    info[MPNowPlayingInfoPropertyPlaybackQueueIndex] = @(1);
     [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = info;
 }
 
@@ -89,12 +107,6 @@ void macos_unregister(void)
     if (!g_guard) return;
     g_guard = 0;
     g_callback = NULL;
-    MPRemoteCommandCenter *cc = [MPRemoteCommandCenter sharedCommandCenter];
-    [cc.playCommand removeTarget:nil];
-    [cc.pauseCommand removeTarget:nil];
-    [cc.togglePlayPauseCommand removeTarget:nil];
-    [cc.nextTrackCommand removeTarget:nil];
-    [cc.previousTrackCommand removeTarget:nil];
     [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
     [g_thread cancel];
     g_thread = nil;
