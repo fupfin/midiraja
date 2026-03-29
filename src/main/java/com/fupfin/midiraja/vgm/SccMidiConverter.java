@@ -30,6 +30,11 @@ import javax.sound.midi.Track;
  * re-enable immediately after — producing rapid enable-cycling within a single MIDI tick. Treating
  * enable=0 as NoteOff would generate inaudible sub-millisecond NoteOn/Off pairs that silence the
  * SCC output entirely. Volume alone drives note state: vol&gt;0 → NoteOn, vol=0 → NoteOff.
+ *
+ * <p><b>SCC clock fallback (in VgmParser):</b> The K051649 clock field in the VGM header is 0
+ * in most MSX VGMs. VgmParser reconstructs it as {@code ay8910Clock × 2}. The K051649 runs at
+ * the full MSX CPU bus clock (3.579545 MHz NTSC); the AY-3-8910 has an internal /2 prescaler.
+ * Using ay8910Clock directly produces notes one octave too low.
  */
 public class SccMidiConverter {
 
@@ -37,9 +42,10 @@ public class SccMidiConverter {
 
     /**
      * Minimum MIDI note to emit. Notes below this threshold (≈ 41 Hz) are sub-bass artifacts
-     * from SCC register initialisation (e.g. fnum=0x7EB → MIDI 21 / 27 Hz) that produce
-     * infrasonic rumble without musical content. The note is still <em>tracked</em> internally
-     * so that a subsequent frequency change (retrigger) fires the correct audible NoteOn.
+     * from SCC register initialisation — e.g. fnum=0x7EB gives MIDI 21 (27 Hz) which produces
+     * an infrasonic rumble audible as a low-frequency buzz that masks the melody for the first
+     * several seconds of playback. The note is still <em>tracked</em> internally so that a
+     * subsequent frequency change (retrigger) fires the correct audible NoteOn.
      */
     private static final int MIN_NOTE = 28; // E1 ≈ 41 Hz
 
@@ -69,9 +75,12 @@ public class SccMidiConverter {
         } else {
             freqHi[ch] = val & 0x0F;
         }
-        // Check for note change whenever either frequency byte changes.
-        // MSX games often update only the low byte for small pitch changes
-        // (e.g. glissando), so both bytes must trigger the retrigger check.
+        // Both the low byte (even addr) and high byte (odd addr) trigger a retrigger check.
+        // MSX games implementing glissandi update only the low byte per frame — the high byte
+        // stays constant across the entire pitch slide. An implementation that only watched
+        // the high byte for note changes would miss the entire melody. This was the root cause
+        // of the missing melody in Nemesis 2 PSG+SCC: the glissando at ~00:13 changed only
+        // freqLo, so the converter never detected a note change and emitted nothing.
         if (activeNote[ch] >= 0) {
             int newNote = sccNote(clock, fnum(ch));
             if (newNote >= 0 && newNote != activeNote[ch]) {
@@ -95,6 +104,8 @@ public class SccMidiConverter {
         } else if (!wasPlaying) {
             noteOn(ch, tick, tracks, clock);
         } else {
+            // Volume change while note is playing: send CC7 without re-triggering.
+            // Re-triggering on every volume step would cause audible attack clicks.
             int midiCh = ch + MIDI_CH_OFFSET;
             addNote(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7,
                     toVelocity(newVol), tick);
@@ -105,10 +116,14 @@ public class SccMidiConverter {
         int note = sccNote(clock, fnum(ch));
         if (note < 0) return;
         // Always track the active note so retrigger detection works even for infrasonic
-        // frequencies; only emit MIDI events for audible notes.
+        // frequencies. If the note is below MIN_NOTE we suppress MIDI events but must still
+        // remember the active note: when the frequency later slides into the audible range
+        // the retrigger fires the correct NoteOn.
         activeNote[ch] = note;
         if (note < MIN_NOTE) return;
         int midiCh = ch + MIDI_CH_OFFSET;
+        // CC7 before NoteOn: ensures channel volume is correct before the note sounds,
+        // regardless of any residual CC7 value from a previous note or controller reset.
         addNote(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(volume[ch]),
                 tick);
         addNote(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, 127, tick);
@@ -116,7 +131,9 @@ public class SccMidiConverter {
 
     private void noteOff(int ch, long tick, Track[] tracks) {
         if (activeNote[ch] >= 0) {
-            // Only emit NoteOff if we previously emitted a NoteOn for this note
+            // Only emit NoteOff if we previously emitted a NoteOn for this note.
+            // Infrasonic notes (< MIN_NOTE) are tracked but never sent as NoteOn,
+            // so they must not generate a NoteOff either.
             if (activeNote[ch] >= MIN_NOTE) {
                 int midiCh = ch + MIDI_CH_OFFSET;
                 addNote(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
@@ -129,7 +146,13 @@ public class SccMidiConverter {
         return (freqHi[ch] << 8) | freqLo[ch];
     }
 
-    /** Converts a 12-bit SCC frequency divider to a MIDI note number. */
+    /**
+     * Converts a 12-bit SCC frequency divider to a MIDI note number.
+     *
+     * <p>The {@code (fnum + 1)} term is required by the K051649 specification: the divider counts
+     * from fnum down to 0 inclusive, so a value of 0 produces one period cycle, not zero.
+     * fnum=0 is guarded above and treated as "no frequency set".
+     */
     static int sccNote(long clock, int fnum) {
         if (fnum <= 0) return -1;
         double f = clock / (32.0 * (fnum + 1));
@@ -138,6 +161,9 @@ public class SccMidiConverter {
     }
 
     private static int toVelocity(int vol) {
+        // Square-root curve: linear mapping (vol/15×127) placed typical game volumes (vol 2-6)
+        // at CC7=17-51, inaudible in most GM soundfonts. Sqrt maps vol=4→85, vol=6→98,
+        // preserving relative dynamics while matching the perceptual weight of the 4-bit register.
         return Sn76489MidiConverter.clamp((int) Math.round(Math.sqrt(vol / 15.0) * 127), 0, 127);
     }
 

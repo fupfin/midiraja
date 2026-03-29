@@ -20,9 +20,9 @@ public class VgmToMidiConverter {
 
     // PPQ=480 at 120 BPM → 960 ticks/second.
     // VGM timebase = 44100 Hz. Scale: tick = round(sampleOffset × 960 / 44100).
-    // One NTSC frame (735 samples) = exactly 8 ticks.
-    // Sub-frame intra-frame arpeggios (<735 samples) are absorbed into the same tick,
-    // eliminating the "notes pouring" effect from rapid register updates.
+    // One NTSC frame (735 samples) = 735 × 960 / 44100 = exactly 16 ticks.
+    // Sub-frame intra-frame register writes (arpeggios, vibrato) collapse into the same tick,
+    // eliminating the "notes pouring" effect caused by rapid NoteOn/Off pairs.
     private static final int PPQ = 480;
     private static final byte[] TEMPO_BYTES = {0x07, (byte) 0xA1, 0x20}; // 500000 µs = 120 BPM
     private static final long VGM_SAMPLE_RATE = 44100L;
@@ -72,6 +72,14 @@ public class VgmToMidiConverter {
             var ayConverter = new Ay8910MidiConverter();
             var sccConverter = new SccMidiConverter();
 
+            // chip() ids are assigned by VgmParser based on the VGM command byte:
+            //   0 = SN76489 (0x50)  → MIDI ch 0-2 (tone), 9 (noise)
+            //   1 = YM2612 port 0 (0x52) → MIDI ch 3-8 (shared with port 1)
+            //   2 = YM2612 port 1 (0x53) → MIDI ch 3-8
+            //   3 = AY-3-8910 (0xA0)   → MIDI ch 0-2 (tone), 9 (noise)
+            //   4 = K051649 SCC (0xD2) → MIDI ch 10-14
+            // AY8910 and SN76489 share MIDI channels 0-2 and 9; a given VGM file contains
+            // at most one of the two chips (MSX uses AY8910, Sega uses SN76489).
             for (var event : parsed.events()) {
                 long tick = toTick(event.sampleOffset());
                 switch (event.chip()) {

@@ -12,7 +12,29 @@ import javax.sound.midi.MidiEvent;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 
-/** Converts YM2612 FM chip events to MIDI note events on channels 3-8. */
+/**
+ * Converts YM2612 FM chip events to MIDI note events on channels 3-8.
+ *
+ * <p>The YM2612 has 6 FM channels split across two ports. VGM commands 0x52 (port 0, chip id 1)
+ * and 0x53 (port 1, chip id 2) each carry an address byte and a data byte. Port 0 addresses
+ * FM channels 0-2; port 1 addresses channels 3-5 (portOffset=3 added to the decoded channel).
+ *
+ * <p><b>Key-on register 0x28 encoding:</b> Bits 3-0 select the channel using a non-contiguous
+ * scheme: values 0/1/2 = port0 ch 0-2, values 4/5/6 = port1 ch 3-5. Values 3 and 7 are
+ * reserved (ch3 in YM2612 is used for special 3-slot mode; 7 is unused). The upper nibble
+ * (bits 7-4) carries the operator key-on flags; any non-zero value means key-on.
+ *
+ * <p><b>F-Number write order:</b> The YM2612 requires the high byte (0xA4-0xA6) to be written
+ * before the low byte (0xA0-0xA2) for the frequency to take effect on the chip. The converter
+ * mirrors this by storing both bytes but only computing the note at key-on time, so ordering
+ * does not affect the MIDI output.
+ *
+ * <p><b>Dynamic Program Change:</b> FM timbre is determined by operator parameters (TL, AR,
+ * DR, etc.) that are not captured in MIDI. Instead, the algorithm+feedback register (0xB0)
+ * is used to approximate the tonal character. The Program Change is deferred to key-on time
+ * (not emitted on every 0xB0 write) because the complete patch is often written just before
+ * the first note and a premature Program Change on an otherwise-silent channel wastes events.
+ */
 public class Ym2612MidiConverter {
 
     private static final int DEFAULT_VELOCITY = 100;
@@ -46,6 +68,8 @@ public class Ym2612MidiConverter {
     }
 
     private void handleKeyOn(int data, long tick, Track[] tracks, long clock) {
+        // Channel select uses values 0-2 (port 0) and 4-6 (port 1); 3 and 7 are invalid.
+        // Subtracting 1 from port1 values maps them to the flat 0-5 channel array.
         int chSelect = data & 0x07;
         int ch = switch (chSelect) {
             case 0, 1, 2 -> chSelect;       // port0 ch 0-2

@@ -12,7 +12,30 @@ import javax.sound.midi.MidiEvent;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 
-/** Converts SN76489 PSG chip events to MIDI note events on channels 0-2 and 9. */
+/**
+ * Converts SN76489 PSG chip events to MIDI note events on channels 0-2 and 9.
+ *
+ * <p>The SN76489 has 3 tone generators and 1 noise generator. <b>Volume encoding is inverted:</b>
+ * 0=maximum, 15=silent. VGM command 0x50 delivers a single byte with a two-pass latch/data
+ * encoding:
+ * <ul>
+ *   <li>Latch byte (bit7=1): selects channel (bits 6-5) and type (bit4: 0=tone, 1=volume);
+ *       carries low 4 bits of tone period or full 4-bit volume
+ *   <li>Data byte (bit7=0): carries high 6 bits of the latched channel's 10-bit tone period;
+ *       ignored for volume writes
+ * </ul>
+ *
+ * <p>Frequency formula: {@code f = clock / (32 × N)} where N is the 10-bit tone counter.
+ *
+ * <p><b>Noise channel → GM percussion ch 9:</b> The SN76489 noise channel (chip channel 3)
+ * maps to MIDI channel 9 (GM drums), not channel 3. The physical chip channel index and the
+ * MIDI channel are unrelated; {@code midiCh()} performs the remapping. Note 38 (snare) is
+ * used as a fixed mapping for the noise output.
+ *
+ * <p><b>Volume changes use CC7, not re-trigger:</b> When volume changes while a note is
+ * already playing, CC7 is sent rather than NoteOff+NoteOn. Re-triggering on every volume
+ * step would produce audible clicks at each attack transient.
+ */
 public class Sn76489MidiConverter {
 
     private static final int NOISE_NOTE = 38; // GM percussion snare
@@ -114,6 +137,10 @@ public class Sn76489MidiConverter {
     }
 
     private static int toVelocity(int vol) {
+        // SN76489 volume is inverted: 0=loudest, 15=silent. The (15-vol) term normalises
+        // it to a 0-15 scale where 15=loudest before mapping to MIDI CC7 range.
+        // Linear mapping is acceptable here because Sega games typically use full-volume
+        // (vol=0) or silence (vol=15), with few intermediate steps.
         return clamp((int) Math.round((15 - vol) / 15.0 * 127), 0, 127);
     }
 

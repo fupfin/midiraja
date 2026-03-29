@@ -20,14 +20,37 @@ import javax.sound.midi.Track;
  *   <li>R0/R1: Channel A 12-bit tone period (fine/coarse)
  *   <li>R2/R3: Channel B 12-bit tone period
  *   <li>R4/R5: Channel C 12-bit tone period
- *   <li>R6: Noise period (5-bit) — maps to GM hi-hat or snare based on frequency
+ *   <li>R6: Noise period (5-bit) — maps to GM hi-hat based on frequency
  *   <li>R7: Mixer — bit2-0 tone disable per channel (0=enabled), bit5-3 noise disable (0=enabled)
- *   <li>R8-R10: Channel A/B/C volume (bits 3-0); bit4=1 means envelope mode (treated as max vol)
+ *   <li>R8-R10: Channel A/B/C volume (bits 3-0); bit4=1 means envelope mode
  *   <li>R11/R12: Envelope period (not mapped)
  *   <li>R13: Envelope shape — determines effective velocity for envelope-mode channels
  * </ul>
  *
  * <p>Frequency formula: {@code f = clock / (16 × N)} where N is the 12-bit tone period.
+ *
+ * <p><b>Fine + coarse writes both trigger pitch retrigger:</b> MSX games implementing
+ * glissandi (pitch slides) typically update only the fine (low-byte) period register per
+ * frame, keeping the coarse byte unchanged. An implementation that watches only the coarse
+ * byte for pitch changes would miss the entire glissando — the melody would be completely
+ * absent from the MIDI output. Both R0/R2/R4 (fine) and R1/R3/R5 (coarse) writes therefore
+ * trigger a retrigger check whenever the note changes.
+ *
+ * <p><b>Noise → hi-hat only:</b> The AY noise generator is an LFSR producing electrical
+ * white noise with no drum body, snare crack, or tonal content. GM snare (38) has prominent
+ * low-frequency impact that does not exist in the original signal, so all noise periods
+ * map to hi-hat variants (42=closed, 46=open) based on R6 frequency.
+ *
+ * <p><b>Envelope mode approximation:</b> The AY-3-8910 envelope generator (R13) modulates
+ * amplitude over time. MIDI has no equivalent; the shape is approximated by a fixed CC7
+ * value representing the average or peak amplitude of the envelope contour (see
+ * {@link #envelopeEffectiveVol()}).
+ *
+ * <p><b>Volume → CC7 via square-root curve:</b> Linear mapping ({@code vol/15×127}) places
+ * typical game volumes (vol 4-6) at CC7=34-51 — inaudible in most GM soundfonts. The 4-bit
+ * volume register behaves perceptually closer to a logarithmic scale, so
+ * {@code sqrt(vol/15)×127} gives more faithful audibility at mid-range values while
+ * preserving relative dynamics.
  */
 public class Ay8910MidiConverter {
 
@@ -43,10 +66,20 @@ public class Ay8910MidiConverter {
     private int noiseActiveNote = -1;
 
     public void convert(VgmEvent event, Track[] tracks, long clock, long tick) {
+        // VGM 0xA0 command delivers 2 bytes: register index and value.
+        // Mask to 0x0F: the AY has 14 addressable registers (0x00-0x0D);
+        // the upper nibble of the register byte is unused.
         int reg = event.rawData()[0] & 0x0F;
         int val = event.rawData()[1] & 0xFF;
 
         switch (reg) {
+            // Period registers come in fine/coarse pairs. Tone period N is 12-bit:
+            //   fine  (R0/R2/R4): low  8 bits — written alone for small pitch steps
+            //   coarse(R1/R3/R5): high 4 bits — only bits 3-0 used
+            // Both fine and coarse writes call handleTone() because MSX games that implement
+            // glissandi (e.g. arpeggios, vibrato) often update only the fine byte per frame.
+            // Before this was fixed, watching only the coarse byte caused entire melody lines
+            // to be absent from the MIDI output.
             case 0 -> { period[0] = (period[0] & 0xF00) | val;
                         handleTone(0, tick, tracks, clock); }
             case 1 -> { period[0] = (period[0] & 0x0FF) | ((val & 0x0F) << 8);
@@ -70,6 +103,10 @@ public class Ay8910MidiConverter {
     }
 
     private void handleMixer(int val, long tick, Track[] tracks, long clock) {
+        // R7 uses inverted-enable logic: bit=0 means enabled, bit=1 means disabled.
+        // We compare old and new tone-enable states to fire NoteOff/NoteOn only on
+        // transitions, avoiding spurious note events when the noise bits change while
+        // a tone channel is already playing.
         for (int ch = 0; ch < 3; ch++) {
             boolean newTone = (val & (1 << ch)) == 0;
             boolean wasTone = toneEn[ch];
@@ -86,6 +123,9 @@ public class Ay8910MidiConverter {
     }
 
     private void handleVolume(int ch, int val, long tick, Track[] tracks, long clock) {
+        // bit4=1 means the channel routes through the envelope generator (R13) instead
+        // of a static 4-bit volume. The envelope shape maps to an approximated effective
+        // volume because MIDI has no time-varying amplitude envelope.
         boolean envelope = (val & 0x10) != 0;
         int newVol = envelope ? envelopeEffectiveVol() : (val & 0x0F);
         int oldVol = volume[ch];
@@ -99,13 +139,16 @@ public class Ay8910MidiConverter {
         } else if (!wasPlaying) {
             noteOn(ch, tick, tracks, clock);
         } else {
-            // Volume envelope change while note is playing
+            // Volume envelope change while note is playing: send CC7 without re-triggering.
+            // Re-triggering on every envelope step causes audible attack clicks.
             addNote(tracks[ch], ShortMessage.CONTROL_CHANGE, ch, 7, toVelocity(newVol), tick);
         }
         updateNoise(tick, tracks);
     }
 
     private void handleTone(int ch, long tick, Track[] tracks, long clock) {
+        // Only check for pitch change when a note is actively sounding.
+        // Volume=0 or tone disabled means there is nothing to retrigger.
         if (volume[ch] == 0 || !toneEn[ch] || activeNote[ch] < 0) return;
         int newNote = ay8910Note(clock, period[ch]);
         if (newNote >= 0 && newNote != activeNote[ch]) {
@@ -117,6 +160,8 @@ public class Ay8910MidiConverter {
     private void noteOn(int ch, long tick, Track[] tracks, long clock) {
         int note = ay8910Note(clock, period[ch]);
         if (note < 0) return;
+        // CC7 before NoteOn: ensures channel volume is set correctly regardless of any
+        // residual CC7 value left from a previous note or Program Change reset.
         addNote(tracks[ch], ShortMessage.CONTROL_CHANGE, ch, 7, toVelocity(volume[ch]), tick);
         addNote(tracks[ch], ShortMessage.NOTE_ON, ch, note, 127, tick);
         activeNote[ch] = note;
@@ -130,6 +175,10 @@ public class Ay8910MidiConverter {
     }
 
     private void updateNoise(long tick, Track[] tracks) {
+        // Noise is a single mono source shared across all three channels via the mixer.
+        // Determine the loudest noise-enabled channel to use as the output velocity.
+        // One MIDI note-on on ch 9 represents the combined noise output; which physical
+        // channel drives the noise generator is not musically meaningful.
         int maxVol = 0;
         for (int ch = 0; ch < 3; ch++) {
             if (noiseEn[ch] && volume[ch] > maxVol) maxVol = volume[ch];
@@ -193,6 +242,9 @@ public class Ay8910MidiConverter {
     }
 
     private static int toVelocity(int vol) {
+        // Square-root curve: linear mapping (vol/15×127) placed typical game volumes (vol 4-6)
+        // at CC7=34-51, inaudible in most GM soundfonts. Sqrt maps vol=4→85, vol=6→98,
+        // preserving relative dynamics while matching the perceptual loudness of the 4-bit register.
         return Sn76489MidiConverter.clamp((int) Math.round(Math.sqrt(vol / 15.0) * 127), 0, 127);
     }
 
