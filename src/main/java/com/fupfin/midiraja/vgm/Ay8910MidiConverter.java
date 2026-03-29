@@ -241,13 +241,19 @@ public class Ay8910MidiConverter {
                 (int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
     }
 
+    // Square Lead (prog 80) renders ~4.7 dB louder than Rock Organ (prog 18) at the same CC7
+    // in FluidR3, measured across 25 MSX PSG+SCC tracks (Nemesis 2, TwinBee).
+    // MSX games use AY8910 and SCC in equal melodic roles, so the soundfont level difference
+    // must be corrected. Genesis SN76489 (Sn76489MidiConverter) is intentionally ~10 dB below
+    // YM2612 by hardware design and does NOT apply this gain.
+    private static final double PSG_CC7_GAIN = 0.580; // ≈ −4.7 dB
+
     private static int toVelocity(int vol) {
         // Square-root curve: linear mapping (vol/15×127) placed typical game volumes (vol 4-6)
         // at CC7=34-51, inaudible in most GM soundfonts. Sqrt maps vol=4→85, vol=6→98,
         // preserving relative dynamics while matching the perceptual loudness of the 4-bit register.
-        // PSG_CC7_GAIN applied to balance AY8910 (PSG) against SCC — see Sn76489MidiConverter.
         int cc7 = Sn76489MidiConverter.clamp((int) Math.round(Math.sqrt(vol / 15.0) * 127), 0, 127);
-        return Sn76489MidiConverter.clamp((int) Math.round(cc7 * Sn76489MidiConverter.PSG_CC7_GAIN), 0, 127);
+        return Sn76489MidiConverter.clamp((int) Math.round(cc7 * PSG_CC7_GAIN), 0, 127);
     }
 
     private static void addNote(Track track, int cmd, int ch, int note, int vel, long tick) {

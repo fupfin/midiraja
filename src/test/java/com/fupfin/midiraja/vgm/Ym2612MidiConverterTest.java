@@ -66,7 +66,7 @@ class Ym2612MidiConverterTest {
         // MIDI ch 3 (YM2612 ch0 + offset 3)
         var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc, "Program Change must be emitted for algorithm 7");
-        assertEquals(16, pc.getData1(), "Algorithm 7 → GM 16 (Hammond Organ)");
+        assertEquals(62, pc.getData1(), "Algorithm 7 → GM 62 (Synth Brass 1) — fully additive, avoids church organ character");
     }
 
     @Test

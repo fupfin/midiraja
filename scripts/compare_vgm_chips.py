@@ -98,6 +98,8 @@ def main() -> None:
     parser.add_argument("vgm",  help="VGM/VGZ file to analyse")
     parser.add_argument("--sf3", default=DEFAULT_SF3,
                         help=f"SoundFont path (default: {DEFAULT_SF3})")
+    parser.add_argument("--mode", choices=["msx", "genesis"], default="msx",
+                        help="msx: compare PSG vs SCC (default); genesis: compare PSG(SN76489) vs FM(YM2612)")
     parser.add_argument("--build", action="store_true",
                         help="Run ./gradlew installDist before analysis")
     args = parser.parse_args()
@@ -114,75 +116,75 @@ def main() -> None:
     if not os.path.exists(MIDRA_BIN):
         sys.exit(f"ERROR: {MIDRA_BIN} not found. Run with --build or run ./gradlew installDist first.")
 
+    # chip_a = louder reference group name, mute_b = what to mute to isolate chip_a
+    if args.mode == "genesis":
+        chip_a_name, chip_b_name = "PSG(SN76489)", "FM(YM2612)"
+        mute_for_a, mute_for_b  = "fm", "psg"
+    else:
+        chip_a_name, chip_b_name = "PSG", "SCC"
+        mute_for_a, mute_for_b  = "scc", "psg"
+
     print(f"VGM:   {args.vgm}")
     print(f"SF3:   {args.sf3}")
+    print(f"Mode:  {args.mode}  ({chip_a_name} vs {chip_b_name})")
     print()
 
     with tempfile.TemporaryDirectory() as tmp:
-        psg_mid = os.path.join(tmp, "psg_only.mid")
-        scc_mid = os.path.join(tmp, "scc_only.mid")
-        psg_wav = os.path.join(tmp, "psg_only.wav")
-        scc_wav = os.path.join(tmp, "scc_only.wav")
+        a_mid = os.path.join(tmp, "chip_a.mid")
+        b_mid = os.path.join(tmp, "chip_b.mid")
+        a_wav = os.path.join(tmp, "chip_a.wav")
+        b_wav = os.path.join(tmp, "chip_b.wav")
 
-        print("Exporting MIDI (muting SCC → PSG-only)…")
-        export_midi(args.vgm, psg_mid, "scc")
+        print(f"Exporting MIDI (muting {chip_b_name} → {chip_a_name}-only)…")
+        export_midi(args.vgm, a_mid, mute_for_a)
 
-        print("Exporting MIDI (muting PSG → SCC-only)…")
-        export_midi(args.vgm, scc_mid, "psg")
+        print(f"Exporting MIDI (muting {chip_a_name} → {chip_b_name}-only)…")
+        export_midi(args.vgm, b_mid, mute_for_b)
 
-        print("Rendering PSG-only WAV via fluidsynth…")
-        render_wav(psg_mid, psg_wav, args.sf3)
+        print(f"Rendering {chip_a_name}-only WAV via fluidsynth…")
+        render_wav(a_mid, a_wav, args.sf3)
 
-        print("Rendering SCC-only WAV via fluidsynth…")
-        render_wav(scc_mid, scc_wav, args.sf3)
+        print(f"Rendering {chip_b_name}-only WAV via fluidsynth…")
+        render_wav(b_mid, b_wav, args.sf3)
 
-        psg_sig, sr = load_wav_mono(psg_wav)
-        scc_sig, _  = load_wav_mono(scc_wav)
+        sig_a, sr = load_wav_mono(a_wav)
+        sig_b, _  = load_wav_mono(b_wav)
 
-    psg_rms = rms_dbfs(psg_sig)
-    scc_rms = rms_dbfs(scc_sig)
-    gap     = psg_rms - scc_rms
+    rms_a = rms_dbfs(sig_a)
+    rms_b = rms_dbfs(sig_b)
+    gap   = rms_a - rms_b
 
-    psg_centroid = spectral_centroid(psg_sig, sr)
-    scc_centroid = spectral_centroid(scc_sig, sr)
+    cent_a = spectral_centroid(sig_a, sr)
+    cent_b = spectral_centroid(sig_b, sr)
 
-    # Band RMS breakdown
     bands = [
-        ("Low  (  80–300 Hz)", 80,   300),
-        ("Mid  ( 300–2k  Hz)", 300,  2000),
+        ("Low  (  80–300 Hz)",  80,   300),
+        ("Mid  ( 300–2k  Hz)",  300,  2000),
         ("High (  2k–8k  Hz)", 2000, 8000),
     ]
 
+    W = max(len(chip_a_name), len(chip_b_name), 10)
+    diff_label = f"{chip_a_name}−{chip_b_name}"
     print()
-    print(f"{'':30}  {'PSG':>10}  {'SCC':>10}  {'PSG−SCC':>10}")
-    print("─" * 68)
-    print(f"{'RMS level':30}  {psg_rms:+9.2f}  {scc_rms:+9.2f}  {gap:+9.2f} dB")
-    print(f"{'Spectral centroid':30}  {psg_centroid:9.0f}  {scc_centroid:9.0f}  Hz")
+    print(f"{'':30}  {chip_a_name:>{W}}  {chip_b_name:>{W}}  {diff_label:>12}")
+    print("─" * (30 + W*2 + 20))
+    print(f"{'RMS level':30}  {rms_a:+{W}.2f}  {rms_b:+{W}.2f}  {gap:+11.2f} dB")
+    print(f"{'Spectral centroid':30}  {cent_a:{W}.0f}  {cent_b:{W}.0f}  Hz")
     for label, lo, hi in bands:
-        pb = band_rms(psg_sig, sr, lo, hi)
-        sb = band_rms(scc_sig, sr, lo, hi)
-        print(f"  {label:28}  {pb:+9.2f}  {sb:+9.2f}  {pb-sb:+9.2f} dB")
+        ba = band_rms(sig_a, sr, lo, hi)
+        bb = band_rms(sig_b, sr, lo, hi)
+        print(f"  {label:28}  {ba:+{W}.2f}  {bb:+{W}.2f}  {ba-bb:+11.2f} dB")
 
     print()
-    # Suggested correction
-    if gap > 0:
-        factor    = 10 ** (-gap / 20.0)
-        psg_cc7   = min(127, round(127 * factor))
-        print(f"PSG is {gap:.1f} dB louder than SCC on this track.")
-        print(f"  → To match levels, scale PSG CC7 by {factor:.3f}")
-        print(f"     (max CC7 {psg_cc7} instead of 127)")
-        print(f"  → Set PSG_CC7_GAIN = {factor:.3f} in Sn76489MidiConverter")
-        print()
-        if abs(gap) < 1.0:
-            print("Difference is < 1 dB — no correction needed.")
-    elif gap < -1.0:
-        factor  = 10 ** (gap / 20.0)
-        scc_cc7 = min(127, round(127 * factor))
-        print(f"SCC is {abs(gap):.1f} dB louder than PSG on this track.")
-        print(f"  → To match levels, scale SCC CC7 by {factor:.3f}")
-        print(f"     (max CC7 {scc_cc7} instead of 127)")
+    louder, quieter = (chip_a_name, chip_b_name) if gap > 0 else (chip_b_name, chip_a_name)
+    abs_gap = abs(gap)
+    if abs_gap < 1.0:
+        print(f"{chip_a_name} and {chip_b_name} differ by only {abs_gap:.1f} dB — levels are balanced.")
     else:
-        print(f"PSG and SCC differ by only {abs(gap):.1f} dB — levels are balanced.")
+        factor  = 10 ** (-abs_gap / 20.0)
+        max_cc7 = min(127, round(127 * factor))
+        print(f"{louder} is {abs_gap:.1f} dB louder than {quieter}.")
+        print(f"  → Scale {louder} CC7 by {factor:.3f}  (max CC7 = {max_cc7})")
 
 
 if __name__ == "__main__":

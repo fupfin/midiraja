@@ -37,6 +37,16 @@ import javax.sound.midi.Track;
  */
 public class Ym2612MidiConverter {
 
+    private static final int PROGRAM_SAWTOOTH_LEAD    = 81;
+    private static final int PROGRAM_SQUARE_LEAD      = 80;
+    private static final int PROGRAM_CALLIOPE_LEAD    = 82; // whistle-like, cleaner than sawtooth for single-carrier leads
+    private static final int PROGRAM_ELECTRIC_BASS    = 33;
+    private static final int PROGRAM_SYNTH_BASS       = 38;
+    private static final int PROGRAM_OVERDRIVEN_GUITAR = 29;
+    private static final int PROGRAM_SYNTH_BRASS1     = 62; // replaces Drawbar Organ (alg 7): brighter, game-appropriate
+    private static final int PROGRAM_SYNTH_STRINGS1   = 50; // replaces Rock Organ (alg 6): ensemble pad without organ character
+    private static final int PROGRAM_SYNTH_PAD2       = 89; // warm pad for alg 5 (1 mod → 3 carriers)
+
     private static final int DEFAULT_VELOCITY = 100;
     private static final int MIDI_CH_OFFSET = 3;
 
@@ -116,29 +126,34 @@ public class Ym2612MidiConverter {
      *   <li>0-3: Serial/complex FM — deep modulation, bass/lead timbres
      *   <li>4: Two independent 2-op FM pairs — classic Genesis lead sound
      *   <li>5: One modulator driving three carriers — bright pad/brass
-     *   <li>6: Near-additive — organ-like
-     *   <li>7: Fully additive (4 carriers) — bright organ/bells
+     *   <li>6: Near-additive (3 carriers + 1 shared modulator) — ensemble/string character
+     *   <li>7: Fully additive (4 independent carriers) — bright synth brass/bells
      * </ul>
-     * High feedback (≥6) adds strong odd harmonics, producing a square-wave character.
+     * High feedback (≥6) on operator 1 adds strong odd harmonics, producing a square-wave
+     * character regardless of algorithm.
+     *
+     * <p>Organ instruments (Drawbar, Church, Rock) were avoided: they introduce a thick,
+     * ecclesiastical timbre that clashes with fast game music. Synth Brass and Synth Strings
+     * better approximate the crisp, slightly harsh character of real FM output in FluidR3.
      */
     static int selectProgram(int alg, int fb) {
         if (fb >= 6) {
             return switch (alg) {
-                case 0, 1, 2, 3 -> 29; // Overdriven Guitar — buzzy serial FM
-                case 4           -> 80; // Square Lead — two buzzy pairs
-                default          -> 19; // Rock Organ — additive + harmonics
+                case 0, 1, 2, 3 -> PROGRAM_OVERDRIVEN_GUITAR; // buzzy serial FM → Overdriven Guitar
+                case 4           -> PROGRAM_SQUARE_LEAD;       // two buzzy 2-op pairs → Square Lead
+                default          -> PROGRAM_SYNTH_BRASS1;      // additive + harmonics → Synth Brass 1
             };
         }
         return switch (alg) {
-            case 0 -> 33; // Electric Bass (Finger) — deep series FM
-            case 1 -> 38; // Synth Bass 1
-            case 2 -> 81; // Sawtooth Lead
-            case 3 -> 81; // Sawtooth Lead
-            case 4 -> 81; // Sawtooth Lead — two 2-op FM pairs (most common Genesis lead)
-            case 5 -> 89; // Pad 2 (Warm) — one modulator, three carriers
-            case 6 -> 19; // Rock Organ
-            case 7 -> 16; // Hammond Organ — fully additive
-            default -> 81;
+            case 0 -> PROGRAM_ELECTRIC_BASS;    // deepest series FM → Electric Bass (Finger)
+            case 1 -> PROGRAM_SYNTH_BASS;       // series FM, brighter → Synth Bass 1
+            case 2 -> PROGRAM_SAWTOOTH_LEAD;    // 2+1+1 chain → Sawtooth Lead
+            case 3 -> PROGRAM_SAWTOOTH_LEAD;    // 2+2 parallel → Sawtooth Lead
+            case 4 -> PROGRAM_CALLIOPE_LEAD;    // two 2-op pairs — cleaner lead tone than sawtooth
+            case 5 -> PROGRAM_SYNTH_PAD2;       // 1 mod → 3 carriers — warm pad
+            case 6 -> PROGRAM_SYNTH_STRINGS1;   // near-additive — string ensemble avoids organ character
+            case 7 -> PROGRAM_SYNTH_BRASS1;     // fully additive — bright synth brass, not church organ
+            default -> PROGRAM_SAWTOOTH_LEAD;
         };
     }
 

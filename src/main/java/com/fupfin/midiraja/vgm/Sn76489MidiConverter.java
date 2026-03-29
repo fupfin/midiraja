@@ -136,19 +136,17 @@ public class Sn76489MidiConverter {
         return clamp((int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
     }
 
-    // PSG (Square Lead, prog 80) renders louder than SCC (Rock Organ, prog 18) in FluidR3.
-    // Measured across 25 PSG+SCC tracks (Nemesis 2 / TwinBee MSX): average RMS gap = 4.7 dB.
-    // Applying −4.7 dB to PSG CC7 balances the two chip groups on average.
-    // scripts/compare_vgm_chips.py can re-measure this if the GM instrument assignment changes.
-    static final double PSG_CC7_GAIN = 0.580; // ≈ −4.7 dB
-
     private static int toVelocity(int vol) {
         // SN76489 volume is inverted: 0=loudest, 15=silent. The (15-vol) term normalises
         // it to a 0-15 scale where 15=loudest before mapping to MIDI CC7 range.
         // Linear mapping is acceptable here because Sega games typically use full-volume
         // (vol=0) or silence (vol=15), with few intermediate steps.
-        int cc7 = clamp((int) Math.round((15 - vol) / 15.0 * 127), 0, 127);
-        return clamp((int) Math.round(cc7 * PSG_CC7_GAIN), 0, 127);
+        //
+        // No cross-chip gain correction here: in Genesis, SN76489 is intentionally mixed
+        // ~10 dB below YM2612 by hardware design (secondary/percussion role). Measured
+        // across 75 Genesis tracks (OutRunners, SoR2, Sonic 3): FM is 9.8 dB louder on
+        // average — matching the expected hardware mixing ratio.
+        return clamp((int) Math.round((15 - vol) / 15.0 * 127), 0, 127);
     }
 
     static int clamp(int value, int min, int max) {
