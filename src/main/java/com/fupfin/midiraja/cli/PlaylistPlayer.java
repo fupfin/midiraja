@@ -29,6 +29,8 @@ import com.fupfin.midiraja.midi.MidiUtils;
 import com.fupfin.midiraja.ui.DashboardUI;
 import com.fupfin.midiraja.ui.PlaybackEventListener;
 import com.fupfin.midiraja.ui.PlaybackUI;
+import java.util.Set;
+
 import com.fupfin.midiraja.vgm.VgmFileDetector;
 import com.fupfin.midiraja.vgm.VgmParser;
 import com.fupfin.midiraja.vgm.VgmToMidiConverter;
@@ -47,6 +49,7 @@ class PlaylistPlayer {
     private final boolean exitOnNavBoundary;
     private final PrintStream err;
     private final MediaKeyIntegration mediaKeys;
+    private final Set<Integer> mutedChips;
 
     PlaylistPlayer(PlaybackEngineFactory engineFactory,
                    @Nullable FxOptions fxOptions,
@@ -54,7 +57,8 @@ class PlaylistPlayer {
                    boolean suppressHoldAtEnd,
                    boolean exitOnNavBoundary,
                    PrintStream err,
-                   MediaKeyIntegration mediaKeys)
+                   MediaKeyIntegration mediaKeys,
+                   Set<Integer> mutedChips)
     {
         this.engineFactory = engineFactory;
         this.fxOptions = fxOptions;
@@ -63,6 +67,7 @@ class PlaylistPlayer {
         this.exitOnNavBoundary = exitOnNavBoundary;
         this.err = err;
         this.mediaKeys = mediaKeys;
+        this.mutedChips = mutedChips;
     }
 
     /**
@@ -93,7 +98,7 @@ class PlaylistPlayer {
             try
             {
                 var sequence = VgmFileDetector.isVgmFile(file)
-                        ? new VgmToMidiConverter().convert(new VgmParser().parse(file))
+                        ? new VgmToMidiConverter(mutedChips).convert(new VgmParser().parse(file))
                         : MidiUtils.loadSequence(file);
                 logVerbose(common.isVerbose(),
                         String.format("Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d",

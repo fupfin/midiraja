@@ -11,9 +11,13 @@ import static java.util.Objects.requireNonNull;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import javax.sound.midi.MidiSystem;
 
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -30,6 +34,9 @@ import com.fupfin.midiraja.midi.FFMTsfNativeBridge;
 import com.fupfin.midiraja.midi.MidiProviderFactory;
 import com.fupfin.midiraja.midi.TsfSynthProvider;
 import com.fupfin.midiraja.cli.FmSynthOptions;
+import com.fupfin.midiraja.vgm.VgmFileDetector;
+import com.fupfin.midiraja.vgm.VgmParser;
+import com.fupfin.midiraja.vgm.VgmToMidiConverter;
 
 /**
  * Plays VGM chiptune files (SN76489 / YM2612) by converting them on the fly to MIDI sequences.
@@ -54,6 +61,17 @@ public class VgmCommand implements Callable<Integer>
             + "If omitted, the built-in SoundFont synthesizer is used.")
     private Optional<String> port = Optional.empty();
 
+    @Option(names = {"--mute"}, paramLabel = "CHIPS",
+            description = "Comma-separated list of chips to silence: psg, fm, scc "
+                    + "(e.g. --mute scc or --mute psg,fm). "
+                    + "'psg' silences SN76489 and AY-3-8910; 'fm' silences YM2612; "
+                    + "'scc' silences K051649 SCC.")
+    private Optional<String> muteOption = Optional.empty();
+
+    @Option(names = {"--export-midi"}, paramLabel = "FILE",
+            description = "Convert the VGM file to MIDI and write to FILE without playing.")
+    private Optional<File> exportMidi = Optional.empty();
+
     @Mixin
     private final FxOptions fxOptions = new FxOptions();
 
@@ -65,11 +83,28 @@ public class VgmCommand implements Callable<Integer>
     {
         AppLogger.configure(common.logLevel.orElse(null));
         var p = requireNonNull(parent);
+        var mutedChips = parseMutedChips(muteOption, p.getErr());
+
+        // --export-midi: convert the first VGM file to MIDI and write to disk, no playback.
+        if (exportMidi.isPresent())
+        {
+            var input = files.isEmpty() ? null : files.get(0);
+            if (input == null || !VgmFileDetector.isVgmFile(input))
+            {
+                p.getErr().println("Error: --export-midi requires a VGM/VGZ file as input.");
+                return 1;
+            }
+            var sequence = new VgmToMidiConverter(mutedChips).convert(new VgmParser().parse(input));
+            MidiSystem.write(sequence, 1, exportMidi.get());
+            p.getOut().println("Exported: " + exportMidi.get());
+            return 0;
+        }
 
         if (port.isPresent())
         {
             var provider = MidiProviderFactory.createProvider();
             var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+            runner.setMutedChips(mutedChips);
             return runner.run(provider, false, port, Optional.empty(), files, common, originalArgs());
         }
 
@@ -84,7 +119,28 @@ public class VgmCommand implements Callable<Integer>
         var provider = new TsfSynthProvider(new FFMTsfNativeBridge(), pipeline, common.retroMode.orElse(null));
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
         runner.setFxOptions(fxOptions);
+        runner.setMutedChips(mutedChips);
         return runner.run(provider, true, Optional.empty(), Optional.of(sfPath), files, common, originalArgs());
+    }
+
+    /** Parses "--mute psg,scc" into a set of chip IDs. Unknown names are warned and ignored. */
+    private static Set<Integer> parseMutedChips(Optional<String> muteOption, java.io.PrintStream err)
+    {
+        if (muteOption.isEmpty() || muteOption.get().isBlank()) return Set.of();
+        var ids = new HashSet<Integer>();
+        for (var token : muteOption.get().split(",", -1))
+        {
+            switch (token.trim().toLowerCase(Locale.ROOT))
+            {
+                case "psg" -> { ids.add(VgmToMidiConverter.CHIP_SN76489);
+                                ids.add(VgmToMidiConverter.CHIP_AY8910); }
+                case "fm"  -> { ids.add(VgmToMidiConverter.CHIP_YM2612_PORT0);
+                                ids.add(VgmToMidiConverter.CHIP_YM2612_PORT1); }
+                case "scc" ->   ids.add(VgmToMidiConverter.CHIP_SCC);
+                default    ->   err.println("Warning: unknown --mute chip name '" + token.trim() + "' (valid: psg, fm, scc)");
+            }
+        }
+        return Set.copyOf(ids);
     }
 
     private List<String> originalArgs()

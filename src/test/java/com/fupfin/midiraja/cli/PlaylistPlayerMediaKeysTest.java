@@ -62,7 +62,7 @@ class PlaylistPlayerMediaKeysTest
                 (s, p, ctx, pipeline, shutdown, speed, start) -> new MinimalEngine(ctx, pipeline);
 
         var player = new PlaylistPlayer(factory, null, false, true, true,
-                System.err, testKeys);
+                System.err, testKeys, java.util.Set.of());
 
         var mockIO = new MockTerminalIO();
         player.play(List.of(midiFile), provider,

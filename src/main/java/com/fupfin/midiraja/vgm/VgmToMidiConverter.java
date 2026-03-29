@@ -8,6 +8,7 @@
 package com.fupfin.midiraja.vgm;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiEvent;
@@ -18,6 +19,14 @@ import javax.sound.midi.Track;
 /** Orchestrates VGM-to-MIDI conversion using chip-specific converters. */
 public class VgmToMidiConverter {
 
+    // Chip IDs assigned by VgmParser based on the VGM command byte.
+    // Used as keys for mutedChips.
+    public static final int CHIP_SN76489       = 0; // 0x50 → MIDI ch 0-2 (tone), 9 (noise)
+    public static final int CHIP_YM2612_PORT0  = 1; // 0x52 → MIDI ch 3-8
+    public static final int CHIP_YM2612_PORT1  = 2; // 0x53 → MIDI ch 3-8
+    public static final int CHIP_AY8910        = 3; // 0xA0 → MIDI ch 0-2 (tone), 9 (noise)
+    public static final int CHIP_SCC           = 4; // 0xD2 → MIDI ch 10-14
+
     // PPQ=480 at 120 BPM → 960 ticks/second.
     // VGM timebase = 44100 Hz. Scale: tick = round(sampleOffset × 960 / 44100).
     // One NTSC frame (735 samples) = 735 × 960 / 44100 = exactly 16 ticks.
@@ -27,6 +36,20 @@ public class VgmToMidiConverter {
     private static final byte[] TEMPO_BYTES = {0x07, (byte) 0xA1, 0x20}; // 500000 µs = 120 BPM
     private static final long VGM_SAMPLE_RATE = 44100L;
     private static final long TICKS_PER_SECOND = 960L; // PPQ * (1_000_000 / TEMPO_µS) = 480 * 2
+
+    private final Set<Integer> mutedChips;
+
+    public VgmToMidiConverter() {
+        this(Set.of());
+    }
+
+    /**
+     * @param mutedChips chip IDs to silence; events for these chips are skipped entirely.
+     *                   Use the {@code CHIP_*} constants defined in this class.
+     */
+    public VgmToMidiConverter(Set<Integer> mutedChips) {
+        this.mutedChips = mutedChips;
+    }
 
     static long toTick(long sampleOffset) {
         return Math.round(sampleOffset * (double) TICKS_PER_SECOND / VGM_SAMPLE_RATE);
@@ -69,26 +92,21 @@ public class VgmToMidiConverter {
                 }
             }
 
-            var snConverter = new Sn76489MidiConverter();
-            var ymConverter = new Ym2612MidiConverter();
-            var ayConverter = new Ay8910MidiConverter();
+            var snConverter  = new Sn76489MidiConverter();
+            var ymConverter  = new Ym2612MidiConverter();
+            var ayConverter  = new Ay8910MidiConverter();
             var sccConverter = new SccMidiConverter();
 
-            // chip() ids are assigned by VgmParser based on the VGM command byte:
-            //   0 = SN76489 (0x50)  → MIDI ch 0-2 (tone), 9 (noise)
-            //   1 = YM2612 port 0 (0x52) → MIDI ch 3-8 (shared with port 1)
-            //   2 = YM2612 port 1 (0x53) → MIDI ch 3-8
-            //   3 = AY-3-8910 (0xA0)   → MIDI ch 0-2 (tone), 9 (noise)
-            //   4 = K051649 SCC (0xD2) → MIDI ch 10-14
             // AY8910 and SN76489 share MIDI channels 0-2 and 9; a given VGM file contains
             // at most one of the two chips (MSX uses AY8910, Sega uses SN76489).
             for (var event : parsed.events()) {
+                if (mutedChips.contains(event.chip())) continue;
                 long tick = toTick(event.sampleOffset());
                 switch (event.chip()) {
-                    case 0 -> snConverter.convert(event, tracks, parsed.sn76489Clock(), tick);
-                    case 1, 2 -> ymConverter.convert(event, tracks, parsed.ym2612Clock(), tick);
-                    case 3 -> ayConverter.convert(event, tracks, parsed.ay8910Clock(), tick);
-                    case 4 -> sccConverter.convert(event, tracks, parsed.sccClock(), tick);
+                    case CHIP_SN76489                      -> snConverter.convert(event, tracks, parsed.sn76489Clock(), tick);
+                    case CHIP_YM2612_PORT0, CHIP_YM2612_PORT1 -> ymConverter.convert(event, tracks, parsed.ym2612Clock(), tick);
+                    case CHIP_AY8910                       -> ayConverter.convert(event, tracks, parsed.ay8910Clock(), tick);
+                    case CHIP_SCC                          -> sccConverter.convert(event, tracks, parsed.sccClock(), tick);
                     default -> {} // unknown chip, skip
                 }
             }

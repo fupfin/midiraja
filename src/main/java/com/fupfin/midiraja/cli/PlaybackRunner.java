@@ -58,6 +58,7 @@ public class PlaybackRunner
     @Nullable
     private FxOptions fxOptions = null;
     private boolean includeRetroInSuffix = false;
+    private java.util.Set<Integer> mutedChips = java.util.Set.of();
     private final PlaybackEngineFactory engineFactory;
 
     public void setFxOptions(FxOptions fx) { this.fxOptions = fx; }
@@ -68,6 +69,9 @@ public class PlaybackRunner
      * Fluid, Munt, and OS ports don't process retro at all.
      */
     public void setIncludeRetroInSuffix(boolean include) { this.includeRetroInSuffix = include; }
+
+    /** Chip IDs to silence during VGM conversion. See {@link VgmToMidiConverter#CHIP_*} constants. */
+    public void setMutedChips(java.util.Set<Integer> chips) { this.mutedChips = chips; }
 
     public PlaybackStatus getLastRawStatus()
     {
@@ -216,7 +220,7 @@ public class PlaybackRunner
             try
             {
                 var player = new PlaylistPlayer(engineFactory, fxOptions, includeRetroInSuffix,
-                        suppressHoldAtEnd, exitOnNavBoundary, err, mediaKeys);
+                        suppressHoldAtEnd, exitOnNavBoundary, err, mediaKeys, mutedChips);
                 lastRawStatus = player.play(playlist, provider, ports.get(portIndex), common,
                         ui, activeIO, currentStartTime, originalArgs);
             }
