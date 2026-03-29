@@ -136,12 +136,18 @@ public class Sn76489MidiConverter {
         return clamp((int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
     }
 
+    // FluidR3 Square Lead (prog 80) renders 6.2 dB louder than Rock Organ (prog 18) at CC7=127.
+    // Scale PSG CC7 by 0.490 so all chip channels reach the same perceived loudness.
+    // Measured with scripts/measure_instrument_levels.py on FluidR3_GM.sf3.
+    static final double PSG_CC7_GAIN = 0.490;
+
     private static int toVelocity(int vol) {
         // SN76489 volume is inverted: 0=loudest, 15=silent. The (15-vol) term normalises
         // it to a 0-15 scale where 15=loudest before mapping to MIDI CC7 range.
         // Linear mapping is acceptable here because Sega games typically use full-volume
         // (vol=0) or silence (vol=15), with few intermediate steps.
-        return clamp((int) Math.round((15 - vol) / 15.0 * 127), 0, 127);
+        int cc7 = clamp((int) Math.round((15 - vol) / 15.0 * 127), 0, 127);
+        return clamp((int) Math.round(cc7 * PSG_CC7_GAIN), 0, 127);
     }
 
     static int clamp(int value, int min, int max) {

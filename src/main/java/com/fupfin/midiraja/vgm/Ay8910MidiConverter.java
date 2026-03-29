@@ -245,7 +245,10 @@ public class Ay8910MidiConverter {
         // Square-root curve: linear mapping (vol/15×127) placed typical game volumes (vol 4-6)
         // at CC7=34-51, inaudible in most GM soundfonts. Sqrt maps vol=4→85, vol=6→98,
         // preserving relative dynamics while matching the perceptual loudness of the 4-bit register.
-        return Sn76489MidiConverter.clamp((int) Math.round(Math.sqrt(vol / 15.0) * 127), 0, 127);
+        // PSG_CC7_GAIN applied for the same reason as in Sn76489MidiConverter: Square Lead (prog 80)
+        // is 6.2 dB louder than Rock Organ (prog 18) in FluidR3 at the same CC7.
+        int cc7 = Sn76489MidiConverter.clamp((int) Math.round(Math.sqrt(vol / 15.0) * 127), 0, 127);
+        return Sn76489MidiConverter.clamp((int) Math.round(cc7 * Sn76489MidiConverter.PSG_CC7_GAIN), 0, 127);
     }
 
     private static void addNote(Track track, int cmd, int ch, int note, int vel, long tick) {
