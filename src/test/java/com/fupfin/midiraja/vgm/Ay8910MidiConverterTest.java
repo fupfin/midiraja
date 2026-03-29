@@ -135,8 +135,8 @@ class Ay8910MidiConverterTest {
 
         var noteOn = findFirst(tracks[9], ShortMessage.NOTE_ON);
         assertNotNull(noteOn, "Expected NoteOn on ch 9");
-        // toVelocity(8) = round(round(sqrt(8/15)*127) * PSG_CC7_GAIN) = round(93*0.490) = 46
-        assertEquals(46, noteOn.getData2(), "Noise velocity must reflect channel volume");
+        // toVelocity(8) = round(round(sqrt(8/15)*127) * PSG_CC7_GAIN) = round(93*0.580) = 54
+        assertEquals(54, noteOn.getData2(), "Noise velocity must reflect channel volume");
     }
 
     @Test
@@ -152,7 +152,7 @@ class Ay8910MidiConverterTest {
 
         var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
         assertNotNull(noteOn, "Envelope mode must trigger NoteOn");
-        // Default shape=0 (decay): effective vol=7 → CC7=round(round(sqrt(7/15)*127)*PSG_CC7_GAIN)=round(87*0.490)=43
+        // Default shape=0 (decay): effective vol=7 → CC7 velocity=round(sqrt(7/15)*127)=87
         ShortMessage cc7 = null;
         for (int i = 0; i < tracks[0].size(); i++) {
             if (tracks[0].get(i).getMessage() instanceof ShortMessage sm
@@ -161,8 +161,8 @@ class Ay8910MidiConverterTest {
             }
         }
         assertNotNull(cc7, "CC7 must be sent before NoteOn");
-        // toVelocity(7) = round(round(sqrt(7/15)*127) * PSG_CC7_GAIN) = round(87*0.490) = 43
-        assertEquals(43, cc7.getData2(), "Decay envelope (R13=0) → effective vol=7 → CC7=43");
+        // toVelocity(7) = round(round(sqrt(7/15)*127) * PSG_CC7_GAIN) = round(87*0.580) = 50
+        assertEquals(50, cc7.getData2(), "Decay envelope (R13=0) → effective vol=7 → CC7=50");
     }
 
     @Test
@@ -184,8 +184,8 @@ class Ay8910MidiConverterTest {
             }
         }
         assertNotNull(cc7);
-        // R13=13 → effective vol=11 → CC7=round(round(sqrt(11/15)*127)*PSG_CC7_GAIN)=round(109*0.490)=53
-        assertEquals(53, cc7.getData2(), "Sustained envelope (R13=13) → effective vol=11 → CC7=53");
+        // toVelocity(11) = round(round(sqrt(11/15)*127) * PSG_CC7_GAIN) = round(109*0.580) = 63
+        assertEquals(63, cc7.getData2(), "Sustained envelope (R13=13) → effective vol=11 → CC7=63");
     }
 
     @Test

@@ -136,10 +136,11 @@ public class Sn76489MidiConverter {
         return clamp((int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
     }
 
-    // FluidR3 Square Lead (prog 80) renders 6.2 dB louder than Rock Organ (prog 18) at CC7=127.
-    // Scale PSG CC7 by 0.490 so all chip channels reach the same perceived loudness.
-    // Measured with scripts/measure_instrument_levels.py on FluidR3_GM.sf3.
-    static final double PSG_CC7_GAIN = 0.490;
+    // PSG (Square Lead, prog 80) renders louder than SCC (Rock Organ, prog 18) in FluidR3.
+    // Measured across 25 PSG+SCC tracks (Nemesis 2 / TwinBee MSX): average RMS gap = 4.7 dB.
+    // Applying −4.7 dB to PSG CC7 balances the two chip groups on average.
+    // scripts/compare_vgm_chips.py can re-measure this if the GM instrument assignment changes.
+    static final double PSG_CC7_GAIN = 0.580; // ≈ −4.7 dB
 
     private static int toVelocity(int vol) {
         // SN76489 volume is inverted: 0=loudest, 15=silent. The (15-vol) term normalises
