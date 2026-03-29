@@ -26,12 +26,12 @@ import com.fupfin.midiraja.media.NowPlayingInfo;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.midi.MidiUtils;
-import com.fupfin.midiraja.vgm.VgmFileDetector;
-import com.fupfin.midiraja.vgm.VgmParser;
-import com.fupfin.midiraja.vgm.VgmToMidiConverter;
 import com.fupfin.midiraja.ui.DashboardUI;
 import com.fupfin.midiraja.ui.PlaybackEventListener;
 import com.fupfin.midiraja.ui.PlaybackUI;
+import com.fupfin.midiraja.vgm.VgmFileDetector;
+import com.fupfin.midiraja.vgm.VgmParser;
+import com.fupfin.midiraja.vgm.VgmToMidiConverter;
 
 /**
  * Executes a playlist of MIDI files using a given provider and port.

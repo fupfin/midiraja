@@ -7,9 +7,12 @@
 package com.fupfin.midiraja.ui;
 
 import static org.junit.jupiter.api.Assertions.*;
+
 import java.io.File;
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
+
 import com.fupfin.midiraja.engine.PlaybackState;
 import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.io.MockTerminalIO;

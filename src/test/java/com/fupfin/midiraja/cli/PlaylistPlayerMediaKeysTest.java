@@ -9,12 +9,10 @@ package com.fupfin.midiraja.cli;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
-
 import javax.sound.midi.MidiSystem;
 import javax.sound.midi.Sequence;
 

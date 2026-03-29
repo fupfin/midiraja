@@ -21,11 +21,11 @@ import org.jspecify.annotations.Nullable;
 
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.engine.MidiPlaybackEngine;
-import com.fupfin.midiraja.media.MediaKeyIntegration;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaybackEngineFactory;
 import com.fupfin.midiraja.io.JLineTerminalIO;
 import com.fupfin.midiraja.io.TerminalIO;
+import com.fupfin.midiraja.media.MediaKeyIntegration;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.midi.SoftSynthProvider;

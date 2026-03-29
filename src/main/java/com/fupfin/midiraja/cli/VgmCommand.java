@@ -26,7 +26,10 @@ import picocli.CommandLine.Spec;
 
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.io.AppLogger;
+import com.fupfin.midiraja.midi.FFMTsfNativeBridge;
 import com.fupfin.midiraja.midi.MidiProviderFactory;
+import com.fupfin.midiraja.midi.TsfSynthProvider;
+import com.fupfin.midiraja.cli.FmSynthOptions;
 
 /**
  * Plays VGM chiptune files (SN76489 / YM2612) by converting them on the fly to MIDI sequences.
@@ -47,8 +50,12 @@ public class VgmCommand implements Callable<Integer>
             description = "VGM/VGZ files, directories, or .m3u playlists to play.")
     private List<File> files = new ArrayList<>();
 
-    @Option(names = {"-p", "--port"}, description = "MIDI output port index or partial name.")
+    @Option(names = {"-p", "--port"}, description = "MIDI output port index or partial name. "
+            + "If omitted, the built-in SoundFont synthesizer is used.")
     private Optional<String> port = Optional.empty();
+
+    @Mixin
+    private final FxOptions fxOptions = new FxOptions();
 
     @Mixin
     private final CommonOptions common = new CommonOptions();
@@ -59,9 +66,25 @@ public class VgmCommand implements Callable<Integer>
         AppLogger.configure(common.logLevel.orElse(null));
         var p = requireNonNull(parent);
 
-        var provider = MidiProviderFactory.createProvider();
+        if (port.isPresent())
+        {
+            var provider = MidiProviderFactory.createProvider();
+            var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+            return runner.run(provider, false, port, Optional.empty(), files, common, originalArgs());
+        }
+
+        String sfPath = TsfCommand.findBundledSf3();
+        if (sfPath == null)
+        {
+            p.getErr().println("Error: No SoundFont file found. Use -p to select a MIDI port, "
+                    + "or install midra to get the bundled FluidR3 GM SF3.");
+            return 1;
+        }
+        var pipeline = FmSynthOptions.buildStereoFmPipeline(common, fxOptions);
+        var provider = new TsfSynthProvider(new FFMTsfNativeBridge(), pipeline, common.retroMode.orElse(null));
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
-        return runner.run(provider, false, port, Optional.empty(), files, common, originalArgs());
+        runner.setFxOptions(fxOptions);
+        return runner.run(provider, true, Optional.empty(), Optional.of(sfPath), files, common, originalArgs());
     }
 
     private List<String> originalArgs()

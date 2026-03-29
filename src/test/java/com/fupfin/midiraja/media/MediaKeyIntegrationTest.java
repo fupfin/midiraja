@@ -8,6 +8,7 @@
 package com.fupfin.midiraja.media;
 
 import static org.junit.jupiter.api.Assertions.*;
+
 import org.junit.jupiter.api.Test;
 
 import com.fupfin.midiraja.engine.PlaybackCommands;

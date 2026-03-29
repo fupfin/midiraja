@@ -9,9 +9,9 @@ package com.fupfin.midiraja.vgm;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.file.Path;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
