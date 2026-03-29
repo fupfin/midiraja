@@ -8,6 +8,7 @@
 package com.fupfin.midiraja.vgm;
 
 import java.util.List;
+
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -16,6 +17,10 @@ import org.jspecify.annotations.Nullable;
  * @param vgmVersion VGM format version (e.g. 0x150)
  * @param sn76489Clock SN76489 clock in Hz, 0 if chip absent
  * @param ym2612Clock YM2612 clock in Hz, 0 if chip absent
+ * @param ay8910Clock AY-3-8910 / YM2149F clock in Hz, 0 if chip absent
+ * @param sccClock K051649 (Konami SCC) clock in Hz; falls back to {@code ay8910Clock × 2} when
+ *     the header field is zero. The K051649 runs at the full MSX cartridge bus clock (= CPU clock),
+ *     while the AY8910 has an internal /2 prescaler — so SCC clock = 2 × AY8910 clock.
  * @param events chip events in chronological order
  * @param gd3Title track title from GD3 tag, null if absent
  */
@@ -23,5 +28,7 @@ public record VgmParseResult(
         int vgmVersion,
         long sn76489Clock,
         long ym2612Clock,
+        long ay8910Clock,
+        long sccClock,
         List<VgmEvent> events,
         @Nullable String gd3Title) {}

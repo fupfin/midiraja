@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
+
 import org.jspecify.annotations.Nullable;
 
 /** Parses VGM binary files into a structured {@link VgmParseResult}. */
@@ -32,12 +33,20 @@ public class VgmParser {
         int version = buf.getInt(0x08);
         long sn76489Clock = Integer.toUnsignedLong(buf.getInt(0x0C));
         long ym2612Clock = (data.length > 0x30) ? Integer.toUnsignedLong(buf.getInt(0x2C)) : 0;
+        long ay8910Clock = (data.length > 0x78) ? Integer.toUnsignedLong(buf.getInt(0x74)) : 0;
+        long k051649Clock = (data.length > 0xB0) ? Integer.toUnsignedLong(buf.getInt(0xAC)) : 0;
+        // K051649 in Konami MSX cartridges runs at the full cartridge bus clock (= CPU clock).
+        // The AY8910 PSG has an internal /2 prescaler, so ay8910Clock = CPU/2.
+        // When the VGM header stores k051649Clock=0, reconstruct the SCC clock as 2× ay8910Clock.
+        long sccClock = (k051649Clock != 0) ? k051649Clock : ay8910Clock * 2;
 
         int dataOffset = calculateDataOffset(buf, version, data.length);
         String gd3Title = parseGd3(buf, data.length);
-        List<VgmEvent> events = parseCommands(data, dataOffset);
+        int loopStart = parseLoopStart(buf, data.length);
+        List<VgmEvent> events = parseCommands(data, dataOffset, loopStart);
 
-        return new VgmParseResult(version, sn76489Clock, ym2612Clock, events, gd3Title);
+        return new VgmParseResult(version, sn76489Clock, ym2612Clock, ay8910Clock, sccClock,
+                events, gd3Title);
     }
 
     private static byte[] readAllBytes(File file) throws IOException {
@@ -104,10 +113,18 @@ public class VgmParser {
         return out.toString(StandardCharsets.UTF_16LE);
     }
 
-    private static List<VgmEvent> parseCommands(byte[] data, int offset) {
+    private static int parseLoopStart(ByteBuffer buf, int length) {
+        if (length < 0x20) return 0;
+        int loopRelative = buf.getInt(0x1C);
+        if (loopRelative == 0) return 0;
+        return 0x1C + loopRelative;
+    }
+
+    private static List<VgmEvent> parseCommands(byte[] data, int offset, int loopStart) {
         var events = new ArrayList<VgmEvent>();
         long sampleOffset = 0;
         int pos = offset;
+        boolean loopDone = false;
 
         while (pos < data.length) {
             int cmd = data[pos++] & 0xFF;
@@ -115,6 +132,17 @@ public class VgmParser {
                 case 0x50 -> { // SN76489
                     if (pos >= data.length) break;
                     events.add(new VgmEvent(sampleOffset, 0, new byte[]{data[pos++]}));
+                }
+                case 0xA0 -> { // AY8910 register write
+                    if (pos + 1 >= data.length) break;
+                    events.add(new VgmEvent(sampleOffset, 3, new byte[]{data[pos], data[pos + 1]}));
+                    pos += 2;
+                }
+                case 0xD2 -> { // K051649 (SCC) register write
+                    if (pos + 2 >= data.length) break;
+                    events.add(new VgmEvent(sampleOffset, 4,
+                            new byte[]{data[pos], data[pos + 1], data[pos + 2]}));
+                    pos += 3;
                 }
                 case 0x52 -> { // YM2612 port0
                     if (pos + 1 >= data.length) break;
@@ -134,10 +162,19 @@ public class VgmParser {
                 }
                 case 0x62 -> sampleOffset += 735;  // NTSC 1/60s
                 case 0x63 -> sampleOffset += 882;  // PAL 1/50s
-                case 0x66 -> { return events; }     // End of data
+                case 0x66 -> {  // End of data; loop once if loop point exists
+                    if (loopStart > 0 && !loopDone) {
+                        loopDone = true;
+                        pos = loopStart;
+                    } else {
+                        return events;
+                    }
+                }
                 default -> {
                     if (cmd >= 0x70 && cmd <= 0x7F) {
                         sampleOffset += (cmd & 0x0F) + 1;
+                    } else if (cmd >= 0x80 && cmd <= 0x8F) {
+                        sampleOffset += cmd & 0x0F; // YM2612 DAC write + wait n samples
                     } else if (cmd == 0x67) {
                         // PCM data block: 0x67 0x66 <type> <4-byte size> <data>
                         pos++; // compatibility byte 0x66

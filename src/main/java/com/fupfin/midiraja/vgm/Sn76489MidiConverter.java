@@ -12,10 +12,11 @@ import javax.sound.midi.MidiEvent;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 
-/** Converts SN76489 PSG chip events to MIDI note events on channels 0-3. */
+/** Converts SN76489 PSG chip events to MIDI note events on channels 0-2 and 9. */
 public class Sn76489MidiConverter {
 
     private static final int NOISE_NOTE = 38; // GM percussion snare
+    private static final int NOISE_MIDI_CH = 9; // GM percussion channel
 
     private final int[] tone = new int[3];
     private final int[] volume = {15, 15, 15, 15};
@@ -24,9 +25,8 @@ public class Sn76489MidiConverter {
     private int latchChannel;
     private boolean latchIsVolume;
 
-    public void convert(VgmEvent event, Track[] tracks, long clock) {
+    public void convert(VgmEvent event, Track[] tracks, long clock, long tick) {
         int value = event.rawData()[0] & 0xFF;
-        long tick = event.sampleOffset();
 
         if ((value & 0x80) != 0) {
             latchChannel = (value >> 5) & 0x03;
@@ -59,8 +59,9 @@ public class Sn76489MidiConverter {
         } else if (oldVol == 15) {
             noteOn(ch, tick, tracks, clock);
         } else if (activeNote[ch] >= 0) {
-            noteOff(ch, tick, tracks);
-            noteOn(ch, tick, tracks, clock);
+            // Volume envelope change while note is playing: use CC7 to avoid note re-triggering
+            int midiCh = midiCh(ch);
+            addNote(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(vol), tick);
         }
     }
 
@@ -78,16 +79,24 @@ public class Sn76489MidiConverter {
     private void noteOn(int ch, long tick, Track[] tracks, long clock) {
         int note = (ch == 3) ? NOISE_NOTE : sn76489Note(clock, tone[ch]);
         if (note < 0) return;
-        int velocity = toVelocity(volume[ch]);
-        addNote(tracks[ch], ShortMessage.NOTE_ON, ch, note, velocity, tick);
+        int midiCh = midiCh(ch);
+        // Send CC7 before NoteOn so the channel volume is correct regardless of any
+        // CC7 value left over from a previous note on this channel.
+        addNote(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(volume[ch]), tick);
+        addNote(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, 127, tick);
         activeNote[ch] = note;
     }
 
     private void noteOff(int ch, long tick, Track[] tracks) {
         if (activeNote[ch] >= 0) {
-            addNote(tracks[ch], ShortMessage.NOTE_OFF, ch, activeNote[ch], 0, tick);
+            int midiCh = midiCh(ch);
+            addNote(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
             activeNote[ch] = -1;
         }
+    }
+
+    private static int midiCh(int ch) {
+        return ch == 3 ? NOISE_MIDI_CH : ch;
     }
 
     private static void addNote(Track track, int cmd, int ch, int note, int vel, long tick) {

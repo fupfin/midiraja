@@ -12,23 +12,29 @@ import javax.sound.midi.MidiEvent;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 
-/** Converts YM2612 FM chip events to MIDI note events on channels 4-9. */
+/** Converts YM2612 FM chip events to MIDI note events on channels 3-8. */
 public class Ym2612MidiConverter {
 
     private static final int DEFAULT_VELOCITY = 100;
-    private static final int MIDI_CH_OFFSET = 4;
+    private static final int MIDI_CH_OFFSET = 3;
 
     private final int[] fnumHigh = new int[6];
     private final int[] fnumLow = new int[6];
     private final int[] activeNote = {-1, -1, -1, -1, -1, -1};
+    private final int[] algorithm = new int[6];
+    private final int[] feedback = new int[6];
+    private final int[] currentProgram = {-1, -1, -1, -1, -1, -1};
 
-    public void convert(VgmEvent event, Track[] tracks, long clock) {
+    public void convert(VgmEvent event, Track[] tracks, long clock, long tick) {
         int addr = event.rawData()[0] & 0xFF;
         int data = event.rawData()[1] & 0xFF;
-        long tick = event.sampleOffset();
         int portOffset = (event.chip() == 2) ? 3 : 0; // port1 = ch 3-5
 
-        if (addr >= 0xA4 && addr <= 0xA6) {
+        if (addr >= 0xB0 && addr <= 0xB2) {
+            int ch = (addr - 0xB0) + portOffset;
+            algorithm[ch] = data & 0x07;
+            feedback[ch] = (data >> 3) & 0x07;
+        } else if (addr >= 0xA4 && addr <= 0xA6) {
             int ch = (addr - 0xA4) + portOffset;
             fnumHigh[ch] = data;
         } else if (addr >= 0xA0 && addr <= 0xA2) {
@@ -52,11 +58,11 @@ public class Ym2612MidiConverter {
         boolean keyOn = (data & 0xF0) != 0;
 
         if (keyOn) {
-            // Note off first if already on
             if (activeNote[ch] >= 0) {
                 addNote(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
                 activeNote[ch] = -1;
             }
+            emitProgramChangeIfNeeded(ch, midiCh, tracks, tick);
             int note = computeNote(ch, clock);
             if (note >= 0) {
                 addNote(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, DEFAULT_VELOCITY, tick);
@@ -68,6 +74,48 @@ public class Ym2612MidiConverter {
                 activeNote[ch] = -1;
             }
         }
+    }
+
+    private void emitProgramChangeIfNeeded(int ch, int midiCh, Track[] tracks, long tick) {
+        int program = selectProgram(algorithm[ch], feedback[ch]);
+        if (program != currentProgram[ch]) {
+            addNote(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
+            currentProgram[ch] = program;
+        }
+    }
+
+    /**
+     * Maps YM2612 algorithm + feedback to a GM program number.
+     *
+     * <p>Algorithm determines operator topology (how many carriers vs modulators):
+     * <ul>
+     *   <li>0-3: Serial/complex FM — deep modulation, bass/lead timbres
+     *   <li>4: Two independent 2-op FM pairs — classic Genesis lead sound
+     *   <li>5: One modulator driving three carriers — bright pad/brass
+     *   <li>6: Near-additive — organ-like
+     *   <li>7: Fully additive (4 carriers) — bright organ/bells
+     * </ul>
+     * High feedback (≥6) adds strong odd harmonics, producing a square-wave character.
+     */
+    static int selectProgram(int alg, int fb) {
+        if (fb >= 6) {
+            return switch (alg) {
+                case 0, 1, 2, 3 -> 29; // Overdriven Guitar — buzzy serial FM
+                case 4           -> 80; // Square Lead — two buzzy pairs
+                default          -> 19; // Rock Organ — additive + harmonics
+            };
+        }
+        return switch (alg) {
+            case 0 -> 33; // Electric Bass (Finger) — deep series FM
+            case 1 -> 38; // Synth Bass 1
+            case 2 -> 81; // Sawtooth Lead
+            case 3 -> 81; // Sawtooth Lead
+            case 4 -> 81; // Sawtooth Lead — two 2-op FM pairs (most common Genesis lead)
+            case 5 -> 89; // Pad 2 (Warm) — one modulator, three carriers
+            case 6 -> 19; // Rock Organ
+            case 7 -> 16; // Hammond Organ — fully additive
+            default -> 81;
+        };
     }
 
     private int computeNote(int ch, long clock) {
