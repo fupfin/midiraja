@@ -14,9 +14,56 @@ import static java.lang.Math.*;
  */
 public class ChannelActivityPanel implements Panel
 {
-    private static final String[] GM_FAMILIES = {"Piano", "Chrom Perc", "Organ", "Guitar", "Bass",
-            "Strings", "Ensemble", "Brass", "Reed", "Pipe", "Synth Lead", "Synth Pad", "Synth FX",
-            "Ethnic", "Percussive", "SFX"};
+    private static final String[] GM_INSTRUMENTS = {
+        // Piano (0-7)
+        "Grand Piano", "Bright Piano", "El.Grand Piano", "Honky-tonk",
+        "El.Piano 1", "El.Piano 2", "Harpsichord", "Clavinet",
+        // Chromatic Percussion (8-15)
+        "Celesta", "Glockenspiel", "Music Box", "Vibraphone",
+        "Marimba", "Xylophone", "Tubular Bells", "Dulcimer",
+        // Organ (16-23)
+        "Drawbar Organ", "Percuss.Organ", "Rock Organ", "Church Organ",
+        "Reed Organ", "Accordion", "Harmonica", "Tango Accord.",
+        // Guitar (24-31)
+        "Nylon Guitar", "Steel Guitar", "Jazz Guitar", "Clean Guitar",
+        "Muted Guitar", "Overdrive Gtr", "Distort.Gtr", "Guitar Harmo.",
+        // Bass (32-39)
+        "Acoustic Bass", "Finger Bass", "Pick Bass", "Fretless Bass",
+        "Slap Bass 1", "Slap Bass 2", "Synth Bass 1", "Synth Bass 2",
+        // Strings (40-47)
+        "Violin", "Viola", "Cello", "Contrabass",
+        "Tremolo Str.", "Pizzicato Str", "Orch.Harp", "Timpani",
+        // Ensemble (48-55)
+        "String Ens.1", "String Ens.2", "Synth Str.1", "Synth Str.2",
+        "Choir Aahs", "Voice Oohs", "Synth Voice", "Orchestra Hit",
+        // Brass (56-63)
+        "Trumpet", "Trombone", "Tuba", "Muted Trumpet",
+        "French Horn", "Brass Section", "Synth Brass 1", "Synth Brass 2",
+        // Reed (64-71)
+        "Soprano Sax", "Alto Sax", "Tenor Sax", "Baritone Sax",
+        "Oboe", "English Horn", "Bassoon", "Clarinet",
+        // Pipe (72-79)
+        "Piccolo", "Flute", "Recorder", "Pan Flute",
+        "Blown Bottle", "Shakuhachi", "Whistle", "Ocarina",
+        // Synth Lead (80-87)
+        "Square Lead", "Saw Lead", "Calliope Lead", "Chiff Lead",
+        "Charang Lead", "Voice Lead", "Fifths Lead", "Bass+Lead",
+        // Synth Pad (88-95)
+        "New Age Pad", "Warm Pad", "Polysynth Pad", "Choir Pad",
+        "Bowed Pad", "Metallic Pad", "Halo Pad", "Sweep Pad",
+        // Synth FX (96-103)
+        "FX Rain", "FX Soundtrack", "FX Crystal", "FX Atmosphere",
+        "FX Brightness", "FX Goblins", "FX Echoes", "FX Sci-fi",
+        // Ethnic (104-111)
+        "Sitar", "Banjo", "Shamisen", "Koto",
+        "Kalimba", "Bag Pipe", "Fiddle", "Shanai",
+        // Percussive (112-119)
+        "Tinkle Bell", "Agogo", "Steel Drums", "Woodblock",
+        "Taiko Drum", "Melodic Tom", "Synth Drum", "Reverse Cym.",
+        // Sound Effects (120-127)
+        "Fret Noise", "Breath Noise", "Seashore", "Bird Tweet",
+        "Telephone", "Helicopter", "Applause", "Gunshot"
+    };
 
     private LayoutConstraints constraints = new LayoutConstraints(80, 16, false, false);
     private final double[] channelLevels = new double[16];
@@ -57,8 +104,8 @@ public class ChannelActivityPanel implements Panel
     private String getChannelName(int ch)
     {
         if (ch == 9) return "Drums";
-        int family = channelPrograms[ch] / 8;
-        if (family >= 0 && family < GM_FAMILIES.length) return GM_FAMILIES[family];
+        int prog = channelPrograms[ch];
+        if (prog >= 0 && prog < GM_INSTRUMENTS.length) return GM_INSTRUMENTS[prog];
         return "Unknown";
     }
 

@@ -96,6 +96,7 @@ public class DashboardUI implements PlaybackUI
                     lastHeight = termHeight;
                 }
 
+                rawChannelPanel.updatePrograms(engine.getChannelPrograms());
                 nowPlayingPanel.updateState(engine.getCurrentMicroseconds(),
                         engine.getTotalMicroseconds(), engine.getCurrentBpm(),
                         engine.getCurrentSpeed(), engine.getVolumeScale(),
