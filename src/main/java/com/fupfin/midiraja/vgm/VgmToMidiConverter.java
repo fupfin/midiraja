@@ -58,8 +58,10 @@ public class VgmToMidiConverter {
             //         dynamically based on algorithm+feedback registers (0xB0).
             // ch 9:   GM 0 with isDrums flag — TSF requires an explicit patchChange(9,0,drums=1)
             //         to activate drum mode; omitting it leaves the channel as melodic (piano).
-            // ch 10-14: GM 80 (Square Lead) — SCC wavetable channels
-            int[] programs = {80, 80, 80, -1, -1, -1, -1, -1, -1, 0, 80, 80, 80, 80, 80};
+            // ch 10-14: GM 18 (Rock Organ) — SCC wavetable channels
+            // Rock Organ has a bright, cutting attack that projects well even at lower CC7
+            // volumes, avoiding the "too quiet" problem of Square Lead on SCC channels.
+            int[] programs = {80, 80, 80, -1, -1, -1, -1, -1, -1, 0, 18, 18, 18, 18, 18};
             for (int ch = 0; ch < 15; ch++) {
                 if (programs[ch] >= 0) {
                     tracks[ch].add(new MidiEvent(
