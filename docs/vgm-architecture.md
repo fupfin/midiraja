@@ -602,12 +602,15 @@ SCC channels (10-14) keep a fixed GM 81 (Sawtooth Lead) set at tick 0.
    generates sub-millisecond NoteOn/Off pairs that effectively mute the channel in TSF. Volume
    alone gates notes: vol>0 → NoteOn, vol=0 → NoteOff.
 8. **SCC clock fallback:** The K051649 clock field in the VGM header is 0 in most MSX VGMs.
-   When absent, the SCC uses the AY-3-8910 clock (both chips share the same 1789772 Hz
-   crystal on MSX hardware).
-9. **SCC volume → CC7 linear mapping:** SCC vol 0-15 maps to CC7 0-127 linearly
-   (`vol / 15 × 127`). This preserves the hardware amplitude ratio faithfully — vol=2 vs
-   vol=8 is a 4:1 ratio (12 dB) on the real chip and in MIDI alike. Whether a particular
-   soundfont renders low CC7 values audibly is a soundfont concern, not a conversion concern.
+   The SCC clock is reconstructed as `ay8910Clock × 2`. The K051649 runs at the full MSX CPU
+   bus clock (3.579545 MHz NTSC); the AY-3-8910 has an internal /2 prescaler so its clock is
+   half that. Using ay8910Clock directly produces notes one octave too low.
+9. **SCC / AY8910 volume → CC7 square-root mapping:** SCC and AY-3-8910 vol 0-15 maps to
+   CC7 via `√(vol / 15) × 127`. The 4-bit volume register on these chips behaves perceptually
+   closer to a logarithmic scale — mid-range values (vol 4-8) represent significantly more
+   than 27-54% of maximum amplitude. Linear mapping (vol/15×127) makes typical game volumes
+   (vol 4-6) inaudibly quiet; sqrt mapping places vol=4 at CC7=85 which matches perceived
+   loudness more faithfully.
 10. **Compressed files:** `.vgz` is gzip-compressed VGM; handled transparently with
     `GZIPInputStream`.
 11. **TSF drum activation:** TSF requires Program Change 0 on channel 9 to set `isDrums=1`.
