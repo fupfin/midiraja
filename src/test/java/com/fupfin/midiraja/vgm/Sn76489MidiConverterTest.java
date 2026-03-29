@@ -13,6 +13,7 @@ import javax.sound.midi.MidiEvent;
 import javax.sound.midi.Sequence;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
+
 import org.junit.jupiter.api.Test;
 
 class Sn76489MidiConverterTest {
@@ -40,11 +41,11 @@ class Sn76489MidiConverterTest {
         var tracks = new Track[]{seq.createTrack(), seq.createTrack(), seq.createTrack(), seq.createTrack()};
 
         // Latch ch0 tone low 4 bits = 0x0C (tone[0] low nibble)
-        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x8C}), tracks, CLOCK);
+        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x8C}), tracks, CLOCK, 0);
         // Data byte: high 6 bits → tone[0] = (0x1A << 4) | 0x0C = 0x1AC = 428
-        converter.convert(new VgmEvent(0, 0, new byte[]{0x1A}), tracks, CLOCK);
+        converter.convert(new VgmEvent(0, 0, new byte[]{0x1A}), tracks, CLOCK, 0);
         // Latch ch0 volume = 0 (loudest): 1_00_1_0000
-        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x90}), tracks, CLOCK);
+        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x90}), tracks, CLOCK, 0);
 
         // Find NoteOn in track 0
         var noteOn = findNoteOn(tracks[0]);
@@ -59,15 +60,34 @@ class Sn76489MidiConverterTest {
         var tracks = new Track[]{seq.createTrack(), seq.createTrack(), seq.createTrack(), seq.createTrack()};
 
         // First turn on: tone + volume=0
-        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x8C}), tracks, CLOCK);
-        converter.convert(new VgmEvent(0, 0, new byte[]{0x1A}), tracks, CLOCK);
-        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x90}), tracks, CLOCK);
+        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x8C}), tracks, CLOCK, 0);
+        converter.convert(new VgmEvent(0, 0, new byte[]{0x1A}), tracks, CLOCK, 0);
+        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x90}), tracks, CLOCK, 0);
 
         // Then set volume=15 (silent) → should produce NoteOff
-        converter.convert(new VgmEvent(10, 0, new byte[]{(byte) 0x9F}), tracks, CLOCK);
+        converter.convert(new VgmEvent(10, 0, new byte[]{(byte) 0x9F}), tracks, CLOCK, 0);
 
         var noteOff = findNoteOff(tracks[0]);
         assertNotNull(noteOff, "Expected a NoteOff event");
+    }
+
+    @Test
+    void noiseChannel_usesGmPercussionChannel() throws Exception {
+        // Noise (ch 3 internally) must emit on MIDI channel 9, the GM percussion channel.
+        // Without this fix, noise went to ch 3 and played as piano.
+        var converter = new Sn76489MidiConverter();
+        var seq = new Sequence(Sequence.PPQ, 480);
+        var tracks = new Track[10];
+        for (int i = 0; i < 10; i++) tracks[i] = seq.createTrack();
+
+        // 1_11_1_0000 = 0xF0: latch ch3, volume=0 (loudest) → triggers NoteOn
+        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0xF0}), tracks, CLOCK, 0);
+
+        assertNull(findNoteOn(tracks[3]), "Noise must not go to MIDI ch 3");
+        var noteOn = findNoteOn(tracks[9]);
+        assertNotNull(noteOn, "Noise must use GM percussion channel 9");
+        assertEquals(9, noteOn.getChannel());
+        assertEquals(38, noteOn.getData1()); // GM snare
     }
 
     @Test
@@ -77,11 +97,11 @@ class Sn76489MidiConverterTest {
         var tracks = new Track[]{seq.createTrack(), seq.createTrack(), seq.createTrack(), seq.createTrack()};
 
         // Latch ch0 tone low nibble
-        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x8C}), tracks, CLOCK);
+        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x8C}), tracks, CLOCK, 0);
         // Data byte for tone high bits
-        converter.convert(new VgmEvent(0, 0, new byte[]{0x1A}), tracks, CLOCK);
+        converter.convert(new VgmEvent(0, 0, new byte[]{0x1A}), tracks, CLOCK, 0);
         // Volume = 5 → should trigger NoteOn
-        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x95}), tracks, CLOCK);
+        converter.convert(new VgmEvent(0, 0, new byte[]{(byte) 0x95}), tracks, CLOCK, 0);
 
         var noteOn = findNoteOn(tracks[0]);
         assertNotNull(noteOn, "Expected NoteOn");
