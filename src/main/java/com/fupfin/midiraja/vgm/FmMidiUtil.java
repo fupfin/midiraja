@@ -24,6 +24,7 @@ final class FmMidiUtil {
     private static final int PROGRAM_SAWTOOTH_LEAD     = 81;
     private static final int PROGRAM_CHIFF_LEAD        = 83;
     private static final int PROGRAM_CALLIOPE_LEAD     = 82;
+    private static final int PROGRAM_CLARINET          = 71;
     private static final int PROGRAM_ELECTRIC_BASS     = 33;
     private static final int PROGRAM_SYNTH_BASS        = 38;
     private static final int PROGRAM_OVERDRIVEN_GUITAR = 29;
@@ -39,11 +40,15 @@ final class FmMidiUtil {
     private FmMidiUtil() {}
 
     /**
-     * Maps FM algorithm (0–7) + feedback (0–7) to a GM program number.
+     * Maps FM algorithm + feedback + modulator TL to a GM program number.
      *
      * <p>The eight algorithms are identical across OPN (YM2612) and OPM (YM2151) families.
+     * Modulator TL indicates modulation depth: low TL = strong modulation (bright/metallic),
+     * high TL = weak modulation (soft/pure).
+     *
+     * @param modTl average TL of modulator operators (0–127). 127 means no modulators (alg 7).
      */
-    static int selectProgram(int alg, int fb) {
+    static int selectProgram(int alg, int fb, int modTl) {
         if (fb >= 6) {
             return switch (alg) {
                 case 0, 1, 2, 3 -> PROGRAM_OVERDRIVEN_GUITAR;
@@ -55,12 +60,40 @@ final class FmMidiUtil {
             case 0 -> PROGRAM_ELECTRIC_BASS;
             case 1 -> PROGRAM_SYNTH_BASS;
             case 2, 3 -> PROGRAM_SAWTOOTH_LEAD;
-            case 4 -> PROGRAM_CALLIOPE_LEAD;
+            case 4 -> selectAlg4(modTl);
             case 5 -> PROGRAM_SYNTH_PAD2;
             case 6 -> PROGRAM_SYNTH_STRINGS1;
             case 7 -> PROGRAM_SYNTH_BRASS1;
             default -> PROGRAM_SAWTOOTH_LEAD;
         };
+    }
+
+    private static int selectAlg4(int modTl) {
+        if (modTl <= 20) return PROGRAM_SAWTOOTH_LEAD;  // strong modulation → bright, metallic
+        if (modTl <= 50) return PROGRAM_CLARINET;        // moderate → warm lead
+        return PROGRAM_CALLIOPE_LEAD;                    // weak modulation → pure, sine-like
+    }
+
+    /**
+     * Returns operator indices that are modulators for the given algorithm
+     * (complement of {@link #carrierOps}).
+     */
+    static int[] modulatorOps(int alg) {
+        return switch (alg) {
+            case 4    -> new int[]{0, 1};
+            case 5, 6 -> new int[]{0};
+            case 7    -> new int[]{};
+            default   -> new int[]{0, 1, 2};
+        };
+    }
+
+    /** Average TL of modulator operators. Returns 127 when no modulators exist (alg 7). */
+    static int avgModulatorTl(int[][] tl, int[] algorithm, int ch) {
+        int[] ops = modulatorOps(algorithm[ch]);
+        if (ops.length == 0) return 127;
+        int total = 0;
+        for (int op : ops) total += tl[ch][op];
+        return total / ops.length;
     }
 
     /**

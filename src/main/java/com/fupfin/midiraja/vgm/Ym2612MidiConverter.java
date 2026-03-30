@@ -125,7 +125,7 @@ public class Ym2612MidiConverter {
     }
 
     private void emitProgramIfNeeded(int ch, int midiCh, Track[] tracks, long tick) {
-        int program = selectProgram(algorithm[ch], feedback[ch]);
+        int program = selectProgram(algorithm[ch], feedback[ch], avgModulatorTl(tl, algorithm, ch));
         if (program != currentProgram[ch]) {
             addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
             currentProgram[ch] = program;

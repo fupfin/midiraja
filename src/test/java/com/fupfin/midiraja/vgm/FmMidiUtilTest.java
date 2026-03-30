@@ -52,8 +52,8 @@ class FmMidiUtilTest {
 
     @Test
     void selectProgram_merge_cases2and3() {
-        int programAlg2 = FmMidiUtil.selectProgram(2, 0);
-        int programAlg3 = FmMidiUtil.selectProgram(3, 0);
+        int programAlg2 = FmMidiUtil.selectProgram(2, 0, 50);
+        int programAlg3 = FmMidiUtil.selectProgram(3, 0, 50);
 
         assertEquals(programAlg2, programAlg3, "alg 2 and 3 return the same program");
     }
