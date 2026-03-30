@@ -83,18 +83,22 @@ class Ym2612MidiConverterTest {
 
     @Test
     void algorithm0_emitsBassProgram() throws Exception {
-        // Algorithm 0 (fully serial FM, deep modulation) → Electric Bass (GM 33)
+        // Algorithm 0 (fully serial FM) with moderate modulator TL → Electric Bass (GM 33)
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
         converter.convert(port0(0xB0, 0x00), tracks, CLOCK, 0); // alg=0, fb=0
+        // Set modulator TL (op0=0x40, op1=0x44, op2=0x48) to 30 (moderate range)
+        converter.convert(port0(0x40, 30), tracks, CLOCK, 0);
+        converter.convert(port0(0x44, 30), tracks, CLOCK, 0);
+        converter.convert(port0(0x48, 30), tracks, CLOCK, 0);
         converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
         converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
         converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
 
         var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc);
-        assertEquals(33, pc.getData1(), "Algorithm 0 → GM 33 (Electric Bass Finger)");
+        assertEquals(33, pc.getData1(), "Algorithm 0, modTL=30 → GM 33 (Electric Bass)");
     }
 
     @Test

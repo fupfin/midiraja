@@ -21,15 +21,19 @@ import javax.sound.midi.Track;
  */
 final class FmMidiUtil {
 
-    private static final int PROGRAM_SAWTOOTH_LEAD     = 81;
-    private static final int PROGRAM_CHIFF_LEAD        = 83;
-    private static final int PROGRAM_CALLIOPE_LEAD     = 82;
-    private static final int PROGRAM_CLARINET          = 71;
+    private static final int PROGRAM_ACOUSTIC_BASS      = 32;
     private static final int PROGRAM_ELECTRIC_BASS     = 33;
+    private static final int PROGRAM_SLAP_BASS         = 36;
     private static final int PROGRAM_SYNTH_BASS        = 38;
     private static final int PROGRAM_OVERDRIVEN_GUITAR = 29;
-    private static final int PROGRAM_SYNTH_BRASS1      = 62;
+    private static final int PROGRAM_DISTORTION_GUITAR = 30;
+    private static final int PROGRAM_CLARINET          = 71;
+    private static final int PROGRAM_RECORDER          = 73;
+    private static final int PROGRAM_SAWTOOTH_LEAD     = 81;
+    private static final int PROGRAM_CALLIOPE_LEAD     = 82;
+    private static final int PROGRAM_CHIFF_LEAD        = 83;
     private static final int PROGRAM_SYNTH_STRINGS1    = 50;
+    private static final int PROGRAM_SYNTH_BRASS1      = 62;
     private static final int PROGRAM_SYNTH_PAD2        = 89;
 
     /** Reference TL for velocity scaling: carrier TL == REF_TL plays at velocity=127. */
@@ -57,21 +61,48 @@ final class FmMidiUtil {
             };
         }
         return switch (alg) {
-            case 0 -> PROGRAM_ELECTRIC_BASS;
-            case 1 -> PROGRAM_SYNTH_BASS;
-            case 2, 3 -> PROGRAM_SAWTOOTH_LEAD;
+            case 0 -> selectBass(modTl, PROGRAM_ELECTRIC_BASS);
+            case 1 -> selectBass(modTl, PROGRAM_SYNTH_BASS);
+            case 2, 3 -> selectLead(modTl);
             case 4 -> selectAlg4(modTl);
-            case 5 -> PROGRAM_SYNTH_PAD2;
-            case 6 -> PROGRAM_SYNTH_STRINGS1;
+            case 5 -> selectPad(modTl);
+            case 6 -> selectStrings(modTl);
             case 7 -> PROGRAM_SYNTH_BRASS1;
             default -> PROGRAM_SAWTOOTH_LEAD;
         };
     }
 
+    // alg 0, 1: serial FM bass — modulation depth changes bass character
+    private static int selectBass(int modTl, int defaultProg) {
+        if (modTl <= 20) return PROGRAM_SLAP_BASS;      // strong → punchy, distorted
+        if (modTl <= 50) return defaultProg;             // moderate → standard FM bass
+        return PROGRAM_ACOUSTIC_BASS;                    // weak → clean, round
+    }
+
+    // alg 2, 3: serial lead — modulation depth changes brightness
+    private static int selectLead(int modTl) {
+        if (modTl <= 20) return PROGRAM_DISTORTION_GUITAR; // strong → aggressive, gritty
+        if (modTl <= 50) return PROGRAM_SAWTOOTH_LEAD;     // moderate → standard lead
+        return PROGRAM_RECORDER;                           // weak → soft, breathy
+    }
+
+    // alg 4: two 2-op pairs — modulation depth changes warmth
     private static int selectAlg4(int modTl) {
-        if (modTl <= 20) return PROGRAM_SAWTOOTH_LEAD;  // strong modulation → bright, metallic
+        if (modTl <= 20) return PROGRAM_SAWTOOTH_LEAD;  // strong → bright, metallic
         if (modTl <= 50) return PROGRAM_CLARINET;        // moderate → warm lead
-        return PROGRAM_CALLIOPE_LEAD;                    // weak modulation → pure, sine-like
+        return PROGRAM_CALLIOPE_LEAD;                    // weak → pure, sine-like
+    }
+
+    // alg 5: 1 mod → 3 carriers — single modulator determines brightness
+    private static int selectPad(int modTl) {
+        if (modTl <= 20) return PROGRAM_SYNTH_BRASS1;   // strong → bright brass-like
+        return PROGRAM_SYNTH_PAD2;                       // moderate/weak → warm pad
+    }
+
+    // alg 6: near-additive — single modulator adds edge
+    private static int selectStrings(int modTl) {
+        if (modTl <= 20) return PROGRAM_SYNTH_BRASS1;   // strong → brass character
+        return PROGRAM_SYNTH_STRINGS1;                   // moderate/weak → string ensemble
     }
 
     /**

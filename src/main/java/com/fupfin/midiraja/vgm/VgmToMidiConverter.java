@@ -22,13 +22,19 @@ public class VgmToMidiConverter {
     // Chip IDs assigned by VgmParser based on the VGM command byte.
     // MIDI channel mapping: SN76489/AY8910 → ch 0-2 (tone), 9 (noise);
     //                       YM2612 → ch 3-8; SCC → ch 10-14;
-    //                       YM2151 → ch 0-7 (standalone) or ch 3-8 (with YM2612).
+    //                       YM2151 → ch 0-7 (standalone) or ch 3-8 (with YM2612);
+    //                       YM2203/YM2608/YM2610 → FM on ch 3-8, SSG on ch 0-2 + 9.
     public static final int CHIP_SN76489       = 0; // 0x50
     public static final int CHIP_YM2612_PORT0  = 1; // 0x52
     public static final int CHIP_YM2612_PORT1  = 2; // 0x53
     public static final int CHIP_AY8910        = 3; // 0xA0
     public static final int CHIP_SCC           = 4; // 0xD2
-    public static final int CHIP_YM2151       = 5; // 0x54
+    public static final int CHIP_YM2151        = 5; // 0x54
+    public static final int CHIP_YM2203        = 6; // 0x55 (OPN: 3 FM + SSG)
+    public static final int CHIP_YM2608_PORT0  = 7; // 0x56 (OPNA: 6 FM + SSG)
+    public static final int CHIP_YM2608_PORT1  = 8; // 0x57
+    public static final int CHIP_YM2610_PORT0  = 9; // 0x58 (OPNB: 4 FM + SSG)
+    public static final int CHIP_YM2610_PORT1  = 10; // 0x59
 
     // PPQ=480 at 120 BPM → 960 ticks/second.
     // VGM timebase = 44100 Hz. Scale: tick = round(sampleOffset × 960 / 44100).
@@ -95,14 +101,17 @@ public class VgmToMidiConverter {
                 }
             }
 
-            var snConverter   = new Sn76489MidiConverter();
-            var ymConverter   = new Ym2612MidiConverter();
-            var ayConverter   = new Ay8910MidiConverter();
-            var sccConverter  = new SccMidiConverter();
+            var snConverter    = new Sn76489MidiConverter();
+            var ymConverter    = new Ym2612MidiConverter();
+            var ayConverter    = new Ay8910MidiConverter();
+            var sccConverter   = new SccMidiConverter();
             // YM2151: 8 channels. When no YM2612 is present, use ch 0-7 (standalone arcade).
-            // Otherwise fall back to ch 3-8 (shared with YM2612, rare in practice).
             int opmOffset = (parsed.ym2612Clock() == 0) ? 0 : 3;
-            var opmConverter  = new Ym2151MidiConverter(opmOffset);
+            var opmConverter   = new Ym2151MidiConverter(opmOffset);
+            // OPN family: reuse Ym2612MidiConverter with chip-specific divider and port1 ID.
+            var ym2203Conv     = new Ym2612MidiConverter(72, -1);  // single port, divider=72
+            var ym2608Conv     = new Ym2612MidiConverter(144, CHIP_YM2608_PORT1);
+            var ym2610Conv     = new Ym2612MidiConverter(144, CHIP_YM2610_PORT1);
 
             // Muted channels are redirected to a sink track that is not part of the output sequence.
             // This discards all events destined for those channels without modifying converter logic.
@@ -125,6 +134,14 @@ public class VgmToMidiConverter {
                     case CHIP_AY8910                       -> ayConverter.convert(event, routed, parsed.ay8910Clock(), tick);
                     case CHIP_SCC                          -> sccConverter.convert(event, routed, parsed.sccClock(), tick);
                     case CHIP_YM2151                       -> opmConverter.convert(event, routed, parsed.ym2151Clock(), tick);
+                    case CHIP_YM2203 -> routeOpn(event, routed, tick, ym2203Conv, ayConverter,
+                            parsed.ym2203Clock(), parsed.ym2203Clock() / 2);
+                    case CHIP_YM2608_PORT0 -> routeOpn(event, routed, tick, ym2608Conv, ayConverter,
+                            parsed.ym2608Clock(), parsed.ym2608Clock() / 4);
+                    case CHIP_YM2608_PORT1 -> ym2608Conv.convert(event, routed, parsed.ym2608Clock(), tick);
+                    case CHIP_YM2610_PORT0 -> routeOpn(event, routed, tick, ym2610Conv, ayConverter,
+                            parsed.ym2610Clock(), parsed.ym2610Clock() / 4);
+                    case CHIP_YM2610_PORT1 -> ym2610Conv.convert(event, routed, parsed.ym2610Clock(), tick);
                     default -> {} // unknown chip, skip
                 }
             }
@@ -132,6 +149,18 @@ public class VgmToMidiConverter {
             return sequence;
         } catch (InvalidMidiDataException e) {
             throw new IllegalStateException("Failed to create MIDI sequence", e);
+        }
+    }
+
+    /** Routes OPN port-0 events: addr ≤ 0x0D → SSG (AY8910), otherwise → FM. */
+    private static void routeOpn(VgmEvent event, Track[] routed, long tick,
+                                 Ym2612MidiConverter fmConv, Ay8910MidiConverter ssgConv,
+                                 long fmClock, long ssgClock) {
+        int addr = event.rawData()[0] & 0xFF;
+        if (addr <= 0x0D) {
+            ssgConv.convert(event, routed, ssgClock, tick);
+        } else {
+            fmConv.convert(event, routed, fmClock, tick);
         }
     }
 }

@@ -38,6 +38,24 @@ import javax.sound.midi.Track;
 public class Ym2612MidiConverter {
 
     private static final int MIDI_CH_OFFSET = 3;
+    private static final int DEFAULT_DIVIDER = 144; // YM2612/YM2608/YM2610
+
+    private final int fmDivider;
+    private final int port1ChipId;
+
+    /** Default constructor for YM2612 (divider=144, port1 chip ID=2). */
+    public Ym2612MidiConverter() {
+        this(DEFAULT_DIVIDER, 2);
+    }
+
+    /**
+     * @param fmDivider  FM frequency divider: 144 for YM2612/YM2608/YM2610, 72 for YM2203
+     * @param port1ChipId chip ID that indicates port 1 events; -1 for single-port chips (YM2203)
+     */
+    public Ym2612MidiConverter(int fmDivider, int port1ChipId) {
+        this.fmDivider = fmDivider;
+        this.port1ChipId = port1ChipId;
+    }
 
     private final int[] fnumHigh = new int[6];
     private final int[] fnumLow = new int[6];
@@ -56,7 +74,7 @@ public class Ym2612MidiConverter {
     public void convert(VgmEvent event, Track[] tracks, long clock, long tick) {
         int addr = event.rawData()[0] & 0xFF;
         int data = event.rawData()[1] & 0xFF;
-        int portOffset = (event.chip() == 2) ? 3 : 0;
+        int portOffset = (event.chip() == port1ChipId) ? 3 : 0;
 
         if (addr >= 0x40 && addr <= 0x4F) {
             int op = (addr - 0x40) >> 2;
@@ -135,12 +153,12 @@ public class Ym2612MidiConverter {
     private int computeNote(int ch, long clock) {
         int fnum = (fnumHigh[ch] & 0x07) << 8 | fnumLow[ch];
         int block = (fnumHigh[ch] >> 3) & 0x07;
-        return ym2612Note(clock, fnum, block);
+        return opnNote(clock, fnum, block, fmDivider);
     }
 
-    static int ym2612Note(long clock, int fnum, int block) {
+    static int opnNote(long clock, int fnum, int block, int divider) {
         if (fnum <= 0) return -1;
-        double f = fnum * clock / (144.0 * (1L << (21 - block)));
+        double f = fnum * clock / ((double) divider * (1L << (21 - block)));
         return clampNote((int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69));
     }
 
