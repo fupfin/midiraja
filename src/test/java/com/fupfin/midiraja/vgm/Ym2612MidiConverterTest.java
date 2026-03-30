@@ -47,6 +47,18 @@ class Ym2612MidiConverterTest {
         return null;
     }
 
+    private static ShortMessage findCC(Track track, int controller) {
+        for (int i = 0; i < track.size(); i++) {
+            MidiEvent e = track.get(i);
+            if (e.getMessage() instanceof ShortMessage sm
+                    && sm.getCommand() == ShortMessage.CONTROL_CHANGE
+                    && sm.getData1() == controller) {
+                return sm;
+            }
+        }
+        return null;
+    }
+
     @Test
     void algorithm7_emitsProgramChange_beforeNoteOn() throws Exception {
         // Algorithm 7 (additive synthesis) → Hammond Organ (GM 16)
@@ -99,7 +111,7 @@ class Ym2612MidiConverterTest {
 
         var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc);
-        assertEquals(80, pc.getData1(), "High feedback (fb=6) → GM 80 (Square Lead)");
+        assertEquals(83, pc.getData1(), "alg=4 + high feedback (fb=6) → GM 83 (Chiff Lead, thin sustain)");
     }
 
     @Test
@@ -123,6 +135,113 @@ class Ym2612MidiConverterTest {
             }
         }
         assertEquals(1, pcCount, "Program Change must not be duplicated if algorithm is unchanged");
+    }
+
+    @Test
+    void panRegister_leftOnly_emitsCC10_0() throws Exception {
+        // Register 0xB4 bits 7-6 = 10b → L only → CC10=0 (hard left)
+        var converter = new Ym2612MidiConverter();
+        var tracks = makeTracks();
+
+        converter.convert(port0(0xB4, 0x80), tracks, CLOCK, 0); // L=1, R=0
+        converter.convert(port0(0xB0, 0x07), tracks, CLOCK, 0);
+        converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
+        converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
+        converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
+
+        ShortMessage pan = findCC(tracks[3], 10);
+        assertNotNull(pan, "CC10 (pan) must be emitted");
+        assertEquals(0, pan.getData2(), "L-only → CC10=0 (hard left)");
+    }
+
+    @Test
+    void panRegister_rightOnly_emitsCC10_127() throws Exception {
+        // Register 0xB4 bits 7-6 = 01b → R only → CC10=127 (hard right)
+        var converter = new Ym2612MidiConverter();
+        var tracks = makeTracks();
+
+        converter.convert(port0(0xB4, 0x40), tracks, CLOCK, 0); // L=0, R=1
+        converter.convert(port0(0xB0, 0x07), tracks, CLOCK, 0);
+        converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
+        converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
+        converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
+
+        ShortMessage pan = findCC(tracks[3], 10);
+        assertNotNull(pan, "CC10 (pan) must be emitted");
+        assertEquals(127, pan.getData2(), "R-only → CC10=127 (hard right)");
+    }
+
+    @Test
+    void panRegister_default_center_emitsCC10_64() throws Exception {
+        // No 0xB4 write → lrMask defaults to 3 (L+R) → CC10=64 (center) on first NoteOn
+        var converter = new Ym2612MidiConverter();
+        var tracks = makeTracks();
+
+        converter.convert(port0(0xB0, 0x07), tracks, CLOCK, 0);
+        converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
+        converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
+        converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
+
+        ShortMessage pan = findCC(tracks[3], 10);
+        assertNotNull(pan, "CC10 must be emitted even with default L+R pan");
+        assertEquals(64, pan.getData2(), "L+R (default) → CC10=64 (center)");
+    }
+
+    @Test
+    void tl_fullOutput_producesMaxVelocity() throws Exception {
+        // alg=4: carriers are op2 (0x48) and op3 (0x4C). TL=0 → amplitude=1.0 → velocity=127.
+        var converter = new Ym2612MidiConverter();
+        var tracks = makeTracks();
+
+        converter.convert(port0(0xB0, 0x04), tracks, CLOCK, 0); // alg=4, fb=0
+        converter.convert(port0(0x48, 0x00), tracks, CLOCK, 0); // S2 (op2) TL=0
+        converter.convert(port0(0x4C, 0x00), tracks, CLOCK, 0); // S4 (op3) TL=0
+        converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
+        converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
+        converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
+
+        var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn);
+        assertEquals(127, noteOn.getData2(), "TL=0 → velocity=127 (full output)");
+    }
+
+    @Test
+    void tl_attenuated_producesLowerVelocity() throws Exception {
+        // alg=4: TL=25 on both carriers → −18.75 dB → amplitude≈0.1155 → velocity≈15.
+        var converter = new Ym2612MidiConverter();
+        var tracks = makeTracks();
+
+        converter.convert(port0(0xB0, 0x04), tracks, CLOCK, 0); // alg=4, fb=0
+        converter.convert(port0(0x48, 25), tracks, CLOCK, 0);   // S2 (op2) TL=25
+        converter.convert(port0(0x4C, 25), tracks, CLOCK, 0);   // S4 (op3) TL=25
+        converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
+        converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
+        converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
+
+        var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn);
+        // TL=25, fb=0: tlDb=(25−20)×0.75=3.75 dB, fbDb=0 → 10^(−3.75/20) × 127 ≈ 82
+        assertEquals(82, noteOn.getData2(), "TL=25,fb=0 → velocity≈82 (−3.75 dB below REF_TL=20)");
+    }
+
+    @Test
+    void highFeedback_reducesVelocity() throws Exception {
+        // alg=4, fb=7 (max), TL=18: tlDb=(18−20)×0.75=−1.5 dB, fbDb=7×0.375=2.625 dB → total 1.125 dB
+        // → 10^(−1.125/20) × 127 ≈ 112. fb=0 at same TL would give velocity=127 (capped).
+        var converter = new Ym2612MidiConverter();
+        var tracks = makeTracks();
+
+        converter.convert(port0(0xB0, 0x38), tracks, CLOCK, 0); // alg=4, fb=7 (0b111_100=0x38)
+        converter.convert(port0(0x48, 18), tracks, CLOCK, 0);   // S2 (op2) TL=18
+        converter.convert(port0(0x4C, 18), tracks, CLOCK, 0);   // S4 (op3) TL=18
+        converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
+        converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
+        converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
+
+        var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn);
+        // TL=18, fb=7: tlDb=−1.5 dB, fbDb=2.625 dB → net 1.125 dB → 10^(−1.125/20) × 127 ≈ 112
+        assertEquals(112, noteOn.getData2(), "TL=18,fb=7 → velocity≈112 (fb applies −2.625 dB correction)");
     }
 
     @Test
