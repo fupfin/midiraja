@@ -37,6 +37,8 @@ public class VgmParser {
         long ym2203Clock = (data.length > 0x48) ? Integer.toUnsignedLong(buf.getInt(0x44)) : 0;
         long ym2608Clock = (data.length > 0x4C) ? Integer.toUnsignedLong(buf.getInt(0x48)) : 0;
         long ym2610Clock = (data.length > 0x50) ? Integer.toUnsignedLong(buf.getInt(0x4C)) : 0;
+        long gameBoyDmgClock = (data.length > 0x84) ? Integer.toUnsignedLong(buf.getInt(0x80)) : 0;
+        long huC6280Clock = (data.length > 0xA8) ? Integer.toUnsignedLong(buf.getInt(0xA4)) : 0;
         long ay8910Clock = (data.length > 0x78) ? Integer.toUnsignedLong(buf.getInt(0x74)) : 0;
         long k051649Clock = (data.length > 0xB0) ? Integer.toUnsignedLong(buf.getInt(0xAC)) : 0;
         // K051649 in Konami MSX cartridges runs at the full cartridge bus clock (= CPU clock).
@@ -50,7 +52,8 @@ public class VgmParser {
         List<VgmEvent> events = parseCommands(data, dataOffset, loopStart);
 
         return new VgmParseResult(version, sn76489Clock, ym2612Clock, ym2151Clock,
-                ym2203Clock, ym2608Clock, ym2610Clock, ay8910Clock, sccClock, events, gd3Title);
+                ym2203Clock, ym2608Clock, ym2610Clock, gameBoyDmgClock, huC6280Clock,
+                ay8910Clock, sccClock, events, gd3Title);
     }
 
     private static byte[] readAllBytes(File file) throws IOException {
@@ -186,6 +189,16 @@ public class VgmParser {
                 case 0x59 -> { // YM2610 (OPNB) port 1
                     if (pos + 1 >= data.length) break;
                     events.add(new VgmEvent(sampleOffset, 10, new byte[]{data[pos], data[pos + 1]}));
+                    pos += 2;
+                }
+                case 0xB3 -> { // Game Boy DMG
+                    if (pos + 1 >= data.length) break;
+                    events.add(new VgmEvent(sampleOffset, 11, new byte[]{data[pos], data[pos + 1]}));
+                    pos += 2;
+                }
+                case 0xB9 -> { // HuC6280 (PC Engine)
+                    if (pos + 1 >= data.length) break;
+                    events.add(new VgmEvent(sampleOffset, 12, new byte[]{data[pos], data[pos + 1]}));
                     pos += 2;
                 }
                 case 0x61 -> { // Wait N samples

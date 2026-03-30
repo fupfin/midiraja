@@ -35,6 +35,8 @@ public class VgmToMidiConverter {
     public static final int CHIP_YM2608_PORT1  = 8; // 0x57
     public static final int CHIP_YM2610_PORT0  = 9; // 0x58 (OPNB: 4 FM + SSG)
     public static final int CHIP_YM2610_PORT1  = 10; // 0x59
+    public static final int CHIP_GAMEBOY_DMG   = 11; // 0xB3
+    public static final int CHIP_HUC6280       = 12; // 0xB9
 
     // PPQ=480 at 120 BPM → 960 ticks/second.
     // VGM timebase = 44100 Hz. Scale: tick = round(sampleOffset × 960 / 44100).
@@ -112,6 +114,8 @@ public class VgmToMidiConverter {
             var ym2203Conv     = new Ym2612MidiConverter(72, -1);  // single port, divider=72
             var ym2608Conv     = new Ym2612MidiConverter(144, CHIP_YM2608_PORT1);
             var ym2610Conv     = new Ym2612MidiConverter(144, CHIP_YM2610_PORT1);
+            var pceConverter   = new HuC6280MidiConverter();
+            var gbConverter    = new GameBoyDmgMidiConverter();
 
             // Muted channels are redirected to a sink track that is not part of the output sequence.
             // This discards all events destined for those channels without modifying converter logic.
@@ -142,6 +146,8 @@ public class VgmToMidiConverter {
                     case CHIP_YM2610_PORT0 -> routeOpn(event, routed, tick, ym2610Conv, ayConverter,
                             parsed.ym2610Clock(), parsed.ym2610Clock() / 4);
                     case CHIP_YM2610_PORT1 -> ym2610Conv.convert(event, routed, parsed.ym2610Clock(), tick);
+                    case CHIP_HUC6280      -> pceConverter.convert(event, routed, parsed.huC6280Clock(), tick);
+                    case CHIP_GAMEBOY_DMG  -> gbConverter.convert(event, routed, parsed.gameBoyDmgClock(), tick);
                     default -> {} // unknown chip, skip
                 }
             }
