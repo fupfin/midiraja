@@ -17,6 +17,7 @@ import org.jspecify.annotations.Nullable;
  * @param vgmVersion VGM format version (e.g. 0x150)
  * @param sn76489Clock SN76489 clock in Hz, 0 if chip absent
  * @param ym2612Clock YM2612 clock in Hz, 0 if chip absent
+ * @param ym2151Clock YM2151 (OPM) clock in Hz, 0 if chip absent
  * @param ay8910Clock AY-3-8910 / YM2149F clock in Hz, 0 if chip absent
  * @param sccClock K051649 (Konami SCC) clock in Hz; falls back to {@code ay8910Clock × 2} when
  *     the header field is zero. The K051649 runs at the full MSX cartridge bus clock (= CPU clock),
@@ -28,6 +29,7 @@ public record VgmParseResult(
         int vgmVersion,
         long sn76489Clock,
         long ym2612Clock,
+        long ym2151Clock,
         long ay8910Clock,
         long sccClock,
         List<VgmEvent> events,
