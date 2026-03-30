@@ -143,6 +143,39 @@ class Ym2151MidiConverterTest {
     }
 
     @Test
+    void keyOff_producesNoteOff() throws Exception {
+        var converter = new Ym2151MidiConverter(0);
+        var tracks = makeTracks();
+
+        converter.convert(opm(0x20, 0x04), tracks, 0, 0); // alg=4
+        converter.convert(opm(0x70, 0), tracks, 0, 0);     // C1 TL=0
+        converter.convert(opm(0x78, 0), tracks, 0, 0);     // C2 TL=0
+        converter.convert(opm(0x28, 0x4E), tracks, 0, 0);  // KC oct=4, C
+        converter.convert(opm(0x08, 0x78), tracks, 0, 1);  // key-on ch=0
+        converter.convert(opm(0x08, 0x00), tracks, 0, 2);  // key-off ch=0 (operator mask=0)
+
+        var noteOff = findFirst(tracks[0], ShortMessage.NOTE_OFF);
+        assertNotNull(noteOff, "Key-off (operator mask=0) must produce NoteOff");
+        assertEquals(72, noteOff.getData1(), "NoteOff note must match the active note");
+    }
+
+    @Test
+    void invalidKcNoteCode_suppressesNote() throws Exception {
+        var converter = new Ym2151MidiConverter(0);
+        var tracks = makeTracks();
+
+        converter.convert(opm(0x20, 0x04), tracks, 0, 0); // alg=4
+        converter.convert(opm(0x70, 0), tracks, 0, 0);     // C1 TL=0
+        converter.convert(opm(0x78, 0), tracks, 0, 0);     // C2 TL=0
+        // KC with note code 3 (invalid — KC_SEMITONE[3] == -1)
+        converter.convert(opm(0x28, 0x43), tracks, 0, 0);
+        converter.convert(opm(0x08, 0x78), tracks, 0, 1);  // key-on ch=0
+
+        var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
+        assertNull(noteOn, "Invalid KC note code 3 should suppress NoteOn");
+    }
+
+    @Test
     void kcNote_cSharp_octave3() throws Exception {
         var converter = new Ym2151MidiConverter(0);
         var tracks = makeTracks();

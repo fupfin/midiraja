@@ -245,6 +245,21 @@ class Ym2612MidiConverterTest {
     }
 
     @Test
+    void fnumZero_suppressesNote() throws Exception {
+        var converter = new Ym2612MidiConverter();
+        var tracks = makeTracks();
+
+        converter.convert(port0(0xB0, 0x07), tracks, CLOCK, 0); // alg=7
+        // fnum=0: high byte=0x00 (block=0, fnum_high=0), low byte=0x00
+        converter.convert(port0(0xA4, 0x00), tracks, CLOCK, 0);
+        converter.convert(port0(0xA0, 0x00), tracks, CLOCK, 0);
+        converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1); // key-on ch0
+
+        var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
+        assertNull(noteOn, "fnum=0 should suppress NoteOn");
+    }
+
+    @Test
     void port1_channel_usesCorrectMidiChannel() throws Exception {
         // Port 1, ch0 → internal ch3 → MIDI ch6 (offset 3)
         var converter = new Ym2612MidiConverter();
