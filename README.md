@@ -6,6 +6,7 @@
 
 - **Terminal-native MIDI player** — from minimal line output to a fully interactive TUI with 16-channel VU meters and live controls for speed, transpose, and volume
 - **Flexible synthesis** — route to OS MIDI ports (CoreMIDI, Windows GS, ALSA) or hardware synthesizers; or synthesize internally using built-in engines (OPL2/OPL3 FM, OPN2, PSG/MSX+SCC, 1-bit, GUS patches, TinySoundFont); or link to external engines (FluidSynth, Munt/Roland MT-32)
+- **VGM chiptune playback** — plays VGM/VGZ files by converting chip register streams to MIDI in real time. Supports SN76489, YM2612, YM2151, YM2203/2608/2610, AY-3-8910, SCC, HuC6280, and Game Boy DMG
 - **Retro hardware simulation (`--retro`)** — reconstructs the DAC quantization, analog filtering, and speaker acoustics of vintage hardware: Amiga Paula, Compact Mac, ZX Spectrum beeper, IBM PC Speaker, Covox, and more
 - **DSP effects rack** — tube saturation, stereo chorus, algorithmic reverb (room/hall/plate/chamber/spring/cave), 3-band EQ, LPF/HPF, compressor — applies to all built-in engines
 - **Vintage speaker simulation (`--speaker`)** — models the acoustic frequency response of physical speaker enclosures: tin-can, warm-radio, telephone, pc
@@ -87,6 +88,7 @@ midra device song.mid
 | Roland MT-32 (LucasArts / Sierra adventures) | `midra mt32 ~/roms/ song.mid` |
 | Hardware synth or OS MIDI port | `midra device song.mid` |
 | Retro chip sound | see below |
+| VGM chiptune files (.vgm/.vgz) | `midra vgm song.vgz` |
 
 **Built-in chip emulation engines** — zero-setup, no external files needed:
 
@@ -96,6 +98,17 @@ midra device song.mid
 | OPN2 (Sega Genesis / PC-98) | Console / Japanese PC | `midra opn song.mid` |
 | PSG (MSX / ZX Spectrum / Atari ST) | 8-bit home computers | `midra psg song.mid` |
 | 1-bit (Apple II / PC Speaker) | Extreme lo-fi | `midra 1bit song.mid` |
+
+**VGM chiptune playback** — plays .vgm/.vgz files by converting chip events to MIDI:
+
+| Chip | Platform | Command |
+|------|----------|---------|
+| SN76489 + YM2612 | Sega Genesis | `midra vgm sonic.vgz` |
+| YM2151 | Arcade (CPS1, System 16) | `midra vgm streetfighter.vgz` |
+| YM2203 / YM2608 / YM2610 | PC-88 / PC-98 / Neo Geo | `midra vgm game.vgz` |
+| AY-3-8910 + SCC | MSX | `midra vgm nemesis.vgz` |
+| HuC6280 | PC Engine | `midra vgm rtype.vgz` |
+| Game Boy DMG | Game Boy | `midra vgm pokemon.vgz` |
 
 **`--retro` post-processing** — vintage hardware audio simulation applied on top of any engine:
 

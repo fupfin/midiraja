@@ -280,6 +280,45 @@ These engines are baked directly into the Midiraja app. They require **absolutel
 * **How to use it:** `midra mt32 ~/my_rom_folder/ monkey_island.mid`
 * **🎛️ DSP Effects:** All standard effects are supported — `--tube`, `--chorus`, `--reverb`, EQ, LPF/HPF.
 
+#### 7. VGM Chiptune Playback (`vgm`)
+* **What is it?** Plays VGM/VGZ (Video Game Music) files — the standard format for preserving
+  retro game music as chip register dumps. Midiraja converts the raw chip events to MIDI in
+  real time, then renders them through the built-in SoundFont engine (FluidR3 GM).
+* **How to use it:** `midra vgm song.vgz`
+* **Supported chips:**
+
+| Chip | Platform | Notes |
+|------|----------|-------|
+| SN76489 | Sega Genesis / Master System | PSG (3 tone + noise) |
+| YM2612 | Sega Genesis | 6-channel FM with TL-based velocity and stereo pan |
+| YM2151 (OPM) | Arcade (CPS1, System 16, etc.) | 8-channel FM |
+| YM2203 (OPN) | PC-88 | 3 FM + SSG (AY8910-compatible) |
+| YM2608 (OPNA) | PC-98 | 6 FM + SSG |
+| YM2610 (OPNB) | Neo Geo | 4 FM + SSG |
+| AY-3-8910 | MSX, ZX Spectrum | PSG (3 tone + noise) |
+| K051649 (SCC) | MSX (Konami cartridges) | 5-channel wavetable |
+| HuC6280 | PC Engine / TurboGrafx-16 | 6-channel wavetable with stereo; waveform-based GM selection |
+| Game Boy DMG | Game Boy | 2 pulse + 1 wave + 1 noise |
+
+* **Options:**
+  * `--mute <CHANNELS>` — silence specific MIDI channels using 1-based numbers matching the UI
+    display. Examples: `--mute 4-9` (mute YM2612 FM), `--mute 1-3,10` (mute PSG).
+    Useful for isolating individual chips or channels during diagnostic listening.
+  * `--export-midi <FILE>` — write the converted MIDI to a file without playing.
+* **Chip-specific features:**
+  * FM chips (YM2612, YM2151, OPN family): GM program selected dynamically from algorithm,
+    feedback, and modulator TL depth. Carrier TL drives MIDI velocity.
+  * HuC6280: 32-sample waveform shape is analyzed (steep-edge counting) to select
+    Square Lead, Sawtooth Lead, Calliope Lead, or Synth Brass automatically.
+  * Game Boy: pulse channels → Square Lead, wave channel → Recorder, noise → GM drums.
+* **Where to get VGM files:** [vgmrips.net](https://vgmrips.net) hosts thousands of VGM/VGZ
+  files organized by platform and game.
+* **Example:**
+  ```bash
+  midra vgm --mute 1-3,10 sonic_data_select.vgz   # mute PSG, hear FM only
+  midra vgm --export-midi out.mid game.vgz          # convert to MIDI file
+  ```
+
 ---
 
 ### Method C: Shared Library Linking (External Engines)
