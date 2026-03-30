@@ -40,7 +40,14 @@ def load_wav_mono(path: str) -> tuple[np.ndarray, int]:
     dtype = {1: np.int8, 2: np.int16}[depth]
     scale = {1: 128.0,  2: 32768.0}[depth]
     samples = np.frombuffer(raw, dtype=dtype).astype(np.float64) / scale
-    mono    = samples[0::ch]   # left channel only
+
+    # For stereo files, average L and R channels so that panned content (e.g. YM2612 with
+    # per-channel CC10) is measured with the same energy weight as centred mono content.
+    # Using left-channel only would misread a right-panned FM signal as near-silence.
+    if ch == 2:
+        mono = (samples[0::2] + samples[1::2]) / 2
+    else:
+        mono = samples
 
     warmup = int(sr * WARMUP_SEC)
     limit  = warmup + int(sr * ANALYSIS_SEC)
@@ -175,16 +182,23 @@ def main() -> None:
         bb = band_rms(sig_b, sr, lo, hi)
         print(f"  {label:28}  {ba:+{W}.2f}  {bb:+{W}.2f}  {ba-bb:+11.2f} dB")
 
+    # target_gap: how many dB chip_a (PSG) should sit relative to chip_b (FM/SCC).
+    # genesis: FM is ~10 dB louder by hardware design → PSG should be −10 dB vs FM.
+    # msx:     PSG and SCC play equal melodic roles → target 0 dB.
+    target_gap = -10.0 if args.mode == "genesis" else 0.0
+
     print()
-    louder, quieter = (chip_a_name, chip_b_name) if gap > 0 else (chip_b_name, chip_a_name)
-    abs_gap = abs(gap)
-    if abs_gap < 1.0:
-        print(f"{chip_a_name} and {chip_b_name} differ by only {abs_gap:.1f} dB — levels are balanced.")
+    print(f"Target gap ({chip_a_name} − {chip_b_name}): {target_gap:+.1f} dB")
+    print(f"Measured gap:                   {gap:+.2f} dB")
+    delta_db = target_gap - gap    # how much to adjust chip_a (PSG)
+    factor   = 10 ** (delta_db / 20.0)
+
+    if abs(delta_db) < 0.5:
+        print(f"Levels are within 0.5 dB of target — no correction needed.")
     else:
-        factor  = 10 ** (-abs_gap / 20.0)
-        max_cc7 = min(127, round(127 * factor))
-        print(f"{louder} is {abs_gap:.1f} dB louder than {quieter}.")
-        print(f"  → Scale {louder} CC7 by {factor:.3f}  (max CC7 = {max_cc7})")
+        direction = "Reduce" if delta_db < 0 else "Increase"
+        print(f"  → {direction} {chip_a_name} CC7 by {abs(delta_db):.1f} dB")
+        print(f"  → Suggested PSG_CC7_GAIN = {factor:.3f}")
 
 
 if __name__ == "__main__":

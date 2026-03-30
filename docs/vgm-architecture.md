@@ -90,10 +90,11 @@ Converts SN76489 PSG chip events to MIDI note events.
 Converts YM2612 FM chip events to MIDI note events.
 
 **Responsibilities:**
-- Decode port 0/1 register writes (0xA0-0xA6, 0x28, 0xB0)
+- Decode port 0/1 register writes (0xA0-0xA6, 0x28, 0xB0, 0xB4)
 - Convert F-Number + Block to frequency, then to MIDI note number
 - Map key-on (0x28) to NoteOn and key-off to NoteOff
 - Derive GM program from algorithm (0xB0 bit2-0) and feedback (0xB0 bit5-3)
+- Decode stereo pan register (0xB4-0xB6 bits 7-6: L/R) → CC10 before NoteOn
 - Use MIDI channels 3-8
 
 ---
@@ -117,11 +118,11 @@ The AY-3-8910 has a hardware envelope generator (R11/R12: period, R13: shape) th
 time-varies the channel amplitude. Since MIDI has no equivalent, the effective volume
 is approximated from the envelope shape:
 
-| R13 shapes | Character | Effective vol |
-|------------|-----------|---------------|
-| 0-3, 8, 9, 10, 15 | Decay / single-shot transient | 7/15 (velocity ≈ 59) |
-| 11, 13 | Single phase then hold at max | 11/15 (velocity ≈ 93) |
-| 12, 14 | Continuous sawtooth / triangle | 8/15 (velocity ≈ 68) |
+| R13 shapes | Character | Effective vol | CC7 (after gain) |
+|------------|-----------|---------------|-----------------|
+| 0-3, 8, 9, 10, 15 | Decay / single-shot transient | 7/15 | ≈ 50 |
+| 11, 13 | Single phase then hold at max | 11/15 | ≈ 63 |
+| 12, 14 | Continuous sawtooth / triangle | 8/15 | ≈ 54 |
 
 The most common shape in MSX games is R13=9 (single fall then silence), used to produce
 plucked-bass or percussive tones. Treating it as vol=15 (velocity 127) makes sustained
@@ -186,6 +187,10 @@ picocli subcommand; follows the same pattern as `OplCommand` and `FluidCommand`.
          description = "VGM chiptune playback (SN76489 / YM2612 → MIDI conversion).")
 class VgmCommand implements Callable<Integer> { ... }
 ```
+
+**Options:**
+- `--mute <CHIPS>` — comma-separated list of chips to silence: `psg`, `fm`, `scc`. Used to isolate a single chip's output (e.g. `--mute scc` for PSG-only).
+- `--export-midi <FILE>` — write the converted MIDI to a file without playing. Useful with `--mute` to measure per-chip levels via fluidsynth.
 
 ---
 
@@ -354,11 +359,19 @@ SN76489 volume is 0 (loudest) to 15 (silent):
 
 ```java
 int cc7 = (int) Math.round((15 - volume) / 15.0 * 127);
+cc7 = (int) Math.round(cc7 * PSG_CC7_GAIN);   // PSG_CC7_GAIN = 0.708 ≈ −3 dB
 ```
 
 Volume 15 (silent) → NoteOff. All other values → CC7 update.
 NoteOn always sends CC7 immediately before the NoteOn message so the channel volume is set
 correctly regardless of any CC7 value left over from a previous note.
+
+`PSG_CC7_GAIN = 0.708` (≈ −3 dB) is a psychoacoustic correction: Square Lead (prog 80) sits
+at a ~2.4 kHz spectral centroid; YM2612 FM sits at ~1.2 kHz. Equal-loudness contours make
+the high-frequency PSG content perceptually louder at equal RMS. RMS analysis across 75
+Genesis tracks matches the hardware ratio (FM ~9.8 dB louder), but PSG melody channels cut
+through perceptually. The −3 dB correction compensates without changing the hardware-accurate
+FM/PSG energy ratio.
 
 ---
 
@@ -398,6 +411,32 @@ All writes arrive via VGM command `0xD2` with three bytes: `port`, `addr`, `data
 | 3 | 0x00 | Channel enable: bit `ch` = 1 → enabled (5 channels, bits 4-0) |
 
 Frequency divider N = `(hi << 8) | lo`; pitch formula: `f = clock / (32 × (N + 1))`.
+
+---
+
+## YM2612 Stereo Pan Registers (0xB4-0xB6)
+
+Register 0xB4 (ch0), 0xB5 (ch1), 0xB6 (ch2) in port 0; same addresses in port 1 for ch3-5:
+
+```
+bit 7:   L enable (1 = left channel active)
+bit 6:   R enable (1 = right channel active)
+bit 5-4: AMS — amplitude modulation sensitivity (ignored for MIDI)
+bit 2-0: FMS — frequency modulation sensitivity (ignored for MIDI)
+```
+
+Mapped to MIDI CC10 (pan):
+
+| L | R | lrMask | CC10 |
+|---|---|--------|------|
+| 1 | 1 | 3 | 64 (center) |
+| 1 | 0 | 2 | 0 (hard left) |
+| 0 | 1 | 1 | 127 (hard right) |
+| 0 | 0 | 0 | 64 (center — channel is silent anyway) |
+
+CC10 is emitted immediately before NoteOn (like Program Change), and also mid-note if the
+register changes while a note is active. The default `lrMask=3` (center) means CC10=64 is
+always sent on the first NoteOn even if 0xB4 was never written.
 
 ---
 
@@ -541,24 +580,28 @@ changes. This keeps the MIDI stream lean while still adapting to mid-song patch 
 
 ### Program selection logic
 
+Organ instruments (Drawbar, Church, Rock) were avoided: they introduce a thick ecclesiastical
+timbre that clashes with fast game music. Synth Brass, Synth Strings, and Calliope Lead
+better approximate the crisp character of real FM output in FluidR3.
+
 ```java
 static int selectProgram(int alg, int fb) {
-    if (fb >= 6) {           // high feedback → square-wave-like buzz
+    if (fb >= 6) {           // high feedback → strong odd harmonics, square-wave buzz
         return switch (alg) {
-            case 0,1,2,3 -> 29;   // Overdriven Guitar
-            case 4       -> 80;   // Square Lead
-            default      -> 19;   // Rock Organ
+            case 0,1,2,3 -> 29;   // Overdriven Guitar — buzzy serial FM
+            case 4       -> 80;   // Square Lead — two buzzy 2-op pairs
+            default      -> 62;   // Synth Brass 1 — additive + harmonics
         };
     }
     return switch (alg) {
-        case 0 -> 33;   // Electric Bass (Finger)
-        case 1 -> 38;   // Synth Bass 1
+        case 0 -> 33;   // Electric Bass (Finger) — deepest serial FM
+        case 1 -> 38;   // Synth Bass 1 — series FM, brighter
         case 2 -> 81;   // Sawtooth Lead
         case 3 -> 81;   // Sawtooth Lead
-        case 4 -> 81;   // Sawtooth Lead (most common Genesis lead algorithm)
-        case 5 -> 89;   // Pad 2 (Warm)
-        case 6 -> 19;   // Rock Organ
-        case 7 -> 16;   // Hammond Organ
+        case 4 -> 82;   // Calliope Lead — two 2-op pairs, cleaner than sawtooth
+        case 5 -> 89;   // Pad 2 (Warm) — 1 mod → 3 carriers
+        case 6 -> 50;   // Synth Strings 1 — near-additive, ensemble character
+        case 7 -> 62;   // Synth Brass 1 — fully additive, bright
         default -> 81;
     };
 }
@@ -620,3 +663,17 @@ SCC channels (10-14) keep a fixed GM 81 (Sawtooth Lead) set at tick 0.
 13. **UI channel program display:** `ChannelActivityPanel.updatePrograms()` must be called
     inside the render loop. Calling it once before the loop starts means tick-0 Program Change
     events have not yet been processed, so all channels display as Piano (program 0).
+14. **YM2612 stereo pan:** Register 0xB4-0xB6 bits 7-6 encode per-channel L/R enable. Mapped
+    to MIDI CC10: L-only=0, R-only=127, L+R=64 (center). CC10 is deferred to key-on (not
+    emitted on every 0xB4 write) to avoid events on silent channels, and re-emitted mid-note
+    on pan changes. SN76489, AY-3-8910, and SCC are mono chips — no pan is applied.
+15. **Cross-chip CC7 gain corrections:** Two independent gain constants balance perceptual
+    loudness across chips rendered through FluidR3:
+    - `Sn76489MidiConverter.PSG_CC7_GAIN = 0.708` (−3 dB): Square Lead (prog 80) sits at
+      ~2.4 kHz, above YM2612 FM at ~1.2 kHz. Equal-loudness contours make it perceptually
+      louder at equal RMS. Hardware energy ratio (FM ~9.8 dB louder) is preserved; only
+      psychoacoustic prominence is corrected.
+    - `Ay8910MidiConverter.PSG_CC7_GAIN = 0.580` (−4.7 dB): Square Lead is 4.7 dB louder
+      than Rock Organ at equal CC7 in FluidR3 (measured via `scripts/measure_instrument_levels.py`).
+      MSX games use AY-3-8910 and SCC in equal melodic roles, so the soundfont level difference
+      is corrected. Genesis SN76489 uses a separate constant for the reason above.
