@@ -48,11 +48,23 @@ public class SccMidiConverter {
      * subsequent frequency change (retrigger) fires the correct audible NoteOn.
      */
     private static final int MIN_NOTE = 28; // E1 ≈ 41 Hz
+    private static final int WAVE_LENGTH = 32;
+    private static final int STEEP_THRESHOLD = 80; // ~1/3 of 8-bit signed range (0-255)
+
+    private static final int PROGRAM_SQUARE_LEAD   = 80;
+    private static final int PROGRAM_SAWTOOTH_LEAD = 81;
+    private static final int PROGRAM_CALLIOPE_LEAD = 82;
+    private static final int PROGRAM_SYNTH_BRASS1  = 62;
 
     private final int[] freqLo = new int[5];
     private final int[] freqHi = new int[5]; // only bits 3-0 are significant
     private final int[] volume = new int[5]; // 0=silent, 15=loudest
     private final int[] activeNote = {-1, -1, -1, -1, -1};
+    private final int[] currentProgram = {-1, -1, -1, -1, -1};
+
+    // Waveform data: 32 samples per channel, 8-bit signed stored as unsigned (0-255)
+    private final int[][] waveform = new int[5][WAVE_LENGTH];
+    private final int[] waveWriteCount = new int[5];
 
     public void convert(VgmEvent event, Track[] tracks, long clock, long tick) {
         int port = event.rawData()[0] & 0xFF;
@@ -60,11 +72,21 @@ public class SccMidiConverter {
         int val  = event.rawData()[2] & 0xFF;
 
         switch (port) {
-            case 0 -> {} // waveform data — not used for MIDI conversion
+            case 0 -> handleWaveform(addr, val);
             case 1 -> handleFrequency(addr, val, tick, tracks, clock);
             case 2 -> handleVolume(addr, val, tick, tracks, clock);
             case 3 -> {} // channel enable — not used for MIDI gating (see class javadoc)
         }
+    }
+
+    private void handleWaveform(int addr, int val) {
+        // Port 0 addresses: ch0=0x00-0x1F, ch1=0x20-0x3F, ch2=0x40-0x5F,
+        // ch3=0x60-0x7F (shared with ch4 on original SCC; SCC+ has ch4=0x80-0x9F)
+        int ch = addr / WAVE_LENGTH;
+        if (ch >= 5) return;
+        int pos = addr % WAVE_LENGTH;
+        waveform[ch][pos] = val & 0xFF; // store as unsigned
+        waveWriteCount[ch]++;
     }
 
     private void handleFrequency(int addr, int val, long tick, Track[] tracks, long clock) {
@@ -122,6 +144,7 @@ public class SccMidiConverter {
         activeNote[ch] = note;
         if (note < MIN_NOTE) return;
         int midiCh = ch + MIDI_CH_OFFSET;
+        emitProgramIfNeeded(ch, midiCh, tick, tracks);
         // CC7 before NoteOn: ensures channel volume is correct before the note sounds,
         // regardless of any residual CC7 value from a previous note or controller reset.
         addEvent(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(volume[ch]),
@@ -157,6 +180,33 @@ public class SccMidiConverter {
         if (fnum <= 0) return -1;
         double f = clock / (32.0 * (fnum + 1));
         return Math.clamp(Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
+    }
+
+    private void emitProgramIfNeeded(int ch, int midiCh, long tick, Track[] tracks) {
+        int program = classifyWaveform(waveform[ch]);
+        if (program != currentProgram[ch]) {
+            addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
+            currentProgram[ch] = program;
+        }
+    }
+
+    /**
+     * Classifies a 32-sample waveform by counting steep edges. SCC samples are 8-bit signed
+     * stored as unsigned (0-255); the threshold is ~1/3 of the full range.
+     */
+    static int classifyWaveform(int[] wave) {
+        int steepEdges = 0;
+        for (int i = 0; i < WAVE_LENGTH; i++) {
+            if (Math.abs(wave[(i + 1) % WAVE_LENGTH] - wave[i]) > STEEP_THRESHOLD) {
+                steepEdges++;
+            }
+        }
+        return switch (steepEdges) {
+            case 0 -> PROGRAM_CALLIOPE_LEAD;
+            case 1 -> PROGRAM_SAWTOOTH_LEAD;
+            case 2 -> PROGRAM_SQUARE_LEAD;
+            default -> PROGRAM_SYNTH_BRASS1;
+        };
     }
 
     private static int toVelocity(int vol) {
