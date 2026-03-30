@@ -52,6 +52,8 @@ public class Ym3812MidiConverter {
 
     private final int[] carrierTl = new int[CHANNELS];
     private final int[] modulatorTl = new int[CHANNELS];
+    private final int[] carrierAr = new int[CHANNELS];   // 4-bit, 0-15
+    private final int[] carrierDr = new int[CHANNELS];   // 4-bit, 0-15
     private final int[] feedback = new int[CHANNELS];
     private final int[] connection = new int[CHANNELS];
 
@@ -76,6 +78,8 @@ public class Ym3812MidiConverter {
 
         if (addr >= 0x40 && addr <= 0x55) {
             handleOperatorTl(addr, data, 0x40);
+        } else if (addr >= 0x60 && addr <= 0x75) {
+            handleOperatorArDr(addr, data, 0x60);
         } else if (addr >= 0xA0 && addr <= 0xA8) {
             fnumLo[addr - 0xA0] = data;
         } else if (addr >= 0xB0 && addr <= 0xB8) {
@@ -87,8 +91,7 @@ public class Ym3812MidiConverter {
         } else if (addr == 0xBD) {
             handleRhythmControl(data, tick, tracks);
         }
-        // Other operator ranges (0x20-0x35, 0x60-0x75, 0x80-0x95, 0xE0-0xF5) are
-        // tracked for completeness but only TL affects MIDI output.
+        // Other operator ranges (0x20-0x35, 0x80-0x95, 0xE0-0xF5): not needed for MIDI output.
     }
 
     private void handleOperatorTl(int addr, int data, int base) {
@@ -106,6 +109,20 @@ public class Ym3812MidiConverter {
             carrierTl[ch] = tl;
         } else {
             modulatorTl[ch] = tl;
+        }
+    }
+
+    private void handleOperatorArDr(int addr, int data, int base) {
+        int offset = addr - base;
+        int group = offset / 8;
+        int slot = offset % 8;
+        if (slot >= 6) return;
+        int ch = group * 3 + slot % 3;
+        if (ch >= CHANNELS) return;
+        boolean isCarrier = slot >= 3;
+        if (isCarrier) {
+            carrierAr[ch] = (data >> 4) & 0x0F;
+            carrierDr[ch] = data & 0x0F;
         }
     }
 
@@ -165,7 +182,8 @@ public class Ym3812MidiConverter {
     }
 
     private void emitProgramIfNeeded(int ch, long tick, Track[] tracks) {
-        int program = selectOpl2Program(connection[ch], feedback[ch], modulatorTl[ch]);
+        boolean perc = FmMidiUtil.isPercussive(carrierAr[ch], carrierDr[ch]);
+        int program = selectOpl2Program(connection[ch], feedback[ch], modulatorTl[ch], perc);
         if (program != currentProgram[ch]) {
             addEvent(tracks[ch], ShortMessage.PROGRAM_CHANGE, ch, program, 0, tick);
             currentProgram[ch] = program;
@@ -188,16 +206,20 @@ public class Ym3812MidiConverter {
     }
 
     /**
-     * Maps OPL2 connection mode, feedback, and modulator TL to a GM program number.
+     * Maps OPL2 connection mode, feedback, modulator TL, and envelope character to GM program.
      *
      * <p>Connection 1 (AM/additive) produces organ-like or bell-like timbres.
      * Connection 0 (FM) ranges from bright lead sounds (low modTl) to soft tones (high modTl).
+     * Percussive envelopes override to short-decay instruments (Piano, Vibraphone, etc.).
      */
-    static int selectOpl2Program(int connection, int feedback, int modTl) {
+    static int selectOpl2Program(int connection, int feedback, int modTl, boolean percussive) {
+        if (percussive) {
+            return (connection == 1) ? 11 : 4; // AM → Vibraphone, FM → Electric Piano 1
+        }
         if (connection == 1) {
             return (modTl <= 30) ? 11 : 82; // Vibraphone or Calliope Lead
         }
-        // FM mode
+        // FM mode, sustained
         if (feedback >= 6) return (modTl <= 50) ? 29 : 62; // Overdriven Guitar or Synth Brass
         if (modTl <= 20) return 81;  // Sawtooth Lead
         if (modTl <= 50) return 71;  // Clarinet

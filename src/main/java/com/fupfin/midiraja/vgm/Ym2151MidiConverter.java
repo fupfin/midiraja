@@ -56,6 +56,10 @@ public class Ym2151MidiConverter {
         {127, 127, 127, 127}, {127, 127, 127, 127}, {127, 127, 127, 127}, {127, 127, 127, 127},
         {127, 127, 127, 127}, {127, 127, 127, 127}, {127, 127, 127, 127}, {127, 127, 127, 127}
     };
+    // AR per channel per operator (5-bit, 0-31). KS/AR at 0x80-0x9F.
+    private final int[][] ar = new int[CHANNELS][4];
+    // D1R per channel per operator (5-bit, 0-31). AM/D1R at 0xA0-0xBF.
+    private final int[][] d1r = new int[CHANNELS][4];
     private final int[] lrMask = {3, 3, 3, 3, 3, 3, 3, 3};
     private final int[] currentPan = {-1, -1, -1, -1, -1, -1, -1, -1};
 
@@ -72,6 +76,16 @@ public class Ym2151MidiConverter {
             int op = (addr - 0x60) >> 3;
             int ch = addr & 0x07;
             tl[ch][op] = data & 0x7F;
+        } else if (addr >= 0x80 && addr <= 0x9F) {
+            // KS/AR: bits 4-0 = AR
+            int op = (addr - 0x80) >> 3;
+            int ch = addr & 0x07;
+            ar[ch][op] = data & 0x1F;
+        } else if (addr >= 0xA0 && addr <= 0xBF) {
+            // AM/D1R: bits 4-0 = D1R
+            int op = (addr - 0xA0) >> 3;
+            int ch = addr & 0x07;
+            d1r[ch][op] = data & 0x1F;
         } else if (addr >= 0x20 && addr <= 0x27) {
             // RL/FB/CONNECT: bits 7-6=LR, bits 5-3=FB, bits 2-0=algorithm
             int ch = addr & 0x07;
@@ -129,7 +143,11 @@ public class Ym2151MidiConverter {
     }
 
     private void emitProgramIfNeeded(int ch, int midiCh, Track[] tracks, long tick) {
-        int program = selectProgram(algorithm[ch], feedback[ch], avgModulatorTl(tl, algorithm, ch));
+        int[] cops = carrierOps(algorithm[ch]);
+        int totalAr = 0, totalDr = 0;
+        for (int op : cops) { totalAr += ar[ch][op]; totalDr += d1r[ch][op]; }
+        boolean perc = isPercussive(totalAr / cops.length / 2, totalDr / cops.length / 2);
+        int program = selectProgram(algorithm[ch], feedback[ch], avgModulatorTl(tl, algorithm, ch), perc);
         if (program != currentProgram[ch]) {
             addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
             currentProgram[ch] = program;

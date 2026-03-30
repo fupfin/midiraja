@@ -21,6 +21,7 @@ import javax.sound.midi.Track;
  */
 final class FmMidiUtil {
 
+    // Sustained instruments
     private static final int PROGRAM_ACOUSTIC_BASS      = 32;
     private static final int PROGRAM_ELECTRIC_BASS     = 33;
     private static final int PROGRAM_SLAP_BASS         = 36;
@@ -35,6 +36,13 @@ final class FmMidiUtil {
     private static final int PROGRAM_SYNTH_STRINGS1    = 50;
     private static final int PROGRAM_SYNTH_BRASS1      = 62;
     private static final int PROGRAM_SYNTH_PAD2        = 89;
+    // Percussive instruments (short decay, used when envelope has fast AR + fast DR)
+    private static final int PROGRAM_ELECTRIC_PIANO1   = 4;
+    private static final int PROGRAM_HARPSICHORD       = 6;
+    private static final int PROGRAM_GLOCKENSPIEL      = 9;
+    private static final int PROGRAM_VIBRAPHONE        = 11;
+    private static final int PROGRAM_MARIMBA           = 12;
+    private static final int PROGRAM_PIZZICATO         = 45;
 
     /** Reference TL for velocity scaling: carrier TL == REF_TL plays at velocity=127. */
     static final int REF_TL = 20;
@@ -44,65 +52,70 @@ final class FmMidiUtil {
     private FmMidiUtil() {}
 
     /**
-     * Maps FM algorithm + feedback + modulator TL to a GM program number.
+     * Maps FM algorithm + feedback + modulator TL + envelope character to a GM program.
      *
-     * <p>The eight algorithms are identical across OPN (YM2612) and OPM (YM2151) families.
-     * Modulator TL indicates modulation depth: low TL = strong modulation (bright/metallic),
-     * high TL = weak modulation (soft/pure).
-     *
-     * @param modTl average TL of modulator operators (0–127). 127 means no modulators (alg 7).
+     * @param modTl average TL of modulator operators (0–127). 127 = no modulators (alg 7).
+     * @param percussive true if carrier envelope has fast attack + fast decay (short notes)
      */
-    static int selectProgram(int alg, int fb, int modTl) {
+    static int selectProgram(int alg, int fb, int modTl, boolean percussive) {
         if (fb >= 6) {
             return switch (alg) {
-                case 0, 1, 2, 3 -> PROGRAM_OVERDRIVEN_GUITAR;
+                case 0, 1, 2, 3 -> percussive ? PROGRAM_HARPSICHORD : PROGRAM_OVERDRIVEN_GUITAR;
                 case 4           -> PROGRAM_CHIFF_LEAD;
-                default          -> PROGRAM_SYNTH_BRASS1;
+                default          -> percussive ? PROGRAM_VIBRAPHONE : PROGRAM_SYNTH_BRASS1;
             };
         }
         return switch (alg) {
-            case 0 -> selectBass(modTl, PROGRAM_ELECTRIC_BASS);
-            case 1 -> selectBass(modTl, PROGRAM_SYNTH_BASS);
-            case 2, 3 -> selectLead(modTl);
-            case 4 -> selectAlg4(modTl);
-            case 5 -> selectPad(modTl);
-            case 6 -> selectStrings(modTl);
-            case 7 -> PROGRAM_SYNTH_BRASS1;
+            case 0 -> percussive ? PROGRAM_SLAP_BASS : selectBass(modTl, PROGRAM_ELECTRIC_BASS);
+            case 1 -> percussive ? PROGRAM_SLAP_BASS : selectBass(modTl, PROGRAM_SYNTH_BASS);
+            case 2, 3 -> percussive ? PROGRAM_ELECTRIC_PIANO1 : selectLead(modTl);
+            case 4 -> percussive ? PROGRAM_VIBRAPHONE : selectAlg4(modTl);
+            case 5 -> percussive ? PROGRAM_VIBRAPHONE : selectPad(modTl);
+            case 6 -> percussive ? PROGRAM_PIZZICATO : selectStrings(modTl);
+            case 7 -> percussive ? PROGRAM_GLOCKENSPIEL : PROGRAM_SYNTH_BRASS1;
             default -> PROGRAM_SAWTOOTH_LEAD;
         };
     }
 
-    // alg 0, 1: serial FM bass — modulation depth changes bass character
+    /**
+     * Returns true if the carrier envelope has fast attack and fast decay (percussive character).
+     * AR and DR are normalized to 0–15 range before calling.
+     */
+    static boolean isPercussive(int ar15, int dr15) {
+        return ar15 >= 12 && dr15 >= 8;
+    }
+
+    // alg 0, 1: serial FM bass
     private static int selectBass(int modTl, int defaultProg) {
-        if (modTl <= 20) return PROGRAM_SLAP_BASS;      // strong → punchy, distorted
-        if (modTl <= 50) return defaultProg;             // moderate → standard FM bass
-        return PROGRAM_ACOUSTIC_BASS;                    // weak → clean, round
+        if (modTl <= 20) return PROGRAM_SLAP_BASS;
+        if (modTl <= 50) return defaultProg;
+        return PROGRAM_ACOUSTIC_BASS;
     }
 
-    // alg 2, 3: serial lead — modulation depth changes brightness
+    // alg 2, 3: serial lead
     private static int selectLead(int modTl) {
-        if (modTl <= 20) return PROGRAM_DISTORTION_GUITAR; // strong → aggressive, gritty
-        if (modTl <= 50) return PROGRAM_SAWTOOTH_LEAD;     // moderate → standard lead
-        return PROGRAM_RECORDER;                           // weak → soft, breathy
+        if (modTl <= 20) return PROGRAM_DISTORTION_GUITAR;
+        if (modTl <= 50) return PROGRAM_SAWTOOTH_LEAD;
+        return PROGRAM_RECORDER;
     }
 
-    // alg 4: two 2-op pairs — modulation depth changes warmth
+    // alg 4: two 2-op pairs
     private static int selectAlg4(int modTl) {
-        if (modTl <= 20) return PROGRAM_SAWTOOTH_LEAD;  // strong → bright, metallic
-        if (modTl <= 50) return PROGRAM_CLARINET;        // moderate → warm lead
-        return PROGRAM_CALLIOPE_LEAD;                    // weak → pure, sine-like
+        if (modTl <= 20) return PROGRAM_SAWTOOTH_LEAD;
+        if (modTl <= 50) return PROGRAM_CLARINET;
+        return PROGRAM_CALLIOPE_LEAD;
     }
 
-    // alg 5: 1 mod → 3 carriers — single modulator determines brightness
+    // alg 5: 1 mod → 3 carriers
     private static int selectPad(int modTl) {
-        if (modTl <= 20) return PROGRAM_SYNTH_BRASS1;   // strong → bright brass-like
-        return PROGRAM_SYNTH_PAD2;                       // moderate/weak → warm pad
+        if (modTl <= 20) return PROGRAM_SYNTH_BRASS1;
+        return PROGRAM_SYNTH_PAD2;
     }
 
-    // alg 6: near-additive — single modulator adds edge
+    // alg 6: near-additive
     private static int selectStrings(int modTl) {
-        if (modTl <= 20) return PROGRAM_SYNTH_BRASS1;   // strong → brass character
-        return PROGRAM_SYNTH_STRINGS1;                   // moderate/weak → string ensemble
+        if (modTl <= 20) return PROGRAM_SYNTH_BRASS1;
+        return PROGRAM_SYNTH_STRINGS1;
     }
 
     /**

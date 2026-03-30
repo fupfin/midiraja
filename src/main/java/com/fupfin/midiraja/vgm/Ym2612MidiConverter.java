@@ -68,6 +68,10 @@ public class Ym2612MidiConverter {
         {127, 127, 127, 127}, {127, 127, 127, 127}, {127, 127, 127, 127},
         {127, 127, 127, 127}, {127, 127, 127, 127}, {127, 127, 127, 127}
     };
+    // AR per channel per operator (5-bit, 0-31). Used for envelope classification.
+    private final int[][] ar = new int[6][4];
+    // D1R per channel per operator (5-bit, 0-31).
+    private final int[][] d1r = new int[6][4];
     private final int[] lrMask = {3, 3, 3, 3, 3, 3};
     private final int[] currentPan = {-1, -1, -1, -1, -1, -1};
 
@@ -80,6 +84,16 @@ public class Ym2612MidiConverter {
             int op = (addr - 0x40) >> 2;
             int ch = (addr & 0x03) + portOffset;
             if (ch < 6) tl[ch][op] = data & 0x7F;
+        } else if (addr >= 0x50 && addr <= 0x5F) {
+            // AR (Attack Rate): bits 4-0
+            int op = (addr - 0x50) >> 2;
+            int ch = (addr & 0x03) + portOffset;
+            if (ch < 6) ar[ch][op] = data & 0x1F;
+        } else if (addr >= 0x60 && addr <= 0x6F) {
+            // D1R (First Decay Rate): bits 4-0
+            int op = (addr - 0x60) >> 2;
+            int ch = (addr & 0x03) + portOffset;
+            if (ch < 6) d1r[ch][op] = data & 0x1F;
         } else if (addr >= 0xB0 && addr <= 0xB2) {
             int ch = (addr - 0xB0) + portOffset;
             algorithm[ch] = data & 0x07;
@@ -143,7 +157,14 @@ public class Ym2612MidiConverter {
     }
 
     private void emitProgramIfNeeded(int ch, int midiCh, Track[] tracks, long tick) {
-        int program = selectProgram(algorithm[ch], feedback[ch], avgModulatorTl(tl, algorithm, ch));
+        // Carrier envelope: average AR and D1R of carrier ops, normalized to 0-15 for isPercussive
+        int[] cops = carrierOps(algorithm[ch]);
+        int totalAr = 0, totalDr = 0;
+        for (int op : cops) { totalAr += ar[ch][op]; totalDr += d1r[ch][op]; }
+        int avgAr = totalAr / cops.length;  // 0-31 range
+        int avgDr = totalDr / cops.length;
+        boolean perc = isPercussive(avgAr / 2, avgDr / 2); // normalize 5-bit to ~4-bit
+        int program = selectProgram(algorithm[ch], feedback[ch], avgModulatorTl(tl, algorithm, ch), perc);
         if (program != currentProgram[ch]) {
             addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
             currentProgram[ch] = program;
