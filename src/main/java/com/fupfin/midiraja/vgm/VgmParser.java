@@ -40,6 +40,7 @@ public class VgmParser {
         long ym2610Clock = (data.length > 0x50) ? Integer.toUnsignedLong(buf.getInt(0x4C)) : 0;
         long gameBoyDmgClock = (data.length > 0x84) ? Integer.toUnsignedLong(buf.getInt(0x80)) : 0;
         long huC6280Clock = (data.length > 0xA8) ? Integer.toUnsignedLong(buf.getInt(0xA4)) : 0;
+        long ym3812Clock = (data.length > 0x54) ? Integer.toUnsignedLong(buf.getInt(0x50)) : 0;
         long ay8910Clock = (data.length > 0x78) ? Integer.toUnsignedLong(buf.getInt(0x74)) : 0;
         long k051649Clock = (data.length > 0xB0) ? Integer.toUnsignedLong(buf.getInt(0xAC)) : 0;
         // K051649 in Konami MSX cartridges runs at the full cartridge bus clock (= CPU clock).
@@ -54,7 +55,7 @@ public class VgmParser {
 
         return new VgmParseResult(version, ym2413Clock, sn76489Clock, ym2612Clock, ym2151Clock,
                 ym2203Clock, ym2608Clock, ym2610Clock, gameBoyDmgClock, huC6280Clock,
-                ay8910Clock, sccClock, events, gd3Title);
+                ym3812Clock, ay8910Clock, sccClock, events, gd3Title);
     }
 
     private static byte[] readAllBytes(File file) throws IOException {
@@ -205,6 +206,11 @@ public class VgmParser {
                 case 0xB9 -> { // HuC6280 (PC Engine)
                     if (pos + 1 >= data.length) break;
                     events.add(new VgmEvent(sampleOffset, 12, new byte[]{data[pos], data[pos + 1]}));
+                    pos += 2;
+                }
+                case 0x5A -> { // YM3812 (OPL2)
+                    if (pos + 1 >= data.length) break;
+                    events.add(new VgmEvent(sampleOffset, 14, new byte[]{data[pos], data[pos + 1]}));
                     pos += 2;
                 }
                 case 0x61 -> { // Wait N samples
