@@ -78,11 +78,13 @@ final class FmMidiUtil {
     }
 
     /**
-     * Returns true if the carrier envelope has fast attack and fast decay (percussive character).
-     * AR and DR are normalized to 0–15 range before calling.
+     * Returns true if the carrier envelope has fast attack and non-trivial decay (percussive).
+     * AR and DR are normalized to 0–15 range before calling. Marimba/xylophone patches
+     * typically have AR=15 and DR=4–8; the previous threshold (AR≥12, DR≥8) was too strict
+     * and misclassified them as sustained.
      */
     static boolean isPercussive(int ar15, int dr15) {
-        return ar15 >= 12 && dr15 >= 8;
+        return ar15 >= 10 && dr15 >= 4;
     }
 
     // alg 0, 1: serial FM bass
