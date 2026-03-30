@@ -36,13 +36,15 @@ public class Ym2151MidiConverter {
 
     static final int CHANNELS = 8;
 
+    // OPM octave 0, note C# (KC=0x00) = MIDI note 13 (C#0).
+    private static final int KC_MIDI_BASE = 13;
     // KC note code (bits 3-0) → semitone offset from C# within the octave.
     // Values 3, 7, 11, 15 are invalid (not used by real hardware).
     private static final int[] KC_SEMITONE = {
         0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11, -1
     };
 
-    private int midiChOffset;
+    private final int midiChOffset;
 
     private final int[] kc = new int[CHANNELS];
     private final int[] activeNote = {-1, -1, -1, -1, -1, -1, -1, -1};
@@ -146,7 +148,7 @@ public class Ym2151MidiConverter {
         int noteCode = kc[ch] & 0x0F;
         int semitone = KC_SEMITONE[noteCode];
         if (semitone < 0) return -1;
-        int midiNote = octave * 12 + semitone + 13;
-        return Sn76489MidiConverter.clamp(midiNote, 0, 127);
+        int midiNote = octave * 12 + semitone + KC_MIDI_BASE;
+        return Math.clamp(midiNote, 0, 127);
     }
 }

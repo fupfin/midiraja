@@ -54,8 +54,7 @@ final class FmMidiUtil {
         return switch (alg) {
             case 0 -> PROGRAM_ELECTRIC_BASS;
             case 1 -> PROGRAM_SYNTH_BASS;
-            case 2 -> PROGRAM_SAWTOOTH_LEAD;
-            case 3 -> PROGRAM_SAWTOOTH_LEAD;
+            case 2, 3 -> PROGRAM_SAWTOOTH_LEAD;
             case 4 -> PROGRAM_CALLIOPE_LEAD;
             case 5 -> PROGRAM_SYNTH_PAD2;
             case 6 -> PROGRAM_SYNTH_STRINGS1;

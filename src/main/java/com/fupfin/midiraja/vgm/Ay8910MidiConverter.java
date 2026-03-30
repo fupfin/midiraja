@@ -7,8 +7,8 @@
 
 package com.fupfin.midiraja.vgm;
 
-import javax.sound.midi.InvalidMidiDataException;
-import javax.sound.midi.MidiEvent;
+import static com.fupfin.midiraja.vgm.FmMidiUtil.addEvent;
+
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 
@@ -141,7 +141,7 @@ public class Ay8910MidiConverter {
         } else {
             // Volume envelope change while note is playing: send CC7 without re-triggering.
             // Re-triggering on every envelope step causes audible attack clicks.
-            addNote(tracks[ch], ShortMessage.CONTROL_CHANGE, ch, 7, toVelocity(newVol), tick);
+            addEvent(tracks[ch], ShortMessage.CONTROL_CHANGE, ch, 7, toVelocity(newVol), tick);
         }
         updateNoise(tick, tracks);
     }
@@ -162,14 +162,14 @@ public class Ay8910MidiConverter {
         if (note < 0) return;
         // CC7 before NoteOn: ensures channel volume is set correctly regardless of any
         // residual CC7 value left from a previous note or Program Change reset.
-        addNote(tracks[ch], ShortMessage.CONTROL_CHANGE, ch, 7, toVelocity(volume[ch]), tick);
-        addNote(tracks[ch], ShortMessage.NOTE_ON, ch, note, 127, tick);
+        addEvent(tracks[ch], ShortMessage.CONTROL_CHANGE, ch, 7, toVelocity(volume[ch]), tick);
+        addEvent(tracks[ch], ShortMessage.NOTE_ON, ch, note, 127, tick);
         activeNote[ch] = note;
     }
 
     private void noteOff(int ch, long tick, Track[] tracks) {
         if (activeNote[ch] >= 0) {
-            addNote(tracks[ch], ShortMessage.NOTE_OFF, ch, activeNote[ch], 0, tick);
+            addEvent(tracks[ch], ShortMessage.NOTE_OFF, ch, activeNote[ch], 0, tick);
             activeNote[ch] = -1;
         }
     }
@@ -186,11 +186,11 @@ public class Ay8910MidiConverter {
         boolean noiseOn = maxVol > 0;
         if (noiseOn && noiseActiveNote < 0) {
             int note = noiseNote(noisePeriod);
-            addNote(tracks[NOISE_MIDI_CH], ShortMessage.NOTE_ON, NOISE_MIDI_CH,
+            addEvent(tracks[NOISE_MIDI_CH], ShortMessage.NOTE_ON, NOISE_MIDI_CH,
                     note, toVelocity(maxVol), tick);
             noiseActiveNote = note;
         } else if (!noiseOn && noiseActiveNote >= 0) {
-            addNote(tracks[NOISE_MIDI_CH], ShortMessage.NOTE_OFF, NOISE_MIDI_CH,
+            addEvent(tracks[NOISE_MIDI_CH], ShortMessage.NOTE_OFF, NOISE_MIDI_CH,
                     noiseActiveNote, 0, tick);
             noiseActiveNote = -1;
         }
@@ -237,8 +237,7 @@ public class Ay8910MidiConverter {
     static int ay8910Note(long clock, int period) {
         if (period <= 0) return -1;
         double f = clock / (16.0 * period);
-        return Sn76489MidiConverter.clamp(
-                (int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
+        return Math.clamp(Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
     }
 
     // Square Lead (prog 80) renders ~4.7 dB louder than Rock Organ (prog 18) at the same CC7
@@ -252,15 +251,8 @@ public class Ay8910MidiConverter {
         // Square-root curve: linear mapping (vol/15×127) placed typical game volumes (vol 4-6)
         // at CC7=34-51, inaudible in most GM soundfonts. Sqrt maps vol=4→85, vol=6→98,
         // preserving relative dynamics while matching the perceptual loudness of the 4-bit register.
-        int cc7 = Sn76489MidiConverter.clamp((int) Math.round(Math.sqrt(vol / 15.0) * 127), 0, 127);
-        return Sn76489MidiConverter.clamp((int) Math.round(cc7 * PSG_CC7_GAIN), 0, 127);
+        int cc7 = Math.clamp(Math.round(Math.sqrt(vol / 15.0) * 127), 0, 127);
+        return Math.clamp(Math.round(cc7 * PSG_CC7_GAIN), 0, 127);
     }
 
-    private static void addNote(Track track, int cmd, int ch, int note, int vel, long tick) {
-        try {
-            track.add(new MidiEvent(new ShortMessage(cmd, ch, note, vel), tick));
-        } catch (InvalidMidiDataException e) {
-            throw new IllegalStateException("Bad MIDI data", e);
-        }
-    }
 }

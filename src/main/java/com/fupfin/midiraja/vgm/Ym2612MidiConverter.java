@@ -145,6 +145,6 @@ public class Ym2612MidiConverter {
     }
 
     private static int clampNote(int note) {
-        return Sn76489MidiConverter.clamp(note, 0, 127);
+        return Math.clamp(note, 0, 127);
     }
 }

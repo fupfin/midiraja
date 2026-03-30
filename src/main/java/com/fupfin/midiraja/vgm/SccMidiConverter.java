@@ -7,8 +7,8 @@
 
 package com.fupfin.midiraja.vgm;
 
-import javax.sound.midi.InvalidMidiDataException;
-import javax.sound.midi.MidiEvent;
+import static com.fupfin.midiraja.vgm.FmMidiUtil.addEvent;
+
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 
@@ -107,7 +107,7 @@ public class SccMidiConverter {
             // Volume change while note is playing: send CC7 without re-triggering.
             // Re-triggering on every volume step would cause audible attack clicks.
             int midiCh = ch + MIDI_CH_OFFSET;
-            addNote(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7,
+            addEvent(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7,
                     toVelocity(newVol), tick);
         }
     }
@@ -124,9 +124,9 @@ public class SccMidiConverter {
         int midiCh = ch + MIDI_CH_OFFSET;
         // CC7 before NoteOn: ensures channel volume is correct before the note sounds,
         // regardless of any residual CC7 value from a previous note or controller reset.
-        addNote(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(volume[ch]),
+        addEvent(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(volume[ch]),
                 tick);
-        addNote(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, 127, tick);
+        addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, 127, tick);
     }
 
     private void noteOff(int ch, long tick, Track[] tracks) {
@@ -136,7 +136,7 @@ public class SccMidiConverter {
             // so they must not generate a NoteOff either.
             if (activeNote[ch] >= MIN_NOTE) {
                 int midiCh = ch + MIDI_CH_OFFSET;
-                addNote(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
+                addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
             }
             activeNote[ch] = -1;
         }
@@ -156,22 +156,14 @@ public class SccMidiConverter {
     static int sccNote(long clock, int fnum) {
         if (fnum <= 0) return -1;
         double f = clock / (32.0 * (fnum + 1));
-        return Sn76489MidiConverter.clamp(
-                (int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
+        return Math.clamp(Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
     }
 
     private static int toVelocity(int vol) {
         // Square-root curve: linear mapping (vol/15×127) placed typical game volumes (vol 2-6)
         // at CC7=17-51, inaudible in most GM soundfonts. Sqrt maps vol=4→85, vol=6→98,
         // preserving relative dynamics while matching the perceptual weight of the 4-bit register.
-        return Sn76489MidiConverter.clamp((int) Math.round(Math.sqrt(vol / 15.0) * 127), 0, 127);
+        return Math.clamp(Math.round(Math.sqrt(vol / 15.0) * 127), 0, 127);
     }
 
-    private static void addNote(Track track, int cmd, int ch, int note, int vel, long tick) {
-        try {
-            track.add(new MidiEvent(new ShortMessage(cmd, ch, note, vel), tick));
-        } catch (InvalidMidiDataException e) {
-            throw new IllegalStateException("Bad MIDI data", e);
-        }
-    }
 }

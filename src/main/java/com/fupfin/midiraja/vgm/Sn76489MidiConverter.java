@@ -7,8 +7,8 @@
 
 package com.fupfin.midiraja.vgm;
 
-import javax.sound.midi.InvalidMidiDataException;
-import javax.sound.midi.MidiEvent;
+import static com.fupfin.midiraja.vgm.FmMidiUtil.addEvent;
+
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 
@@ -84,7 +84,7 @@ public class Sn76489MidiConverter {
         } else if (activeNote[ch] >= 0) {
             // Volume envelope change while note is playing: use CC7 to avoid note re-triggering
             int midiCh = midiCh(ch);
-            addNote(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(vol), tick);
+            addEvent(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(vol), tick);
         }
     }
 
@@ -105,15 +105,15 @@ public class Sn76489MidiConverter {
         int midiCh = midiCh(ch);
         // Send CC7 before NoteOn so the channel volume is correct regardless of any
         // CC7 value left over from a previous note on this channel.
-        addNote(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(volume[ch]), tick);
-        addNote(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, 127, tick);
+        addEvent(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(volume[ch]), tick);
+        addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, 127, tick);
         activeNote[ch] = note;
     }
 
     private void noteOff(int ch, long tick, Track[] tracks) {
         if (activeNote[ch] >= 0) {
             int midiCh = midiCh(ch);
-            addNote(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
+            addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
             activeNote[ch] = -1;
         }
     }
@@ -122,18 +122,10 @@ public class Sn76489MidiConverter {
         return ch == 3 ? NOISE_MIDI_CH : ch;
     }
 
-    private static void addNote(Track track, int cmd, int ch, int note, int vel, long tick) {
-        try {
-            track.add(new MidiEvent(new ShortMessage(cmd, ch, note, vel), tick));
-        } catch (InvalidMidiDataException e) {
-            throw new IllegalStateException("Bad MIDI data", e);
-        }
-    }
-
     static int sn76489Note(long clock, int n) {
         if (n <= 0) return -1;
         double f = clock / (32.0 * n);
-        return clamp((int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
+        return Math.clamp(Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
     }
 
     private static int toVelocity(int vol) {
@@ -146,10 +138,6 @@ public class Sn76489MidiConverter {
         // ~10 dB below YM2612 by hardware design (secondary/percussion role). Measured
         // across 75 Genesis tracks (OutRunners, SoR2, Sonic 3): FM is 9.8 dB louder on
         // average — matching the expected hardware mixing ratio.
-        return clamp((int) Math.round((15 - vol) / 15.0 * 127), 0, 127);
-    }
-
-    static int clamp(int value, int min, int max) {
-        return Math.max(min, Math.min(max, value));
+        return Math.clamp(Math.round((15 - vol) / 15.0 * 127), 0, 127);
     }
 }
