@@ -7,8 +7,9 @@ the existing MIDI pipeline. The conversion is injected in `PlaylistPlayer.play()
 `MidiUtils.loadSequence()` call: VGM files are detected, converted to a `Sequence`, and
 handed off to the synth provider as if they were ordinary MIDI files.
 
-Supported chips: **SN76489** (Sega PSG), **YM2612** (Sega FM), **AY-3-8910** (MSX PSG),
-**K051649** (Konami SCC wavetable).
+Supported chips: **SN76489** (Sega PSG), **YM2612** (Sega FM), **YM2151** (Arcade OPM),
+**YM2203** (PC-88 OPN), **YM2608** (PC-98 OPNA), **YM2610** (Neo Geo OPNB),
+**AY-3-8910** (MSX PSG), **K051649** (Konami SCC wavetable).
 
 ---
 
@@ -34,10 +35,14 @@ class VgmParser {
 
 record VgmParseResult(
     int vgmVersion,
-    long sn76489Clock,   // Hz; 0 = chip absent
-    long ym2612Clock,    // Hz; 0 = chip absent
-    long ay8910Clock,    // Hz; 0 = chip absent (header offset 0x74)
-    long sccClock,       // Hz; falls back to ay8910Clock if K051649 header field is 0
+    long sn76489Clock,   // Hz; 0 = chip absent (offset 0x0C)
+    long ym2612Clock,    // Hz; 0 = chip absent (offset 0x2C)
+    long ym2151Clock,    // Hz; 0 = chip absent (offset 0x30)
+    long ym2203Clock,    // Hz; 0 = chip absent (offset 0x44)
+    long ym2608Clock,    // Hz; 0 = chip absent (offset 0x48)
+    long ym2610Clock,    // Hz; 0 = chip absent (offset 0x4C)
+    long ay8910Clock,    // Hz; 0 = chip absent (offset 0x74)
+    long sccClock,       // Hz; falls back to ay8910Clock×2 if K051649 header field is 0
     List<VgmEvent> events,
     @Nullable String gd3Title
 ) {}
@@ -52,6 +57,12 @@ record VgmParseResult(
 | 2 | `0x53` | YM2612 port 1 |
 | 3 | `0xA0` | AY-3-8910 |
 | 4 | `0xD2` | K051649 (SCC) |
+| 5 | `0x54` | YM2151 (OPM) |
+| 6 | `0x55` | YM2203 (OPN) |
+| 7 | `0x56` | YM2608 (OPNA) port 0 |
+| 8 | `0x57` | YM2608 (OPNA) port 1 |
+| 9 | `0x58` | YM2610 (OPNB) port 0 |
+| 10 | `0x59` | YM2610 (OPNB) port 1 |
 
 ---
 
@@ -85,17 +96,55 @@ Converts SN76489 PSG chip events to MIDI note events.
 
 ---
 
+### `FmMidiUtil` — `com.fupfin.midiraja.vgm`
+
+Shared utilities for all FM chip converters (YM2612, YM2151, OPN family).
+
+**Provides:**
+- `selectProgram(alg, fb, modTl)` — GM program selection based on algorithm, feedback, and
+  modulator TL depth
+- `carrierOps(alg)` / `modulatorOps(alg)` — operator role lookup per algorithm
+- `computeVelocity(tl, algorithm, feedback, ch)` — dB-based velocity from carrier TL + feedback
+- `lrMaskToPan(lrMask)` — LR mask → MIDI CC10
+- `addEvent(track, command, ch, d1, d2, tick)` — MIDI event helper
+
+---
+
 ### `Ym2612MidiConverter` — `com.fupfin.midiraja.vgm`
 
-Converts YM2612 FM chip events to MIDI note events.
+Converts YM2612 FM chip events to MIDI note events. Also handles the OPN family
+(YM2203/YM2608/YM2610) via configurable FM divider and port 1 chip ID.
+
+**Constructor:** `Ym2612MidiConverter(fmDivider, port1ChipId)`
+- `fmDivider`: 144 for YM2612/YM2608/YM2610, 72 for YM2203
+- `port1ChipId`: chip ID indicating port 1 events; -1 for single-port chips
 
 **Responsibilities:**
-- Decode port 0/1 register writes (0xA0-0xA6, 0x28, 0xB0, 0xB4)
-- Convert F-Number + Block to frequency, then to MIDI note number
-- Map key-on (0x28) to NoteOn and key-off to NoteOff
-- Derive GM program from algorithm (0xB0 bit2-0) and feedback (0xB0 bit5-3)
+- Decode port 0/1 register writes (0x40-0x4F TL, 0xA0-0xA6, 0x28, 0xB0, 0xB4)
+- Convert F-Number + Block to frequency using `f = FNum × clock / (divider × 2^(21-block))`
+- Map key-on (0x28) to NoteOn with TL-based velocity, key-off to NoteOff
+- Read carrier TL (0x40-0x4F) and compute MIDI velocity via `FmMidiUtil.computeVelocity()`
+- Derive GM program from algorithm, feedback, and modulator TL via `FmMidiUtil.selectProgram()`
 - Decode stereo pan register (0xB4-0xB6 bits 7-6: L/R) → CC10 before NoteOn
 - Use MIDI channels 3-8
+
+---
+
+### `Ym2151MidiConverter` — `com.fupfin.midiraja.vgm`
+
+Converts YM2151 (OPM) FM chip events to MIDI note events.
+
+**Constructor:** `Ym2151MidiConverter(midiChOffset)`
+- `midiChOffset`: 0 for standalone arcade, 3 when sharing with YM2612
+
+**Responsibilities:**
+- 8 FM channels on a single port (VGM command 0x54)
+- Decode KC/KF frequency registers (0x28-0x2F, 0x30-0x37) → MIDI note via
+  `note = octave × 12 + KC_SEMITONE[noteCode] + 13`
+- Read channel control register 0x20+ch (RL/FB/CONNECT = LR + feedback + algorithm)
+- Read TL registers (0x60-0x7F, stride 8 per operator) for velocity computation
+- Key on/off via register 0x08 (bits 2-0=channel, bits 6-3=operator mask)
+- Share program selection, velocity, and pan logic with YM2612 via `FmMidiUtil`
 
 ---
 
@@ -188,9 +237,11 @@ picocli subcommand; follows the same pattern as `OplCommand` and `FluidCommand`.
 class VgmCommand implements Callable<Integer> { ... }
 ```
 
-**Options:**
-- `--mute <CHIPS>` — comma-separated list of chips to silence: `psg`, `fm`, `scc`. Used to isolate a single chip's output (e.g. `--mute scc` for PSG-only).
-- `--export-midi <FILE>` — write the converted MIDI to a file without playing. Useful with `--mute` to measure per-chip levels via fluidsynth.
+**Options (defined in `CommonOptions`, available to all subcommands):**
+- `--mute <CHANNELS>` — comma-separated 1-based MIDI channel numbers or ranges to silence
+  (e.g. `--mute 4-9` for YM2612 only, `--mute 1-3,10` for PSG only). Channel numbers match
+  the UI display (CH01–CH15). Muted channels route events to a sink track that is discarded.
+- `--export-midi <FILE>` — write the converted MIDI to a file without playing.
 
 ---
 
@@ -198,30 +249,35 @@ class VgmCommand implements Callable<Integer> { ... }
 
 | MIDI ch | Source | GM Program |
 |---------|--------|------------|
-| 0 | SN76489 Tone 0 / AY8910 ch A | 80 (Square Lead) |
-| 1 | SN76489 Tone 1 / AY8910 ch B | 80 (Square Lead) |
-| 2 | SN76489 Tone 2 / AY8910 ch C | 80 (Square Lead) |
-| 3 | YM2612 FM ch1 | dynamic (Program Change per 0xB0) |
-| 4 | YM2612 FM ch2 | dynamic |
-| 5 | YM2612 FM ch3 | dynamic |
-| 6 | YM2612 FM ch4 | dynamic |
-| 7 | YM2612 FM ch5 | dynamic |
-| 8 | YM2612 FM ch6 | dynamic |
-| 9 | SN76489 / AY8910 Noise (GM percussion) | 0 (Drums) |
-| 10 | SCC ch0 | 81 (Sawtooth Lead) |
-| 11 | SCC ch1 | 81 (Sawtooth Lead) |
-| 12 | SCC ch2 | 81 (Sawtooth Lead) |
-| 13 | SCC ch3 | 81 (Sawtooth Lead) |
-| 14 | SCC ch4 | 81 (Sawtooth Lead) |
+| 0 | SN76489 Tone 0 / AY8910 ch A / YM2151 ch 0* | 80 (Square Lead) / dynamic |
+| 1 | SN76489 Tone 1 / AY8910 ch B / YM2151 ch 1* | 80 (Square Lead) / dynamic |
+| 2 | SN76489 Tone 2 / AY8910 ch C / YM2151 ch 2* | 80 (Square Lead) / dynamic |
+| 3 | YM2612/OPN FM ch1 / YM2151 ch 3* | dynamic (via FmMidiUtil) |
+| 4 | YM2612/OPN FM ch2 / YM2151 ch 4* | dynamic |
+| 5 | YM2612/OPN FM ch3 / YM2151 ch 5* | dynamic |
+| 6 | YM2612/OPN FM ch4 / YM2151 ch 6* | dynamic |
+| 7 | YM2612/OPN FM ch5 / YM2151 ch 7* | dynamic |
+| 8 | YM2612/OPN FM ch6 | dynamic |
+| 9 | SN76489 / AY8910 / OPN SSG Noise (GM percussion) | 0 (Drums) |
+| 10 | SCC ch0 | 18 (Rock Organ) |
+| 11 | SCC ch1 | 18 (Rock Organ) |
+| 12 | SCC ch2 | 18 (Rock Organ) |
+| 13 | SCC ch3 | 18 (Rock Organ) |
+| 14 | SCC ch4 | 18 (Rock Organ) |
+
+*YM2151 uses ch 0-7 when standalone (no YM2612), otherwise ch 3-8 (shared offset).
 
 Channel 9 is the GM drum channel. TSF requires Program Change 0 on channel 9 to activate
 drum mode (`isDrums=1`); without it the channel is treated as melodic (piano).
 
-SN76489 and AY-3-8910 share MIDI channels 0-2 and 9 — a VGM file contains at most one
-of these chips.
+SN76489, AY-3-8910, and OPN SSG share MIDI channels 0-2 and 9 — a VGM file contains at
+most one PSG-type chip.
+
+**OPN family SSG routing:** YM2203/YM2608/YM2610 port 0 events with addr ≤ 0x0D are routed
+to `Ay8910MidiConverter`. SSG clock derivation: YM2203 = chipClock/2, YM2608/YM2610 = chipClock/4.
 
 YM2612 ch6 DAC (PCM streaming) is currently ignored — its timing is counted but no MIDI
-events are emitted. See TODO.md for the planned PCM → SoundFont approach.
+events are emitted.
 
 ---
 
@@ -278,6 +334,39 @@ static int sn76489Note(long clock, int N) {
 }
 ```
 
+### YM2151 (OPM) frequency
+
+The YM2151 encodes pitch directly as a key code rather than a frequency divider:
+
+```
+KC register 0x28+ch:
+  bit 6-4: octave (0-7)
+  bit 3-0: note code (non-linear: 0,1,2,4,5,6,8,9,10,12,13,14 valid)
+
+MIDI note = octave × 12 + KC_SEMITONE[noteCode] + 13
+```
+
+`KC_SEMITONE` maps note codes to semitone offsets from C#:
+`{0→0, 1→1, 2→2, 4→3, 5→4, 6→5, 8→6, 9→7, A→8, C→9, D→10, E→11}`.
+Codes 3, 7, 11, 15 are invalid and suppress the note.
+
+Example: octave=4, noteCode=0xE (C of next octave) → `4×12 + 11 + 13 = 72` (C5).
+
+### OPN family frequency
+
+YM2203/YM2608/YM2610 use the same F-Number/Block formula as YM2612 with different dividers:
+
+```
+f = FNum × clock / (divider × 2^(21 - block))
+```
+
+| Chip | FM Divider | SSG Clock |
+|------|------------|-----------|
+| YM2612 | 144 | — (no SSG) |
+| YM2203 | 72 | chipClock / 2 |
+| YM2608 | 144 | chipClock / 4 |
+| YM2610 | 144 | chipClock / 4 |
+
 ### YM2612 frequency
 
 ```
@@ -288,8 +377,8 @@ f = FNum × clock / (144 × 2^(21 - block))
 - `clock`: YM2612 clock (typically 7670453 Hz — Sega Genesis)
 
 ```java
-static int ym2612Note(long clock, int fnum, int block) {
-    double f = fnum * clock / (144.0 * (1L << (21 - block)));
+static int opnNote(long clock, int fnum, int block, int divider) {
+    double f = fnum * clock / ((double) divider * (1L << (21 - block)));
     return clampNote((int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69));
 }
 ```
@@ -526,6 +615,12 @@ var sequence = VgmFileDetector.isVgmFile(file)
 | `0x67` | variable (type, size, data) | PCM data block. type=0x00 = 8-bit unsigned for YM2612 DAC. |
 | `0x70`-`0x7F` | — | Wait `(cmd & 0x0F) + 1` samples |
 | `0x80`-`0x8F` | — | Write one PCM byte to YM2612 DAC + wait `cmd & 0x0F` samples |
+| `0x54` | 2 (addr, data) | YM2151 (OPM) register write |
+| `0x55` | 2 (addr, data) | YM2203 (OPN) register write — addr ≤ 0x0D is SSG, else FM |
+| `0x56` | 2 (addr, data) | YM2608 (OPNA) port 0 — addr ≤ 0x0D is SSG, else FM |
+| `0x57` | 2 (addr, data) | YM2608 (OPNA) port 1 — FM only |
+| `0x58` | 2 (addr, data) | YM2610 (OPNB) port 0 — addr ≤ 0x0D is SSG, else FM |
+| `0x59` | 2 (addr, data) | YM2610 (OPNB) port 1 — FM only |
 | `0xA0` | 2 (reg, data) | AY-3-8910 register write; reg bits 3-0 = register number |
 | `0xD2` | 3 (port, addr, data) | K051649 (SCC) register write |
 | `0xE0` | 4 (offset LE) | Seek PCM data bank to byte offset. Marks sample boundaries. |
@@ -541,9 +636,11 @@ src/main/java/com/fupfin/midiraja/
 │   ├── VgmParseResult.java       -- parse result record
 │   ├── VgmEvent.java             -- chip event record
 │   ├── VgmToMidiConverter.java   -- Sequence orchestrator
+│   ├── FmMidiUtil.java           -- shared FM utilities (program, velocity, pan)
 │   ├── Sn76489MidiConverter.java -- SN76489 PSG → MIDI
-│   ├── Ym2612MidiConverter.java  -- YM2612 FM → MIDI
-│   ├── Ay8910MidiConverter.java  -- AY-3-8910 PSG → MIDI (MSX)
+│   ├── Ym2612MidiConverter.java  -- YM2612/OPN FM → MIDI (also YM2203/2608/2610)
+│   ├── Ym2151MidiConverter.java  -- YM2151 OPM → MIDI (arcade)
+│   ├── Ay8910MidiConverter.java  -- AY-3-8910 PSG → MIDI (MSX, also OPN SSG)
 │   ├── SccMidiConverter.java     -- K051649 SCC → MIDI (MSX)
 │   └── VgmFileDetector.java      -- file detection utility
 └── cli/
@@ -552,65 +649,65 @@ src/main/java/com/fupfin/midiraja/
 
 ---
 
-## YM2612 Algorithm → GM Program Mapping
+## FM Algorithm → GM Program Mapping
 
-YM2612 register 0xB0 (one per channel, port 0 and port 1) encodes:
+All OPN/OPM-family chips share eight algorithm topologies. `FmMidiUtil.selectProgram(alg, fb, modTl)`
+selects a GM program based on three factors:
 
-```
-bit 5-3: feedback (0-7) — self-modulation depth of OP1
-bit 2-0: algorithm (0-7) — operator topology
-```
-
-`Ym2612MidiConverter` reads 0xB0 writes and emits a Program Change on the corresponding
-MIDI channel immediately before the next NoteOn, but only when the derived program number
-changes. This keeps the MIDI stream lean while still adapting to mid-song patch changes.
+1. **Algorithm (0-7):** operator topology determines base character
+2. **Feedback (0-7):** high feedback (≥6) overrides to buzzy/distorted instruments
+3. **Modulator TL:** average TL of modulator operators — low=strong modulation (bright),
+   high=weak modulation (pure)
 
 ### Algorithm topology summary
 
 | Algorithm | Topology | Character |
 |-----------|----------|-----------|
-| 0 | OP1→OP2→OP3→OP4 (fully serial) | Deep FM modulation — bass, organ |
+| 0 | OP1→OP2→OP3→OP4 (fully serial) | Deep FM modulation — bass |
 | 1 | (OP1+OP2)→OP3→OP4 | Heavy modulation — synth bass |
 | 2 | (OP1+(OP2→OP3))→OP4 | Moderate modulation — lead |
 | 3 | ((OP1→OP2)+OP3)→OP4 | Moderate modulation — lead |
-| 4 | (OP1→OP2)+(OP3→OP4) | Two independent 2-op pairs — classic Genesis lead |
+| 4 | (OP1→OP2)+(OP3→OP4) | Two independent 2-op pairs — classic lead |
 | 5 | OP1→(OP2+OP3+OP4) | One modulator, three carriers — pad/brass |
-| 6 | (OP1→OP2)+(OP3+OP4) | Near-additive — organ |
-| 7 | OP1+OP2+OP3+OP4 | Fully additive, four carriers — bright organ/bells |
+| 6 | (OP1→OP2)+(OP3+OP4) | Near-additive — string ensemble |
+| 7 | OP1+OP2+OP3+OP4 | Fully additive — bright brass/bells |
 
-### Program selection logic
+### Program selection matrix
 
-Organ instruments (Drawbar, Church, Rock) were avoided: they introduce a thick ecclesiastical
-timbre that clashes with fast game music. Synth Brass, Synth Strings, and Calliope Lead
-better approximate the crisp character of real FM output in FluidR3.
+**High feedback (fb ≥ 6)** — evaluated first, overrides modTl:
 
-```java
-static int selectProgram(int alg, int fb) {
-    if (fb >= 6) {           // high feedback → strong odd harmonics, square-wave buzz
-        return switch (alg) {
-            case 0,1,2,3 -> 29;   // Overdriven Guitar — buzzy serial FM
-            case 4       -> 80;   // Square Lead — two buzzy 2-op pairs
-            default      -> 62;   // Synth Brass 1 — additive + harmonics
-        };
-    }
-    return switch (alg) {
-        case 0 -> 33;   // Electric Bass (Finger) — deepest serial FM
-        case 1 -> 38;   // Synth Bass 1 — series FM, brighter
-        case 2 -> 81;   // Sawtooth Lead
-        case 3 -> 81;   // Sawtooth Lead
-        case 4 -> 82;   // Calliope Lead — two 2-op pairs, cleaner than sawtooth
-        case 5 -> 89;   // Pad 2 (Warm) — 1 mod → 3 carriers
-        case 6 -> 50;   // Synth Strings 1 — near-additive, ensemble character
-        case 7 -> 62;   // Synth Brass 1 — fully additive, bright
-        default -> 81;
-    };
-}
+| Algorithm | GM Program |
+|-----------|------------|
+| 0-3 | 29 (Overdriven Guitar) |
+| 4 | 83 (Chiff Lead) |
+| 5-7 | 62 (Synth Brass 1) |
+
+**Normal feedback (fb < 6)** — modulator TL selects timbre variant:
+
+| Algorithm | modTl ≤ 20 (strong) | modTl 21-50 (moderate) | modTl 51+ (weak) |
+|-----------|---------------------|------------------------|-------------------|
+| 0 | 36 (Slap Bass) | 33 (Electric Bass) | 32 (Acoustic Bass) |
+| 1 | 36 (Slap Bass) | 38 (Synth Bass) | 32 (Acoustic Bass) |
+| 2, 3 | 30 (Distortion Guitar) | 81 (Sawtooth Lead) | 73 (Recorder) |
+| 4 | 81 (Sawtooth Lead) | 71 (Clarinet) | 82 (Calliope Lead) |
+| 5 | 62 (Synth Brass) | 89 (Warm Pad) | 89 (Warm Pad) |
+| 6 | 62 (Synth Brass) | 50 (Synth Strings) | 50 (Synth Strings) |
+| 7 | 62 (Synth Brass) | — (no modulators) | — |
+
+### Velocity from carrier TL
+
+MIDI velocity is derived from carrier operator TL values, not fixed:
+
+```
+avgCarrierTL = average TL of carrier operators for the channel's algorithm
+tlDb  = (avgCarrierTL − REF_TL) × 0.75      // REF_TL=20
+fbDb  = feedback × 0.375                      // harmonic energy correction
+velocity = clamp(round(127 × 10^(−(tlDb + fbDb) / 20)), 1, 127)
 ```
 
 SN76489 / AY-3-8910 channels (0-2) keep a fixed GM 80 (Square Lead) set at tick 0.
-YM2612 channels (3-8) receive no Program Change at tick 0; `Ym2612MidiConverter` issues
-the first Program Change lazily on the first key-on after 0xB0 is seen.
-SCC channels (10-14) keep a fixed GM 81 (Sawtooth Lead) set at tick 0.
+FM channels (3-8) receive no Program Change at tick 0; converters issue it lazily at key-on.
+SCC channels (10-14) keep a fixed GM 18 (Rock Organ) set at tick 0.
 
 ---
 
@@ -658,8 +755,9 @@ SCC channels (10-14) keep a fixed GM 81 (Sawtooth Lead) set at tick 0.
     `GZIPInputStream`.
 11. **TSF drum activation:** TSF requires Program Change 0 on channel 9 to set `isDrums=1`.
     Omitting it leaves the channel in melodic (piano) mode.
-12. **YM2612 volume:** Fixed velocity 100 is used for all FM channels. Mapping FM Total Level
-    (TL) registers to MIDI velocity is not yet implemented.
+12. **FM velocity from TL:** Carrier operator TL values are read and converted to MIDI velocity
+    using dB-based scaling with `REF_TL=20` as the full-volume reference. Feedback is subtracted
+    at 0.375 dB/step to compensate for harmonic energy dispersion in high-feedback patches.
 13. **UI channel program display:** `ChannelActivityPanel.updatePrograms()` must be called
     inside the render loop. Calling it once before the loop starts means tick-0 Program Change
     events have not yet been processed, so all channels display as Piano (program 0).
