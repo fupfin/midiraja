@@ -146,4 +146,63 @@ class HuC6280MidiConverterTest {
         }
         assertEquals(2, noteOnCount, "Frequency change should retrigger (2 NoteOns)");
     }
+
+    // ── Waveform classification tests ────────────────────────────────────────
+
+    @Test
+    void classifyWaveform_squareWave_returnsSquareLead() {
+        // 16 samples at 31, 16 samples at 0 → 2 steep edges
+        int[] wave = new int[32];
+        for (int i = 0; i < 16; i++) wave[i] = 31;
+        // remaining 16 stay at 0
+        assertEquals(80, HuC6280MidiConverter.classifyWaveform(wave), "Square wave → Square Lead (80)");
+    }
+
+    @Test
+    void classifyWaveform_sawtoothWave_returnsSawtoothLead() {
+        // Linear ramp 0→31 over 31 samples, then sharp drop → 1 steep edge
+        int[] wave = new int[32];
+        for (int i = 0; i < 32; i++) wave[i] = i;
+        assertEquals(81, HuC6280MidiConverter.classifyWaveform(wave), "Sawtooth → Sawtooth Lead (81)");
+    }
+
+    @Test
+    void classifyWaveform_sineWave_returnsCalliopeLead() {
+        // Smooth sine-like: no steep edges
+        int[] wave = new int[32];
+        for (int i = 0; i < 32; i++) {
+            wave[i] = (int) Math.round(15.5 + 15.5 * Math.sin(2 * Math.PI * i / 32));
+        }
+        assertEquals(82, HuC6280MidiConverter.classifyWaveform(wave), "Sine wave → Calliope Lead (82)");
+    }
+
+    @Test
+    void classifyWaveform_complexWave_returnsSynthBrass() {
+        // Rapid alternation → many steep edges
+        int[] wave = new int[32];
+        for (int i = 0; i < 32; i++) wave[i] = (i % 2 == 0) ? 31 : 0;
+        assertEquals(62, HuC6280MidiConverter.classifyWaveform(wave), "Complex wave → Synth Brass 1 (62)");
+    }
+
+    @Test
+    void waveformData_affectsProgramChange() throws Exception {
+        var converter = new HuC6280MidiConverter();
+        var tracks = makeTracks();
+
+        converter.convert(pce(0x00, 0), tracks, CLOCK, 0); // select ch 0
+
+        // Write a sawtooth waveform (32 samples: 0, 1, 2, ..., 31)
+        for (int i = 0; i < 32; i++) {
+            converter.convert(pce(0x06, i), tracks, CLOCK, 0);
+        }
+
+        // Set frequency and enable
+        converter.convert(pce(0x02, 254), tracks, CLOCK, 0);
+        converter.convert(pce(0x03, 0), tracks, CLOCK, 0);
+        converter.convert(pce(0x04, 0x80 | 20), tracks, CLOCK, 1);
+
+        var pc = findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE);
+        assertNotNull(pc, "Waveform analysis should emit Program Change");
+        assertEquals(81, pc.getData1(), "Sawtooth waveform → Sawtooth Lead (81)");
+    }
 }

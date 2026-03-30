@@ -19,37 +19,43 @@ import javax.sound.midi.Track;
  * carries a register address and data byte. The chip uses a channel-select register (0x00)
  * to direct subsequent register writes (0x02-0x07) to the selected channel.
  *
- * <p><b>Register map (per selected channel):</b>
+ * <p><b>Waveform analysis:</b> Each channel has a 32-sample, 5-bit wavetable written via
+ * register 0x06. The waveform shape is classified by counting steep edges (consecutive
+ * sample differences &gt; 10) to select an appropriate GM program:
  * <ul>
- *   <li>0x00: Channel select (0-5)
- *   <li>0x02: Frequency low byte (8 bits)
- *   <li>0x03: Frequency high nibble (bits 3-0)
- *   <li>0x04: Control — bit 7: enable, bit 6: DDA mode, bits 4-0: volume (0-31)
- *   <li>0x05: L/R balance — bits 7-4: left vol (0-15), bits 3-0: right vol (0-15)
- *   <li>0x06: Waveform data (ignored for MIDI)
- *   <li>0x07: Noise control (ch 4-5 only, ignored for MIDI)
+ *   <li>0 steep edges → sine/triangle → Calliope Lead (82)
+ *   <li>1 steep edge → sawtooth → Sawtooth Lead (81)
+ *   <li>2 steep edges → square wave → Square Lead (80)
+ *   <li>3+ steep edges → complex waveform → Synth Brass 1 (62)
  * </ul>
- *
- * <p><b>Note gating:</b> Like SCC, volume drives note state: enabled + vol > 0 → NoteOn,
- * disabled or vol = 0 → NoteOff. Frequency changes retrigger the active note.
  */
 public class HuC6280MidiConverter {
 
     private static final int CHANNELS = 6;
+    private static final int WAVE_LENGTH = 32;
     private static final int MIDI_CH_OFFSET = 0;
     private static final int MIN_NOTE = 28;
-    private static final int GM_PROGRAM = 80; // Square Lead — PSG wavetable
+    private static final int STEEP_THRESHOLD = 10; // ~1/3 of 5-bit range (0-31)
+
+    private static final int PROGRAM_SQUARE_LEAD   = 80;
+    private static final int PROGRAM_SAWTOOTH_LEAD = 81;
+    private static final int PROGRAM_CALLIOPE_LEAD = 82;
+    private static final int PROGRAM_SYNTH_BRASS1  = 62;
 
     private int selectedCh = 0;
     private final int[] freqLo = new int[CHANNELS];
     private final int[] freqHi = new int[CHANNELS];
-    private final int[] volume = new int[CHANNELS];     // 5-bit, 0-31
+    private final int[] volume = new int[CHANNELS];
     private final boolean[] enabled = new boolean[CHANNELS];
     private final int[] activeNote = {-1, -1, -1, -1, -1, -1};
-    private final int[] balanceL = new int[CHANNELS];   // 0-15
-    private final int[] balanceR = new int[CHANNELS];   // 0-15
+    private final int[] balanceL = new int[CHANNELS];
+    private final int[] balanceR = new int[CHANNELS];
     private final int[] currentPan = {-1, -1, -1, -1, -1, -1};
-    private boolean programSent = false;
+    private final int[] currentProgram = {-1, -1, -1, -1, -1, -1};
+
+    // Waveform data: 32 samples (5-bit, 0-31) per channel
+    private final int[][] waveform = new int[CHANNELS][WAVE_LENGTH];
+    private final int[] waveWritePos = new int[CHANNELS];
 
     public void convert(VgmEvent event, Track[] tracks, long clock, long tick) {
         int reg = event.rawData()[0] & 0xFF;
@@ -61,8 +67,16 @@ public class HuC6280MidiConverter {
             case 0x03 -> handleFreqHi(data, tick, tracks, clock);
             case 0x04 -> handleControl(data, tick, tracks, clock);
             case 0x05 -> handleBalance(data, tick, tracks);
-            default -> {} // 0x01 master vol, 0x06 waveform, 0x07 noise, 0x08-0x09 LFO
+            case 0x06 -> handleWaveData(data);
+            default -> {} // 0x01 master vol, 0x07 noise, 0x08-0x09 LFO
         }
+    }
+
+    private void handleWaveData(int data) {
+        int ch = selectedCh;
+        int pos = waveWritePos[ch];
+        waveform[ch][pos] = data & 0x1F;
+        waveWritePos[ch] = (pos + 1) % WAVE_LENGTH;
     }
 
     private void handleFreqLo(int data, long tick, Track[] tracks, long clock) {
@@ -112,11 +126,11 @@ public class HuC6280MidiConverter {
 
     private void noteOn(int ch, int note, long tick, Track[] tracks) {
         if (note < MIN_NOTE) {
-            activeNote[ch] = note; // track internally, suppress MIDI
+            activeNote[ch] = note;
             return;
         }
         int midiCh = ch + MIDI_CH_OFFSET;
-        ensureProgramSent(midiCh, tick, tracks);
+        emitProgramIfNeeded(ch, midiCh, tick, tracks);
         emitPanIfNeeded(ch, tick, tracks);
         addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, 100, tick);
         activeNote[ch] = note;
@@ -147,14 +161,35 @@ public class HuC6280MidiConverter {
         }
     }
 
-    private void ensureProgramSent(int midiCh, long tick, Track[] tracks) {
-        if (!programSent) {
-            for (int ch = 0; ch < CHANNELS; ch++) {
-                addEvent(tracks[ch + MIDI_CH_OFFSET], ShortMessage.PROGRAM_CHANGE,
-                        ch + MIDI_CH_OFFSET, GM_PROGRAM, 0, tick);
-            }
-            programSent = true;
+    private void emitProgramIfNeeded(int ch, int midiCh, long tick, Track[] tracks) {
+        int program = classifyWaveform(ch);
+        if (program != currentProgram[ch]) {
+            addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
+            currentProgram[ch] = program;
         }
+    }
+
+    /**
+     * Classifies a 32-sample waveform by counting steep edges (consecutive sample pairs
+     * with absolute difference greater than {@link #STEEP_THRESHOLD}).
+     */
+    static int classifyWaveform(int[] wave) {
+        int steepEdges = 0;
+        for (int i = 0; i < WAVE_LENGTH; i++) {
+            if (Math.abs(wave[(i + 1) % WAVE_LENGTH] - wave[i]) > STEEP_THRESHOLD) {
+                steepEdges++;
+            }
+        }
+        return switch (steepEdges) {
+            case 0 -> PROGRAM_CALLIOPE_LEAD;    // smooth: sine/triangle
+            case 1 -> PROGRAM_SAWTOOTH_LEAD;    // one edge: sawtooth
+            case 2 -> PROGRAM_SQUARE_LEAD;      // two edges: square
+            default -> PROGRAM_SYNTH_BRASS1;    // complex: many edges
+        };
+    }
+
+    private int classifyWaveform(int ch) {
+        return classifyWaveform(waveform[ch]);
     }
 
     private int computeNote(int ch, long clock) {
