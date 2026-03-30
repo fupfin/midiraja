@@ -65,6 +65,7 @@ public class TsfCommand implements Callable<Integer>
     @Mixin
     private final CommonOptions common = new CommonOptions();
 
+
     private static boolean isSoundFontFile(File f)
     {
         String name = f.getName().toLowerCase();

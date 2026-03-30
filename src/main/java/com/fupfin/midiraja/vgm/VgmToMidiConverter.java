@@ -20,12 +20,13 @@ import javax.sound.midi.Track;
 public class VgmToMidiConverter {
 
     // Chip IDs assigned by VgmParser based on the VGM command byte.
-    // Used as keys for mutedChips.
-    public static final int CHIP_SN76489       = 0; // 0x50 → MIDI ch 0-2 (tone), 9 (noise)
-    public static final int CHIP_YM2612_PORT0  = 1; // 0x52 → MIDI ch 3-8
-    public static final int CHIP_YM2612_PORT1  = 2; // 0x53 → MIDI ch 3-8
-    public static final int CHIP_AY8910        = 3; // 0xA0 → MIDI ch 0-2 (tone), 9 (noise)
-    public static final int CHIP_SCC           = 4; // 0xD2 → MIDI ch 10-14
+    // MIDI channel mapping: SN76489/AY8910 → ch 0-2 (tone), 9 (noise);
+    //                       YM2612 → ch 3-8; SCC → ch 10-14.
+    public static final int CHIP_SN76489       = 0; // 0x50
+    public static final int CHIP_YM2612_PORT0  = 1; // 0x52
+    public static final int CHIP_YM2612_PORT1  = 2; // 0x53
+    public static final int CHIP_AY8910        = 3; // 0xA0
+    public static final int CHIP_SCC           = 4; // 0xD2
 
     // PPQ=480 at 120 BPM → 960 ticks/second.
     // VGM timebase = 44100 Hz. Scale: tick = round(sampleOffset × 960 / 44100).
@@ -37,18 +38,18 @@ public class VgmToMidiConverter {
     private static final long VGM_SAMPLE_RATE = 44100L;
     private static final long TICKS_PER_SECOND = 960L; // PPQ * (1_000_000 / TEMPO_µS) = 480 * 2
 
-    private final Set<Integer> mutedChips;
+    private final Set<Integer> mutedChannels;
 
     public VgmToMidiConverter() {
         this(Set.of());
     }
 
     /**
-     * @param mutedChips chip IDs to silence; events for these chips are skipped entirely.
-     *                   Use the {@code CHIP_*} constants defined in this class.
+     * @param mutedChannels MIDI channel indices (0-based) to silence. Events routed to these
+     *                      channels are discarded rather than written to the output sequence.
      */
-    public VgmToMidiConverter(Set<Integer> mutedChips) {
-        this.mutedChips = mutedChips;
+    public VgmToMidiConverter(Set<Integer> mutedChannels) {
+        this.mutedChannels = mutedChannels;
     }
 
     static long toTick(long sampleOffset) {
@@ -97,16 +98,26 @@ public class VgmToMidiConverter {
             var ayConverter  = new Ay8910MidiConverter();
             var sccConverter = new SccMidiConverter();
 
+            // Muted channels are redirected to a sink track that is not part of the output sequence.
+            // This discards all events destined for those channels without modifying converter logic.
+            var routed = tracks.clone();
+            if (!mutedChannels.isEmpty()) {
+                var sinkSeq = new Sequence(Sequence.PPQ, PPQ);
+                var sink = sinkSeq.createTrack();
+                for (int ch : mutedChannels) {
+                    if (ch >= 0 && ch < routed.length) routed[ch] = sink;
+                }
+            }
+
             // AY8910 and SN76489 share MIDI channels 0-2 and 9; a given VGM file contains
             // at most one of the two chips (MSX uses AY8910, Sega uses SN76489).
             for (var event : parsed.events()) {
-                if (mutedChips.contains(event.chip())) continue;
                 long tick = toTick(event.sampleOffset());
                 switch (event.chip()) {
-                    case CHIP_SN76489                      -> snConverter.convert(event, tracks, parsed.sn76489Clock(), tick);
-                    case CHIP_YM2612_PORT0, CHIP_YM2612_PORT1 -> ymConverter.convert(event, tracks, parsed.ym2612Clock(), tick);
-                    case CHIP_AY8910                       -> ayConverter.convert(event, tracks, parsed.ay8910Clock(), tick);
-                    case CHIP_SCC                          -> sccConverter.convert(event, tracks, parsed.sccClock(), tick);
+                    case CHIP_SN76489                      -> snConverter.convert(event, routed, parsed.sn76489Clock(), tick);
+                    case CHIP_YM2612_PORT0, CHIP_YM2612_PORT1 -> ymConverter.convert(event, routed, parsed.ym2612Clock(), tick);
+                    case CHIP_AY8910                       -> ayConverter.convert(event, routed, parsed.ay8910Clock(), tick);
+                    case CHIP_SCC                          -> sccConverter.convert(event, routed, parsed.sccClock(), tick);
                     default -> {} // unknown chip, skip
                 }
             }

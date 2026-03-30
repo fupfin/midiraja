@@ -49,7 +49,7 @@ class PlaylistPlayer {
     private final boolean exitOnNavBoundary;
     private final PrintStream err;
     private final MediaKeyIntegration mediaKeys;
-    private final Set<Integer> mutedChips;
+    private final Set<Integer> mutedChannels;
 
     PlaylistPlayer(PlaybackEngineFactory engineFactory,
                    @Nullable FxOptions fxOptions,
@@ -58,7 +58,7 @@ class PlaylistPlayer {
                    boolean exitOnNavBoundary,
                    PrintStream err,
                    MediaKeyIntegration mediaKeys,
-                   Set<Integer> mutedChips)
+                   Set<Integer> mutedChannels)
     {
         this.engineFactory = engineFactory;
         this.fxOptions = fxOptions;
@@ -67,7 +67,7 @@ class PlaylistPlayer {
         this.exitOnNavBoundary = exitOnNavBoundary;
         this.err = err;
         this.mediaKeys = mediaKeys;
-        this.mutedChips = mutedChips;
+        this.mutedChannels = mutedChannels;
     }
 
     /**
@@ -98,7 +98,7 @@ class PlaylistPlayer {
             try
             {
                 var sequence = VgmFileDetector.isVgmFile(file)
-                        ? new VgmToMidiConverter(mutedChips).convert(new VgmParser().parse(file))
+                        ? new VgmToMidiConverter(mutedChannels).convert(new VgmParser().parse(file))
                         : MidiUtils.loadSequence(file);
                 logVerbose(common.isVerbose(),
                         String.format("Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d",

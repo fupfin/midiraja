@@ -58,7 +58,7 @@ public class PlaybackRunner
     @Nullable
     private FxOptions fxOptions = null;
     private boolean includeRetroInSuffix = false;
-    private java.util.Set<Integer> mutedChips = java.util.Set.of();
+    private java.util.Set<Integer> mutedChannels = java.util.Set.of();
     private final PlaybackEngineFactory engineFactory;
 
     public void setFxOptions(FxOptions fx) { this.fxOptions = fx; }
@@ -70,8 +70,8 @@ public class PlaybackRunner
      */
     public void setIncludeRetroInSuffix(boolean include) { this.includeRetroInSuffix = include; }
 
-    /** Chip IDs to silence during VGM conversion. See {@link VgmToMidiConverter#CHIP_*} constants. */
-    public void setMutedChips(java.util.Set<Integer> chips) { this.mutedChips = chips; }
+    /** MIDI channel indices (0-based) to silence during VGM conversion. */
+    public void setMutedChannels(java.util.Set<Integer> channels) { this.mutedChannels = channels; }
 
     public PlaybackStatus getLastRawStatus()
     {
@@ -134,6 +134,10 @@ public class PlaybackRunner
             List<String> originalArgs)
             throws Exception
     {
+        // Apply --mute from CommonOptions if not already set via setMutedChannels().
+        if (mutedChannels.isEmpty())
+            mutedChannels = common.parsedMutedChannels(err);
+
         // FAIL-FAST VALIDATION
         if (validateFiles(rawFiles) != 0)
         {
@@ -220,7 +224,7 @@ public class PlaybackRunner
             try
             {
                 var player = new PlaylistPlayer(engineFactory, fxOptions, includeRetroInSuffix,
-                        suppressHoldAtEnd, exitOnNavBoundary, err, mediaKeys, mutedChips);
+                        suppressHoldAtEnd, exitOnNavBoundary, err, mediaKeys, mutedChannels);
                 lastRawStatus = player.play(playlist, provider, ports.get(portIndex), common,
                         ui, activeIO, currentStartTime, originalArgs);
             }

@@ -7,10 +7,13 @@
 
 package com.fupfin.midiraja.cli;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import picocli.CommandLine.ArgGroup;
@@ -148,6 +151,44 @@ public class CommonOptions
     @Option(names = {"--quiet"},
             description = "Suppress all terminal output. Useful for scripting and background playback.")
     public boolean quietMode;
+
+    @Option(names = {"--mute"}, paramLabel = "CHANNELS",
+            description = "Comma-separated MIDI channel numbers (1-based, matching the UI display) or ranges to silence "
+                    + "during VGM playback. Examples: --mute 4-9 (YM2612 only), --mute 1-3,10 (PSG only). "
+                    + "Channel map: 1-3=PSG tone, 4-9=YM2612, 10=PSG noise, 11-15=SCC.")
+    private Optional<String> muteChannels = Optional.empty();
+
+    /** Parses --mute (1-based channel numbers) into a set of 0-based MIDI channel indices. */
+    public Set<Integer> parsedMutedChannels(PrintStream err)
+    {
+        if (muteChannels.isEmpty() || muteChannels.get().isBlank()) return Set.of();
+        var channels = new HashSet<Integer>();
+        for (var token : muteChannels.get().split(",", -1))
+        {
+            var part = token.trim();
+            if (part.isEmpty()) continue;
+            try
+            {
+                int dash = part.indexOf('-');
+                if (dash > 0)
+                {
+                    int from = Integer.parseInt(part.substring(0, dash)) - 1;
+                    int to   = Integer.parseInt(part.substring(dash + 1)) - 1;
+                    for (int ch = from; ch <= to; ch++) channels.add(ch);
+                }
+                else
+                {
+                    channels.add(Integer.parseInt(part) - 1);
+                }
+            }
+            catch (NumberFormatException e)
+            {
+                err.println("Warning: invalid --mute channel '" + part
+                        + "' (expected number or range, e.g. 4 or 4-9)");
+            }
+        }
+        return Set.copyOf(channels);
+    }
 
     // ── DSP chain construction ────────────────────────────────────────────────
 
