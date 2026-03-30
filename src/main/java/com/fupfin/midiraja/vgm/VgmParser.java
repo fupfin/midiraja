@@ -31,6 +31,7 @@ public class VgmParser {
         validateMagic(buf);
 
         int version = buf.getInt(0x08);
+        long ym2413Clock = Integer.toUnsignedLong(buf.getInt(0x10));
         long sn76489Clock = Integer.toUnsignedLong(buf.getInt(0x0C));
         long ym2612Clock = (data.length > 0x30) ? Integer.toUnsignedLong(buf.getInt(0x2C)) : 0;
         long ym2151Clock = (data.length > 0x34) ? Integer.toUnsignedLong(buf.getInt(0x30)) : 0;
@@ -51,7 +52,7 @@ public class VgmParser {
         int loopStart = parseLoopStart(buf, data.length);
         List<VgmEvent> events = parseCommands(data, dataOffset, loopStart);
 
-        return new VgmParseResult(version, sn76489Clock, ym2612Clock, ym2151Clock,
+        return new VgmParseResult(version, ym2413Clock, sn76489Clock, ym2612Clock, ym2151Clock,
                 ym2203Clock, ym2608Clock, ym2610Clock, gameBoyDmgClock, huC6280Clock,
                 ay8910Clock, sccClock, events, gd3Title);
     }
@@ -139,6 +140,11 @@ public class VgmParser {
                 case 0x50 -> { // SN76489
                     if (pos >= data.length) break;
                     events.add(new VgmEvent(sampleOffset, 0, new byte[]{data[pos++]}));
+                }
+                case 0x51 -> { // YM2413 (OPLL)
+                    if (pos + 1 >= data.length) break;
+                    events.add(new VgmEvent(sampleOffset, 13, new byte[]{data[pos], data[pos + 1]}));
+                    pos += 2;
                 }
                 case 0xA0 -> { // AY8910 register write
                     if (pos + 1 >= data.length) break;

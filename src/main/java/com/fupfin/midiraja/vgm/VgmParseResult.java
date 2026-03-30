@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
  * Result of parsing a VGM file.
  *
  * @param vgmVersion VGM format version (e.g. 0x150)
+ * @param ym2413Clock YM2413 (OPLL) clock in Hz, 0 if chip absent
  * @param sn76489Clock SN76489 clock in Hz, 0 if chip absent
  * @param ym2612Clock YM2612 clock in Hz, 0 if chip absent
  * @param ym2151Clock YM2151 (OPM) clock in Hz, 0 if chip absent
@@ -32,6 +33,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record VgmParseResult(
         int vgmVersion,
+        long ym2413Clock,
         long sn76489Clock,
         long ym2612Clock,
         long ym2151Clock,
