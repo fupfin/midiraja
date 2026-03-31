@@ -213,26 +213,14 @@ public class Ym3812MidiConverter {
     }
 
     /**
-     * Maps OPL2 connection mode, feedback, modulator TL, and envelope character to GM program.
+     * Maps OPL2 envelope character to a GM program.
      *
-     * <p>OPL2 is 2-operator FM — simpler and brighter than 4-operator chips.
-     * Percussive envelopes select short-decay instruments differentiated by feedback and modTl.
-     * High feedback no longer defaults to Overdriven Guitar (too heavy for most game music).
+     * <p>Uses the same small instrument set as 4-op FM for ensemble consistency:
+     * percussive → Electric Piano 1 or Vibraphone, sustained → Synth Brass 1.
+     * AM (additive) mode gets Vibraphone for its bell-like character.
      */
     static int selectOpl2Program(int connection, int feedback, int modTl, boolean percussive) {
-        if (connection == 1) { // AM/additive — organ-like or bell-like
-            return percussive ? 11 : 82; // Vibraphone or Calliope Lead
-        }
-        // FM mode
-        if (percussive) {
-            if (feedback >= 6) return 4;   // high fb + short decay → Electric Piano 1
-            if (modTl <= 25) return 12;    // strong mod → Marimba
-            return 11;                      // weak mod → Vibraphone
-        }
-        // Sustained FM
-        if (feedback >= 6) return 62;      // high fb sustained → Synth Brass (not Overdriven Guitar)
-        if (modTl <= 15) return 81;        // very strong mod → Sawtooth Lead
-        if (modTl <= 40) return 71;        // moderate → Clarinet
-        return 82;                          // weak → Calliope Lead
+        if (connection == 1) return percussive ? 11 : 62;  // AM: Vibraphone or Synth Brass
+        return percussive ? 4 : 62;                         // FM: Electric Piano 1 or Synth Brass
     }
 }

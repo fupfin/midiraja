@@ -115,7 +115,7 @@ class Ym2612MidiConverterTest {
 
         var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc);
-        assertEquals(83, pc.getData1(), "alg=4 + high feedback (fb=6) → GM 83 (Chiff Lead, thin sustain)");
+        assertEquals(62, pc.getData1(), "alg=4 non-percussive → GM 62 (Synth Brass 1)");
     }
 
     @Test

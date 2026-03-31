@@ -21,28 +21,14 @@ import javax.sound.midi.Track;
  */
 final class FmMidiUtil {
 
-    // Sustained instruments
-    private static final int PROGRAM_ACOUSTIC_BASS      = 32;
-    private static final int PROGRAM_ELECTRIC_BASS     = 33;
-    private static final int PROGRAM_SLAP_BASS         = 36;
-    private static final int PROGRAM_SYNTH_BASS        = 38;
-    private static final int PROGRAM_OVERDRIVEN_GUITAR = 29;
-    private static final int PROGRAM_DISTORTION_GUITAR = 30;
-    private static final int PROGRAM_CLARINET          = 71;
-    private static final int PROGRAM_RECORDER          = 73;
-    private static final int PROGRAM_SAWTOOTH_LEAD     = 81;
-    private static final int PROGRAM_CALLIOPE_LEAD     = 82;
-    private static final int PROGRAM_CHIFF_LEAD        = 83;
-    private static final int PROGRAM_SYNTH_STRINGS1    = 50;
-    private static final int PROGRAM_SYNTH_BRASS1      = 62;
-    private static final int PROGRAM_SYNTH_PAD2        = 89;
-    // Percussive instruments (short decay, used when envelope has fast AR + fast DR)
-    private static final int PROGRAM_ELECTRIC_PIANO1   = 4;
-    private static final int PROGRAM_HARPSICHORD       = 6;
-    private static final int PROGRAM_GLOCKENSPIEL      = 9;
-    private static final int PROGRAM_VIBRAPHONE        = 11;
-    private static final int PROGRAM_MARIMBA           = 12;
-    private static final int PROGRAM_PIZZICATO         = 45;
+    // A small set of fast-attack instruments that blend well in chip music ensembles.
+    // Slow-attack instruments (Clarinet, Recorder, Strings, Pads) are avoided — they
+    // don't match the tight timing of VGM playback and create a muddy mix.
+    private static final int PROGRAM_ELECTRIC_PIANO1   = 4;   // default percussive: clean, fast
+    private static final int PROGRAM_VIBRAPHONE        = 11;  // bright percussive: bell-like
+    private static final int PROGRAM_ELECTRIC_BASS     = 33;  // sustained bass
+    private static final int PROGRAM_SLAP_BASS         = 36;  // percussive bass
+    private static final int PROGRAM_SYNTH_BRASS1      = 62;  // default sustained: bright, blends well
 
     /** Reference TL for velocity scaling: carrier TL == REF_TL plays at velocity=127. */
     static final int REF_TL = 20;
@@ -52,72 +38,27 @@ final class FmMidiUtil {
     private FmMidiUtil() {}
 
     /**
-     * Maps FM algorithm + feedback + modulator TL + envelope character to a GM program.
+     * Maps FM algorithm + envelope character to a GM program.
      *
-     * @param modTl average TL of modulator operators (0–127). 127 = no modulators (alg 7).
-     * @param percussive true if carrier envelope has fast attack + fast decay (short notes)
+     * <p>Uses a small set of fast-attack instruments that blend in chip music ensembles.
+     * Bass algorithms (0, 1) get bass programs; all others get either a percussive
+     * instrument (Electric Piano, Vibraphone) or a sustained one (Synth Brass).
+     *
+     * @param percussive true if carrier envelope has fast attack + fast decay
      */
     static int selectProgram(int alg, int fb, int modTl, boolean percussive) {
-        if (fb >= 6) {
-            return switch (alg) {
-                case 0, 1, 2, 3 -> percussive ? PROGRAM_HARPSICHORD : PROGRAM_OVERDRIVEN_GUITAR;
-                case 4           -> PROGRAM_CHIFF_LEAD;
-                default          -> percussive ? PROGRAM_VIBRAPHONE : PROGRAM_SYNTH_BRASS1;
-            };
-        }
         return switch (alg) {
-            case 0 -> percussive ? PROGRAM_SLAP_BASS : selectBass(modTl, PROGRAM_ELECTRIC_BASS);
-            case 1 -> percussive ? PROGRAM_SLAP_BASS : selectBass(modTl, PROGRAM_SYNTH_BASS);
-            case 2, 3 -> percussive ? PROGRAM_ELECTRIC_PIANO1 : selectLead(modTl);
-            case 4 -> percussive ? PROGRAM_VIBRAPHONE : selectAlg4(modTl);
-            case 5 -> percussive ? PROGRAM_VIBRAPHONE : selectPad(modTl);
-            case 6 -> percussive ? PROGRAM_PIZZICATO : selectStrings(modTl);
-            case 7 -> percussive ? PROGRAM_GLOCKENSPIEL : PROGRAM_SYNTH_BRASS1;
-            default -> PROGRAM_SAWTOOTH_LEAD;
+            case 0, 1 -> percussive ? PROGRAM_SLAP_BASS : PROGRAM_ELECTRIC_BASS;
+            default   -> percussive ? PROGRAM_ELECTRIC_PIANO1 : PROGRAM_SYNTH_BRASS1;
         };
     }
 
     /**
      * Returns true if the carrier envelope has fast attack and non-trivial decay (percussive).
-     * AR and DR are normalized to 0–15 range before calling. Marimba/xylophone patches
-     * typically have AR=15 and DR=4–8; the previous threshold (AR≥12, DR≥8) was too strict
-     * and misclassified them as sustained.
+     * AR and DR are normalized to 0–15 range before calling.
      */
     static boolean isPercussive(int ar15, int dr15) {
         return ar15 >= 10 && dr15 >= 4;
-    }
-
-    // alg 0, 1: serial FM bass
-    private static int selectBass(int modTl, int defaultProg) {
-        if (modTl <= 20) return PROGRAM_SLAP_BASS;
-        if (modTl <= 50) return defaultProg;
-        return PROGRAM_ACOUSTIC_BASS;
-    }
-
-    // alg 2, 3: serial lead
-    private static int selectLead(int modTl) {
-        if (modTl <= 20) return PROGRAM_DISTORTION_GUITAR;
-        if (modTl <= 50) return PROGRAM_SAWTOOTH_LEAD;
-        return PROGRAM_RECORDER;
-    }
-
-    // alg 4: two 2-op pairs
-    private static int selectAlg4(int modTl) {
-        if (modTl <= 20) return PROGRAM_SAWTOOTH_LEAD;
-        if (modTl <= 50) return PROGRAM_CLARINET;
-        return PROGRAM_CALLIOPE_LEAD;
-    }
-
-    // alg 5: 1 mod → 3 carriers
-    private static int selectPad(int modTl) {
-        if (modTl <= 20) return PROGRAM_SYNTH_BRASS1;
-        return PROGRAM_SYNTH_PAD2;
-    }
-
-    // alg 6: near-additive
-    private static int selectStrings(int modTl) {
-        if (modTl <= 20) return PROGRAM_SYNTH_BRASS1;
-        return PROGRAM_SYNTH_STRINGS1;
     }
 
     /**
