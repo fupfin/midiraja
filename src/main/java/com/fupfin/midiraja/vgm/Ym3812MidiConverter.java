@@ -213,14 +213,15 @@ public class Ym3812MidiConverter {
     }
 
     /**
-     * Maps OPL2 envelope character to a GM program.
+     * Maps OPL2 parameters to a GM program from the same 7-instrument ensemble palette.
      *
-     * <p>Uses the same small instrument set as 4-op FM for ensemble consistency:
-     * percussive → Electric Piano 1 or Vibraphone, sustained → Synth Brass 1.
-     * AM (additive) mode gets Vibraphone for its bell-like character.
+     * <p>AM (additive) mode → harmony instruments (Vibraphone/Sawtooth Lead).
+     * FM mode → lead instruments (Electric Piano/Square Lead).
+     * High feedback → aggressive variants (Clavinet/Sawtooth Lead).
      */
     static int selectOpl2Program(int connection, int feedback, int modTl, boolean percussive) {
-        if (connection == 1) return percussive ? 11 : 62;  // AM: Vibraphone or Synth Brass
-        return percussive ? 4 : 62;                         // FM: Electric Piano 1 or Synth Brass
+        if (feedback >= 6) return percussive ? 7 : 81;     // Clavinet or Sawtooth Lead
+        if (connection == 1) return percussive ? 11 : 81;  // AM: Vibraphone or Sawtooth Lead
+        return percussive ? 4 : 80;                         // FM: Electric Piano 1 or Square Lead
     }
 }

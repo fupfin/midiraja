@@ -121,7 +121,7 @@ class Ym2151MidiConverterTest {
 
         var pc = findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc);
-        assertEquals(62, pc.getData1(), "alg=4 non-percussive → Synth Brass 1 (62)");
+        assertEquals(81, pc.getData1(), "alg=4 fb=6 non-percussive → Sawtooth Lead (81)");
     }
 
     @Test

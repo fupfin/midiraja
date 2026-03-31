@@ -78,7 +78,7 @@ class Ym2612MidiConverterTest {
         // MIDI ch 3 (YM2612 ch0 + offset 3)
         var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc, "Program Change must be emitted for algorithm 7");
-        assertEquals(62, pc.getData1(), "Algorithm 7 → GM 62 (Synth Brass 1) — fully additive, avoids church organ character");
+        assertEquals(81, pc.getData1(), "Algorithm 7 (harmony) non-percussive → Sawtooth Lead (81)");
     }
 
     @Test
@@ -115,7 +115,7 @@ class Ym2612MidiConverterTest {
 
         var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc);
-        assertEquals(62, pc.getData1(), "alg=4 non-percussive → GM 62 (Synth Brass 1)");
+        assertEquals(81, pc.getData1(), "alg=4 fb=6 non-percussive → Sawtooth Lead (81)");
     }
 
     @Test

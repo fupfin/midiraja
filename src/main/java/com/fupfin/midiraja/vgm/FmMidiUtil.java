@@ -21,14 +21,15 @@ import javax.sound.midi.Track;
  */
 final class FmMidiUtil {
 
-    // A small set of fast-attack instruments that blend well in chip music ensembles.
-    // Slow-attack instruments (Clarinet, Recorder, Strings, Pads) are avoided — they
-    // don't match the tight timing of VGM playback and create a muddy mix.
-    private static final int PROGRAM_ELECTRIC_PIANO1   = 4;   // default percussive: clean, fast
-    private static final int PROGRAM_VIBRAPHONE        = 11;  // bright percussive: bell-like
+    // Curated 7-instrument ensemble palette for chip music. All have fast attack
+    // and blend well together. No slow-attack instruments (Clarinet, Synth Brass, Pads).
+    private static final int PROGRAM_ELECTRIC_PIANO1   = 4;   // percussive lead: clean, fast
+    private static final int PROGRAM_CLAVINET          = 7;   // rhythm/accent: very fast, aggressive
+    private static final int PROGRAM_VIBRAPHONE        = 11;  // percussive harmony: bell-like
     private static final int PROGRAM_ELECTRIC_BASS     = 33;  // sustained bass
     private static final int PROGRAM_SLAP_BASS         = 36;  // percussive bass
-    private static final int PROGRAM_SYNTH_BRASS1      = 62;  // default sustained: bright, blends well
+    private static final int PROGRAM_SQUARE_LEAD       = 80;  // sustained lead: authentic chip sound
+    private static final int PROGRAM_SAWTOOTH_LEAD     = 81;  // sustained harmony: slightly different color
 
     /** Reference TL for velocity scaling: carrier TL == REF_TL plays at velocity=127. */
     static final int REF_TL = 20;
@@ -38,18 +39,21 @@ final class FmMidiUtil {
     private FmMidiUtil() {}
 
     /**
-     * Maps FM algorithm + envelope character to a GM program.
+     * Maps FM algorithm + feedback + envelope to a GM program from the 7-instrument palette.
      *
-     * <p>Uses a small set of fast-attack instruments that blend in chip music ensembles.
-     * Bass algorithms (0, 1) get bass programs; all others get either a percussive
-     * instrument (Electric Piano, Vibraphone) or a sustained one (Synth Brass).
+     * <p>Ensemble roles: bass (alg 0-1), lead (alg 2-4), harmony/pad (alg 5-7).
+     * High feedback (≥6) adds harmonic aggression → Clavinet (percussive) or Sawtooth (sustained).
      *
      * @param percussive true if carrier envelope has fast attack + fast decay
      */
     static int selectProgram(int alg, int fb, int modTl, boolean percussive) {
+        if (fb >= 6) {
+            return percussive ? PROGRAM_CLAVINET : PROGRAM_SAWTOOTH_LEAD;
+        }
         return switch (alg) {
             case 0, 1 -> percussive ? PROGRAM_SLAP_BASS : PROGRAM_ELECTRIC_BASS;
-            default   -> percussive ? PROGRAM_ELECTRIC_PIANO1 : PROGRAM_SYNTH_BRASS1;
+            case 2, 3, 4 -> percussive ? PROGRAM_ELECTRIC_PIANO1 : PROGRAM_SQUARE_LEAD;
+            default -> percussive ? PROGRAM_VIBRAPHONE : PROGRAM_SAWTOOTH_LEAD; // alg 5,6,7
         };
     }
 
