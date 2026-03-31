@@ -218,7 +218,7 @@ public class Ym3812MidiConverter {
         }
         // FM mode
         if (percussive) {
-            if (feedback >= 6) return 6;   // high fb + short decay → Harpsichord (bright, crisp)
+            if (feedback >= 6) return 4;   // high fb + short decay → Electric Piano 1
             if (modTl <= 25) return 12;    // strong mod → Marimba
             return 11;                      // weak mod → Vibraphone
         }
