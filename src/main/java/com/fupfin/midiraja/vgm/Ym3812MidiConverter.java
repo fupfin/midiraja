@@ -208,21 +208,24 @@ public class Ym3812MidiConverter {
     /**
      * Maps OPL2 connection mode, feedback, modulator TL, and envelope character to GM program.
      *
-     * <p>Connection 1 (AM/additive) produces organ-like or bell-like timbres.
-     * Connection 0 (FM) ranges from bright lead sounds (low modTl) to soft tones (high modTl).
-     * Percussive envelopes override to short-decay instruments (Piano, Vibraphone, etc.).
+     * <p>OPL2 is 2-operator FM — simpler and brighter than 4-operator chips.
+     * Percussive envelopes select short-decay instruments differentiated by feedback and modTl.
+     * High feedback no longer defaults to Overdriven Guitar (too heavy for most game music).
      */
     static int selectOpl2Program(int connection, int feedback, int modTl, boolean percussive) {
+        if (connection == 1) { // AM/additive — organ-like or bell-like
+            return percussive ? 11 : 82; // Vibraphone or Calliope Lead
+        }
+        // FM mode
         if (percussive) {
-            return (connection == 1) ? 11 : 4; // AM → Vibraphone, FM → Electric Piano 1
+            if (feedback >= 6) return 6;   // high fb + short decay → Harpsichord (bright, crisp)
+            if (modTl <= 25) return 12;    // strong mod → Marimba
+            return 11;                      // weak mod → Vibraphone
         }
-        if (connection == 1) {
-            return (modTl <= 30) ? 11 : 82; // Vibraphone or Calliope Lead
-        }
-        // FM mode, sustained
-        if (feedback >= 6) return (modTl <= 50) ? 29 : 62; // Overdriven Guitar or Synth Brass
-        if (modTl <= 20) return 81;  // Sawtooth Lead
-        if (modTl <= 50) return 71;  // Clarinet
-        return 82;                    // Calliope Lead
+        // Sustained FM
+        if (feedback >= 6) return 62;      // high fb sustained → Synth Brass (not Overdriven Guitar)
+        if (modTl <= 15) return 81;        // very strong mod → Sawtooth Lead
+        if (modTl <= 40) return 71;        // moderate → Clarinet
+        return 82;                          // weak → Calliope Lead
     }
 }

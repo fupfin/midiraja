@@ -104,7 +104,7 @@ class Ym3812MidiConverterTest {
     }
 
     @Test
-    void connectionAM_selectsVibraphone() throws Exception {
+    void connectionAM_percussive_selectsVibraphone() throws Exception {
         var converter = new Ym3812MidiConverter();
         var tracks = makeTracks();
 
@@ -114,14 +114,16 @@ class Ym3812MidiConverterTest {
         converter.convert(opl2(0x40, 20), tracks, CLOCK, 0);
         // Set carrier TL for ch 0
         converter.convert(opl2(0x43, 10), tracks, CLOCK, 0);
+        // Set carrier AR=15, DR=8 → percussive (addr 0x63 for ch 0 carrier)
+        converter.convert(opl2(0x63, 0xF8), tracks, CLOCK, 0);
         // Set F-Number low
         converter.convert(opl2(0xA0, 0x44), tracks, CLOCK, 0);
         // Key-on
         converter.convert(opl2(0xB0, 0x32), tracks, CLOCK, 1);
 
         var pc = findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE);
-        assertNotNull(pc, "AM connection should emit Program Change");
-        assertEquals(11, pc.getData1(), "connection=1 (AM) → Vibraphone (11)");
+        assertNotNull(pc, "AM + percussive should emit Program Change");
+        assertEquals(11, pc.getData1(), "AM + percussive → Vibraphone (11)");
     }
 
     @Test
