@@ -83,47 +83,40 @@ class Ym3812MidiConverterTest {
     }
 
     @Test
-    void connectionFM_selectsCorrectProgram() throws Exception {
+    void connectionFM_emitsNoteOn() throws Exception {
+        // Converters no longer emit Program Change; verify NoteOn is produced.
         var converter = new Ym3812MidiConverter();
         var tracks = makeTracks();
 
-        // Set connection=0, feedback=0 for ch 0 (0xC0 bit0=0)
         converter.convert(opl2(0xC0, 0x00), tracks, CLOCK, 0);
-        // Set modulator TL=30 for ch 0 (addr 0x40)
         converter.convert(opl2(0x40, 30), tracks, CLOCK, 0);
-        // Set carrier TL for ch 0
         converter.convert(opl2(0x43, 10), tracks, CLOCK, 0);
-        // Set F-Number low
         converter.convert(opl2(0xA0, 0x44), tracks, CLOCK, 0);
-        // Key-on
         converter.convert(opl2(0xB0, 0x32), tracks, CLOCK, 1);
 
-        var pc = findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE);
-        assertNotNull(pc, "FM connection should emit Program Change");
-        assertEquals(5, pc.getData1(), "Note ≥ C3, non-percussive → Electric Piano 2 (5)");
+        var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn, "FM connection key-on should produce NoteOn");
+        assertNull(findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE),
+                "Individual converters must not emit Program Change");
     }
 
     @Test
-    void connectionAM_percussive_selectsVibraphone() throws Exception {
+    void connectionAM_percussive_emitsNoteOn() throws Exception {
+        // Converters no longer emit Program Change; verify NoteOn is produced.
         var converter = new Ym3812MidiConverter();
         var tracks = makeTracks();
 
-        // Set connection=1 (0xC0 bit0=1)
         converter.convert(opl2(0xC0, 0x01), tracks, CLOCK, 0);
-        // Set modulator TL=20 for ch 0 (addr 0x40)
         converter.convert(opl2(0x40, 20), tracks, CLOCK, 0);
-        // Set carrier TL for ch 0
         converter.convert(opl2(0x43, 10), tracks, CLOCK, 0);
-        // Set carrier AR=15, DR=8 → percussive (addr 0x63 for ch 0 carrier)
         converter.convert(opl2(0x63, 0xF8), tracks, CLOCK, 0);
-        // Set F-Number low
         converter.convert(opl2(0xA0, 0x44), tracks, CLOCK, 0);
-        // Key-on
         converter.convert(opl2(0xB0, 0x32), tracks, CLOCK, 1);
 
-        var pc = findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE);
-        assertNotNull(pc, "AM + percussive should emit Program Change");
-        assertEquals(11, pc.getData1(), "AM + percussive → Vibraphone (11)");
+        var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn, "AM + percussive key-on should produce NoteOn");
+        assertNull(findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE),
+                "Individual converters must not emit Program Change");
     }
 
     @Test

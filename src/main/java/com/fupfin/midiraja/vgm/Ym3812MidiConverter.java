@@ -174,7 +174,6 @@ public class Ym3812MidiConverter {
         if (note < 0) return;
         int midiCh = ch + midiChOffset;
         if (midiCh >= tracks.length || midiCh == 9) return;
-        emitProgramIfNeeded(ch, midiCh, note, tick, tracks);
         int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
         addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);
         activeNote[ch] = note;

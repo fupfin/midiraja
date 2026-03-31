@@ -185,7 +185,8 @@ class HuC6280MidiConverterTest {
     }
 
     @Test
-    void waveformData_affectsProgramChange() throws Exception {
+    void waveformData_emitsNoteOn() throws Exception {
+        // Converters no longer emit Program Change; verify NoteOn is produced after waveform write.
         var converter = new HuC6280MidiConverter();
         var tracks = makeTracks();
 
@@ -201,8 +202,9 @@ class HuC6280MidiConverterTest {
         converter.convert(pce(0x03, 0), tracks, CLOCK, 0);
         converter.convert(pce(0x04, 0x80 | 20), tracks, CLOCK, 1);
 
-        var pc = findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE);
-        assertNotNull(pc, "Waveform analysis should emit Program Change");
-        assertEquals(81, pc.getData1(), "Sawtooth waveform → Sawtooth Lead (81)");
+        var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn, "NoteOn must be emitted after waveform write");
+        assertNull(findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE),
+                "Individual converters must not emit Program Change");
     }
 }

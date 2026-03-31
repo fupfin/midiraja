@@ -119,7 +119,7 @@ public class GameBoyDmgMidiConverter {
             // Short noise → hi-hat, long noise → snare-like
             boolean shortMode = (noiseLfsr & 0x08) != 0;
             int drumNote = shortMode ? 42 : 46; // Closed Hi-Hat / Open Hi-Hat
-            ensureProgramSent(tick, tracks);
+            
             emitPanForChannel(3, tick, tracks);
             int vel = Math.clamp(Math.round(noiseVolume / 15.0f * 127), 1, 127);
             addEvent(tracks[NOISE_CH], ShortMessage.NOTE_ON, NOISE_CH, drumNote, vel, tick);
@@ -136,7 +136,7 @@ public class GameBoyDmgMidiConverter {
             return;
         }
         int midiCh = ch; // ch 0-2 → MIDI ch 0-2
-        ensureProgramSent(tick, tracks);
+        
         emitPanForChannel(ch, tick, tracks);
         int vel = Math.clamp(Math.round(volume[ch] / 15.0f * 127), 1, 127);
         addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);

@@ -90,21 +90,11 @@ public class VgmToMidiConverter {
                 tracks[i] = sequence.createTrack();
             }
 
-            // Program Change at tick 0:
-            // ch 0-2: GM 80 (Square Lead) — SN76489 / AY8910 square waves
-            // ch 3-8: omitted — Ym2612MidiConverter emits per-channel Program Change
-            //         dynamically based on algorithm+feedback registers (0xB0).
-            // ch 9:   GM 0 with isDrums flag — TSF requires an explicit patchChange(9,0,drums=1)
-            //         to activate drum mode; omitting it leaves the channel as melodic (piano).
-            // ch 10-14: omitted — SccMidiConverter emits dynamic Program Change based on
-            //           waveform analysis (classifyWaveform).
-            int[] programs = {80, 80, 80, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1};
-            for (int ch = 0; ch < 15; ch++) {
-                if (programs[ch] >= 0) {
-                    tracks[ch].add(new MidiEvent(
-                            new ShortMessage(ShortMessage.PROGRAM_CHANGE, ch, programs[ch], 0), 0));
-                }
-            }
+            // ch 9: GM 0 with isDrums flag — TSF requires an explicit patchChange(9,0,drums=1)
+            // to activate drum mode; omitting it leaves the channel as melodic (piano).
+            // All other Program Changes are assigned by TrackRoleAssigner after conversion.
+            tracks[9].add(new MidiEvent(
+                    new ShortMessage(ShortMessage.PROGRAM_CHANGE, 9, 0, 0), 0));
 
             var snConverter    = new Sn76489MidiConverter();
             var ymConverter    = new Ym2612MidiConverter();
@@ -165,6 +155,9 @@ public class VgmToMidiConverter {
                     default -> {} // unknown chip, skip
                 }
             }
+
+            // 2nd pass: analyze track roles and assign ensemble-appropriate GM programs
+            TrackRoleAssigner.assign(sequence);
 
             return sequence;
         } catch (InvalidMidiDataException e) {

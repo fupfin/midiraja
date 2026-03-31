@@ -135,7 +135,6 @@ public class Ym2612MidiConverter {
             int note = computeNote(ch, clock);
             if (note >= 0) {
                 emitPanIfNeeded(ch, midiCh, tracks, tick);
-                emitProgramIfNeeded(ch, midiCh, note, tracks, tick);
                 addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note,
                         computeVelocity(tl, algorithm, feedback, ch), tick);
                 activeNote[ch] = note;

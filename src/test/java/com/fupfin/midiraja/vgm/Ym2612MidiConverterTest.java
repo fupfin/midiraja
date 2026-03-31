@@ -60,35 +60,30 @@ class Ym2612MidiConverterTest {
     }
 
     @Test
-    void algorithm7_emitsProgramChange_beforeNoteOn() throws Exception {
-        // Algorithm 7 (additive synthesis) → Hammond Organ (GM 16)
-        // Register 0xB0: feedback=0, algorithm=7 → 0b000_111 = 0x07
+    void algorithm7_emitsNoteOn() throws Exception {
+        // Algorithm 7 (additive synthesis) — converters no longer emit Program Change;
+        // TrackRoleAssigner handles that in a 2nd pass on the full Sequence.
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
-        // Set algorithm=7, feedback=0 on ch0 (port0)
         converter.convert(port0(0xB0, 0x07), tracks, CLOCK, 0);
-        // Set FNum: high byte (block=4, fnum_high=2) → 0xA4 ch0
         converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
-        // FNum low byte → 0xA0 ch0
         converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
-        // Key-on ch0 (all operators) → 0x28 data=0xF0
         converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
 
-        // MIDI ch 3 (YM2612 ch0 + offset 3)
-        var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
-        assertNotNull(pc, "Program Change must be emitted for algorithm 7");
-        assertEquals(5, pc.getData1(), "Note ≥ C3, non-percussive → Electric Piano 2 (5)");
+        var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn, "NoteOn must be emitted on MIDI ch 3");
+        assertNull(findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE),
+                "Individual converters must not emit Program Change");
     }
 
     @Test
-    void algorithm0_emitsBassProgram() throws Exception {
-        // Algorithm 0 (fully serial FM) with moderate modulator TL → Electric Bass (GM 33)
+    void algorithm0_emitsNoteOn() throws Exception {
+        // Algorithm 0 (fully serial FM) — verify NoteOn is emitted; no Program Change from converter.
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
-        converter.convert(port0(0xB0, 0x00), tracks, CLOCK, 0); // alg=0, fb=0
-        // Set modulator TL (op0=0x40, op1=0x44, op2=0x48) to 30 (moderate range)
+        converter.convert(port0(0xB0, 0x00), tracks, CLOCK, 0);
         converter.convert(port0(0x40, 30), tracks, CLOCK, 0);
         converter.convert(port0(0x44, 30), tracks, CLOCK, 0);
         converter.convert(port0(0x48, 30), tracks, CLOCK, 0);
@@ -96,15 +91,15 @@ class Ym2612MidiConverterTest {
         converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
         converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
 
-        var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
-        assertNotNull(pc);
-        assertEquals(5, pc.getData1(), "Note ≥ C3, non-percussive → Electric Piano 2 (5)");
+        var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn, "NoteOn must be emitted for algorithm 0");
+        assertNull(findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE),
+                "Individual converters must not emit Program Change");
     }
 
     @Test
-    void highFeedback_overridesProgram() throws Exception {
-        // feedback=6 with algorithm=4 → Square Lead (GM 80)
-        // Register 0xB0: feedback=6, algorithm=4 → 0b110_100 = 0x34
+    void highFeedback_emitsNoteOn() throws Exception {
+        // High feedback with algorithm=4 — verify NoteOn; no Program Change from converter.
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
@@ -113,14 +108,15 @@ class Ym2612MidiConverterTest {
         converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
         converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
 
-        var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
-        assertNotNull(pc);
-        assertEquals(5, pc.getData1(), "Note ≥ C3, non-percussive → Electric Piano 2 (5)");
+        var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn, "NoteOn must be emitted for high-feedback algorithm");
+        assertNull(findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE),
+                "Individual converters must not emit Program Change");
     }
 
     @Test
-    void programChange_notDuplicated_whenAlgorithmUnchanged() throws Exception {
-        // Two consecutive key-ons with same algorithm → Program Change only once
+    void noProgramChange_emittedByConverter() throws Exception {
+        // Converters no longer emit Program Change — verify two key-ons produce zero PC events.
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
@@ -138,7 +134,7 @@ class Ym2612MidiConverterTest {
                 pcCount++;
             }
         }
-        assertEquals(1, pcCount, "Program Change must not be duplicated if algorithm is unchanged");
+        assertEquals(0, pcCount, "Converter must not emit any Program Change");
     }
 
     @Test
@@ -274,7 +270,7 @@ class Ym2612MidiConverterTest {
         converter.convert(port1(0xA0, 0x6A), tracks, CLOCK, 0);
         converter.convert(port1(0x28, 0xF4), tracks, CLOCK, 1); // key-on port1 ch0 = chSelect=4
 
-        var pc = findFirst(tracks[6], ShortMessage.PROGRAM_CHANGE);
-        assertNotNull(pc, "Port 1 ch0 must emit Program Change on MIDI ch 6");
+        var noteOn = findFirst(tracks[6], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn, "Port 1 ch0 must emit NoteOn on MIDI ch 6");
     }
 }

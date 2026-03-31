@@ -108,20 +108,21 @@ class Ym2151MidiConverterTest {
     }
 
     @Test
-    void programChange_emittedAtKeyOn() throws Exception {
+    void noProgramChange_emittedByConverter() throws Exception {
+        // Converters no longer emit Program Change; TrackRoleAssigner handles it.
         var converter = new Ym2151MidiConverter(0);
         var tracks = makeTracks();
 
-        // alg=4, fb=6 → high feedback → Chiff Lead (83)
-        converter.convert(opm(0x20, 0x34), tracks, 0, 0); // fb=6(0b110), alg=4 → 0x34
+        converter.convert(opm(0x20, 0x34), tracks, 0, 0); // fb=6, alg=4
         converter.convert(opm(0x70, 0), tracks, 0, 0);
         converter.convert(opm(0x78, 0), tracks, 0, 0);
         converter.convert(opm(0x28, 0x4E), tracks, 0, 0);
         converter.convert(opm(0x08, 0x78), tracks, 0, 1);
 
-        var pc = findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE);
-        assertNotNull(pc);
-        assertEquals(5, pc.getData1(), "Note ≥ C3, non-percussive → Electric Piano 2 (5)");
+        var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
+        assertNotNull(noteOn, "NoteOn must be emitted");
+        assertNull(findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE),
+                "Individual converters must not emit Program Change");
     }
 
     @Test

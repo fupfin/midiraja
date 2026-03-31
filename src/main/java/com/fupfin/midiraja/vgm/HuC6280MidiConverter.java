@@ -130,7 +130,6 @@ public class HuC6280MidiConverter {
             return;
         }
         int midiCh = ch + MIDI_CH_OFFSET;
-        emitProgramIfNeeded(ch, midiCh, tick, tracks);
         emitPanIfNeeded(ch, tick, tracks);
         addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, 100, tick);
         activeNote[ch] = note;
