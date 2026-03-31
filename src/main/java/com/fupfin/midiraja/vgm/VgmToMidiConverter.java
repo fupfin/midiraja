@@ -39,6 +39,8 @@ public class VgmToMidiConverter {
     public static final int CHIP_HUC6280       = 12; // 0xB9
     public static final int CHIP_YM2413       = 13; // 0x51 (OPLL)
     public static final int CHIP_YM3812       = 14; // 0x5A (OPL2)
+    public static final int CHIP_YMF262_PORT0 = 15; // 0x5E (OPL3 port 0)
+    public static final int CHIP_YMF262_PORT1 = 16; // 0x5F (OPL3 port 1)
 
     // PPQ=480 at 120 BPM → 960 ticks/second.
     // VGM timebase = 44100 Hz. Scale: tick = round(sampleOffset × 960 / 44100).
@@ -120,6 +122,10 @@ public class VgmToMidiConverter {
             var gbConverter    = new GameBoyDmgMidiConverter();
             long opl2Clock = (parsed.ym3812Clock() != 0) ? parsed.ym3812Clock() : 3_579_545L;
             var opl2Converter  = new Ym3812MidiConverter();
+            // OPL3: clock/4 gives OPL2-equivalent frequency. Port 0 → ch 0-8, port 1 → ch 10+.
+            long opl3Clock = parsed.ymf262Clock() / 4;
+            var opl3Port0Conv  = new Ym3812MidiConverter(opl3Clock, 0);
+            var opl3Port1Conv  = new Ym3812MidiConverter(opl3Clock, 10);
 
             // Muted channels are redirected to a sink track that is not part of the output sequence.
             // This discards all events destined for those channels without modifying converter logic.
@@ -154,6 +160,8 @@ public class VgmToMidiConverter {
                     case CHIP_GAMEBOY_DMG  -> gbConverter.convert(event, routed, parsed.gameBoyDmgClock(), tick);
                     case CHIP_YM2413       -> opllConverter.convert(event, routed, parsed.ym2413Clock(), tick);
                     case CHIP_YM3812       -> opl2Converter.convert(event, routed, opl2Clock, tick);
+                    case CHIP_YMF262_PORT0 -> opl3Port0Conv.convert(event, routed, opl3Clock, tick);
+                    case CHIP_YMF262_PORT1 -> opl3Port1Conv.convert(event, routed, opl3Clock, tick);
                     default -> {} // unknown chip, skip
                 }
             }

@@ -13,10 +13,11 @@ import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 
 /**
- * Converts YM3812 (OPL2 / AdLib) VGM events to MIDI note events on channels 0-8.
+ * Converts YM3812 (OPL2) and YMF262 (OPL3) VGM events to MIDI note events.
  *
- * <p>The YM3812 has 9 channels, each with 2 operators (modulator + carrier). VGM command 0x5A
- * carries 2 bytes: register address and data.
+ * <p>OPL2 has 9 channels (single port, VGM 0x5A). OPL3 has 18 channels across two ports
+ * (VGM 0x5E / 0x5F) — each port is handled by a separate instance with a MIDI channel offset.
+ * The register layout per port is identical.
  *
  * <p><b>Operator register decoding:</b> Registers in the ranges 0x20-0x35, 0x40-0x55,
  * 0x60-0x75, 0x80-0x95, and 0xE0-0xF5 are per-operator. The offset from the range base is
@@ -42,6 +43,7 @@ public class Ym3812MidiConverter {
     private static final int[] RHYTHM_GM_NOTE = {42, 49, 45, 38, 36};
 
     private final long defaultClock;
+    private final int midiChOffset; // 0 for OPL2/OPL3 port 0, 10 for OPL3 port 1
 
     private final int[] fnumLo = new int[CHANNELS];
     private final int[] block = new int[CHANNELS];
@@ -62,11 +64,12 @@ public class Ym3812MidiConverter {
     private final int[] activeRhythm = {-1, -1, -1, -1, -1};
 
     public Ym3812MidiConverter() {
-        this(DEFAULT_CLOCK);
+        this(DEFAULT_CLOCK, 0);
     }
 
-    public Ym3812MidiConverter(long defaultClock) {
+    public Ym3812MidiConverter(long defaultClock, int midiChOffset) {
         this.defaultClock = defaultClock;
+        this.midiChOffset = midiChOffset;
         java.util.Arrays.fill(carrierTl, 63);
         java.util.Arrays.fill(modulatorTl, 63);
     }
@@ -169,23 +172,27 @@ public class Ym3812MidiConverter {
 
     private void noteOn(int ch, int note, long tick, Track[] tracks) {
         if (note < 0) return;
-        emitProgramIfNeeded(ch, tick, tracks);
+        int midiCh = ch + midiChOffset;
+        if (midiCh >= tracks.length || midiCh == 9) return; // skip drums channel / overflow
+        emitProgramIfNeeded(ch, midiCh, tick, tracks);
         int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
-        addEvent(tracks[ch], ShortMessage.NOTE_ON, ch, note, vel, tick);
+        addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);
         activeNote[ch] = note;
     }
 
     private void noteOff(int ch, long tick, Track[] tracks) {
         if (activeNote[ch] < 0) return;
-        addEvent(tracks[ch], ShortMessage.NOTE_OFF, ch, activeNote[ch], 0, tick);
+        int midiCh = ch + midiChOffset;
+        if (midiCh >= tracks.length || midiCh == 9) return;
+        addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
         activeNote[ch] = -1;
     }
 
-    private void emitProgramIfNeeded(int ch, long tick, Track[] tracks) {
+    private void emitProgramIfNeeded(int ch, int midiCh, long tick, Track[] tracks) {
         boolean perc = FmMidiUtil.isPercussive(carrierAr[ch], carrierDr[ch]);
         int program = selectOpl2Program(connection[ch], feedback[ch], modulatorTl[ch], perc);
         if (program != currentProgram[ch]) {
-            addEvent(tracks[ch], ShortMessage.PROGRAM_CHANGE, ch, program, 0, tick);
+            addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
             currentProgram[ch] = program;
         }
     }
