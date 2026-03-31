@@ -173,8 +173,8 @@ public class Ym3812MidiConverter {
     private void noteOn(int ch, int note, long tick, Track[] tracks) {
         if (note < 0) return;
         int midiCh = ch + midiChOffset;
-        if (midiCh >= tracks.length || midiCh == 9) return; // skip drums channel / overflow
-        emitProgramIfNeeded(ch, midiCh, tick, tracks);
+        if (midiCh >= tracks.length || midiCh == 9) return;
+        emitProgramIfNeeded(ch, midiCh, note, tick, tracks);
         int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
         addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);
         activeNote[ch] = note;
@@ -188,9 +188,9 @@ public class Ym3812MidiConverter {
         activeNote[ch] = -1;
     }
 
-    private void emitProgramIfNeeded(int ch, int midiCh, long tick, Track[] tracks) {
+    private void emitProgramIfNeeded(int ch, int midiCh, int note, long tick, Track[] tracks) {
         boolean perc = FmMidiUtil.isPercussive(carrierAr[ch], carrierDr[ch]);
-        int program = selectOpl2Program(connection[ch], feedback[ch], modulatorTl[ch], perc);
+        int program = FmMidiUtil.selectProgram(note, perc);
         if (program != currentProgram[ch]) {
             addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
             currentProgram[ch] = program;

@@ -100,7 +100,7 @@ class Ym3812MidiConverterTest {
 
         var pc = findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc, "FM connection should emit Program Change");
-        assertEquals(80, pc.getData1(), "connection=0 (FM) sustained → Square Lead (80)");
+        assertEquals(5, pc.getData1(), "Note ≥ C3, non-percussive → Electric Piano 2 (5)");
     }
 
     @Test

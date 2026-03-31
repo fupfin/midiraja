@@ -117,10 +117,10 @@ public class Ym2151MidiConverter {
                 addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
                 activeNote[ch] = -1;
             }
-            emitPanIfNeeded(ch, tracks, tick);
-            emitProgramIfNeeded(ch, midiCh, tracks, tick);
             int note = computeNote(ch);
             if (note >= 0) {
+                emitPanIfNeeded(ch, tracks, tick);
+                emitProgramIfNeeded(ch, midiCh, note, tracks, tick);
                 addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note,
                         computeVelocity(tl, algorithm, feedback, ch), tick);
                 activeNote[ch] = note;
@@ -142,12 +142,12 @@ public class Ym2151MidiConverter {
         }
     }
 
-    private void emitProgramIfNeeded(int ch, int midiCh, Track[] tracks, long tick) {
+    private void emitProgramIfNeeded(int ch, int midiCh, int note, Track[] tracks, long tick) {
         int[] cops = carrierOps(algorithm[ch]);
         int totalAr = 0, totalDr = 0;
         for (int op : cops) { totalAr += ar[ch][op]; totalDr += d1r[ch][op]; }
         boolean perc = isPercussive(totalAr / cops.length / 2, totalDr / cops.length / 2);
-        int program = selectProgram(algorithm[ch], feedback[ch], avgModulatorTl(tl, algorithm, ch), perc);
+        int program = selectProgram(note, perc);
         if (program != currentProgram[ch]) {
             addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
             currentProgram[ch] = program;

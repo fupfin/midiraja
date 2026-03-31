@@ -132,10 +132,10 @@ public class Ym2612MidiConverter {
                 addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
                 activeNote[ch] = -1;
             }
-            emitPanIfNeeded(ch, midiCh, tracks, tick);
-            emitProgramIfNeeded(ch, midiCh, tracks, tick);
             int note = computeNote(ch, clock);
             if (note >= 0) {
+                emitPanIfNeeded(ch, midiCh, tracks, tick);
+                emitProgramIfNeeded(ch, midiCh, note, tracks, tick);
                 addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note,
                         computeVelocity(tl, algorithm, feedback, ch), tick);
                 activeNote[ch] = note;
@@ -156,15 +156,12 @@ public class Ym2612MidiConverter {
         }
     }
 
-    private void emitProgramIfNeeded(int ch, int midiCh, Track[] tracks, long tick) {
-        // Carrier envelope: average AR and D1R of carrier ops, normalized to 0-15 for isPercussive
+    private void emitProgramIfNeeded(int ch, int midiCh, int note, Track[] tracks, long tick) {
         int[] cops = carrierOps(algorithm[ch]);
         int totalAr = 0, totalDr = 0;
         for (int op : cops) { totalAr += ar[ch][op]; totalDr += d1r[ch][op]; }
-        int avgAr = totalAr / cops.length;  // 0-31 range
-        int avgDr = totalDr / cops.length;
-        boolean perc = isPercussive(avgAr / 2, avgDr / 2); // normalize 5-bit to ~4-bit
-        int program = selectProgram(algorithm[ch], feedback[ch], avgModulatorTl(tl, algorithm, ch), perc);
+        boolean perc = isPercussive(totalAr / cops.length / 2, totalDr / cops.length / 2);
+        int program = selectProgram(note, perc);
         if (program != currentProgram[ch]) {
             addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
             currentProgram[ch] = program;

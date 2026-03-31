@@ -78,7 +78,7 @@ class Ym2612MidiConverterTest {
         // MIDI ch 3 (YM2612 ch0 + offset 3)
         var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc, "Program Change must be emitted for algorithm 7");
-        assertEquals(81, pc.getData1(), "Algorithm 7 (harmony) non-percussive → Sawtooth Lead (81)");
+        assertEquals(5, pc.getData1(), "Note ≥ C3, non-percussive → Electric Piano 2 (5)");
     }
 
     @Test
@@ -98,7 +98,7 @@ class Ym2612MidiConverterTest {
 
         var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc);
-        assertEquals(33, pc.getData1(), "Algorithm 0, modTL=30 → GM 33 (Electric Bass)");
+        assertEquals(5, pc.getData1(), "Note ≥ C3, non-percussive → Electric Piano 2 (5)");
     }
 
     @Test
@@ -115,7 +115,7 @@ class Ym2612MidiConverterTest {
 
         var pc = findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE);
         assertNotNull(pc);
-        assertEquals(81, pc.getData1(), "alg=4 fb=6 non-percussive → Sawtooth Lead (81)");
+        assertEquals(5, pc.getData1(), "Note ≥ C3, non-percussive → Electric Piano 2 (5)");
     }
 
     @Test

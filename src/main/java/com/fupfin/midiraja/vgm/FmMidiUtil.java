@@ -21,15 +21,11 @@ import javax.sound.midi.Track;
  */
 final class FmMidiUtil {
 
-    // Curated 7-instrument ensemble palette for chip music. All have fast attack
-    // and blend well together. No slow-attack instruments (Clarinet, Synth Brass, Pads).
-    private static final int PROGRAM_ELECTRIC_PIANO1   = 4;   // percussive lead: clean, fast
-    private static final int PROGRAM_CLAVINET          = 7;   // rhythm/accent: very fast, aggressive
-    private static final int PROGRAM_VIBRAPHONE        = 11;  // percussive harmony: bell-like
-    private static final int PROGRAM_ELECTRIC_BASS     = 33;  // sustained bass
-    private static final int PROGRAM_SLAP_BASS         = 36;  // percussive bass
-    private static final int PROGRAM_SQUARE_LEAD       = 80;  // sustained lead: authentic chip sound
-    private static final int PROGRAM_SAWTOOTH_LEAD     = 81;  // sustained harmony: slightly different color
+    // 4-instrument ensemble: smooth, range-appropriate, blends well in any combination.
+    private static final int PROGRAM_ELECTRIC_PIANO2   = 5;   // melody sustained: warm, smooth
+    private static final int PROGRAM_VIBRAPHONE        = 11;  // melody percussive: bell-like, clean
+    private static final int PROGRAM_ELECTRIC_BASS     = 33;  // bass sustained
+    private static final int PROGRAM_SLAP_BASS         = 36;  // bass percussive
 
     /** Reference TL for velocity scaling: carrier TL == REF_TL plays at velocity=127. */
     static final int REF_TL = 20;
@@ -38,23 +34,32 @@ final class FmMidiUtil {
 
     private FmMidiUtil() {}
 
+    private static final int BASS_THRESHOLD = 48; // C3: notes below this → bass instruments
+
     /**
-     * Maps FM algorithm + feedback + envelope to a GM program from the 7-instrument palette.
+     * Selects a GM program based on note range and envelope character.
      *
-     * <p>Ensemble roles: bass (alg 0-1), lead (alg 2-4), harmony/pad (alg 5-7).
-     * High feedback (≥6) adds harmonic aggression → Clavinet (percussive) or Sawtooth (sustained).
+     * <p>Uses the first note's pitch to determine the channel's role (bass vs melody),
+     * then envelope character (percussive vs sustained) to pick within that role.
+     * Only 4 smooth instruments that blend well in any combination.
      *
+     * @param note MIDI note number of the current note (0–127)
      * @param percussive true if carrier envelope has fast attack + fast decay
      */
-    static int selectProgram(int alg, int fb, int modTl, boolean percussive) {
-        if (fb >= 6) {
-            return percussive ? PROGRAM_CLAVINET : PROGRAM_SAWTOOTH_LEAD;
+    static int selectProgram(int note, boolean percussive) {
+        if (note < BASS_THRESHOLD) {
+            return percussive ? PROGRAM_SLAP_BASS : PROGRAM_ELECTRIC_BASS;
         }
-        return switch (alg) {
-            case 0, 1 -> percussive ? PROGRAM_SLAP_BASS : PROGRAM_ELECTRIC_BASS;
-            case 2, 3, 4 -> percussive ? PROGRAM_ELECTRIC_PIANO1 : PROGRAM_SQUARE_LEAD;
-            default -> percussive ? PROGRAM_VIBRAPHONE : PROGRAM_SAWTOOTH_LEAD; // alg 5,6,7
-        };
+        return percussive ? PROGRAM_VIBRAPHONE : PROGRAM_ELECTRIC_PIANO2;
+    }
+
+    /**
+     * @deprecated Use {@link #selectProgram(int, boolean)} instead. This overload exists
+     * only for backward compatibility during transition; alg/fb/modTl are no longer used.
+     */
+    static int selectProgram(int alg, int fb, int modTl, boolean percussive) {
+        // Default to melody range when note is unknown at program selection time
+        return selectProgram(60, percussive);
     }
 
     /**
