@@ -57,11 +57,10 @@ class Ym3812MidiConverterTest {
         var converter = new Ym3812MidiConverter();
         var tracks = makeTracks();
 
-        // Set carrier TL for ch 0 (addr 0x43, value 10)
+        converter.convert(opl2(0xC0, 0x08), tracks, CLOCK, 0); // conn=0, fb=4 (melodic patch)
+        converter.convert(opl2(0x40, 30), tracks, CLOCK, 0);   // modulator TL=30 (not effect)
         converter.convert(opl2(0x43, 10), tracks, CLOCK, 0);
-        // Set F-Number low for ch 0 (addr 0xA0)
-        converter.convert(opl2(0xA0, 0x44), tracks, CLOCK, 0); // fnum low = 0x44
-        // Key-on: bit5=1, block=4, fnum_hi=0x02 → 0x20 | (4<<2) | 0x02 = 0x32
+        converter.convert(opl2(0xA0, 0x44), tracks, CLOCK, 0);
         converter.convert(opl2(0xB0, 0x32), tracks, CLOCK, 1);
 
         var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
@@ -73,10 +72,12 @@ class Ym3812MidiConverterTest {
         var converter = new Ym3812MidiConverter();
         var tracks = makeTracks();
 
+        converter.convert(opl2(0xC0, 0x08), tracks, CLOCK, 0); // melodic patch
+        converter.convert(opl2(0x40, 30), tracks, CLOCK, 0);
         converter.convert(opl2(0x43, 10), tracks, CLOCK, 0);
         converter.convert(opl2(0xA0, 0x44), tracks, CLOCK, 0);
         converter.convert(opl2(0xB0, 0x32), tracks, CLOCK, 1); // key-on
-        converter.convert(opl2(0xB0, 0x12), tracks, CLOCK, 2); // key-off (bit5=0)
+        converter.convert(opl2(0xB0, 0x12), tracks, CLOCK, 2); // key-off
 
         var noteOff = findFirst(tracks[0], ShortMessage.NOTE_OFF);
         assertNotNull(noteOff, "Key-off should produce NoteOff");
@@ -88,14 +89,14 @@ class Ym3812MidiConverterTest {
         var converter = new Ym3812MidiConverter();
         var tracks = makeTracks();
 
-        converter.convert(opl2(0xC0, 0x00), tracks, CLOCK, 0);
-        converter.convert(opl2(0x40, 30), tracks, CLOCK, 0);
+        converter.convert(opl2(0xC0, 0x08), tracks, CLOCK, 0); // conn=0, fb=4 (melodic)
+        converter.convert(opl2(0x40, 30), tracks, CLOCK, 0);  // modTL=30 (not effect)
         converter.convert(opl2(0x43, 10), tracks, CLOCK, 0);
         converter.convert(opl2(0xA0, 0x44), tracks, CLOCK, 0);
         converter.convert(opl2(0xB0, 0x32), tracks, CLOCK, 1);
 
         var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
-        assertNotNull(noteOn, "FM connection key-on should produce NoteOn");
+        assertNotNull(noteOn, "FM melodic patch key-on should produce NoteOn");
         assertNull(findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE),
                 "Individual converters must not emit Program Change");
     }
@@ -124,11 +125,10 @@ class Ym3812MidiConverterTest {
         var converter = new Ym3812MidiConverter();
         var tracks = makeTracks();
 
-        // Set carrier TL=0 (loudest) for ch 0 (addr 0x43)
-        converter.convert(opl2(0x43, 0), tracks, CLOCK, 0);
-        // Set F-Number low
+        converter.convert(opl2(0xC0, 0x08), tracks, CLOCK, 0); // melodic patch
+        converter.convert(opl2(0x40, 30), tracks, CLOCK, 0);   // modTL=30 (not effect)
+        converter.convert(opl2(0x43, 0), tracks, CLOCK, 0);    // carrier TL=0 (loudest)
         converter.convert(opl2(0xA0, 0x44), tracks, CLOCK, 0);
-        // Key-on
         converter.convert(opl2(0xB0, 0x32), tracks, CLOCK, 1);
 
         var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);

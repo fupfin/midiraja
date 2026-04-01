@@ -59,6 +59,7 @@ public class Ym3812MidiConverter {
     private final int[] feedback = new int[CHANNELS];
     private final int[] connection = new int[CHANNELS];
 
+    private final boolean[] activeDrum = new boolean[CHANNELS]; // true if last noteOn was routed to ch9
     private boolean rhythmMode = false;
     private int rhythmKeyState = 0;
     private final int[] activeRhythm = {-1, -1, -1, -1, -1};
@@ -91,6 +92,11 @@ public class Ym3812MidiConverter {
             int ch = addr - 0xC0;
             feedback[ch] = (data >> 1) & 0x07;
             connection[ch] = data & 0x01;
+            // Silent patch (conn=0, fb=0) used as instant note-cut trick:
+            // immediately kill the active note instead of waiting for key-off.
+            if (isSilentPatch(ch) && activeNote[ch] >= 0) {
+                noteOff(ch, tick, tracks);
+            }
         } else if (addr == 0xBD) {
             handleRhythmControl(data, tick, tracks);
         }
@@ -170,20 +176,58 @@ public class Ym3812MidiConverter {
         rhythmKeyState = newKeyState;
     }
 
+    // conn=0, fb=0 with strong modulation (modTL < 10) is a percussive/effect patch
+    // in many OPL2 game drivers. Route to MIDI ch 9 (drums) instead of melody.
+    private static final int DRUM_NOTE_EFFECT = 39; // Hand Clap — generic percussive hit
+
+    /** Strong modulation → metallic/percussive effect → route to drums. */
+    private boolean isPercussiveEffect(int ch) {
+        return modulatorTl[ch] < 10 && !(connection[ch] == 0 && feedback[ch] == 0);
+    }
+
+    /** Patch is effectively silent → suppress entirely. */
+    private boolean isSilentPatch(int ch) {
+        // Zero-feedback FM: nearly silent init/reset state
+        // Carrier TL >= 55: output attenuated by > 41 dB, inaudible on real hardware
+        return (connection[ch] == 0 && feedback[ch] == 0)
+                || carrierTl[ch] >= 55;
+    }
+
     private void noteOn(int ch, int note, long tick, Track[] tracks) {
         if (note < 0) return;
+        if (isSilentPatch(ch)) {
+            // Nearly silent — suppress entirely, no MIDI output
+            return;
+        }
+        if (isPercussiveEffect(ch)) {
+            // Route to drum channel as percussive effect
+            if (9 < tracks.length) {
+                int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
+                addEvent(tracks[9], ShortMessage.NOTE_ON, 9, DRUM_NOTE_EFFECT, vel, tick);
+                activeNote[ch] = note;
+                activeDrum[ch] = true;
+            }
+            return;
+        }
         int midiCh = ch + midiChOffset;
         if (midiCh >= tracks.length || midiCh == 9) return;
         int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
         addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);
         activeNote[ch] = note;
+        activeDrum[ch] = false;
     }
 
     private void noteOff(int ch, long tick, Track[] tracks) {
         if (activeNote[ch] < 0) return;
-        int midiCh = ch + midiChOffset;
-        if (midiCh >= tracks.length || midiCh == 9) return;
-        addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
+        if (activeDrum[ch]) {
+            if (9 < tracks.length) {
+                addEvent(tracks[9], ShortMessage.NOTE_OFF, 9, DRUM_NOTE_EFFECT, 0, tick);
+            }
+        } else {
+            int midiCh = ch + midiChOffset;
+            if (midiCh >= tracks.length || midiCh == 9) return;
+            addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
+        }
         activeNote[ch] = -1;
     }
 
