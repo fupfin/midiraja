@@ -31,19 +31,23 @@ public class VgmParser {
         validateMagic(buf);
 
         int version = buf.getInt(0x08);
+        // v1.00+
         long ym2413Clock = Integer.toUnsignedLong(buf.getInt(0x10));
         long sn76489Clock = Integer.toUnsignedLong(buf.getInt(0x0C));
-        long ym2612Clock = (data.length > 0x30) ? Integer.toUnsignedLong(buf.getInt(0x2C)) : 0;
-        long ym2151Clock = (data.length > 0x34) ? Integer.toUnsignedLong(buf.getInt(0x30)) : 0;
-        long ym2203Clock = (data.length > 0x48) ? Integer.toUnsignedLong(buf.getInt(0x44)) : 0;
-        long ym2608Clock = (data.length > 0x4C) ? Integer.toUnsignedLong(buf.getInt(0x48)) : 0;
-        long ym2610Clock = (data.length > 0x50) ? Integer.toUnsignedLong(buf.getInt(0x4C)) : 0;
-        long gameBoyDmgClock = (data.length > 0x84) ? Integer.toUnsignedLong(buf.getInt(0x80)) : 0;
-        long huC6280Clock = (data.length > 0xA8) ? Integer.toUnsignedLong(buf.getInt(0xA4)) : 0;
-        long ym3812Clock = (data.length > 0x54) ? Integer.toUnsignedLong(buf.getInt(0x50)) : 0;
-        long ymf262Clock = (data.length > 0x60) ? Integer.toUnsignedLong(buf.getInt(0x5C)) : 0;
-        long ay8910Clock = (data.length > 0x78) ? Integer.toUnsignedLong(buf.getInt(0x74)) : 0;
-        long k051649Clock = (data.length > 0xB0) ? Integer.toUnsignedLong(buf.getInt(0xAC)) : 0;
+        // v1.10+
+        long ym2612Clock = (version >= 0x110 && data.length > 0x30) ? Integer.toUnsignedLong(buf.getInt(0x2C)) : 0;
+        long ym2151Clock = (version >= 0x110 && data.length > 0x34) ? Integer.toUnsignedLong(buf.getInt(0x30)) : 0;
+        // v1.51+
+        long ym2203Clock = (version >= 0x151 && data.length > 0x48) ? Integer.toUnsignedLong(buf.getInt(0x44)) : 0;
+        long ym2608Clock = (version >= 0x151 && data.length > 0x4C) ? Integer.toUnsignedLong(buf.getInt(0x48)) : 0;
+        long ym2610Clock = (version >= 0x151 && data.length > 0x50) ? Integer.toUnsignedLong(buf.getInt(0x4C)) : 0;
+        long ym3812Clock = (version >= 0x151 && data.length > 0x54) ? Integer.toUnsignedLong(buf.getInt(0x50)) : 0;
+        long ymf262Clock = (version >= 0x151 && data.length > 0x60) ? Integer.toUnsignedLong(buf.getInt(0x5C)) : 0;
+        long ay8910Clock = (version >= 0x151 && data.length > 0x78) ? Integer.toUnsignedLong(buf.getInt(0x74)) : 0;
+        // v1.61+
+        long gameBoyDmgClock = (version >= 0x161 && data.length > 0x84) ? Integer.toUnsignedLong(buf.getInt(0x80)) : 0;
+        long huC6280Clock = (version >= 0x161 && data.length > 0xA8) ? Integer.toUnsignedLong(buf.getInt(0xA4)) : 0;
+        long k051649Clock = (version >= 0x161 && data.length > 0xB0) ? Integer.toUnsignedLong(buf.getInt(0xAC)) : 0;
         // K051649 in Konami MSX cartridges runs at the full cartridge bus clock (= CPU clock).
         // The AY8910 PSG has an internal /2 prescaler, so ay8910Clock = CPU/2.
         // When the VGM header stores k051649Clock=0, reconstruct the SCC clock as 2× ay8910Clock.
