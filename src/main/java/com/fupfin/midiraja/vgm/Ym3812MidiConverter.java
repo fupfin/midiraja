@@ -202,13 +202,21 @@ public class Ym3812MidiConverter {
     }
 
     /**
-     * Converts OPL2 F-Number + block to MIDI note.
-     * f = fnum * clock / (72 * 2^(20 - block))
+     * Converts OPL2/OPL3 F-Number + block to MIDI note.
+     *
+     * <p>Formula: {@code f = fnum * clock / (72 * 2^(20 - block))}.
+     * When the fundamental frequency falls below the audible threshold (40 Hz),
+     * the note is shifted up by octaves. FM synthesis with strong modulation produces
+     * harmonics far stronger than the fundamental; at sub-bass frequencies the perceived
+     * pitch is typically 1-2 octaves above the fundamental.
      */
     static int opl2Note(long clock, int fnum, int block) {
         if (fnum <= 0) return -1;
         double f = fnum * clock / (72.0 * (1L << (20 - block)));
-        return Math.clamp(Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
+        int note = (int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69);
+        // Shift sub-audible notes up by octaves until they reach audible range
+        while (note < 28) note += 12; // 28 = E1 ≈ 41 Hz
+        return Math.clamp(note, 0, 127);
     }
 
     /**
