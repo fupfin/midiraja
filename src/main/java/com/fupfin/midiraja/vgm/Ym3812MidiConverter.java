@@ -258,8 +258,10 @@ public class Ym3812MidiConverter {
         if (fnum <= 0) return -1;
         double f = fnum * clock / (72.0 * (1L << (20 - block)));
         int note = (int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69);
-        // Shift sub-audible notes up by octaves until they reach audible range
-        while (note < 28) note += 12; // 28 = E1 ≈ 41 Hz
+        // OPL2 FM synthesis produces strong harmonics (especially 2nd) that raise the
+        // perceived pitch above the fundamental. Piano lacks these harmonics, so playing
+        // at the fundamental frequency sounds one octave too low. +12 compensates.
+        note += 12;
         return Math.clamp(note, 0, 127);
     }
 

@@ -44,7 +44,8 @@ class Ym3812MidiConverterTest {
         // fnum = 440 * 72 * 2^(20-block) / clock
         // block=4: fnum = 440 * 72 * 65536 / 3579545 ≈ 580
         int note = Ym3812MidiConverter.opl2Note(CLOCK, 580, 4);
-        assertTrue(note >= 68 && note <= 70, "fnum=580, block=4 ≈ A4 (MIDI ~69), got " + note);
+        // +12 octave correction: fundamental A4 → perceived A5
+        assertTrue(note >= 80 && note <= 82, "fnum=580, block=4 → A5 (MIDI ~81 with +12), got " + note);
     }
 
     @Test
