@@ -420,6 +420,76 @@ static int sccNote(long clock, int fnum) {
 **Clock fallback:** The K051649 clock field in the VGM header (offset 0xAC) is 0 in most
 MSX VGMs. When it is 0, `sccClock` falls back to `ay8910Clock` (same 1789772 Hz crystal).
 
+### YM3812 (OPL2) / YMF262 (OPL3) frequency
+
+```
+f_fundamental = FNum × clock / (72 × 2^(20 - block))
+MIDI note = round(12 × log2(f / 440) + 69) + 12
+```
+- `FNum`: 10-bit F-Number (0xA0 low 8 + 0xB0 bits 1-0)
+- `block`: 3-bit octave (0xB0 bits 4-2)
+- `clock`: YM3812 = 3,579,545 Hz; YMF262 = header clock / 4
+
+**+12 octave correction:** OPL2 FM synthesis produces strong 2nd harmonics that raise
+the perceived pitch above the mathematical fundamental. Grand Piano (used for volatile-FM
+VGMs) lacks these harmonics, so playing at the fundamental sounds one octave too low.
+WAV comparison of multiple OPL2 VGMs confirmed the consistent 1-octave gap. The +12
+correction aligns MIDI output with the original chip's perceived pitch.
+
+**OPL3 clock:** YMF262 master clock (typically 14,318,180 Hz) is divided by 4 for the
+OPL2-compatible frequency formula. The phase accumulator runs at clock/72, same as OPL2.
+
+---
+
+## YM3812 / YMF262 Patch Filtering
+
+OPL2/OPL3 game drivers reuse channels as a **note pool**, dynamically changing FM patch
+parameters (connection, feedback, TL) on nearly every key-on (70-80% patch change rate).
+Three categories of patches require special handling:
+
+### Silent patches (suppressed)
+
+| Condition | Reason |
+|-----------|--------|
+| `conn=0 AND fb=0` | Zero-feedback FM = near-silent init/reset state |
+| `carrier TL ≥ 55` | Output attenuated by > 41 dB, inaudible on real hardware |
+
+Silent patches produce no MIDI output. When `conn=0, fb=0` is written while a note is
+active, the note is immediately cut off (NoteOff). Game drivers use this as an instant
+note-cut trick to avoid the slow release phase of key-off.
+
+### Percussive effect patches (routed to drums)
+
+| Condition | Reason |
+|-----------|--------|
+| `modulator TL < 10` (and not silent) | Extreme modulation = metallic/percussive timbre |
+
+These are routed to MIDI channel 9 as GM drum note 39 (Hand Clap) instead of being
+played as melodic notes. On the original chip, strong modulation produces cymbal-like
+or noise-like tones that serve as sound effects.
+
+### Adaptive GM program assignment
+
+`TrackRoleAssigner.isVolatileFm()` scans VGM events and measures the patch-change-to-
+key-on ratio across all FM chips. When the ratio exceeds 50% (volatile), all melodic
+channels receive Grand Piano (GM 0) for consistent playback. When ≤ 50% (stable channel
+roles), segment-based role analysis assigns lead/harmony/bass instruments.
+
+---
+
+## VGM Header Version Guards
+
+Chip clock fields are only valid in specific VGM versions. Reading offsets beyond the
+version's defined header causes garbage values (e.g., a v1.51 file reading 1.5 GHz at
+the GB DMG offset 0x80).
+
+| Version | Valid clock fields |
+|---------|-------------------|
+| v1.00+ | SN76489 (0x0C), YM2413 (0x10) |
+| v1.10+ | YM2612 (0x2C), YM2151 (0x30) |
+| v1.51+ | YM2203-YMF262 (0x44-0x5C), AY8910 (0x74) |
+| v1.61+ | GB DMG (0x80), HuC6280 (0xA4), K051649 (0xAC) |
+
 ---
 
 ## SN76489 Register Structure
@@ -649,54 +719,16 @@ src/main/java/com/fupfin/midiraja/
 
 ---
 
-## FM Algorithm → GM Program Mapping
+## GM Program Assignment (2-Pass)
 
-All OPN/OPM-family chips share eight algorithm topologies. `FmMidiUtil.selectProgram(alg, fb, modTl)`
-selects a GM program based on three factors:
+GM programs are assigned in a post-conversion pass by `TrackRoleAssigner`, not by
+individual chip converters. This decouples note generation from instrument selection.
 
-1. **Algorithm (0-7):** operator topology determines base character
-2. **Feedback (0-7):** high feedback (≥6) overrides to buzzy/distorted instruments
-3. **Modulator TL:** average TL of modulator operators — low=strong modulation (bright),
-   high=weak modulation (pure)
+### Pass 1: chip conversion (no Program Change)
 
-### Algorithm topology summary
-
-| Algorithm | Topology | Character |
-|-----------|----------|-----------|
-| 0 | OP1→OP2→OP3→OP4 (fully serial) | Deep FM modulation — bass |
-| 1 | (OP1+OP2)→OP3→OP4 | Heavy modulation — synth bass |
-| 2 | (OP1+(OP2→OP3))→OP4 | Moderate modulation — lead |
-| 3 | ((OP1→OP2)+OP3)→OP4 | Moderate modulation — lead |
-| 4 | (OP1→OP2)+(OP3→OP4) | Two independent 2-op pairs — classic lead |
-| 5 | OP1→(OP2+OP3+OP4) | One modulator, three carriers — pad/brass |
-| 6 | (OP1→OP2)+(OP3+OP4) | Near-additive — string ensemble |
-| 7 | OP1+OP2+OP3+OP4 | Fully additive — bright brass/bells |
-
-### Program selection matrix
-
-**High feedback (fb ≥ 6)** — evaluated first, overrides modTl:
-
-| Algorithm | GM Program |
-|-----------|------------|
-| 0-3 | 29 (Overdriven Guitar) |
-| 4 | 83 (Chiff Lead) |
-| 5-7 | 62 (Synth Brass 1) |
-
-**Normal feedback (fb < 6)** — modulator TL selects timbre variant:
-
-| Algorithm | modTl ≤ 20 (strong) | modTl 21-50 (moderate) | modTl 51+ (weak) |
-|-----------|---------------------|------------------------|-------------------|
-| 0 | 36 (Slap Bass) | 33 (Electric Bass) | 32 (Acoustic Bass) |
-| 1 | 36 (Slap Bass) | 38 (Synth Bass) | 32 (Acoustic Bass) |
-| 2, 3 | 30 (Distortion Guitar) | 81 (Sawtooth Lead) | 73 (Recorder) |
-| 4 | 81 (Sawtooth Lead) | 71 (Clarinet) | 82 (Calliope Lead) |
-| 5 | 62 (Synth Brass) | 89 (Warm Pad) | 89 (Warm Pad) |
-| 6 | 62 (Synth Brass) | 50 (Synth Strings) | 50 (Synth Strings) |
-| 7 | 62 (Synth Brass) | — (no modulators) | — |
-
-### Velocity from carrier TL
-
-MIDI velocity is derived from carrier operator TL values, not fixed:
+All chip converters emit only NoteOn/NoteOff/CC events. No Program Change is emitted
+during conversion. 4-op FM converters (YM2612, YM2151) still compute velocity from
+carrier TL and feedback:
 
 ```
 avgCarrierTL = average TL of carrier operators for the channel's algorithm
@@ -705,9 +737,24 @@ fbDb  = feedback × 0.375                      // harmonic energy correction
 velocity = clamp(round(127 × 10^(−(tlDb + fbDb) / 20)), 1, 127)
 ```
 
-SN76489 / AY-3-8910 channels (0-2) keep a fixed GM 80 (Square Lead) set at tick 0.
-FM channels (3-8) receive no Program Change at tick 0; converters issue it lazily at key-on.
-SCC channels (10-14) keep a fixed GM 18 (Rock Organ) set at tick 0.
+### Pass 2: adaptive program assignment
+
+`TrackRoleAssigner` first checks FM patch volatility by scanning VGM events:
+
+**Volatile FM (patch change rate > 50%):** OPL2/OPL3 game drivers reuse channels as a
+note pool, changing connection/feedback on nearly every key-on. All melodic channels
+receive Grand Piano (GM 0) for consistent playback.
+
+**Stable FM (patch change rate ≤ 50%):** Segment-based role analysis (2-measure windows)
+classifies each channel as lead, harmony, or bass per segment:
+
+| Role | Sustained | Percussive |
+|------|-----------|------------|
+| Lead (highest median) | Electric Piano 1 (4) | Xylophone (13) |
+| Harmony (other) | Electric Piano 2 (5) | Xylophone (13) |
+| Bass (lowest median) | Electric Bass (33) | Slap Bass (36) |
+
+Program Change is emitted at segment boundaries only when the role changes.
 
 ---
 
@@ -775,3 +822,19 @@ SCC channels (10-14) keep a fixed GM 18 (Rock Organ) set at tick 0.
       than Rock Organ at equal CC7 in FluidR3 (measured via `scripts/measure_instrument_levels.py`).
       MSX games use AY-3-8910 and SCC in equal melodic roles, so the soundfont level difference
       is corrected. Genesis SN76489 uses a separate constant for the reason above.
+16. **OPL2/OPL3 +12 octave correction:** FM synthesis produces strong 2nd harmonics that
+    raise the perceived pitch above the mathematical fundamental. Grand Piano lacks these
+    harmonics, so playing at the fundamental sounds one octave too low. WAV comparison of
+    multiple OPL2 VGMs (campfire_DOS, monkey_intro) confirmed the consistent 1-octave gap.
+    `opl2Note()` adds +12 to the computed MIDI note.
+17. **OPL2 patch filtering:** Game drivers use `conn=0, fb=0` as an instant note-cut trick
+    (avoids slow key-off release). Carrier TL ≥ 55 means inaudible output. Modulator TL < 10
+    means extreme modulation producing metallic/percussive effects. These are either suppressed
+    or routed to MIDI ch 9 (drums) to prevent dissonance from non-melodic patches.
+18. **Adaptive GM assignment:** OPL2/OPL3 drivers change FM patches on 70-80% of key-ons,
+    making per-channel instrument assignment ineffective. `TrackRoleAssigner.isVolatileFm()`
+    detects this and falls back to uniform Grand Piano. Stable-channel VGMs (Genesis, MSX,
+    arcade) use segment-based role analysis instead.
+19. **VGM header version guards:** Chip clock fields are only valid in specific VGM versions
+    (e.g. GB DMG at 0x80 requires v1.61+). Reading beyond the version's defined header
+    produces garbage values that are misinterpreted as chip clocks.
