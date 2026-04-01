@@ -133,7 +133,7 @@ public class Ym2612MidiConverter {
                 activeNote[ch] = -1;
             }
             int note = computeNote(ch, clock);
-            if (note >= 0) {
+            if (note >= 0 && !isSilentCarrier(tl, algorithm, ch)) {
                 emitPanIfNeeded(ch, midiCh, tracks, tick);
                 addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note,
                         computeVelocity(tl, algorithm, feedback, ch), tick);

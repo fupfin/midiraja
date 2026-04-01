@@ -61,11 +61,12 @@ class Ym2612MidiConverterTest {
 
     @Test
     void algorithm7_emitsNoteOn() throws Exception {
-        // Algorithm 7 (additive synthesis) — converters no longer emit Program Change;
-        // TrackRoleAssigner handles that in a 2nd pass on the full Sequence.
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
+        // Set all operator TL to 20 (audible) — default 127 triggers silent carrier filter
+        for (int reg = 0x40; reg <= 0x4C; reg += 4)
+            converter.convert(port0(reg, 20), tracks, CLOCK, 0);
         converter.convert(port0(0xB0, 0x07), tracks, CLOCK, 0);
         converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
         converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
@@ -87,6 +88,7 @@ class Ym2612MidiConverterTest {
         converter.convert(port0(0x40, 30), tracks, CLOCK, 0);
         converter.convert(port0(0x44, 30), tracks, CLOCK, 0);
         converter.convert(port0(0x48, 30), tracks, CLOCK, 0);
+        converter.convert(port0(0x4C, 20), tracks, CLOCK, 0); // carrier TL (audible)
         converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
         converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
         converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1);
@@ -99,10 +101,11 @@ class Ym2612MidiConverterTest {
 
     @Test
     void highFeedback_emitsNoteOn() throws Exception {
-        // High feedback with algorithm=4 — verify NoteOn; no Program Change from converter.
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
+        for (int reg = 0x40; reg <= 0x4C; reg += 4)
+            converter.convert(port0(reg, 20), tracks, CLOCK, 0);
         converter.convert(port0(0xB0, 0x34), tracks, CLOCK, 0); // alg=4, fb=6
         converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
         converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
@@ -116,10 +119,11 @@ class Ym2612MidiConverterTest {
 
     @Test
     void noProgramChange_emittedByConverter() throws Exception {
-        // Converters no longer emit Program Change — verify two key-ons produce zero PC events.
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
+        for (int reg = 0x40; reg <= 0x4C; reg += 4)
+            converter.convert(port0(reg, 20), tracks, CLOCK, 0);
         converter.convert(port0(0xB0, 0x07), tracks, CLOCK, 0);
         converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
         converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
@@ -139,10 +143,11 @@ class Ym2612MidiConverterTest {
 
     @Test
     void panRegister_leftOnly_emitsCC10_0() throws Exception {
-        // Register 0xB4 bits 7-6 = 10b → L only → CC10=0 (hard left)
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
+        for (int reg = 0x40; reg <= 0x4C; reg += 4)
+            converter.convert(port0(reg, 20), tracks, CLOCK, 0);
         converter.convert(port0(0xB4, 0x80), tracks, CLOCK, 0); // L=1, R=0
         converter.convert(port0(0xB0, 0x07), tracks, CLOCK, 0);
         converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
@@ -156,10 +161,11 @@ class Ym2612MidiConverterTest {
 
     @Test
     void panRegister_rightOnly_emitsCC10_127() throws Exception {
-        // Register 0xB4 bits 7-6 = 01b → R only → CC10=127 (hard right)
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
+        for (int reg = 0x40; reg <= 0x4C; reg += 4)
+            converter.convert(port0(reg, 20), tracks, CLOCK, 0);
         converter.convert(port0(0xB4, 0x40), tracks, CLOCK, 0); // L=0, R=1
         converter.convert(port0(0xB0, 0x07), tracks, CLOCK, 0);
         converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
@@ -173,10 +179,11 @@ class Ym2612MidiConverterTest {
 
     @Test
     void panRegister_default_center_emitsCC10_64() throws Exception {
-        // No 0xB4 write → lrMask defaults to 3 (L+R) → CC10=64 (center) on first NoteOn
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
+        for (int reg = 0x40; reg <= 0x4C; reg += 4)
+            converter.convert(port0(reg, 20), tracks, CLOCK, 0);
         converter.convert(port0(0xB0, 0x07), tracks, CLOCK, 0);
         converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
         converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
@@ -261,10 +268,12 @@ class Ym2612MidiConverterTest {
 
     @Test
     void port1_channel_usesCorrectMidiChannel() throws Exception {
-        // Port 1, ch0 → internal ch3 → MIDI ch6 (offset 3)
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
+        // Set TL for port1 ch0 (internal ch3): op regs at port1 offsets
+        for (int reg = 0x40; reg <= 0x4C; reg += 4)
+            converter.convert(port1(reg, 20), tracks, CLOCK, 0);
         converter.convert(port1(0xB0, 0x07), tracks, CLOCK, 0); // port1 ch0 = internal ch3
         converter.convert(port1(0xA4, 0x22), tracks, CLOCK, 0);
         converter.convert(port1(0xA0, 0x6A), tracks, CLOCK, 0);

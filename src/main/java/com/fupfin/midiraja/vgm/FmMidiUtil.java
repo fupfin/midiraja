@@ -83,6 +83,18 @@ final class FmMidiUtil {
         };
     }
 
+    /**
+     * Returns true if all carrier operators are near-silent (average TL ≥ 55 = −41 dB).
+     * Such patches produce inaudible output on real hardware and should be suppressed
+     * to avoid ghost notes in the MIDI conversion.
+     */
+    static boolean isSilentCarrier(int[][] tl, int[] algorithm, int ch) {
+        int[] ops = carrierOps(algorithm[ch]);
+        int total = 0;
+        for (int op : ops) total += tl[ch][op];
+        return total / ops.length >= 55;
+    }
+
     /** Average TL of modulator operators. Returns 127 when no modulators exist (alg 7). */
     static int avgModulatorTl(int[][] tl, int[] algorithm, int ch) {
         int[] ops = modulatorOps(algorithm[ch]);

@@ -118,7 +118,7 @@ public class Ym2151MidiConverter {
                 activeNote[ch] = -1;
             }
             int note = computeNote(ch);
-            if (note >= 0) {
+            if (note >= 0 && !isSilentCarrier(tl, algorithm, ch)) {
                 emitPanIfNeeded(ch, tracks, tick);
                 addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note,
                         computeVelocity(tl, algorithm, feedback, ch), tick);
