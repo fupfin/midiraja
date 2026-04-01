@@ -49,9 +49,12 @@ class TrackRoleAssignerTest {
         var seq = makeSequence();
         var tracks = seq.getTracks();
 
-        // Channel 0 (track index 1): notes below C3 (MIDI 48) → bass role
+        // Channel 0 (track 1): low notes → bass role
         addNote(tracks[1], 0, 36, 0, 480);
         addNote(tracks[1], 0, 40, 480, 480);
+        // Channel 1 (track 2): high notes → lead (needed so ch0 becomes bass, not lead)
+        addNote(tracks[2], 1, 72, 0, 480);
+        addNote(tracks[2], 1, 76, 480, 480);
 
         TrackRoleAssigner.assign(seq);
 
@@ -81,31 +84,35 @@ class TrackRoleAssignerTest {
         var seq = makeSequence();
         var tracks = seq.getTracks();
 
-        // Channel 0 (track 1): higher median → lead
+        // Channel 0 (track 1): highest median → lead
         addNote(tracks[1], 0, 76, 0, 480);
         addNote(tracks[1], 0, 80, 480, 480);
 
-        // Channel 1 (track 2): lower median among non-bass → harmony
+        // Channel 1 (track 2): mid median → harmony (not bass, not lead)
         addNote(tracks[2], 1, 60, 0, 480);
         addNote(tracks[2], 1, 64, 480, 480);
+
+        // Channel 2 (track 3): lowest median → bass
+        addNote(tracks[3], 2, 36, 0, 480);
+        addNote(tracks[3], 2, 40, 480, 480);
 
         TrackRoleAssigner.assign(seq);
 
         var leadPc = findProgramChange(tracks[1]);
         assertNotNull(leadPc);
-        assertEquals(4, leadPc.getData1(), "Higher median → Electric Piano 1 (4)");
+        assertEquals(4, leadPc.getData1(), "Highest median → Electric Piano 1 (lead)");
 
         var harmonyPc = findProgramChange(tracks[2]);
         assertNotNull(harmonyPc);
-        assertEquals(5, harmonyPc.getData1(), "Lower median non-bass → Electric Piano 2 (5)");
+        assertEquals(5, harmonyPc.getData1(), "Mid median → Electric Piano 2 (harmony)");
     }
 
     @Test
-    void percussiveTrack_getsVibraphone() throws Exception {
+    void percussiveTrack_getsXylophone() throws Exception {
         var seq = makeSequence();
         var tracks = seq.getTracks();
 
-        // Channel 0: very short note durations (< 200 ticks) → percussive melody → Vibraphone
+        // Channel 0: very short note durations (< 200 ticks) → percussive melody → Xylophone
         addNote(tracks[1], 0, 72, 0, 100);
         addNote(tracks[1], 0, 76, 200, 100);
         addNote(tracks[1], 0, 74, 400, 100);
@@ -114,6 +121,6 @@ class TrackRoleAssignerTest {
 
         var pc = findProgramChange(tracks[1]);
         assertNotNull(pc, "Percussive track must receive Program Change");
-        assertEquals(11, pc.getData1(), "Percussive melody → Vibraphone (11)");
+        assertEquals(13, pc.getData1(), "Percussive melody → Xylophone (13)");
     }
 }

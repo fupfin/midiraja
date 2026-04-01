@@ -78,8 +78,9 @@ public class VgmToMidiConverter {
             var tempoTrack = sequence.createTrack();
             tempoTrack.add(new MidiEvent(new MetaMessage(0x51, TEMPO_BYTES, 3), 0));
 
-            if (parsed.gd3Title() != null) {
-                byte[] titleBytes = parsed.gd3Title().getBytes(StandardCharsets.UTF_8);
+            var title = buildTitle(parsed);
+            if (title != null) {
+                byte[] titleBytes = title.getBytes(StandardCharsets.UTF_8);
                 tempoTrack.add(new MidiEvent(
                         new MetaMessage(0x03, titleBytes, titleBytes.length), 0));
             }
@@ -112,7 +113,8 @@ public class VgmToMidiConverter {
             var gbConverter    = new GameBoyDmgMidiConverter();
             long opl2Clock = (parsed.ym3812Clock() != 0) ? parsed.ym3812Clock() : 3_579_545L;
             var opl2Converter  = new Ym3812MidiConverter();
-            // OPL3: clock/4 gives OPL2-equivalent frequency. Port 0 → ch 0-8, port 1 → ch 10+.
+            // OPL3: use clock/4 for OPL2-compatible frequency formula.
+            // Very low notes (< 40 Hz) are shifted up by octaves in Ym3812MidiConverter.
             long opl3Clock = parsed.ymf262Clock() / 4;
             var opl3Port0Conv  = new Ym3812MidiConverter(opl3Clock, 0);
             var opl3Port1Conv  = new Ym3812MidiConverter(opl3Clock, 10);
@@ -156,8 +158,14 @@ public class VgmToMidiConverter {
                 }
             }
 
-            // 2nd pass: analyze track roles and assign ensemble-appropriate GM programs
-            TrackRoleAssigner.assign(sequence);
+            // 2nd pass: assign GM programs based on FM patch volatility.
+            // High volatility (OPL2/OPL3 note-pool drivers) → uniform Grand Piano.
+            // Low volatility (dedicated channel roles) → segment-based role analysis.
+            if (TrackRoleAssigner.isVolatileFm(parsed)) {
+                TrackRoleAssigner.assignUniform(sequence, 0); // Grand Piano
+            } else {
+                TrackRoleAssigner.assign(sequence);
+            }
 
             return sequence;
         } catch (InvalidMidiDataException e) {
@@ -166,6 +174,30 @@ public class VgmToMidiConverter {
     }
 
     /** Routes OPN port-0 events: addr ≤ 0x0D → SSG (AY8910), otherwise → FM. */
+    private static @org.jspecify.annotations.Nullable String buildTitle(VgmParseResult parsed) {
+        var chips = new java.util.ArrayList<String>();
+        if (parsed.sn76489Clock() > 0) chips.add("SN76489");
+        if (parsed.ym2612Clock() > 0)  chips.add("YM2612");
+        if (parsed.ym2151Clock() > 0)  chips.add("YM2151");
+        if (parsed.ym2413Clock() > 0)  chips.add("YM2413");
+        if (parsed.ym2203Clock() > 0)  chips.add("YM2203");
+        if (parsed.ym2608Clock() > 0)  chips.add("YM2608");
+        if (parsed.ym2610Clock() > 0)  chips.add("YM2610");
+        if (parsed.ym3812Clock() > 0)  chips.add("YM3812");
+        if (parsed.ymf262Clock() > 0)  chips.add("YMF262");
+        if (parsed.ay8910Clock() > 0)  chips.add("AY-3-8910");
+        if (parsed.sccClock() > 0 && parsed.ay8910Clock() > 0) chips.add("SCC");
+        if (parsed.huC6280Clock() > 0) chips.add("HuC6280");
+        if (parsed.gameBoyDmgClock() > 0) chips.add("GB DMG");
+
+        var chipStr = chips.isEmpty() ? null : String.join("+", chips);
+        var gd3 = parsed.gd3Title();
+
+        if (chipStr != null && gd3 != null) return "[" + chipStr + "] " + gd3;
+        if (chipStr != null) return "[" + chipStr + "]";
+        return gd3;
+    }
+
     private static void routeOpn(VgmEvent event, Track[] routed, long tick,
                                  Ym2612MidiConverter fmConv, Ay8910MidiConverter ssgConv,
                                  long fmClock, long ssgClock) {
