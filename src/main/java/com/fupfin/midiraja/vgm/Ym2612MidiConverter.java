@@ -183,7 +183,7 @@ public class Ym2612MidiConverter {
         int avgDr = totalDr / cops.length / 2;
         int sig = FmPatchCatalog.signature(timbreHint, feedback[ch], avgModTl, avgCarTl, avgAr, avgDr);
         int program = catalog.program(sig);
-        if (program != currentProgram[ch]) {
+        if (program >= 0 && program != currentProgram[ch]) {
             addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
             currentProgram[ch] = program;
         }
