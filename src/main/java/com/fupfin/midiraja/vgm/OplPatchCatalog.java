@@ -42,8 +42,9 @@ final class OplPatchCatalog {
         {{33, 36}, {4, 11}, {4, 13}},         // Elec.Bass/Slap, EP1/Vibraphone, EP1/Xylophone
         // FM-harsh (conn=0, fb≥5): aggressive, distorted
         {{33, 36}, {7, 7}, {7, 13}},          // Elec.Bass/Slap, Clavinet/Clavinet, Clavinet/Xylophone
-        // AM (conn=1): organ-like, bell-like
-        {{32, 36}, {18, 11}, {18, 13}},       // Ac.Bass/Slap, Rock Organ/Vibraphone, Rock Organ/Xylophone
+        // AM (conn=1): organ-like — use Rock Organ for both sustained and percussive
+        // (VGM key-off timing provides short notes; no need to switch instrument)
+        {{32, 36}, {18, 18}, {18, 18}},       // Ac.Bass/Slap, Rock Organ/Rock Organ, Rock Organ/Rock Organ
     };
 
     private static final int BASS_THRESHOLD = 48;  // < C3

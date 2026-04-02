@@ -184,7 +184,7 @@ public class Ym3812MidiConverter {
 
     // conn=0, fb=0 with strong modulation (modTL < 10) is a percussive/effect patch
     // in many OPL2 game drivers. Route to MIDI ch 9 (drums) instead of melody.
-    private static final int DRUM_NOTE_EFFECT = 39; // Hand Clap — generic percussive hit
+    private static final int DRUM_NOTE_EFFECT = 42; // Closed Hi-Hat — metallic, unobtrusive
 
     /** Strong modulation → metallic/percussive effect → route to drums. */
     private boolean isPercussiveEffect(int ch) {
