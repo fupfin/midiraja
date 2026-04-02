@@ -121,16 +121,25 @@ final class FmPatchCatalog {
             notes.sort(Integer::compareTo);
             int median = notes.get(notes.size() / 2);
 
+            // Effective modulation strength: carrier TL reduces perceived modulation impact.
+            // A quiet carrier (high TL) makes even strong modulation barely audible.
+            // Reconstruct approximate TL from bands (mid-point of each band).
+            int approxModTl = modTlBand == 0 ? 5 : modTlBand == 1 ? 20 : modTlBand == 2 ? 40 : 55;
+            int approxCarTl = carTlBand == 0 ? 8 : carTlBand == 1 ? 22 : carTlBand == 2 ? 37 : 50;
+            int effectiveModTl = approxModTl + Math.max(0, approxCarTl - 15);
+            // Re-band the effective value
+            int effModBand = effectiveModTl < 10 ? 0 : effectiveModTl < 30 ? 1 : effectiveModTl < 50 ? 2 : 3;
+
             // Timbre classification: 0=FM-soft, 1=FM-bright, 2=FM-harsh, 3=AM
             int timbre;
             if (hint == 1) {
-                timbre = 3; // AM
+                timbre = 3; // AM (parallel/additive)
             } else if (fb >= 5) {
-                timbre = 2; // FM-harsh
-            } else if (modTlBand <= 1) { // modTL < 30
-                timbre = 1; // FM-bright
+                timbre = 2; // FM-harsh (strong self-feedback dominates)
+            } else if (effModBand <= 1) { // effective modTL < 30
+                timbre = 1; // FM-bright (strong audible modulation)
             } else {
-                timbre = 0; // FM-soft
+                timbre = 0; // FM-soft (weak or inaudible modulation)
             }
 
             // Pitch range: 0=bass, 1=mid, 2=high
