@@ -59,13 +59,19 @@ public class Ym3812MidiConverter {
     private final int[] feedback = new int[CHANNELS];
     private final int[] connection = new int[CHANNELS];
 
-    private final boolean[] activeDrum = new boolean[CHANNELS]; // true if last noteOn was routed to ch9
+    private final boolean[] activeDrum = new boolean[CHANNELS];
+    private @org.jspecify.annotations.Nullable OplPatchCatalog patchCatalog;
     private boolean rhythmMode = false;
     private int rhythmKeyState = 0;
     private final int[] activeRhythm = {-1, -1, -1, -1, -1};
 
     public Ym3812MidiConverter() {
         this(DEFAULT_CLOCK, 0);
+    }
+
+    /** Sets a pre-built patch catalog for per-patch GM program assignment. */
+    public void setPatchCatalog(OplPatchCatalog catalog) {
+        this.patchCatalog = catalog;
     }
 
     public Ym3812MidiConverter(long defaultClock, int midiChOffset) {
@@ -195,26 +201,53 @@ public class Ym3812MidiConverter {
 
     private void noteOn(int ch, int note, long tick, Track[] tracks) {
         if (note < 0) return;
-        if (isSilentPatch(ch)) {
-            // Nearly silent — suppress entirely, no MIDI output
-            return;
-        }
-        if (isPercussiveEffect(ch)) {
-            // Route to drum channel as percussive effect
-            if (9 < tracks.length) {
-                int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
-                addEvent(tracks[9], ShortMessage.NOTE_ON, 9, DRUM_NOTE_EFFECT, vel, tick);
-                activeNote[ch] = note;
-                activeDrum[ch] = true;
+
+        int sig = OplPatchCatalog.signature(
+                connection[ch], feedback[ch], modulatorTl[ch], carrierTl[ch],
+                carrierAr[ch], carrierDr[ch]);
+
+        // Use catalog if available, otherwise fall back to hardcoded rules
+        if (patchCatalog != null) {
+            if (patchCatalog.isSilent(sig)) return;
+            if (patchCatalog.isDrumEffect(sig)) {
+                if (9 < tracks.length) {
+                    int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
+                    addEvent(tracks[9], ShortMessage.NOTE_ON, 9, DRUM_NOTE_EFFECT, vel, tick);
+                    activeNote[ch] = note;
+                    activeDrum[ch] = true;
+                }
+                return;
             }
-            return;
+            int midiCh = ch + midiChOffset;
+            if (midiCh >= tracks.length || midiCh == 9) return;
+            int program = patchCatalog.program(sig);
+            if (program != currentProgram[ch]) {
+                addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
+                currentProgram[ch] = program;
+            }
+            int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
+            addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);
+            activeNote[ch] = note;
+            activeDrum[ch] = false;
+        } else {
+            // Legacy hardcoded path
+            if (isSilentPatch(ch)) return;
+            if (isPercussiveEffect(ch)) {
+                if (9 < tracks.length) {
+                    int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
+                    addEvent(tracks[9], ShortMessage.NOTE_ON, 9, DRUM_NOTE_EFFECT, vel, tick);
+                    activeNote[ch] = note;
+                    activeDrum[ch] = true;
+                }
+                return;
+            }
+            int midiCh = ch + midiChOffset;
+            if (midiCh >= tracks.length || midiCh == 9) return;
+            int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
+            addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);
+            activeNote[ch] = note;
+            activeDrum[ch] = false;
         }
-        int midiCh = ch + midiChOffset;
-        if (midiCh >= tracks.length || midiCh == 9) return;
-        int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
-        addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);
-        activeNote[ch] = note;
-        activeDrum[ch] = false;
     }
 
     private void noteOff(int ch, long tick, Track[] tracks) {

@@ -123,6 +123,17 @@ public class VgmToMidiConverter {
             var opl3Port0Conv  = new Ym3812MidiConverter(opl3Clock, 0);
             var opl3Port1Conv  = new Ym3812MidiConverter(opl3Clock, 10);
 
+            // Build OPL patch catalog for volatile FM (per-patch GM assignment)
+            if (TrackRoleAssigner.isVolatileFm(parsed)) {
+                int[] oplChips = {CHIP_YM3812, CHIP_YMF262_PORT0, CHIP_YMF262_PORT1};
+                long catalogClock = (parsed.ym3812Clock() != 0) ? parsed.ym3812Clock()
+                        : (parsed.ymf262Clock() != 0) ? parsed.ymf262Clock() / 4 : 3_579_545L;
+                var catalog = OplPatchCatalog.build(parsed, oplChips, catalogClock);
+                opl2Converter.setPatchCatalog(catalog);
+                opl3Port0Conv.setPatchCatalog(catalog);
+                opl3Port1Conv.setPatchCatalog(catalog);
+            }
+
             // Muted channels are redirected to a sink track that is not part of the output sequence.
             // This discards all events destined for those channels without modifying converter logic.
             var routed = tracks.clone();
@@ -166,11 +177,10 @@ public class VgmToMidiConverter {
             // Volatile FM (OPL2/OPL3 note-pool drivers) → uniform Grand Piano on all channels.
             // Stable FM (YM2612/YM2151/OPN) → converters already emitted per-note Program Change;
             //   TrackRoleAssigner fills in remaining channels (PSG, wavetable) that have no PC.
-            if (TrackRoleAssigner.isVolatileFm(parsed)) {
-                TrackRoleAssigner.assignUniform(sequence, 0); // Grand Piano
-            } else {
-                TrackRoleAssigner.assignUnassigned(sequence);
-            }
+            // Volatile FM with patch catalog: OPL converters handle their own PC.
+            // Stable FM: 4-op converters handle their own PC.
+            // Both cases: fill in remaining channels (PSG, wavetable) without PC.
+            TrackRoleAssigner.assignUnassigned(sequence);
 
             return sequence;
         } catch (InvalidMidiDataException e) {
