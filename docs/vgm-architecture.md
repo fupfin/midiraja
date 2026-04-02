@@ -45,10 +45,10 @@ when waveform changes.
 carrier envelope (percussive vs sustained). Converters emit their own Program Change.
 Silent carriers (average TL ≥ 55) are suppressed.
 
-**2-op FM (volatile channels):** *Current:* uniform Grand Piano when patch change
-rate > 50%. *Planned:* patch dictionary approach — first pass catalogs all unique
-FM patches with their note ranges, second pass selects GM instrument per patch
-based on FM characteristics and typical pitch range.
+**2-op FM (volatile channels):** Patch dictionary approach via `OplPatchCatalog`.
+First pass catalogs all unique FM patches with their note ranges, second pass
+selects GM instrument per patch based on 3 dimensions: FM timbre, pitch range,
+and carrier envelope. See [OPL Patch Catalog](#opl-patch-catalog) below.
 
 **Preset FM (YM2413):** Direct mapping from 15 ROM presets to GM programs
 (Violin → 40, Piano → 0, Flute → 73, etc.). Rhythm mode routes 5 drums to ch 9.
@@ -654,16 +654,61 @@ note-cut trick to avoid the slow release phase of key-off.
 |-----------|--------|
 | `modulator TL < 10` (and not silent) | Extreme modulation = metallic/percussive timbre |
 
-These are routed to MIDI channel 9 as GM drum note 39 (Hand Clap) instead of being
+These are routed to MIDI channel 9 as GM drum note 42 (Closed Hi-Hat) instead of being
 played as melodic notes. On the original chip, strong modulation produces cymbal-like
-or noise-like tones that serve as sound effects.
+or noise-like tones that serve as sound effects. Closed Hi-Hat was chosen for its
+unobtrusive metallic character matching the original OPL2 timbre.
 
 ### Adaptive GM program assignment
 
 `TrackRoleAssigner.isVolatileFm()` scans VGM events and measures the patch-change-to-
-key-on ratio across all FM chips. When the ratio exceeds 50% (volatile), all melodic
-channels receive Grand Piano (GM 0) for consistent playback. When ≤ 50% (stable channel
-roles), segment-based role analysis assigns lead/harmony/bass instruments.
+key-on ratio across all FM chips. When the ratio exceeds 50% (volatile), the OPL patch
+catalog (`OplPatchCatalog`) is built and used for per-patch instrument assignment.
+When ≤ 50% (stable channel roles), 4-op FM converters handle their own Program Change.
+`TrackRoleAssigner.assignUnassigned()` fills in remaining channels (PSG, wavetable)
+that have no Program Change.
+
+---
+
+## OPL Patch Catalog
+
+`OplPatchCatalog` scans all OPL2/OPL3 events in a first pass, cataloging unique FM
+patches by signature and assigning GM instruments based on 3 dimensions:
+**timbre × pitch range × carrier envelope**.
+
+### Patch signature
+
+Each patch is identified by a quantized signature: `(connection, feedback,
+modulatorTL band, carrierTL band, carrierAR, carrierDR)`. ModulatorTL and carrierTL
+are quantized into 4 bands (0-9, 10-29, 30-49, 50+) to avoid excessive unique patches.
+
+### Timbre classification
+
+| Timbre | Condition | Character |
+|--------|-----------|-----------|
+| FM-soft | conn=0, fb < 5, modTL ≥ 30 | Warm, pure |
+| FM-bright | conn=0, fb < 5, modTL < 30 | Bright, metallic |
+| FM-harsh | conn=0, fb ≥ 5 | Aggressive, distorted |
+| AM | conn=1 | Organ-like, bell-like |
+
+### GM instrument mapping (timbre × range × envelope)
+
+| | FM-soft sust. | FM-soft perc. | FM-bright sust. | FM-bright perc. | FM-harsh sust. | FM-harsh perc. | AM sust. | AM perc. |
+|--|---|---|---|---|---|---|---|---|
+| Bass (< C3) | Ac.Bass (32) | Slap Bass (36) | Elec.Bass (33) | Slap Bass (36) | Elec.Bass (33) | Slap Bass (36) | Ac.Bass (32) | Slap Bass (36) |
+| Mid (C3-B4) | EP2 (5) | Marimba (12) | EP1 (4) | Vibraphone (11) | Clavinet (7) | Clavinet (7) | Rock Organ (18) | Rock Organ (18) |
+| High (≥ C5) | EP2 (5) | Xylophone (13) | EP1 (4) | Xylophone (13) | Clavinet (7) | Xylophone (13) | Rock Organ (18) | Rock Organ (18) |
+
+**AM percussive** uses Rock Organ (same as sustained) because AM's organ-like timbre
+should be preserved; VGM key-off timing provides the short note duration naturally.
+
+### Special patches
+
+| Condition | Treatment |
+|-----------|-----------|
+| conn=0, fb=0 (zero-feedback FM) | Suppress — also triggers instant NoteOff (note-cut trick) |
+| Carrier TL ≥ 55 (−41 dB) | Suppress — inaudible on real hardware |
+| Modulator TL < 10 (extreme modulation) | Route to ch 9 as Closed Hi-Hat (42) |
 
 ---
 
