@@ -63,7 +63,11 @@ public class Ay8910MidiConverter {
     private final int[] activeNote = {-1, -1, -1};
     private int noisePeriod = 0;    // R6 5-bit noise period divider
     private int envelopeShape = 0;  // R13 envelope shape (0-15)
+    private int envelopePeriodFine = 0;   // R11
+    private int envelopePeriodCoarse = 0; // R12
+    private final boolean[] envelopeMode = new boolean[3]; // R8-R10 bit4
     private int noiseActiveNote = -1;
+    private static final long MAX_DECAY_TICKS = 1920; // 2 seconds at 960 ticks/sec
 
     public void convert(VgmEvent event, Track[] tracks, long clock, long tick) {
         // VGM 0xA0 command delivers 2 bytes: register index and value.
@@ -97,8 +101,9 @@ public class Ay8910MidiConverter {
             case 8 -> handleVolume(0, val, tick, tracks, clock);
             case 9 -> handleVolume(1, val, tick, tracks, clock);
             case 10 -> handleVolume(2, val, tick, tracks, clock);
+            case 11 -> envelopePeriodFine = val;
+            case 12 -> envelopePeriodCoarse = val;
             case 13 -> envelopeShape = val & 0x0F;
-            // R11, R12: envelope period — not mapped to MIDI
         }
     }
 
@@ -127,6 +132,7 @@ public class Ay8910MidiConverter {
         // of a static 4-bit volume. The envelope shape maps to an approximated effective
         // volume because MIDI has no time-varying amplitude envelope.
         boolean envelope = (val & 0x10) != 0;
+        envelopeMode[ch] = envelope;
         int newVol = envelope ? envelopeEffectiveVol() : (val & 0x0F);
         int oldVol = volume[ch];
         volume[ch] = newVol;
@@ -165,6 +171,16 @@ public class Ay8910MidiConverter {
         addEvent(tracks[ch], ShortMessage.CONTROL_CHANGE, ch, 7, toVelocity(volume[ch]), tick);
         addEvent(tracks[ch], ShortMessage.NOTE_ON, ch, note, 127, tick);
         activeNote[ch] = note;
+
+        // Envelope decay simulation: for single-decay shapes (0-3, 9), insert an
+        // automatic NoteOff after the computed decay period. This makes Square Lead
+        // produce short plucked notes matching the original hardware envelope.
+        if (envelopeMode[ch] && isDecayShape(envelopeShape)) {
+            long decayTicks = computeDecayTicks(clock);
+            if (decayTicks > 0) {
+                addEvent(tracks[ch], ShortMessage.NOTE_OFF, ch, note, 0, tick + decayTicks);
+            }
+        }
     }
 
     private void noteOff(int ch, long tick, Track[] tracks) {
@@ -213,6 +229,25 @@ public class Ay8910MidiConverter {
     static int noiseNote(int period) {
         if (period <= 12) return 42; // Closed Hi-Hat
         return 46;                   // Open Hi-Hat (coarser, slower noise)
+    }
+
+    /** Returns true for single-decay envelope shapes (fall to silence, no repeat). */
+    private static boolean isDecayShape(int shape) {
+        return shape <= 3 || shape == 9;
+    }
+
+    /**
+     * Computes the decay duration in MIDI ticks from the envelope period registers.
+     * AY envelope period = R11 + R12×256. One full envelope cycle = 256 × period / clock seconds.
+     * For single-decay shapes, the sound decays over one cycle (16 amplitude steps).
+     */
+    private long computeDecayTicks(long clock) {
+        int envPeriod = envelopePeriodFine + envelopePeriodCoarse * 256;
+        if (envPeriod <= 0 || clock <= 0) return 0;
+        // One full envelope cycle: 256 steps × envPeriod clock cycles each
+        double decaySeconds = (256.0 * envPeriod) / clock;
+        long ticks = Math.round(decaySeconds * 960); // 960 ticks/sec
+        return Math.clamp(ticks, 1, MAX_DECAY_TICKS);
     }
 
     /**
