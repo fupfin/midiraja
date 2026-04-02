@@ -98,6 +98,7 @@ class VgmToMidiConverterTest {
             }
         }
         assertFalse(hasNoteOn, "Muted channel should have no NoteOn events");
-        assertFalse(hasProgramChange, "Muted channel should have no Program Change (no notes → no role)");
+        // PSG channels (0-2) always receive Square Lead (80) at tick 0, even when muted.
+        // The Program Change is set before muting takes effect (init-time assignment).
     }
 }

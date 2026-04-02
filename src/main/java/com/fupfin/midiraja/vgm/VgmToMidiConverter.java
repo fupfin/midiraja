@@ -91,9 +91,13 @@ public class VgmToMidiConverter {
                 tracks[i] = sequence.createTrack();
             }
 
-            // ch 9: GM 0 with isDrums flag — TSF requires an explicit patchChange(9,0,drums=1)
-            // to activate drum mode; omitting it leaves the channel as melodic (piano).
-            // All other Program Changes are assigned by TrackRoleAssigner after conversion.
+            // PSG channels (0-2): Square Lead (80) — closest GM match for square/pulse waves.
+            // ch 9: GM 0 with isDrums flag for TSF drum mode activation.
+            // FM and wavetable channels are assigned by converters or TrackRoleAssigner.
+            for (int ch = 0; ch < 3; ch++) {
+                tracks[ch].add(new MidiEvent(
+                        new ShortMessage(ShortMessage.PROGRAM_CHANGE, ch, 80, 0), 0));
+            }
             tracks[9].add(new MidiEvent(
                     new ShortMessage(ShortMessage.PROGRAM_CHANGE, 9, 0, 0), 0));
 
