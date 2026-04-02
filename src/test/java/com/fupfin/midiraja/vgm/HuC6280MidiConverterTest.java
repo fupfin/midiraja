@@ -204,7 +204,8 @@ class HuC6280MidiConverterTest {
 
         var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
         assertNotNull(noteOn, "NoteOn must be emitted after waveform write");
-        assertNull(findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE),
-                "Individual converters must not emit Program Change");
+        var pc = findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE);
+        assertNotNull(pc, "Waveform classification must emit Program Change");
+        assertEquals(81, pc.getData1(), "Sawtooth waveform → Sawtooth Lead (81)");
     }
 }

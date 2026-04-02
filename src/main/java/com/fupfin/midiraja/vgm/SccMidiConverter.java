@@ -144,6 +144,7 @@ public class SccMidiConverter {
         activeNote[ch] = note;
         if (note < MIN_NOTE) return;
         int midiCh = ch + MIDI_CH_OFFSET;
+        emitProgramIfNeeded(ch, midiCh, tick, tracks);
         // CC7 before NoteOn: ensures channel volume is correct before the note sounds,
         // regardless of any residual CC7 value from a previous note or controller reset.
         addEvent(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, toVelocity(volume[ch]),
