@@ -123,15 +123,46 @@ public class VgmToMidiConverter {
             var opl3Port0Conv  = new Ym3812MidiConverter(opl3Clock, 0);
             var opl3Port1Conv  = new Ym3812MidiConverter(opl3Clock, 10);
 
-            // Build OPL patch catalog for volatile FM (per-patch GM assignment)
-            if (TrackRoleAssigner.isVolatileFm(parsed)) {
+            // Build FmPatchCatalog for all FM chips present
+            if (parsed.ym3812Clock() > 0 || parsed.ymf262Clock() > 0) {
                 int[] oplChips = {CHIP_YM3812, CHIP_YMF262_PORT0, CHIP_YMF262_PORT1};
                 long catalogClock = (parsed.ym3812Clock() != 0) ? parsed.ym3812Clock()
                         : (parsed.ymf262Clock() != 0) ? parsed.ymf262Clock() / 4 : 3_579_545L;
-                var catalog = OplPatchCatalog.build(parsed, oplChips, catalogClock);
-                opl2Converter.setPatchCatalog(catalog);
-                opl3Port0Conv.setPatchCatalog(catalog);
-                opl3Port1Conv.setPatchCatalog(catalog);
+                var oplCatalog = FmPatchCatalog.buildForOpl(parsed, oplChips, catalogClock);
+                opl2Converter.setPatchCatalog(oplCatalog);
+                opl3Port0Conv.setPatchCatalog(oplCatalog);
+                opl3Port1Conv.setPatchCatalog(oplCatalog);
+            }
+            if (parsed.ym2612Clock() > 0 || parsed.ym2203Clock() > 0
+                    || parsed.ym2608Clock() > 0 || parsed.ym2610Clock() > 0) {
+                int[] opnChips = {CHIP_YM2612_PORT0, CHIP_YM2612_PORT1,
+                        CHIP_YM2203, CHIP_YM2608_PORT0, CHIP_YM2608_PORT1,
+                        CHIP_YM2610_PORT0, CHIP_YM2610_PORT1};
+                long[] clocks = new long[11];
+                int[] dividers = new int[11];
+                clocks[CHIP_YM2612_PORT0] = parsed.ym2612Clock();
+                clocks[CHIP_YM2612_PORT1] = parsed.ym2612Clock();
+                clocks[CHIP_YM2203] = parsed.ym2203Clock();
+                clocks[CHIP_YM2608_PORT0] = parsed.ym2608Clock();
+                clocks[CHIP_YM2608_PORT1] = parsed.ym2608Clock();
+                clocks[CHIP_YM2610_PORT0] = parsed.ym2610Clock();
+                clocks[CHIP_YM2610_PORT1] = parsed.ym2610Clock();
+                java.util.Arrays.fill(dividers, 144);
+                dividers[CHIP_YM2203] = 72;
+                var opnCatalog = FmPatchCatalog.buildFor4Op(parsed, opnChips, clocks, dividers);
+                ymConverter.setPatchCatalog(opnCatalog);
+                ym2203Conv.setPatchCatalog(opnCatalog);
+                ym2608Conv.setPatchCatalog(opnCatalog);
+                ym2610Conv.setPatchCatalog(opnCatalog);
+            }
+            if (parsed.ym2151Clock() > 0) {
+                int[] opmChips = {CHIP_YM2151};
+                long[] clocks = new long[6];
+                int[] dividers = new int[6];
+                clocks[CHIP_YM2151] = parsed.ym2151Clock();
+                dividers[CHIP_YM2151] = 64; // not used for OPM (KC-based)
+                var opmCatalog = FmPatchCatalog.buildFor4Op(parsed, opmChips, clocks, dividers);
+                opmConverter.setPatchCatalog(opmCatalog);
             }
 
             // Muted channels are redirected to a sink track that is not part of the output sequence.

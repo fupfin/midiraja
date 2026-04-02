@@ -60,7 +60,7 @@ public class Ym3812MidiConverter {
     private final int[] connection = new int[CHANNELS];
 
     private final boolean[] activeDrum = new boolean[CHANNELS];
-    private @org.jspecify.annotations.Nullable OplPatchCatalog patchCatalog;
+    private @org.jspecify.annotations.Nullable FmPatchCatalog patchCatalog;
     private boolean rhythmMode = false;
     private int rhythmKeyState = 0;
     private final int[] activeRhythm = {-1, -1, -1, -1, -1};
@@ -70,7 +70,7 @@ public class Ym3812MidiConverter {
     }
 
     /** Sets a pre-built patch catalog for per-patch GM program assignment. */
-    public void setPatchCatalog(OplPatchCatalog catalog) {
+    public void setPatchCatalog(FmPatchCatalog catalog) {
         this.patchCatalog = catalog;
     }
 
@@ -202,7 +202,7 @@ public class Ym3812MidiConverter {
     private void noteOn(int ch, int note, long tick, Track[] tracks) {
         if (note < 0) return;
 
-        int sig = OplPatchCatalog.signature(
+        int sig = FmPatchCatalog.signature(
                 connection[ch], feedback[ch], modulatorTl[ch], carrierTl[ch],
                 carrierAr[ch], carrierDr[ch]);
 

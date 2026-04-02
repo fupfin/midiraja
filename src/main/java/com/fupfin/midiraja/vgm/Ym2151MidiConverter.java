@@ -62,6 +62,12 @@ public class Ym2151MidiConverter {
     private final int[][] d1r = new int[CHANNELS][4];
     private final int[] lrMask = {3, 3, 3, 3, 3, 3, 3, 3};
     private final int[] currentPan = {-1, -1, -1, -1, -1, -1, -1, -1};
+    private @org.jspecify.annotations.Nullable FmPatchCatalog patchCatalog;
+
+    /** Sets a pre-built patch catalog for per-patch GM program assignment. */
+    public void setPatchCatalog(FmPatchCatalog catalog) {
+        this.patchCatalog = catalog;
+    }
 
     public Ym2151MidiConverter(int midiChOffset) {
         this.midiChOffset = midiChOffset;
@@ -120,7 +126,11 @@ public class Ym2151MidiConverter {
             int note = computeNote(ch);
             if (note >= 0 && !isSilentCarrier(tl, algorithm, ch)) {
                 emitPanIfNeeded(ch, tracks, tick);
-                emitProgramIfNeeded(ch, midiCh, note, tracks, tick);
+                if (patchCatalog != null) {
+                    emitCatalogProgramIfNeeded(ch, midiCh, tracks, tick);
+                } else {
+                    emitProgramIfNeeded(ch, midiCh, note, tracks, tick);
+                }
                 addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note,
                         computeVelocity(tl, algorithm, feedback, ch), tick);
                 activeNote[ch] = note;
@@ -139,6 +149,29 @@ public class Ym2151MidiConverter {
         if (pan != currentPan[ch]) {
             addEvent(tracks[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 10, pan, tick);
             currentPan[ch] = pan;
+        }
+    }
+
+    private void emitCatalogProgramIfNeeded(int ch, int midiCh, Track[] tracks, long tick) {
+        var catalog = patchCatalog;
+        if (catalog == null) return;
+        int timbreHint = FmPatchCatalog.algorithmToTimbreHint(algorithm[ch]);
+        int avgModTl = avgModulatorTl(tl, algorithm, ch);
+        int[] cops = carrierOps(algorithm[ch]);
+        int totalCarTl = 0, totalAr = 0, totalDr = 0;
+        for (int op : cops) {
+            totalCarTl += tl[ch][op];
+            totalAr += ar[ch][op];
+            totalDr += d1r[ch][op];
+        }
+        int avgCarTl = totalCarTl / cops.length;
+        int avgAr = totalAr / cops.length / 2;
+        int avgDr = totalDr / cops.length / 2;
+        int sig = FmPatchCatalog.signature(timbreHint, feedback[ch], avgModTl, avgCarTl, avgAr, avgDr);
+        int program = catalog.program(sig);
+        if (program != currentProgram[ch]) {
+            addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
+            currentProgram[ch] = program;
         }
     }
 
