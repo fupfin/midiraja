@@ -158,13 +158,14 @@ public class VgmToMidiConverter {
                 }
             }
 
-            // 2nd pass: assign GM programs based on FM patch volatility.
-            // High volatility (OPL2/OPL3 note-pool drivers) → uniform Grand Piano.
-            // Low volatility (dedicated channel roles) → segment-based role analysis.
+            // 2nd pass: assign GM programs.
+            // Volatile FM (OPL2/OPL3 note-pool drivers) → uniform Grand Piano on all channels.
+            // Stable FM (YM2612/YM2151/OPN) → converters already emitted per-note Program Change;
+            //   TrackRoleAssigner fills in remaining channels (PSG, wavetable) that have no PC.
             if (TrackRoleAssigner.isVolatileFm(parsed)) {
                 TrackRoleAssigner.assignUniform(sequence, 0); // Grand Piano
             } else {
-                TrackRoleAssigner.assign(sequence);
+                TrackRoleAssigner.assignUnassigned(sequence);
             }
 
             return sequence;

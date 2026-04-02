@@ -74,8 +74,8 @@ class Ym2612MidiConverterTest {
 
         var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
         assertNotNull(noteOn, "NoteOn must be emitted on MIDI ch 3");
-        assertNull(findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE),
-                "Individual converters must not emit Program Change");
+        assertNotNull(findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE),
+                "Stable FM converters must emit Program Change per note");
     }
 
     @Test
@@ -95,8 +95,8 @@ class Ym2612MidiConverterTest {
 
         var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
         assertNotNull(noteOn, "NoteOn must be emitted for algorithm 0");
-        assertNull(findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE),
-                "Individual converters must not emit Program Change");
+        assertNotNull(findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE),
+                "Stable FM converters must emit Program Change per note");
     }
 
     @Test
@@ -113,12 +113,12 @@ class Ym2612MidiConverterTest {
 
         var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
         assertNotNull(noteOn, "NoteOn must be emitted for high-feedback algorithm");
-        assertNull(findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE),
-                "Individual converters must not emit Program Change");
+        assertNotNull(findFirst(tracks[3], ShortMessage.PROGRAM_CHANGE),
+                "Stable FM converters must emit Program Change per note");
     }
 
     @Test
-    void noProgramChange_emittedByConverter() throws Exception {
+    void programChange_notDuplicated() throws Exception {
         var converter = new Ym2612MidiConverter();
         var tracks = makeTracks();
 
@@ -129,7 +129,7 @@ class Ym2612MidiConverterTest {
         converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
         converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1); // key-on
         converter.convert(port0(0x28, 0x00), tracks, CLOCK, 2); // key-off
-        converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 3); // key-on again
+        converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 3); // key-on again (same alg)
 
         long pcCount = 0;
         for (int i = 0; i < tracks[3].size(); i++) {
@@ -138,7 +138,7 @@ class Ym2612MidiConverterTest {
                 pcCount++;
             }
         }
-        assertEquals(0, pcCount, "Converter must not emit any Program Change");
+        assertEquals(1, pcCount, "Same algorithm → Program Change only once");
     }
 
     @Test

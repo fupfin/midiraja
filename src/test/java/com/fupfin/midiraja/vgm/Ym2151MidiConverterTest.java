@@ -108,8 +108,8 @@ class Ym2151MidiConverterTest {
     }
 
     @Test
-    void noProgramChange_emittedByConverter() throws Exception {
-        // Converters no longer emit Program Change; TrackRoleAssigner handles it.
+    void programChange_emittedByConverter() throws Exception {
+        // Stable FM converters (YM2151) emit per-note Program Change.
         var converter = new Ym2151MidiConverter(0);
         var tracks = makeTracks();
 
@@ -121,8 +121,8 @@ class Ym2151MidiConverterTest {
 
         var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
         assertNotNull(noteOn, "NoteOn must be emitted");
-        assertNull(findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE),
-                "Individual converters must not emit Program Change");
+        assertNotNull(findFirst(tracks[0], ShortMessage.PROGRAM_CHANGE),
+                "Stable FM converters must emit Program Change per note");
     }
 
     @Test

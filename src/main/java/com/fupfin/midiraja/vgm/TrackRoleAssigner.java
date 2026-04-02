@@ -130,6 +130,42 @@ final class TrackRoleAssigner {
     }
 
     /**
+     * Assigns programs only to channels that have no existing Program Change events.
+     * FM converters (YM2612, YM2151) emit their own per-note Program Change;
+     * this method fills in PSG, wavetable, and any other channels without PC.
+     */
+    static void assignUnassigned(Sequence sequence) {
+        var tracks = sequence.getTracks();
+        if (tracks.length < 2) return;
+
+        for (int ch = 0; ch < CHANNELS && ch + 1 < tracks.length; ch++) {
+            if (ch == DRUM_CHANNEL) continue;
+            if (hasProgramChange(tracks[ch + 1])) continue;
+            if (!hasNoteOn(tracks[ch + 1], ch)) continue; // skip empty tracks
+            insertProgramChange(tracks[ch + 1], ch, 0, 0);
+        }
+    }
+
+    private static boolean hasNoteOn(Track track, int ch) {
+        for (int i = 0; i < track.size(); i++) {
+            var msg = track.get(i).getMessage();
+            if (msg instanceof ShortMessage sm
+                    && sm.getCommand() == ShortMessage.NOTE_ON && sm.getChannel() == ch)
+                return true;
+        }
+        return false;
+    }
+
+    private static boolean hasProgramChange(Track track) {
+        for (int i = 0; i < track.size(); i++) {
+            var msg = track.get(i).getMessage();
+            if (msg instanceof ShortMessage sm && sm.getCommand() == ShortMessage.PROGRAM_CHANGE)
+                return true;
+        }
+        return false;
+    }
+
+    /**
      * Analyzes all tracks in segments and inserts Program Change events at segment boundaries.
      */
     static void assign(Sequence sequence) {
