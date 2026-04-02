@@ -14,6 +14,74 @@ Supported chips: **SN76489** (Sega PSG), **YM2612** (Sega FM), **YM2151** (Arcad
 
 ---
 
+## Conversion Strategy
+
+Cross-chip principles that guide the VGM → MIDI conversion.
+
+### Chip classification
+
+| Category | Chips | Characteristics |
+|----------|-------|-----------------|
+| **PSG** (square/pulse) | SN76489, AY-3-8910, Game Boy CH1-2 | Fixed waveform (square/pulse), no timbre variation |
+| **Wavetable** | SCC, HuC6280, Game Boy CH3 | Programmable waveform per channel |
+| **4-op FM** | YM2612, YM2151, YM2203, YM2608, YM2610 | 4 operators, 8 algorithms, stable channel roles |
+| **2-op FM** | YM3812, YMF262 | 2 operators, volatile channel roles (note-pool) |
+| **Preset FM** | YM2413 | ROM preset instruments, direct GM mapping |
+
+### GM instrument assignment strategy
+
+Each chip category uses a different instrument assignment approach:
+
+**PSG:** Fixed Square Lead (GM 80) at tick 0. AY-3-8910 envelope shapes with
+single-decay (R13=0-3,9) simulate note decay via automatic NoteOff insertion,
+preserving the Square Lead timbre while producing short plucked notes.
+
+**Wavetable (SCC, HuC6280):** Dynamic program selection based on waveform shape
+analysis (steep-edge counting: sine → Calliope Lead, sawtooth → Sawtooth Lead,
+square → Square Lead, complex → Synth Brass). Program Change emitted per note
+when waveform changes.
+
+**4-op FM (stable channels):** Per-note program selection based on note pitch and
+carrier envelope (percussive vs sustained). Converters emit their own Program Change.
+Silent carriers (average TL ≥ 55) are suppressed.
+
+**2-op FM (volatile channels):** *Current:* uniform Grand Piano when patch change
+rate > 50%. *Planned:* patch dictionary approach — first pass catalogs all unique
+FM patches with their note ranges, second pass selects GM instrument per patch
+based on FM characteristics and typical pitch range.
+
+**Preset FM (YM2413):** Direct mapping from 15 ROM presets to GM programs
+(Violin → 40, Piano → 0, Flute → 73, etc.). Rhythm mode routes 5 drums to ch 9.
+
+### Instrument selection principles
+
+1. **Pitch-range awareness:** The same FM patch may serve as bass, melody, or
+   accompaniment depending on the notes it plays. Instrument assignment should
+   consider the actual note range, not just FM parameters.
+
+2. **Ensemble coherence:** Instruments must blend well when played simultaneously.
+   Avoid mixing harsh timbres (Overdriven Guitar, Distortion Guitar) with
+   delicate ones (Calliope Lead, Recorder) in the same song.
+
+3. **Fast attack required:** VGM chip music has tight timing. Slow-attack GM
+   instruments (Clarinet, Synth Strings, Pads) create audible lag and should
+   be avoided.
+
+4. **Silent patch detection:** Patches with near-silent output (carrier TL ≥ 55,
+   zero-feedback FM, or OPL2 modTL < 10 percussion effects) must be suppressed
+   or rerouted to drums to prevent ghost notes and dissonance.
+
+5. **Octave correction:** OPL2/OPL3 FM synthesis produces strong 2nd harmonics
+   that raise the perceived pitch one octave above the mathematical fundamental.
+   Piano playback requires +12 semitone correction to match the original perceived
+   pitch. This does not apply to 4-op FM or PSG chips.
+
+6. **Envelope simulation:** Hardware envelopes (AY-3-8910 single-decay, OPL2
+   note-cut trick via silent patch) are simulated via MIDI note duration rather
+   than instrument changes, preserving the original timbre character.
+
+---
+
 ## Classes
 
 ### `VgmParser` — `com.fupfin.midiraja.vgm`
