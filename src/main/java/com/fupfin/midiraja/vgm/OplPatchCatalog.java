@@ -26,15 +26,25 @@ import java.util.Map;
  */
 final class OplPatchCatalog {
 
-    // GM instrument palette — pitch-range × envelope character
-    private static final int BASS_SUSTAINED    = 33; // Electric Bass
-    private static final int BASS_PERCUSSIVE   = 36; // Slap Bass
-    private static final int MID_SUSTAINED     = 5;  // Electric Piano 2
-    private static final int MID_PERCUSSIVE    = 11; // Vibraphone
-    private static final int HIGH_SUSTAINED    = 4;  // Electric Piano 1
-    private static final int HIGH_PERCUSSIVE   = 13; // Xylophone
-    private static final int DRUM_EFFECT       = -2; // sentinel: route to ch 9
-    private static final int SILENT            = -1; // sentinel: suppress
+    // GM instrument palette — timbre × pitch-range × envelope (3 dimensions)
+    // Timbre: FM-soft (conn=0,fb<5,modTL≥30), FM-bright (conn=0,fb<5,modTL<30),
+    //         FM-harsh (conn=0,fb≥5), AM (conn=1)
+    private static final int DRUM_EFFECT = -2; // sentinel: route to ch 9
+    private static final int SILENT      = -1; // sentinel: suppress
+
+    // [timbre][range][envelope] — timbre: 0=FM-soft, 1=FM-bright, 2=FM-harsh, 3=AM
+    //                             range: 0=bass, 1=mid, 2=high
+    //                             envelope: 0=sustained, 1=percussive
+    private static final int[][][] GM_TABLE = {
+        // FM-soft (conn=0, fb<5, modTL≥30): warm, pure
+        {{32, 36}, {5, 12}, {5, 13}},         // Ac.Bass/Slap, EP2/Marimba, EP2/Xylophone
+        // FM-bright (conn=0, fb<5, modTL<30): bright, metallic
+        {{33, 36}, {4, 11}, {4, 13}},         // Elec.Bass/Slap, EP1/Vibraphone, EP1/Xylophone
+        // FM-harsh (conn=0, fb≥5): aggressive, distorted
+        {{33, 36}, {7, 7}, {7, 13}},          // Elec.Bass/Slap, Clavinet/Clavinet, Clavinet/Xylophone
+        // AM (conn=1): organ-like, bell-like
+        {{32, 36}, {18, 11}, {18, 13}},       // Ac.Bass/Slap, Rock Organ/Vibraphone, Rock Organ/Xylophone
+    };
 
     private static final int BASS_THRESHOLD = 48;  // < C3
     private static final int HIGH_THRESHOLD = 72;  // >= C5
@@ -140,19 +150,25 @@ final class OplPatchCatalog {
             notes.sort(Integer::compareTo);
             int median = notes.get(notes.size() / 2);
 
-            // Percussive or sustained?
-            boolean percussive = ar >= 10 && dr >= 4;
-
-            // Assign by pitch range
-            int program;
-            if (median < BASS_THRESHOLD) {
-                program = percussive ? BASS_PERCUSSIVE : BASS_SUSTAINED;
-            } else if (median >= HIGH_THRESHOLD) {
-                program = percussive ? HIGH_PERCUSSIVE : HIGH_SUSTAINED;
+            // Timbre classification: 0=FM-soft, 1=FM-bright, 2=FM-harsh, 3=AM
+            int timbre;
+            if (conn == 1) {
+                timbre = 3; // AM
+            } else if (fb >= 5) {
+                timbre = 2; // FM-harsh
+            } else if (modTlBand <= 1) { // modTL < 30
+                timbre = 1; // FM-bright
             } else {
-                program = percussive ? MID_PERCUSSIVE : MID_SUSTAINED;
+                timbre = 0; // FM-soft
             }
-            catalog.signatureToProgram.put(sig, program);
+
+            // Pitch range: 0=bass, 1=mid, 2=high
+            int range = (median < BASS_THRESHOLD) ? 0 : (median >= HIGH_THRESHOLD) ? 2 : 1;
+
+            // Envelope: 0=sustained, 1=percussive
+            int env = (ar >= 10 && dr >= 4) ? 1 : 0;
+
+            catalog.signatureToProgram.put(sig, GM_TABLE[timbre][range][env]);
         }
 
         return catalog;
