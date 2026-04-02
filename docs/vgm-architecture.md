@@ -9,7 +9,8 @@ handed off to the synth provider as if they were ordinary MIDI files.
 
 Supported chips: **SN76489** (Sega PSG), **YM2612** (Sega FM), **YM2151** (Arcade OPM),
 **YM2203** (PC-88 OPN), **YM2608** (PC-98 OPNA), **YM2610** (Neo Geo OPNB),
-**AY-3-8910** (MSX PSG), **K051649** (Konami SCC wavetable).
+**AY-3-8910** (MSX PSG), **K051649** (Konami SCC wavetable), **YM2413** (MSX/SMS OPLL),
+**YM3812** (DOS OPL2), **YMF262** (DOS OPL3), **HuC6280** (PC Engine), **Game Boy DMG**.
 
 ---
 
@@ -43,6 +44,11 @@ record VgmParseResult(
     long ym2610Clock,    // Hz; 0 = chip absent (offset 0x4C)
     long ay8910Clock,    // Hz; 0 = chip absent (offset 0x74)
     long sccClock,       // Hz; falls back to ay8910Clock×2 if K051649 header field is 0
+    long ym2413Clock,    // Hz; 0 = chip absent (offset 0x10)
+    long gameBoyDmgClock,// Hz; 0 = chip absent (offset 0x80)
+    long huC6280Clock,   // Hz; 0 = chip absent (offset 0xA4)
+    long ym3812Clock,    // Hz; 0 = chip absent (offset 0x50)
+    long ymf262Clock,    // Hz; 0 = chip absent (offset 0x5C)
     List<VgmEvent> events,
     @Nullable String gd3Title
 ) {}
@@ -63,6 +69,12 @@ record VgmParseResult(
 | 8 | `0x57` | YM2608 (OPNA) port 1 |
 | 9 | `0x58` | YM2610 (OPNB) port 0 |
 | 10 | `0x59` | YM2610 (OPNB) port 1 |
+| 11 | `0xB3` | Game Boy DMG |
+| 12 | `0xB9` | HuC6280 |
+| 13 | `0x51` | YM2413 (OPLL) |
+| 14 | `0x5A` | YM3812 (OPL2) |
+| 15 | `0x5E` | YMF262 (OPL3) port 0 |
+| 16 | `0x5F` | YMF262 (OPL3) port 1 |
 
 ---
 
@@ -75,6 +87,7 @@ Top-level orchestrator that converts `VgmParseResult` to `javax.sound.midi.Seque
 - Emit Program Change at tick 0 for each MIDI channel
 - Route events to the appropriate chip converter
 - Insert GD3 title as MetaMessage (type 0x03) in track 0
+- `buildTitle()` prepends chip names to GD3 title, e.g. `[YMF262] Introduction`
 
 ```java
 class VgmToMidiConverter {
@@ -101,8 +114,9 @@ Converts SN76489 PSG chip events to MIDI note events.
 Shared utilities for all FM chip converters (YM2612, YM2151, OPN family).
 
 **Provides:**
-- `selectProgram(alg, fb, modTl)` — GM program selection based on algorithm, feedback, and
-  modulator TL depth
+- `selectProgram(note, percussive)` — GM program selection based on pitch range (< C3 ->
+  bass instruments, >= C3 -> melody instruments). The old `(alg, fb, modTl)` parameters are
+  deprecated.
 - `carrierOps(alg)` / `modulatorOps(alg)` — operator role lookup per algorithm
 - `computeVelocity(tl, algorithm, feedback, ch)` — dB-based velocity from carrier TL + feedback
 - `lrMaskToPan(lrMask)` — LR mask → MIDI CC10
@@ -124,7 +138,7 @@ Converts YM2612 FM chip events to MIDI note events. Also handles the OPN family
 - Convert F-Number + Block to frequency using `f = FNum × clock / (divider × 2^(21-block))`
 - Map key-on (0x28) to NoteOn with TL-based velocity, key-off to NoteOff
 - Read carrier TL (0x40-0x4F) and compute MIDI velocity via `FmMidiUtil.computeVelocity()`
-- Derive GM program from algorithm, feedback, and modulator TL via `FmMidiUtil.selectProgram()`
+- Derive GM program from note pitch via `FmMidiUtil.selectProgram(note, percussive)`
 - Decode stereo pan register (0xB4-0xB6 bits 7-6: L/R) → CC10 before NoteOn
 - Use MIDI channels 3-8
 
@@ -145,6 +159,69 @@ Converts YM2151 (OPM) FM chip events to MIDI note events.
 - Read TL registers (0x60-0x7F, stride 8 per operator) for velocity computation
 - Key on/off via register 0x08 (bits 2-0=channel, bits 6-3=operator mask)
 - Share program selection, velocity, and pan logic with YM2612 via `FmMidiUtil`
+
+---
+
+### `Ym3812MidiConverter` — `com.fupfin.midiraja.vgm`
+
+Converts YM3812 (OPL2) and YMF262 (OPL3) FM chip events to MIDI note events.
+9-channel 2-operator FM. Handles OPL2 (0x5A) and OPL3 (0x5E/0x5F, via dual instances
+with `midiChOffset`). Configurable clock and channel offset. +12 octave correction.
+
+**Key behaviors:**
+- Silent patch detection: `conn=0, fb=0` or carrier TL >= 55 suppresses output
+- Percussive effect routing: `modTL < 10` routes to ch9 drums
+- Note-cut trick: `conn=0, fb=0` triggers instant noteOff on active notes
+
+---
+
+### `Ym2413MidiConverter` — `com.fupfin.midiraja.vgm`
+
+Converts YM2413 (OPLL) chip events to MIDI note events. 9-channel OPLL with 15 ROM
+preset instruments mapped directly to GM programs (Violin -> 40, Piano -> 0, Flute -> 73,
+etc.).
+
+**Key behaviors:**
+- Rhythm mode (0x0E bit5) routes 5 percussion sounds to MIDI ch9
+- OPLL ch 0-5 -> MIDI ch 3-8, ch 6-8 -> MIDI ch 10-12
+
+---
+
+### `HuC6280MidiConverter` — `com.fupfin.midiraja.vgm`
+
+Converts HuC6280 (PC Engine) 6-channel wavetable chip events to MIDI note events.
+Channel-select register architecture.
+
+**Key behaviors:**
+- Stereo L/R balance -> CC10 pan
+- 32-sample waveform classification by steep-edge counting (threshold > 80):
+  0 edges -> Calliope Lead, 1 -> Sawtooth Lead, 2 -> Square Lead, 3+ -> Synth Brass
+- No hardware envelope
+
+---
+
+### `GameBoyDmgMidiConverter` — `com.fupfin.midiraja.vgm`
+
+Converts Game Boy DMG chip events to MIDI note events.
+
+**Key behaviors:**
+- CH1-2 pulse -> MIDI ch 0-1 (Square Lead), CH3 wave -> MIDI ch 2 (Recorder),
+  CH4 noise -> MIDI ch 9 (drums, hi-hat)
+- Trigger-based note gating (bit 7 of NR14/NR24/NR34/NR44)
+- NR51 L/R panning -> CC10
+
+---
+
+### `TrackRoleAssigner` — `com.fupfin.midiraja.vgm`
+
+Post-conversion GM program assignment. Operates in two modes:
+
+- **Volatile FM mode:** When patch-change-to-key-on ratio exceeds 50%, assigns Grand Piano
+  (GM 0) to all melodic channels for consistent playback.
+- **Stable FM mode (`assignUnassigned()`):** Only assigns GM programs to channels that do
+  not already have a Program Change emitted by chip converters. Stable FM converters
+  (YM2612, YM2151, OPN) emit their own Program Change per note; TrackRoleAssigner fills
+  in unassigned channels only.
 
 ---
 
@@ -197,7 +274,7 @@ Converts Konami SCC (K051649) wavetable chip events to MIDI note events.
 
 **Responsibilities:**
 - Decode D2 port/address/data triples
-- Port 0 (waveform data, 0x00-0x7F): ignored for MIDI conversion
+- Port 0 (waveform data, 0x00-0x7F): captured for waveform classification (see below)
 - Port 1 (frequency, addr 0x00-0x09): two bytes per channel (lo, hi nibble)
 - Port 2 (volume, addr 0x00-0x04): 4-bit per channel
 - Port 3 addr 0 (channel enable, bit4-0): **not used as MIDI gate** — see design decision below
@@ -219,6 +296,17 @@ note 21) before the music starts. Emitting NoteOns at MIDI 21 with Sawtooth Lead
 audible harmonic artifacts that mask the melody for the first 10-15 seconds. Notes below
 MIN_NOTE=28 (≈41 Hz) are tracked in `activeNote[]` but no MIDI events are emitted, so a
 subsequent pitch change to an audible note retriggers correctly.
+
+**Waveform classification:**
+Port 0 waveform data is now captured (32 samples, 8-bit signed). Steep-edge counting
+(threshold > 80) classifies waveforms into GM programs:
+
+| Steep edges | GM program |
+|-------------|------------|
+| 0 | 82 — Calliope Lead |
+| 1 | 81 — Sawtooth Lead |
+| 2 | 80 — Square Lead |
+| 3+ | 62 — Synth Brass |
 
 ---
 
@@ -264,6 +352,15 @@ class VgmCommand implements Callable<Integer> { ... }
 | 12 | SCC ch2 | 18 (Rock Organ) |
 | 13 | SCC ch3 | 18 (Rock Organ) |
 | 14 | SCC ch4 | 18 (Rock Organ) |
+| 3-8 | YM2413 melody ch 0-5 | dynamic (ROM preset -> GM) |
+| 10-12 | YM2413 melody ch 6-8 | dynamic (ROM preset -> GM) |
+| 9 | YM2413 rhythm drums | 0 (Drums) |
+| 0-8 | YM3812/YMF262 port 0 ch 0-8 | dynamic / Grand Piano |
+| 10+ | YMF262 (OPL3) port 1 | dynamic / Grand Piano |
+| 0-5 | HuC6280 ch 0-5 | dynamic (waveform classification) |
+| 0-1 | Game Boy DMG pulse CH1-2 | 80 (Square Lead) |
+| 2 | Game Boy DMG wave CH3 | 74 (Recorder) |
+| 9 | Game Boy DMG noise CH4 | 0 (Drums) |
 
 *YM2151 uses ch 0-7 when standalone (no YM2612), otherwise ch 3-8 (shared offset).
 
@@ -419,6 +516,31 @@ static int sccNote(long clock, int fnum) {
 
 **Clock fallback:** The K051649 clock field in the VGM header (offset 0xAC) is 0 in most
 MSX VGMs. When it is 0, `sccClock` falls back to `ay8910Clock` (same 1789772 Hz crystal).
+
+### HuC6280 frequency
+
+```
+f = clock / (32 × period)
+```
+- `period`: 12-bit value
+- `clock`: typically 3,579,545 Hz
+
+### Game Boy DMG frequency
+
+```
+f = clock / (32 × (2048 - freq))
+```
+- `freq`: 11-bit value
+- `clock`: typically 4,194,304 Hz
+
+### YM2413 (OPLL) frequency
+
+```
+f = fnum × 2^block × clock / 73728
+```
+- `fnum`: 9-bit F-Number
+- `block`: 3-bit octave
+- `clock`: 3,579,545 Hz
 
 ### YM3812 (OPL2) / YMF262 (OPL3) frequency
 
@@ -692,8 +814,14 @@ var sequence = VgmFileDetector.isVgmFile(file)
 | `0x58` | 2 (addr, data) | YM2610 (OPNB) port 0 — addr ≤ 0x0D is SSG, else FM |
 | `0x59` | 2 (addr, data) | YM2610 (OPNB) port 1 — FM only |
 | `0xA0` | 2 (reg, data) | AY-3-8910 register write; reg bits 3-0 = register number |
+| `0xB3` | 2 (addr, data) | Game Boy DMG register write |
+| `0xB9` | 2 (addr, data) | HuC6280 register write |
 | `0xD2` | 3 (port, addr, data) | K051649 (SCC) register write |
 | `0xE0` | 4 (offset LE) | Seek PCM data bank to byte offset. Marks sample boundaries. |
+| `0x51` | 2 (reg, data) | YM2413 (OPLL) register write |
+| `0x5A` | 2 (addr, data) | YM3812 (OPL2) register write |
+| `0x5E` | 2 (addr, data) | YMF262 (OPL3) port 0 register write |
+| `0x5F` | 2 (addr, data) | YMF262 (OPL3) port 1 register write |
 
 ---
 
@@ -712,9 +840,28 @@ src/main/java/com/fupfin/midiraja/
 │   ├── Ym2151MidiConverter.java  -- YM2151 OPM → MIDI (arcade)
 │   ├── Ay8910MidiConverter.java  -- AY-3-8910 PSG → MIDI (MSX, also OPN SSG)
 │   ├── SccMidiConverter.java     -- K051649 SCC → MIDI (MSX)
+│   ├── Ym3812MidiConverter.java  -- YM3812 OPL2 / YMF262 OPL3 → MIDI
+│   ├── Ym2413MidiConverter.java  -- YM2413 OPLL → MIDI (MSX/SMS)
+│   ├── HuC6280MidiConverter.java -- HuC6280 wavetable → MIDI (PC Engine)
+│   ├── GameBoyDmgMidiConverter.java -- Game Boy DMG → MIDI
+│   ├── TrackRoleAssigner.java    -- post-conversion GM program assignment
 │   └── VgmFileDetector.java      -- file detection utility
 └── cli/
     └── VgmCommand.java           -- picocli subcommand
+```
+
+**Test files:**
+
+```
+src/test/java/com/fupfin/midiraja/vgm/
+├── FmMidiUtilTest.java
+├── TrackRoleAssignerTest.java
+├── Ym2612MidiConverterTest.java
+├── Ym3812MidiConverterTest.java
+├── Ym2413MidiConverterTest.java
+├── HuC6280MidiConverterTest.java
+├── GameBoyDmgMidiConverterTest.java
+└── ...
 ```
 
 ---
@@ -838,3 +985,7 @@ Program Change is emitted at segment boundaries only when the role changes.
 19. **VGM header version guards:** Chip clock fields are only valid in specific VGM versions
     (e.g. GB DMG at 0x80 requires v1.61+). Reading beyond the version's defined header
     produces garbage values that are misinterpreted as chip clocks.
+20. **Per-note program selection restored for stable FM:** Stable FM chips (YM2612, YM2151,
+    OPN) emit their own Program Change per note. OPL-specific changes (2-pass
+    TrackRoleAssigner) no longer affect these chips. TrackRoleAssigner only fills in
+    unassigned channels via `assignUnassigned()`.
