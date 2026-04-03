@@ -40,18 +40,10 @@ class Ym2413MidiConverterTest {
 
     @Test
     void opllNote_a4() {
-        // f = fnum * 2^block * clock / 73728
-        // A4 (440 Hz): fnum * 2^block = 440 * 73728 / 3579545 ≈ 9.06
-        // block=3, fnum = 9.06/8 * 1 ≈ nope. Let me compute:
-        // block=4: fnum = 440 * 73728 / (3579545 * 16) ≈ 0.566 → too small
-        // block=3: fnum = 440 * 73728 / (3579545 * 8) ≈ 1.133 → too small
-        // Actually the formula is f = fnum * 2^block * clock / 73728
-        // So fnum = f * 73728 / (clock * 2^block) = 440 * 73728 / (3579545 * 2^block)
-        // block=0: fnum = 440 * 73728 / 3579545 = 9.06 → fnum=9
-        // That gives: 9 * 1 * 3579545 / 73728 = 436.9 Hz ≈ A4
-        int note = Ym2413MidiConverter.opllNote(CLOCK, 9, 0);
-        // Should be close to 69 (A4)
-        assertTrue(note >= 68 && note <= 70, "fnum=9, block=0 ≈ A4 (MIDI ~69), got " + note);
+        // f = fnum * clock / (72 * 2^(20-block))
+        // A4 (440 Hz), block=4: fnum = 440 * 72 * 65536 / 3579545 ≈ 580
+        int note = Ym2413MidiConverter.opllNote(CLOCK, 580, 4);
+        assertTrue(note >= 68 && note <= 70, "fnum=580, block=4 ≈ A4 (MIDI ~69), got " + note);
     }
 
     @Test

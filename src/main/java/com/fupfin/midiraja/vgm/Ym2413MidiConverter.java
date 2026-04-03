@@ -172,10 +172,10 @@ public class Ym2413MidiConverter {
         return opllNote(clock, fnum, block[ch]);
     }
 
-    /** Converts OPLL F-Number + block to MIDI note. f = fnum × 2^block × clock / 73728. */
+    /** Converts OPLL F-Number + block to MIDI note. f = fnum × clock / (72 × 2^(20-block)). */
     static int opllNote(long clock, int fnum, int block) {
         if (fnum <= 0) return -1;
-        double f = fnum * (1L << block) * clock / 73728.0;
+        double f = fnum * clock / (72.0 * (1L << (20 - block)));
         return Math.clamp(Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69), 0, 127);
     }
 
