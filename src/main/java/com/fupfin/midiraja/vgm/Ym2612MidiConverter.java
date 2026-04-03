@@ -74,6 +74,8 @@ public class Ym2612MidiConverter {
     private final int[][] d1r = new int[6][4];
     private final int[] lrMask = {3, 3, 3, 3, 3, 3};
     private final int[] currentPan = {-1, -1, -1, -1, -1, -1};
+    private final boolean[] activeDrum = new boolean[6];
+    private static final int DRUM_NOTE_EFFECT = 42; // Closed Hi-Hat
     private @org.jspecify.annotations.Nullable FmPatchCatalog patchCatalog;
 
     /** Sets a pre-built patch catalog for per-patch GM program assignment. */
@@ -134,28 +136,58 @@ public class Ym2612MidiConverter {
         boolean keyOn = (data & 0xF0) != 0;
 
         if (keyOn) {
-            if (activeNote[ch] >= 0) {
-                addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
-                activeNote[ch] = -1;
-            }
+            noteOff(ch, tick, tracks);
             int note = computeNote(ch, clock);
             if (note >= 0 && !isSilentCarrier(tl, algorithm, ch)) {
-                emitPanIfNeeded(ch, midiCh, tracks, tick);
                 if (patchCatalog != null) {
+                    int sig = catalogSignature(ch);
+                    if (patchCatalog.isSilent(sig)) return;
+                    if (patchCatalog.isDrumEffect(sig)) {
+                        int vel = computeVelocity(tl, algorithm, feedback, ch);
+                        addEvent(tracks[9], ShortMessage.NOTE_ON, 9, DRUM_NOTE_EFFECT, vel, tick);
+                        activeNote[ch] = note;
+                        activeDrum[ch] = true;
+                        return;
+                    }
+                    emitPanIfNeeded(ch, midiCh, tracks, tick);
                     emitCatalogProgramIfNeeded(ch, midiCh, tracks, tick);
                 } else {
+                    emitPanIfNeeded(ch, midiCh, tracks, tick);
                     emitProgramIfNeeded(ch, midiCh, note, tracks, tick);
                 }
                 addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note,
                         computeVelocity(tl, algorithm, feedback, ch), tick);
                 activeNote[ch] = note;
+                activeDrum[ch] = false;
             }
         } else {
-            if (activeNote[ch] >= 0) {
-                addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
-                activeNote[ch] = -1;
-            }
+            noteOff(ch, tick, tracks);
         }
+    }
+
+    private void noteOff(int ch, long tick, Track[] tracks) {
+        if (activeNote[ch] < 0) return;
+        if (activeDrum[ch]) {
+            addEvent(tracks[9], ShortMessage.NOTE_OFF, 9, DRUM_NOTE_EFFECT, 0, tick);
+        } else {
+            int midiCh = ch + MIDI_CH_OFFSET;
+            addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
+        }
+        activeNote[ch] = -1;
+    }
+
+    private int catalogSignature(int ch) {
+        int timbreHint = FmPatchCatalog.algorithmToTimbreHint(algorithm[ch]);
+        int avgModTl = avgModulatorTl(tl, algorithm, ch);
+        int[] cops = carrierOps(algorithm[ch]);
+        int totalCarTl = 0, totalAr = 0, totalDr = 0;
+        for (int op : cops) {
+            totalCarTl += tl[ch][op];
+            totalAr += ar[ch][op];
+            totalDr += d1r[ch][op];
+        }
+        return FmPatchCatalog.signature(timbreHint, feedback[ch], avgModTl,
+                totalCarTl / cops.length, totalAr / cops.length / 2, totalDr / cops.length / 2);
     }
 
     private void emitPanIfNeeded(int ch, int midiCh, Track[] tracks, long tick) {

@@ -128,7 +128,7 @@ public class VgmToMidiConverter {
                 int[] oplChips = {CHIP_YM3812, CHIP_YMF262_PORT0, CHIP_YMF262_PORT1};
                 long catalogClock = (parsed.ym3812Clock() != 0) ? parsed.ym3812Clock()
                         : (parsed.ymf262Clock() != 0) ? parsed.ymf262Clock() / 4 : 3_579_545L;
-                var oplCatalog = FmPatchCatalog.buildForOpl(parsed, oplChips, catalogClock);
+                var oplCatalog = Opl2PatchCatalog.build(parsed, oplChips, catalogClock);
                 opl2Converter.setPatchCatalog(oplCatalog);
                 opl3Port0Conv.setPatchCatalog(oplCatalog);
                 opl3Port1Conv.setPatchCatalog(oplCatalog);
@@ -149,7 +149,7 @@ public class VgmToMidiConverter {
                 clocks[CHIP_YM2610_PORT1] = parsed.ym2610Clock();
                 java.util.Arrays.fill(dividers, 144);
                 dividers[CHIP_YM2203] = 72;
-                var opnCatalog = FmPatchCatalog.buildFor4Op(parsed, opnChips, clocks, dividers);
+                var opnCatalog = FourOpPatchCatalog.build(parsed, opnChips, clocks, dividers);
                 ymConverter.setPatchCatalog(opnCatalog);
                 ym2203Conv.setPatchCatalog(opnCatalog);
                 ym2608Conv.setPatchCatalog(opnCatalog);
@@ -161,7 +161,7 @@ public class VgmToMidiConverter {
                 int[] dividers = new int[6];
                 clocks[CHIP_YM2151] = parsed.ym2151Clock();
                 dividers[CHIP_YM2151] = 64; // not used for OPM (KC-based)
-                var opmCatalog = FmPatchCatalog.buildFor4Op(parsed, opmChips, clocks, dividers);
+                var opmCatalog = FourOpPatchCatalog.build(parsed, opmChips, clocks, dividers);
                 opmConverter.setPatchCatalog(opmCatalog);
             }
 

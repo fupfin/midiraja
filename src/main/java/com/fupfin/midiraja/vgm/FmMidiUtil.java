@@ -63,11 +63,13 @@ final class FmMidiUtil {
     }
 
     /**
-     * Returns true if the carrier envelope has fast attack and non-trivial decay (percussive).
+     * Returns true if the carrier envelope has fast attack and fast decay (percussive).
      * AR and DR are normalized to 0–15 range before calling.
+     * DR 4–6 has moderate decay with clear sustain character (piano/clavinet);
+     * DR ≥ 7 is truly percussive (marimba/xylophone).
      */
     static boolean isPercussive(int ar15, int dr15) {
-        return ar15 >= 10 && dr15 >= 4;
+        return ar15 >= 10 && dr15 >= 7;
     }
 
     /**
