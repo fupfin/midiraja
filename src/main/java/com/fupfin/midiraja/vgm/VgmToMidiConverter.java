@@ -232,7 +232,9 @@ public class VgmToMidiConverter {
         if (parsed.ym3812Clock() > 0)  chips.add("YM3812");
         if (parsed.ymf262Clock() > 0)  chips.add("YMF262");
         if (parsed.ay8910Clock() > 0)  chips.add("AY-3-8910");
-        if (parsed.sccClock() > 0 && parsed.ay8910Clock() > 0) chips.add("SCC");
+        // SCC clock falls back to ay8910Clock×2 even when no SCC events exist.
+        // Only show SCC if there are actual 0xD2 events in the VGM.
+        if (parsed.events().stream().anyMatch(e -> e.chip() == CHIP_SCC)) chips.add("SCC");
         if (parsed.huC6280Clock() > 0) chips.add("HuC6280");
         if (parsed.gameBoyDmgClock() > 0) chips.add("GB DMG");
 
