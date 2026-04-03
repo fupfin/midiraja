@@ -737,7 +737,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     private long getTickForTime(long targetMicroseconds)
     {
-        if (targetMicroseconds <= 0) return -1;
+        if (targetMicroseconds <= 0) return 0;
         long targetNanos = targetMicroseconds * 1000;
         long currentNanos = 0;
         long lastTick = 0;
