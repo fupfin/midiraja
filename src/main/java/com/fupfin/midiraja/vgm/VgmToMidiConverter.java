@@ -41,6 +41,7 @@ public class VgmToMidiConverter {
     public static final int CHIP_YM3812       = 14; // 0x5A (OPL2)
     public static final int CHIP_YMF262_PORT0 = 15; // 0x5E (OPL3 port 0)
     public static final int CHIP_YMF262_PORT1 = 16; // 0x5F (OPL3 port 1)
+    public static final int CHIP_NES_2A03     = 17; // 0xB4
 
     // PPQ=480 at 120 BPM → 960 ticks/second.
     // VGM timebase = 44100 Hz. Scale: tick = round(sampleOffset × 960 / 44100).
@@ -114,6 +115,7 @@ public class VgmToMidiConverter {
             var ym2610Conv     = new Ym2612MidiConverter(144, CHIP_YM2610_PORT1);
             var pceConverter   = new HuC6280MidiConverter();
             var opllConverter  = new Ym2413MidiConverter();
+            var nesConverter   = new Nes2A03MidiConverter();
             var gbConverter    = new GameBoyDmgMidiConverter();
             long opl2Clock = (parsed.ym3812Clock() != 0) ? parsed.ym3812Clock() : 3_579_545L;
             var opl2Converter  = new Ym3812MidiConverter();
@@ -196,6 +198,7 @@ public class VgmToMidiConverter {
                     case CHIP_YM2610_PORT1 -> ym2610Conv.convert(event, routed, parsed.ym2610Clock(), tick);
                     case CHIP_HUC6280      -> pceConverter.convert(event, routed, parsed.huC6280Clock(), tick);
                     case CHIP_GAMEBOY_DMG  -> gbConverter.convert(event, routed, parsed.gameBoyDmgClock(), tick);
+                    case CHIP_NES_2A03    -> nesConverter.convert(event, routed, parsed.nes2A03Clock(), tick);
                     case CHIP_YM2413       -> opllConverter.convert(event, routed, parsed.ym2413Clock(), tick);
                     case CHIP_YM3812       -> opl2Converter.convert(event, routed, opl2Clock, tick);
                     case CHIP_YMF262_PORT0 -> opl3Port0Conv.convert(event, routed, opl3Clock, tick);
@@ -236,6 +239,7 @@ public class VgmToMidiConverter {
         // Only show SCC if there are actual 0xD2 events in the VGM.
         if (parsed.events().stream().anyMatch(e -> e.chip() == CHIP_SCC)) chips.add("SCC");
         if (parsed.huC6280Clock() > 0) chips.add("HuC6280");
+        if (parsed.nes2A03Clock() > 0) chips.add("NES 2A03");
         if (parsed.gameBoyDmgClock() > 0) chips.add("GB DMG");
 
         var chipStr = chips.isEmpty() ? null : String.join("+", chips);

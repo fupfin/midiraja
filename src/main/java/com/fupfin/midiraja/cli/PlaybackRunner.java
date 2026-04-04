@@ -19,7 +19,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jspecify.annotations.Nullable;
 
+import javax.sound.midi.MidiSystem;
+
 import com.fupfin.midiraja.MidirajaCommand;
+import com.fupfin.midiraja.midi.MidiUtils;
+import com.fupfin.midiraja.mod.ModFileDetector;
+import com.fupfin.midiraja.mod.ModParser;
+import com.fupfin.midiraja.mod.ModToMidiConverter;
+import com.fupfin.midiraja.vgm.VgmFileDetector;
+import com.fupfin.midiraja.vgm.VgmParser;
+import com.fupfin.midiraja.vgm.VgmToMidiConverter;
 import com.fupfin.midiraja.engine.MidiPlaybackEngine;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaybackEngineFactory;
@@ -158,6 +167,20 @@ public class PlaybackRunner
             err.println("Error: No MIDI files specified. Use 'midra <file1.mid>' "
                     + "or 'midra -h' for help.");
             return 1;
+        }
+
+        // ── Export mode: convert and write to file, no playback ──────────────
+        if (common.exportMidi.isPresent())
+        {
+            var input = playlist.get(0);
+            var sequence = VgmFileDetector.isVgmFile(input)
+                    ? new VgmToMidiConverter(mutedChannels).convert(new VgmParser().parse(input))
+                    : ModFileDetector.isModFile(input)
+                    ? new ModToMidiConverter(mutedChannels).convert(new ModParser().parse(input))
+                    : MidiUtils.loadSequence(input);
+            MidiSystem.write(sequence, 1, common.exportMidi.get());
+            out.println("Exported: " + common.exportMidi.get());
+            return 0;
         }
 
         // Auto-save session to history

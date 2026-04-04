@@ -51,7 +51,7 @@ import com.fupfin.midiraja.ui.Logo;
         customSynopsis = {"midra [command] [OPTIONS] [<files>...]"},
         subcommands = {FmCommand.class, MuntCommand.class, FluidCommand.class,
                 TsfCommand.class, GusCommand.class, BeepCommand.class,
-                DeviceCommand.class, PsgCommand.class, VgmCommand.class, DemoCommand.class,
+                DeviceCommand.class, PsgCommand.class, DemoCommand.class,
                 InfoCommand.class, MidiInfoCommand.class, ResumeCommand.class, CommandLine.HelpCommand.class},
         footer = {"",
                 "Run 'midra <command> --help' for command-specific options.", "",

@@ -19,7 +19,7 @@ import javax.sound.midi.Track;
  * architecture. This class provides common GM program selection, carrier operator lookup,
  * velocity computation, and MIDI event helpers.
  */
-final class FmMidiUtil {
+public final class FmMidiUtil {
 
     // 4-instrument ensemble: smooth, range-appropriate, blends well in any combination.
     private static final int PROGRAM_ELECTRIC_PIANO2   = 5;   // melody sustained: warm, smooth
@@ -145,7 +145,7 @@ final class FmMidiUtil {
     }
 
     /** Adds a MIDI event to the track. */
-    static void addEvent(Track track, int command, int ch, int d1, int d2, long tick) {
+    public static void addEvent(Track track, int command, int ch, int d1, int d2, long tick) {
         try {
             track.add(new MidiEvent(new ShortMessage(command, ch, d1, d2), tick));
         } catch (InvalidMidiDataException e) {

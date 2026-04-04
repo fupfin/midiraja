@@ -7,6 +7,7 @@
 
 package com.fupfin.midiraja.cli;
 
+import java.io.File;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -151,6 +152,10 @@ public class CommonOptions
     @Option(names = {"--quiet"},
             description = "Suppress all terminal output. Useful for scripting and background playback.")
     public boolean quietMode;
+
+    @Option(names = {"--export-midi"}, paramLabel = "FILE",
+            description = "Convert the input file to MIDI and write to FILE without playing.")
+    public Optional<File> exportMidi = Optional.empty();
 
     @Option(names = {"--mute"}, paramLabel = "CHANNELS",
             description = "Comma-separated MIDI channel numbers (1-based, matching the UI display) or ranges to silence "

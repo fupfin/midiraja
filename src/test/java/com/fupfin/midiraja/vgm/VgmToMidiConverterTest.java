@@ -22,7 +22,7 @@ class VgmToMidiConverterTest {
 
     @Test
     void convert_emptyEvents_returnsValidSequence() {
-        var parsed = new VgmParseResult(0x151, 0L, 3_579_545L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, List.of(), null);
+        var parsed = new VgmParseResult(0x151, 0L, 3_579_545L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, List.of(), null);
 
         var sequence = new VgmToMidiConverter().convert(parsed);
 
@@ -34,7 +34,7 @@ class VgmToMidiConverterTest {
     @Test
     void convert_singleSn76489Event_hasTempoTrack() {
         var event = new VgmEvent(0, 0, new byte[]{(byte) 0x90});
-        var parsed = new VgmParseResult(0x151, 0L, 3_579_545L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, List.of(event), null);
+        var parsed = new VgmParseResult(0x151, 0L, 3_579_545L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, List.of(event), null);
 
         var sequence = new VgmToMidiConverter().convert(parsed);
         var tempoTrack = sequence.getTracks()[0];
@@ -55,7 +55,7 @@ class VgmToMidiConverterTest {
         // TSF requires an explicit patchChange(ch=9, preset=0, isDrums=1) to activate drum mode.
         // Without Program Change 0 on ch 9, TSF treats it as a melodic channel and plays piano
         // instead of drums. Verify that Program Change 0 is always emitted on MIDI channel 9.
-        var parsed = new VgmParseResult(0x151, 0L, 3_579_545L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, List.of(), null);
+        var parsed = new VgmParseResult(0x151, 0L, 3_579_545L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, List.of(), null);
 
         var sequence = new VgmToMidiConverter().convert(parsed);
 
@@ -81,7 +81,7 @@ class VgmToMidiConverterTest {
         var volEvent = new VgmEvent(0, 0, new byte[]{(byte) 0x90});
         var toneLow = new VgmEvent(100, 0, new byte[]{(byte) 0x8A});
         var toneHigh = new VgmEvent(100, 0, new byte[]{(byte) 0x01});
-        var parsed = new VgmParseResult(0x151, 0L, 3_579_545L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
+        var parsed = new VgmParseResult(0x151, 0L, 3_579_545L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
                 List.of(volEvent, toneLow, toneHigh), null);
 
         var sequence = new VgmToMidiConverter(Set.of(0)).convert(parsed);

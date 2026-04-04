@@ -34,7 +34,7 @@ import javax.sound.midi.Track;
  * <p>Program Change is inserted at segment boundaries only when the assigned instrument
  * changes, preventing per-note thrashing while still tracking role evolution over time.
  */
-final class TrackRoleAssigner {
+public final class TrackRoleAssigner {
 
     private static final int DRUM_CHANNEL = 9;
     private static final int CHANNELS = 15;
@@ -134,7 +134,7 @@ final class TrackRoleAssigner {
      * FM converters (YM2612, YM2151) emit their own per-note Program Change;
      * this method fills in PSG, wavetable, and any other channels without PC.
      */
-    static void assignUnassigned(Sequence sequence) {
+    public static void assignUnassigned(Sequence sequence) {
         var tracks = sequence.getTracks();
         if (tracks.length < 2) return;
 

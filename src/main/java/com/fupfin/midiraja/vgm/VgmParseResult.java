@@ -30,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  * @param sccClock K051649 (Konami SCC) clock in Hz; falls back to {@code ay8910Clock × 2} when
  *     the header field is zero. The K051649 runs at the full MSX cartridge bus clock (= CPU clock),
  *     while the AY8910 has an internal /2 prescaler — so SCC clock = 2 × AY8910 clock.
+ * @param nes2A03Clock NES 2A03 (RP2A03) clock in Hz, 0 if chip absent
  * @param events chip events in chronological order
  * @param gd3Title track title from GD3 tag, null if absent
  */
@@ -48,5 +49,6 @@ public record VgmParseResult(
         long ymf262Clock,
         long ay8910Clock,
         long sccClock,
+        long nes2A03Clock,
         List<VgmEvent> events,
         @Nullable String gd3Title) {}

@@ -48,6 +48,8 @@ public class VgmParser {
         long gameBoyDmgClock = (version >= 0x161 && data.length > 0x84) ? Integer.toUnsignedLong(buf.getInt(0x80)) : 0;
         long huC6280Clock = (version >= 0x161 && data.length > 0xA8) ? Integer.toUnsignedLong(buf.getInt(0xA4)) : 0;
         long k051649Clock = (version >= 0x161 && data.length > 0xB0) ? Integer.toUnsignedLong(buf.getInt(0xAC)) : 0;
+        // v1.61+
+        long nes2A03Clock = (version >= 0x161 && data.length > 0x88) ? Integer.toUnsignedLong(buf.getInt(0x84)) : 0;
         // K051649 in Konami MSX cartridges runs at the full cartridge bus clock (= CPU clock).
         // The AY8910 PSG has an internal /2 prescaler, so ay8910Clock = CPU/2.
         // When the VGM header stores k051649Clock=0, reconstruct the SCC clock as 2× ay8910Clock.
@@ -60,7 +62,7 @@ public class VgmParser {
 
         return new VgmParseResult(version, ym2413Clock, sn76489Clock, ym2612Clock, ym2151Clock,
                 ym2203Clock, ym2608Clock, ym2610Clock, gameBoyDmgClock, huC6280Clock,
-                ym3812Clock, ymf262Clock, ay8910Clock, sccClock, events, gd3Title);
+                ym3812Clock, ymf262Clock, ay8910Clock, sccClock, nes2A03Clock, events, gd3Title);
     }
 
     private static byte[] readAllBytes(File file) throws IOException {
@@ -206,6 +208,11 @@ public class VgmParser {
                 case 0xB3 -> { // Game Boy DMG
                     if (pos + 1 >= data.length) break;
                     events.add(new VgmEvent(sampleOffset, 11, new byte[]{data[pos], data[pos + 1]}));
+                    pos += 2;
+                }
+                case 0xB4 -> { // NES 2A03
+                    if (pos + 1 >= data.length) break;
+                    events.add(new VgmEvent(sampleOffset, 17, new byte[]{data[pos], data[pos + 1]}));
                     pos += 2;
                 }
                 case 0xB9 -> { // HuC6280 (PC Engine)

@@ -194,7 +194,8 @@ public class PlaylistParser
                         .filter(f -> {
                             String name = f.getName().toLowerCase(Locale.ROOT);
                             return name.endsWith(".mid") || name.endsWith(".midi")
-                                    || name.endsWith(".vgm") || name.endsWith(".vgz");
+                                    || name.endsWith(".vgm") || name.endsWith(".vgz")
+                                    || name.endsWith(".mod");
                         }).forEach(playlist::add);
             }
         }
