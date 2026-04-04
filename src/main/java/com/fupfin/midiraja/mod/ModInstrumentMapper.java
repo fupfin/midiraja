@@ -54,13 +54,19 @@ public final class ModInstrumentMapper
      *
      * @return GM program 0–127, {@link #PERCUSSION}, or {@link #UNMATCHED}
      */
-    public static int mapToGmProgram(ModInstrument instrument)
+    /** Maps an instrument name to a GM program. */
+    public static int mapNameToGmProgram(String name)
     {
-        String lower = instrument.name().toLowerCase(Locale.ROOT);
+        String lower = name.toLowerCase(Locale.ROOT);
         for (int i = 0; i < KEYWORDS.length; i++)
         {
             if (lower.contains(KEYWORDS[i])) return PROGRAMS[i];
         }
         return UNMATCHED;
+    }
+
+    public static int mapToGmProgram(ModInstrument instrument)
+    {
+        return mapNameToGmProgram(instrument.name());
     }
 }

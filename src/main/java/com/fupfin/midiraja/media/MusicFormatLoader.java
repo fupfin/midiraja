@@ -17,6 +17,9 @@ import com.fupfin.midiraja.midi.MidiUtils;
 import com.fupfin.midiraja.mod.ModFileDetector;
 import com.fupfin.midiraja.mod.ModParser;
 import com.fupfin.midiraja.mod.ModToMidiConverter;
+import com.fupfin.midiraja.s3m.S3mFileDetector;
+import com.fupfin.midiraja.s3m.S3mParser;
+import com.fupfin.midiraja.s3m.S3mToMidiConverter;
 import com.fupfin.midiraja.vgm.VgmFileDetector;
 import com.fupfin.midiraja.vgm.VgmParser;
 import com.fupfin.midiraja.vgm.VgmToMidiConverter;
@@ -43,6 +46,8 @@ public final class MusicFormatLoader
             return new VgmToMidiConverter(mutedChannels).convert(new VgmParser().parse(file));
         if (ModFileDetector.isModFile(file))
             return new ModToMidiConverter(mutedChannels).convert(new ModParser().parse(file));
+        if (S3mFileDetector.isS3mFile(file))
+            return new S3mToMidiConverter(mutedChannels).convert(new S3mParser().parse(file));
         return MidiUtils.loadSequence(file);
     }
 
@@ -55,6 +60,6 @@ public final class MusicFormatLoader
         String name = fileName.toLowerCase(Locale.ROOT);
         return name.endsWith(".mid") || name.endsWith(".midi")
                 || name.endsWith(".vgm") || name.endsWith(".vgz")
-                || name.endsWith(".mod");
+                || name.endsWith(".mod") || name.endsWith(".s3m");
     }
 }
