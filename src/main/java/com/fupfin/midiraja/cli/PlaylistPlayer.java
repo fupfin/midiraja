@@ -31,12 +31,7 @@ import com.fupfin.midiraja.ui.PlaybackEventListener;
 import com.fupfin.midiraja.ui.PlaybackUI;
 import java.util.Set;
 
-import com.fupfin.midiraja.mod.ModFileDetector;
-import com.fupfin.midiraja.mod.ModParser;
-import com.fupfin.midiraja.mod.ModToMidiConverter;
-import com.fupfin.midiraja.vgm.VgmFileDetector;
-import com.fupfin.midiraja.vgm.VgmParser;
-import com.fupfin.midiraja.vgm.VgmToMidiConverter;
+import com.fupfin.midiraja.media.MusicFormatLoader;
 
 /**
  * Executes a playlist of MIDI files using a given provider and port.
@@ -100,11 +95,7 @@ class PlaylistPlayer {
             var file = playlist.get(playOrderHolder[0][currentIdxHolder[0]]);
             try
             {
-                var sequence = VgmFileDetector.isVgmFile(file)
-                        ? new VgmToMidiConverter(mutedChannels).convert(new VgmParser().parse(file))
-                        : ModFileDetector.isModFile(file)
-                        ? new ModToMidiConverter(mutedChannels).convert(new ModParser().parse(file))
-                        : MidiUtils.loadSequence(file);
+                var sequence = MusicFormatLoader.load(file, mutedChannels);
                 logVerbose(common.isVerbose(),
                         String.format("Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d",
                                 file.getName(), sequence.getResolution(),

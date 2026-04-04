@@ -20,6 +20,8 @@ import java.util.OptionalInt;
 
 import org.jspecify.annotations.Nullable;
 
+import com.fupfin.midiraja.media.MusicFormatLoader;
+
 /**
  * Builds a flat playlist from a mix of .mid files, directories, and .m3u playlists. M3U files may
  * contain {@code #MIDRA:} directives that are returned via {@link ParseResult#directives()}.
@@ -191,12 +193,7 @@ public class PlaylistParser
                 stream.filter(Files::isRegularFile)
                         .sorted()
                         .map(Path::toFile)
-                        .filter(f -> {
-                            String name = f.getName().toLowerCase(Locale.ROOT);
-                            return name.endsWith(".mid") || name.endsWith(".midi")
-                                    || name.endsWith(".vgm") || name.endsWith(".vgz")
-                                    || name.endsWith(".mod");
-                        }).forEach(playlist::add);
+                        .filter(f -> MusicFormatLoader.isSupportedFile(f.getName())).forEach(playlist::add);
             }
         }
         catch (Exception e)
