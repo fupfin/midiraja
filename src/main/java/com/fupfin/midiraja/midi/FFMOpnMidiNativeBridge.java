@@ -34,7 +34,7 @@ import java.util.List;
  * <b>Note on GraalVM scalarisation:</b> See {@link FFMMuntNativeBridge} for details; the same rules
  * apply here.
  */
-@SuppressWarnings({"EmptyCatch", "UnusedVariable"})
+@SuppressWarnings({ "EmptyCatch", "UnusedVariable" })
 public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidiNativeBridge
 {
     private MemorySegment device = MemorySegment.NULL;
@@ -175,7 +175,7 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
         }
         catch (Throwable t)
         {
-            err.println("[NativeBridge Error] " +t.getMessage());
+            err.println("[NativeBridge Error] " + t.getMessage());
             throw new IllegalStateException("Error initializing libOPNMIDI", t);
         }
     }
@@ -183,7 +183,8 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
     @Override
     public void loadBankFile(String path) throws Exception
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try (Arena temp = Arena.ofConfined())
         {
             MemorySegment pathSeg = temp.allocateFrom(path);
@@ -196,12 +197,12 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
         }
         catch (Exception e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
             throw e;
         }
         catch (Throwable t)
         {
-            err.println("[NativeBridge Error] " +t.getMessage());
+            err.println("[NativeBridge Error] " + t.getMessage());
             throw new IllegalStateException("Error loading WOPN bank file: " + path, t);
         }
     }
@@ -209,7 +210,8 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
     @Override
     public void loadBankData(byte[] data) throws Exception
     {
-        if (device.equals(MemorySegment.NULL) || data == null || data.length == 0) return;
+        if (device.equals(MemorySegment.NULL) || data == null || data.length == 0)
+            return;
         try (Arena temp = Arena.ofConfined())
         {
             MemorySegment seg = temp.allocateFrom(ValueLayout.JAVA_BYTE, data);
@@ -221,12 +223,12 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
         }
         catch (Exception e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
             throw e;
         }
         catch (Throwable t)
         {
-            err.println("[NativeBridge Error] " +t.getMessage());
+            err.println("[NativeBridge Error] " + t.getMessage());
             throw new IllegalStateException("Error loading WOPN bank data", t);
         }
     }
@@ -234,63 +236,68 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
     @Override
     public void setNumChips(int numChips)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             int ignored = (int) opn2_setNumChips.invokeExact(device, numChips);
         }
         catch (Throwable e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 
     @Override
     public void switchEmulator(int emulatorId)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             int ignored = (int) opn2_switchEmulator.invokeExact(device, emulatorId);
         }
         catch (Throwable e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 
     @Override
     public void reset()
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             opn2_reset.invokeExact(device);
         }
         catch (Throwable e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 
     @Override
     public void panic()
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             opn2_panic.invokeExact(device);
         }
         catch (Throwable e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 
     @Override
     public void noteOn(int channel, int note, int velocity)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             int ignored = (int) opn2_rt_noteOn.invokeExact(device, (byte) channel, (byte) note,
@@ -298,56 +305,60 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
         }
         catch (Throwable e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 
     @Override
     public void noteOff(int channel, int note)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             opn2_rt_noteOff.invokeExact(device, (byte) channel, (byte) note);
         }
         catch (Throwable e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 
     @Override
     public void controlChange(int channel, int type, int value)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             opn2_rt_controllerChange.invokeExact(device, (byte) channel, (byte) type, (byte) value);
         }
         catch (Throwable e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 
     @Override
     public void patchChange(int channel, int patch)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             opn2_rt_patchChange.invokeExact(device, (byte) channel, (byte) patch);
         }
         catch (Throwable e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 
     @Override
     public void pitchBend(int channel, int pitch)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         // pitch is 14-bit unsigned (0–16383); opn2_rt_pitchBend takes uint16_t
         try
         {
@@ -355,23 +366,23 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
         }
         catch (Throwable e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 
     @Override
     public void systemExclusive(byte[] data)
     {
-        if (device.equals(MemorySegment.NULL) || data == null || data.length == 0) return;
+        if (device.equals(MemorySegment.NULL) || data == null || data.length == 0)
+            return;
         try (Arena temp = Arena.ofConfined())
         {
             MemorySegment seg = temp.allocateFrom(ValueLayout.JAVA_BYTE, data);
-            int ignored =
-                    (int) opn2_rt_systemExclusive.invokeExact(device, seg, (long) data.length);
+            int ignored = (int) opn2_rt_systemExclusive.invokeExact(device, seg, (long) data.length);
         }
         catch (Throwable e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 
@@ -393,7 +404,7 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
             }
             catch (Throwable e)
             {
-                err.println("[NativeBridge Error] " +e.getMessage());
+                err.println("[NativeBridge Error] " + e.getMessage());
             }
             device = MemorySegment.NULL;
         }
@@ -403,7 +414,7 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
         }
         catch (Exception e)
         {
-            err.println("[NativeBridge Error] " +e.getMessage());
+            err.println("[NativeBridge Error] " + e.getMessage());
         }
     }
 }

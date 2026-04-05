@@ -14,8 +14,10 @@ public final class TubeSaturationFilter extends AudioFilter
     private volatile boolean enabled = true;
 
     /**
-     * @param next The next node in the audio pipeline
-     * @param drive Amount of overdrive (e.g., 2.0f to 5.0f for heavy saturation)
+     * @param next
+     *            The next node in the audio pipeline
+     * @param drive
+     *            Amount of overdrive (e.g., 2.0f to 5.0f for heavy saturation)
      */
     public TubeSaturationFilter(AudioProcessor next, float drive)
     {
@@ -45,7 +47,8 @@ public final class TubeSaturationFilter extends AudioFilter
         if (!enabled || drive <= 1.01f)
         {
             // Bypass mode: do nothing, pass through cleanly
-            if (next != null) next.process(left, right, frames);
+            if (next != null)
+                next.process(left, right, frames);
             return;
         }
 

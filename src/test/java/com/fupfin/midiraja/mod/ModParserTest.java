@@ -49,7 +49,7 @@ class ModParserTest
         int cellOffset = 1084;
         // Encode: instrument bits 7-4, period hi bits 3-0 in byte0
         // period = period, instrument = instrument
-        data[cellOffset]     = (byte) (((instrument & 0xF0) | ((period >> 8) & 0x0F)));
+        data[cellOffset] = (byte) (((instrument & 0xF0) | ((period >> 8) & 0x0F)));
         data[cellOffset + 1] = (byte) (period & 0xFF);
         data[cellOffset + 2] = (byte) ((instrument & 0x0F) << 4); // effect = 0
         data[cellOffset + 3] = 0; // effectParam = 0
@@ -150,13 +150,16 @@ class ModParserTest
     /** Allocate a blank N-pattern 4-channel M.K. MOD with the given order table. */
     private static byte[] blankMod(int nPatterns, int[] order, int songLength)
     {
-        int headerSize   = 1084;
-        int bytesPerPat  = 64 * 4 * 4; // 64 rows × 4 ch × 4 bytes
+        int headerSize = 1084;
+        int bytesPerPat = 64 * 4 * 4; // 64 rows × 4 ch × 4 bytes
         byte[] data = new byte[headerSize + nPatterns * bytesPerPat];
-        data[950]    = (byte) songLength;
+        data[950] = (byte) songLength;
         for (int i = 0; i < Math.min(order.length, 128); i++)
             data[952 + i] = (byte) order[i];
-        data[1080] = 'M'; data[1081] = '.'; data[1082] = 'K'; data[1083] = '.';
+        data[1080] = 'M';
+        data[1081] = '.';
+        data[1082] = 'K';
+        data[1083] = '.';
         return data;
     }
 
@@ -165,7 +168,7 @@ class ModParserTest
             int period, int instrument, int effect, int param)
     {
         int offset = 1084 + pat * (64 * 4 * 4) + row * 4 * 4 + ch * 4;
-        data[offset]     = (byte) ((instrument & 0xF0) | ((period >> 8) & 0x0F));
+        data[offset] = (byte) ((instrument & 0xF0) | ((period >> 8) & 0x0F));
         data[offset + 1] = (byte) (period & 0xFF);
         data[offset + 2] = (byte) (((instrument & 0x0F) << 4) | (effect & 0x0F));
         data[offset + 3] = (byte) param;
@@ -174,14 +177,14 @@ class ModParserTest
     // ── Bxx position jump ─────────────────────────────────────────────────────
 
     /**
-     * Pattern 0 row 1 has B02 (jump to order 2).  Pattern 1 should be skipped.
-     * Order: [0, 1, 2], songLength=3.  Each pattern has a unique period.
+     * Pattern 0 row 1 has B02 (jump to order 2). Pattern 1 should be skipped.
+     * Order: [0, 1, 2], songLength=3. Each pattern has a unique period.
      */
     @Test
     void positionJump_Bxx_skipsIntermediatePattern() throws Exception
     {
         // 3 patterns, order=[0,1,2], songLength=3
-        byte[] data = blankMod(3, new int[]{0, 1, 2}, 3);
+        byte[] data = blankMod(3, new int[] { 0, 1, 2 }, 3);
 
         // Pat0 row0 ch0: note period=428
         writeCell(data, 0, 0, 0, 428, 1, 0, 0);
@@ -211,11 +214,11 @@ class ModParserTest
     @Test
     void patternBreak_Dxx_startsNextPatternAtSpecifiedRow() throws Exception
     {
-        byte[] data = blankMod(2, new int[]{0, 1}, 2);
+        byte[] data = blankMod(2, new int[] { 0, 1 }, 2);
 
         // Pat0 row0 ch0: note
         writeCell(data, 0, 0, 0, 428, 1, 0, 0);
-        // Pat0 row1 ch0: D05 (break to row 5)  — param 0x05 → (0)*10+5 = row 5
+        // Pat0 row1 ch0: D05 (break to row 5) — param 0x05 → (0)*10+5 = row 5
         writeCell(data, 0, 1, 0, 0, 0, 0xD, 0x05);
         // Pat1 row5 ch1: distinguishing note on channel 1
         writeCell(data, 1, 5, 1, 428, 1, 0, 0);
@@ -237,7 +240,7 @@ class ModParserTest
     @Test
     void patternBreak_Dxx_rowsBeforeTargetAreSkipped() throws Exception
     {
-        byte[] data = blankMod(2, new int[]{0, 1}, 2);
+        byte[] data = blankMod(2, new int[] { 0, 1 }, 2);
 
         // Pat0 row0 ch0: D05
         writeCell(data, 0, 0, 0, 0, 0, 0xD, 0x05);
@@ -262,7 +265,7 @@ class ModParserTest
     @Test
     void loopDetection_Bxx_selfJump_terminates() throws Exception
     {
-        byte[] data = blankMod(1, new int[]{0}, 1);
+        byte[] data = blankMod(1, new int[] { 0 }, 1);
 
         // Pat0 row0 ch0: note
         writeCell(data, 0, 0, 0, 428, 1, 0, 0);

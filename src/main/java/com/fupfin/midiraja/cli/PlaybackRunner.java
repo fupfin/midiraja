@@ -16,19 +16,18 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.sound.midi.MidiSystem;
 
 import org.jspecify.annotations.Nullable;
 
-import javax.sound.midi.MidiSystem;
-
 import com.fupfin.midiraja.MidirajaCommand;
-import com.fupfin.midiraja.media.MusicFormatLoader;
 import com.fupfin.midiraja.engine.MidiPlaybackEngine;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaybackEngineFactory;
 import com.fupfin.midiraja.io.JLineTerminalIO;
 import com.fupfin.midiraja.io.TerminalIO;
 import com.fupfin.midiraja.media.MediaKeyIntegration;
+import com.fupfin.midiraja.media.MusicFormatLoader;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.midi.SoftSynthProvider;
@@ -47,8 +46,8 @@ import com.fupfin.midiraja.ui.Theme;
 @SuppressWarnings("EmptyCatch")
 public class PlaybackRunner
 {
-    private static final java.util.logging.Logger log =
-            java.util.logging.Logger.getLogger(PlaybackRunner.class.getName());
+    private static final java.util.logging.Logger log = java.util.logging.Logger
+            .getLogger(PlaybackRunner.class.getName());
     private final PrintStream out;
     private final PrintStream err;
     @Nullable
@@ -64,17 +63,26 @@ public class PlaybackRunner
     private java.util.Set<Integer> mutedChannels = java.util.Set.of();
     private final PlaybackEngineFactory engineFactory;
 
-    public void setFxOptions(FxOptions fx) { this.fxOptions = fx; }
+    public void setFxOptions(FxOptions fx)
+    {
+        this.fxOptions = fx;
+    }
 
     /**
      * Set to true for synths that own the audio pipeline (gus, psg, tsf).
      * OPL/OPN show retro via dacMode in the port name instead, so they leave this false.
      * Fluid, Munt, and OS ports don't process retro at all.
      */
-    public void setIncludeRetroInSuffix(boolean include) { this.includeRetroInSuffix = include; }
+    public void setIncludeRetroInSuffix(boolean include)
+    {
+        this.includeRetroInSuffix = include;
+    }
 
     /** MIDI channel indices (0-based) to silence during VGM conversion. */
-    public void setMutedChannels(java.util.Set<Integer> channels) { this.mutedChannels = channels; }
+    public void setMutedChannels(java.util.Set<Integer> channels)
+    {
+        this.mutedChannels = channels;
+    }
 
     public PlaybackStatus getLastRawStatus()
     {
@@ -122,14 +130,20 @@ public class PlaybackRunner
     /**
      * Run the full playback lifecycle.
      *
-     * @param provider pre-constructed MIDI provider
-     * @param isSoftSynth if {@code true}, port selection is skipped (port 0 is always used)
-     * @param portQuery for native MIDI: optional explicit port index or name
-     * @param soundbankArg for soft synths: argument to pass to
-     *        {@link SoftSynthProvider#loadSoundbank}
-     * @param rawFiles raw file/dir/playlist arguments from the command line
-     * @param common shared playback options; M3U playlist directives are applied to this
-     *        object via {@link PlaylistDirectives#applyTo} after parsing
+     * @param provider
+     *            pre-constructed MIDI provider
+     * @param isSoftSynth
+     *            if {@code true}, port selection is skipped (port 0 is always used)
+     * @param portQuery
+     *            for native MIDI: optional explicit port index or name
+     * @param soundbankArg
+     *            for soft synths: argument to pass to
+     *            {@link SoftSynthProvider#loadSoundbank}
+     * @param rawFiles
+     *            raw file/dir/playlist arguments from the command line
+     * @param common
+     *            shared playback options; M3U playlist directives are applied to this
+     *            object via {@link PlaylistDirectives#applyTo} after parsing
      * @return picocli exit code (0 = success, 1 = error)
      */
     public int run(MidiOutProvider provider, boolean isSoftSynth, Optional<String> portQuery,
@@ -174,21 +188,23 @@ public class PlaybackRunner
         }
 
         // Auto-save session to history
-        if (!originalArgs.isEmpty()) {
+        if (!originalArgs.isEmpty())
+        {
             new SessionHistory().recordAuto(originalArgs);
         }
 
         // ── Port selection ────────────────────────────────────────────────────
         int portIndex = resolvePortIndex(ports, isSoftSynth, portQuery, common.uiOptions, common.quietMode);
-        if (portIndex == -2) return 1; // Error finding port
-        if (portIndex == -1) return 0; // User quit
+        if (portIndex == -2)
+            return 1; // Error finding port
+        if (portIndex == -1)
+            return 0; // User quit
 
         try
         {
             int finalPortIndex = portIndex;
             ports.stream().filter(p -> p.index() == finalPortIndex).findFirst()
-                    .ifPresent(p -> logVerbose(common.isVerbose(),
-                            "Opening MIDI Output Port [" + p.index() + "]: \"" + p.name() + "\""));
+                    .ifPresent(p -> logOpeningPort(common.isVerbose(), p));
             provider.openPort(portIndex);
 
             if (soundbankArg.isPresent() && provider instanceof SoftSynthProvider softSynth)
@@ -245,12 +261,13 @@ public class PlaybackRunner
             {
                 System.setErr(savedErr);
                 MidirajaCommand.ALT_SCREEN_ACTIVE = false;
-                mediaKeys.close();    // stop native thread BEFORE tearing down terminal I/O
+                mediaKeys.close(); // stop native thread BEFORE tearing down terminal I/O
                 activeIO.close();
                 if (isInteractive)
                 {
                     String safeRestore = (useAltScreen && !suppressAltScreenRestore
-                                    ? Theme.TERM_ALT_SCREEN_DISABLE : "")
+                            ? Theme.TERM_ALT_SCREEN_DISABLE
+                            : "")
                             + Theme.TERM_MOUSE_DISABLE + Theme.COLOR_RESET + Theme.TERM_AUTOWRAP_ON
                             + Theme.TERM_SHOW_CURSOR + "\r\033[K\n";
                     out.print(safeRestore);
@@ -264,7 +281,8 @@ public class PlaybackRunner
         {
             log.warning("Error during playback: " + e.getMessage());
             err.println("Error during playback: " + e.getMessage());
-            if (common.isVerbose()) e.printStackTrace(err);
+            if (common.isVerbose())
+                e.printStackTrace(err);
             return 1;
         }
         finally
@@ -307,18 +325,19 @@ public class PlaybackRunner
         try
         {
             int idx = Integer.parseInt(query);
-            if (ports.stream().anyMatch(p -> p.index() == idx)) return idx;
+            if (ports.stream().anyMatch(p -> p.index() == idx))
+                return idx;
         }
         catch (NumberFormatException e)
-        {
-        }
+        {}
 
         var lowerQuery = query.toLowerCase(ROOT);
         var matches = ports.stream()
                 .filter(p -> p.name().toLowerCase(ROOT).contains(lowerQuery))
                 .toList();
 
-        if (matches.size() == 1) return matches.getFirst().index();
+        if (matches.size() == 1)
+            return matches.getFirst().index();
         if (matches.size() > 1)
         {
             err.println("Ambiguous port name. Matches:");
@@ -330,7 +349,8 @@ public class PlaybackRunner
     private int interactivePortSelection(List<MidiPort> ports, UiModeOptions uiOpts, boolean quietMode)
             throws Exception
     {
-        if (ports.isEmpty()) return -1;
+        if (ports.isEmpty())
+            return -1;
         var items = ports.stream()
                 .map(p -> TerminalSelector.Item.of(p.index(), "[" + p.index() + "] " + p.name(), ""))
                 .toList();
@@ -344,9 +364,14 @@ public class PlaybackRunner
 
     private void logVerbose(boolean verbose, String message)
     {
-        if (verbose) err.println("[VERBOSE] " + message);
+        if (verbose)
+            err.println("[VERBOSE] " + message);
     }
 
+    private void logOpeningPort(boolean verbose, MidiPort p)
+    {
+        logVerbose(verbose, "Opening MIDI Output Port [" + p.index() + "]: \"" + p.name() + "\"");
+    }
 
     private int validateFiles(List<File> rawFiles)
     {
@@ -396,16 +421,24 @@ public class PlaybackRunner
         }
     }
 
-    record UIResult(PlaybackUI ui, boolean useAltScreen) {}
+    record UIResult(PlaybackUI ui, boolean useAltScreen)
+    {
+    }
 
     UIResult buildUI(boolean quietMode, UiModeOptions uiOpts, boolean isInteractive, int activeIOHeight)
     {
-        if (quietMode)           return new UIResult(new DumbUI(true),  false);
-        if (uiOpts.classicMode)  return new UIResult(new DumbUI(false), false);
-        if (uiOpts.miniMode)     return new UIResult(new LineUI(),      false);
-        if (uiOpts.fullMode)     return new UIResult(new DashboardUI(), true);
-        if (!isInteractive)      return new UIResult(new DumbUI(false), false);
-        if (activeIOHeight < 10) return new UIResult(new LineUI(),      false);
-        return                        new UIResult(new DashboardUI(), true);
+        if (quietMode)
+            return new UIResult(new DumbUI(true), false);
+        if (uiOpts.classicMode)
+            return new UIResult(new DumbUI(false), false);
+        if (uiOpts.miniMode)
+            return new UIResult(new LineUI(), false);
+        if (uiOpts.fullMode)
+            return new UIResult(new DashboardUI(), true);
+        if (!isInteractive)
+            return new UIResult(new DumbUI(false), false);
+        if (activeIOHeight < 10)
+            return new UIResult(new LineUI(), false);
+        return new UIResult(new DashboardUI(), true);
     }
 }

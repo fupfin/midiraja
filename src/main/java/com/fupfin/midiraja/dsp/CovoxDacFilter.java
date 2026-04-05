@@ -57,7 +57,8 @@ public class CovoxDacFilter implements AudioProcessor
             float sum = 0;
             for (int bit = 0; bit < 8; bit++)
             {
-                if ((i & (1 << bit)) != 0) sum += weights[bit];
+                if ((i & (1 << bit)) != 0)
+                    sum += weights[bit];
             }
             dacLut[i] = (sum / total) * 2.0f - 1.0f;
         }
@@ -88,7 +89,8 @@ public class CovoxDacFilter implements AudioProcessor
             // Linear interpolation over 4 samples (~11.025 kHz typical DOS CPU limit)
             float interp = prevHeldVal + (holdCounter / 4.0f) * (heldVal - prevHeldVal);
             holdCounter++;
-            if (holdCounter >= 4) holdCounter = 0;
+            if (holdCounter >= 4)
+                holdCounter = 0;
 
             // Apply analog RC smoothing LPF (2.12 kHz)
             lastOut += LPF_ALPHA * (interp - lastOut);
@@ -127,7 +129,8 @@ public class CovoxDacFilter implements AudioProcessor
 
             float interp = prevHeldVal + (holdCounter / 4.0f) * (heldVal - prevHeldVal);
             holdCounter++;
-            if (holdCounter >= 4) holdCounter = 0;
+            if (holdCounter >= 4)
+                holdCounter = 0;
 
             lastOut += LPF_ALPHA * (interp - lastOut);
             short outShort = (short) Math.max(-32768, Math.min(32767, lastOut * 32768.0f));

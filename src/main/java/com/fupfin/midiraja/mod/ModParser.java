@@ -19,18 +19,21 @@ import java.util.Set;
 /**
  * Parses ProTracker MOD files into a {@link ModParseResult}.
  *
- * <p>Binary layout:
+ * <p>
+ * Binary layout:
  * <ul>
- *   <li>Offset   0: 20-byte song title
- *   <li>Offset  20: 31 × 30-byte instrument headers
- *   <li>Offset 950: 1-byte song length (number of pattern positions to play)
- *   <li>Offset 951: 1-byte restart position (unused)
- *   <li>Offset 952: 128-byte pattern order table
- *   <li>Offset 1080: 4-byte format tag ("M.K.", "8CHN", …)
- *   <li>Offset 1084: pattern data (64 rows × channels × 4 bytes/cell)
+ * <li>Offset 0: 20-byte song title
+ * <li>Offset 20: 31 × 30-byte instrument headers
+ * <li>Offset 950: 1-byte song length (number of pattern positions to play)
+ * <li>Offset 951: 1-byte restart position (unused)
+ * <li>Offset 952: 128-byte pattern order table
+ * <li>Offset 1080: 4-byte format tag ("M.K.", "8CHN", …)
+ * <li>Offset 1084: pattern data (64 rows × channels × 4 bytes/cell)
  * </ul>
  *
- * <p>Each 4-byte note cell encodes:
+ * <p>
+ * Each 4-byte note cell encodes:
+ *
  * <pre>
  *   instrument = (byte0 &amp; 0xF0) | ((byte2 &amp; 0xF0) &gt;&gt; 4)
  *   period     = ((byte0 &amp; 0x0F) &lt;&lt; 8) | byte1
@@ -41,9 +44,9 @@ import java.util.Set;
 public class ModParser
 {
     private static final int ROWS_PER_PATTERN = 64;
-    private static final int BYTES_PER_CELL   = 4;
-    private static final int DEFAULT_SPEED    = 6;
-    private static final int DEFAULT_TEMPO    = 125; // BPM
+    private static final int BYTES_PER_CELL = 4;
+    private static final int DEFAULT_SPEED = 6;
+    private static final int DEFAULT_TEMPO = 125; // BPM
 
     public ModParseResult parse(File file) throws IOException
     {
@@ -106,13 +109,15 @@ public class ModParser
         while (orderPos < songLength)
         {
             long key = ((long) orderPos << 16) | row;
-            if (!visited.add(key)) break; // loop detected
+            if (!visited.add(key))
+                break; // loop detected
 
             int patternNum = orderTable[orderPos] & 0xFF;
             int patternOffset = patternDataOffset + patternNum * bytesPerPattern;
             int rowOffset = patternOffset + row * channelCount * BYTES_PER_CELL;
 
-            if (rowOffset + channelCount * BYTES_PER_CELL > data.length) break;
+            if (rowOffset + channelCount * BYTES_PER_CELL > data.length)
+                break;
 
             // Scan for tempo effects first (Fxx) to get correct row duration
             int nextSpeed = speed;
@@ -121,11 +126,13 @@ public class ModParser
             {
                 int cellOffset = rowOffset + ch * BYTES_PER_CELL;
                 int effect = data[cellOffset + 2] & 0x0F;
-                int param  = data[cellOffset + 3] & 0xFF;
+                int param = data[cellOffset + 3] & 0xFF;
                 if (effect == 0xF && param > 0)
                 {
-                    if (param <= 0x1F) nextSpeed = param;
-                    else nextTempo = param;
+                    if (param <= 0x1F)
+                        nextSpeed = param;
+                    else
+                        nextTempo = param;
                 }
             }
 
@@ -133,15 +140,15 @@ public class ModParser
             for (int ch = 0; ch < channelCount; ch++)
             {
                 int cellOffset = rowOffset + ch * BYTES_PER_CELL;
-                int b0 = data[cellOffset]     & 0xFF;
+                int b0 = data[cellOffset] & 0xFF;
                 int b1 = data[cellOffset + 1] & 0xFF;
                 int b2 = data[cellOffset + 2] & 0xFF;
                 int b3 = data[cellOffset + 3] & 0xFF;
 
                 int instrument = (b0 & 0xF0) | ((b2 & 0xF0) >> 4);
-                int period     = ((b0 & 0x0F) << 8) | b1;
-                int effect     = b2 & 0x0F;
-                int param      = b3;
+                int period = ((b0 & 0x0F) << 8) | b1;
+                int effect = b2 & 0x0F;
+                int param = b3;
 
                 if (period > 0 || instrument > 0 || effect != 0 || param != 0)
                     events.add(new ModEvent(currentMicrosecond, ch, period, instrument, effect, param));
@@ -155,16 +162,17 @@ public class ModParser
 
             // Check for pattern-break (Dxx) and position-jump (Bxx) in any channel
             int jumpToOrder = -1;
-            int breakToRow  = -1;
+            int breakToRow = -1;
             for (int ch = 0; ch < channelCount; ch++)
             {
                 int cellOffset = rowOffset + ch * BYTES_PER_CELL;
                 int effect = data[cellOffset + 2] & 0x0F;
-                int param  = data[cellOffset + 3] & 0xFF;
+                int param = data[cellOffset + 3] & 0xFF;
                 if (effect == 0xD) // Pattern break: jump to next pattern, row param
                 {
                     breakToRow = ((param >> 4) * 10) + (param & 0x0F);
-                    if (breakToRow >= ROWS_PER_PATTERN) breakToRow = 0;
+                    if (breakToRow >= ROWS_PER_PATTERN)
+                        breakToRow = 0;
                 }
                 if (effect == 0xB) // Position jump: jump to order param
                 {
@@ -193,13 +201,13 @@ public class ModParser
 
     private static ModInstrument readInstrument(byte[] data, int offset)
     {
-        String name     = readAsciiTrimmed(data, offset, 22);
-        int length      = ((data[offset + 22] & 0xFF) << 8) | (data[offset + 23] & 0xFF);
+        String name = readAsciiTrimmed(data, offset, 22);
+        int length = ((data[offset + 22] & 0xFF) << 8) | (data[offset + 23] & 0xFF);
         int finetuneByte = data[offset + 24] & 0x0F;
-        int finetune    = finetuneByte >= 8 ? finetuneByte - 16 : finetuneByte; // signed nibble
-        int volume      = data[offset + 25] & 0xFF;
-        int loopStart   = ((data[offset + 26] & 0xFF) << 8) | (data[offset + 27] & 0xFF);
-        int loopLength  = ((data[offset + 28] & 0xFF) << 8) | (data[offset + 29] & 0xFF);
+        int finetune = finetuneByte >= 8 ? finetuneByte - 16 : finetuneByte; // signed nibble
+        int volume = data[offset + 25] & 0xFF;
+        int loopStart = ((data[offset + 26] & 0xFF) << 8) | (data[offset + 27] & 0xFF);
+        int loopLength = ((data[offset + 28] & 0xFF) << 8) | (data[offset + 29] & 0xFF);
         return new ModInstrument(name, length, finetune, volume, loopStart, loopLength);
     }
 
@@ -208,7 +216,8 @@ public class ModParser
         int end = offset;
         for (int i = offset; i < offset + maxLen && i < data.length; i++)
         {
-            if (data[i] != 0) end = i + 1;
+            if (data[i] != 0)
+                end = i + 1;
         }
         return new String(data, offset, end - offset, StandardCharsets.US_ASCII).trim();
     }

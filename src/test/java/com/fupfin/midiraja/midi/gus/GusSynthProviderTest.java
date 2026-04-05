@@ -8,18 +8,35 @@ import org.junit.jupiter.api.Test;
 
 import com.fupfin.midiraja.dsp.AudioProcessor;
 
-class GusSynthProviderTest {
+class GusSynthProviderTest
+{
 
-    static class DummyProcessor implements AudioProcessor {
+    static class DummyProcessor implements AudioProcessor
+    {
         int processCount = 0;
-        @Override public void process(float[] l, float[] r, int f) {}
-        @Override public void processInterleaved(short[] pcm, int f, int c) {
+
+        @Override
+        public void process(float[] l, float[] r, int f)
+        {
+        }
+
+        @Override
+        public void processInterleaved(short[] pcm, int f, int c)
+        {
             processCount++;
         }
     }
 
+    private static void exerciseProvider(GusSynthProvider provider)
+    {
+        provider.sendMessage(new byte[] { (byte) 0x90, 60, 100 });
+        provider.sendMessage(new byte[] { (byte) 0x80, 60, 0 });
+        provider.panic();
+    }
+
     @Test
-    void testGusSynthProviderLifecycle() throws Exception {
+    void testGusSynthProviderLifecycle() throws Exception
+    {
         DummyProcessor dummy = new DummyProcessor();
         File dummyDir = new File(System.getProperty("java.io.tmpdir"));
 
@@ -30,11 +47,7 @@ class GusSynthProviderTest {
 
         assertTrue(dummy.processCount > 0, "Render thread should be pushing audio frames");
 
-        assertDoesNotThrow(() -> {
-            provider.sendMessage(new byte[] { (byte)0x90, 60, 100 });
-            provider.sendMessage(new byte[] { (byte)0x80, 60, 0 });
-            provider.panic();
-        });
+        assertDoesNotThrow(() -> exerciseProvider(provider));
 
         provider.closePort();
     }

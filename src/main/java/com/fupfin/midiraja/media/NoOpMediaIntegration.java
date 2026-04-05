@@ -14,9 +14,22 @@ public final class NoOpMediaIntegration implements MediaKeyIntegration
 {
     public static final NoOpMediaIntegration INSTANCE = new NoOpMediaIntegration();
 
-    private NoOpMediaIntegration() {}
+    private NoOpMediaIntegration()
+    {
+    }
 
-    @Override public void start(PlaybackCommands commands) {}
-    @Override public void drainAndUpdate(NowPlayingInfo info) {}
-    @Override public void close() {}
+    @Override
+    public void start(PlaybackCommands commands)
+    {
+    }
+
+    @Override
+    public void drainAndUpdate(NowPlayingInfo info)
+    {
+    }
+
+    @Override
+    public void close()
+    {
+    }
 }

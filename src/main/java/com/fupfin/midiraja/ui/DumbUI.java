@@ -24,9 +24,15 @@ public class DumbUI implements PlaybackUI
     private final boolean quiet;
     private boolean headerPrinted = false;
 
-    public DumbUI() { this(false); }
+    public DumbUI()
+    {
+        this(false);
+    }
 
-    public DumbUI(boolean quiet) { this.quiet = quiet; }
+    public DumbUI(boolean quiet)
+    {
+        this.quiet = quiet;
+    }
 
     @Override
     public void runRenderLoop(PlaybackState engine)
@@ -52,9 +58,9 @@ public class DumbUI implements PlaybackUI
                 {
                     String title = context.sequenceTitle();
                     String fileName = context.files().get(idx).getName();
-                    String displayTitle =
-                            title != null && !title.isEmpty() ? title + " (" + fileName + ")"
-                                    : fileName;
+                    String displayTitle = title != null && !title.isEmpty()
+                            ? title + " (" + fileName + ")"
+                            : fileName;
 
                     term.println(String.format("Playing: %s to port '%s'", displayTitle, portName));
                 }
@@ -68,8 +74,7 @@ public class DumbUI implements PlaybackUI
             // 3. 현재 재생 중인 곡 정보 출력
             String title = context.sequenceTitle();
             String fileName = context.files().get(idx).getName();
-            String displayTitle =
-                    title != null && !title.isEmpty() ? title + " (" + fileName + ")" : fileName;
+            String displayTitle = title != null && !title.isEmpty() ? title + " (" + fileName + ")" : fileName;
 
             long totalMicros = engine.getTotalMicroseconds();
             String lengthStr = formatTime(totalMicros, (totalMicros / 1000000) >= 3600);

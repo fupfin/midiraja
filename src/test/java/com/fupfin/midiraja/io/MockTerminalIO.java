@@ -25,30 +25,36 @@ public class MockTerminalIO implements TerminalIO
         keyQueue.add(key);
     }
 
-    @Override public boolean isInteractive()
+    @Override
+    public boolean isInteractive()
     {
         return false;
     }
 
-    @Override public void init() throws IOException
+    @Override
+    public void init() throws IOException
     {
     }
 
-    @Override public void close() throws IOException
+    @Override
+    public void close() throws IOException
     {
     }
 
-    @Override public TerminalKey readKey() throws IOException
+    @Override
+    public TerminalKey readKey() throws IOException
     {
         return keyQueue.isEmpty() ? TerminalKey.NONE : keyQueue.poll();
     }
 
-    @Override public void print(String str)
+    @Override
+    public void print(String str)
     {
         outputBuffer.append(str);
     }
 
-    @Override public void println(String str)
+    @Override
+    public void println(String str)
     {
         outputBuffer.append(str).append("\n");
     }
@@ -58,12 +64,14 @@ public class MockTerminalIO implements TerminalIO
         return outputBuffer.toString();
     }
 
-    @Override public int getWidth()
+    @Override
+    public int getWidth()
     {
         return 80;
     }
 
-    @Override public int getHeight()
+    @Override
+    public int getHeight()
     {
         return 24;
     }

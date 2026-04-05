@@ -19,25 +19,29 @@ import java.util.Locale;
 public final class AudioLibResolver
 {
     private AudioLibResolver()
-    {}
+    {
+    }
 
     /** Returns the resolved path suitable for passing to {@code NativeAudioEngine}. */
     public static String resolve() throws RuntimeException
     {
         String osName = System.getProperty("os.name").toLowerCase(Locale.ROOT);
-        String osFamily =
-                osName.contains("mac") ? "macos" : (osName.contains("linux") ? "linux" : "windows");
+        String osFamily = osName.contains("mac") ? "macos" : (osName.contains("linux") ? "linux" : "windows");
         String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
-        if (arch.equals("amd64")) arch = "x86_64";
-        if (arch.equals("arm64")) arch = "aarch64";
+        if (arch.equals("amd64"))
+            arch = "x86_64";
+        if (arch.equals("arm64"))
+            arch = "aarch64";
 
         String nativeTarget = osFamily + "-" + arch;
-        String libName = osName.contains("mac") ? "libmidiraja_audio.dylib"
-                : osName.contains("win") ? "libmidiraja_audio.dll"
-                : "libmidiraja_audio.so";
+        String libName = osName.contains("mac")
+                ? "libmidiraja_audio.dylib"
+                : osName.contains("win")
+                        ? "libmidiraja_audio.dll"
+                        : "libmidiraja_audio.so";
         String devPath = new File("").getAbsolutePath() + "/build/native-libs/" + nativeTarget
                 + "/miniaudio/" + libName;
-        String[] paths = {libName, devPath};
+        String[] paths = { libName, devPath };
 
         try (Arena arena = Arena.ofShared())
         {
@@ -47,7 +51,8 @@ public final class AudioLibResolver
                 {
                     if (new File(p).isAbsolute())
                     {
-                        if (new File(p).exists()) return p;
+                        if (new File(p).exists())
+                            return p;
                     }
                     else
                     {
@@ -56,8 +61,7 @@ public final class AudioLibResolver
                     }
                 }
                 catch (Exception _)
-                {
-                }
+                {}
             }
         }
         throw new RuntimeException(

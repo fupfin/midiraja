@@ -93,9 +93,9 @@ public class OneBitHardwareFilter implements AudioProcessor
 
     // Cone IIR state (six cascaded one-pole low-pass filters at 176,400 Hz).
     // Pole count vs. carrier attenuation at 15.2 kHz (|H_single| = 0.270):
-    //   2 poles → -23 dB  (carrier residual 4.7%, overwhelms quiet signals)
-    //   4 poles → -46 dB  (residual 0.34%, marginal at -40 dB signals)
-    //   6 poles → -68 dB  (residual 0.025%, inaudible even at -50 dB signals)
+    // 2 poles → -23 dB (carrier residual 4.7%, overwhelms quiet signals)
+    // 4 poles → -46 dB (residual 0.34%, marginal at -40 dB signals)
+    // 6 poles → -68 dB (residual 0.025%, inaudible even at -50 dB signals)
     // Six mechanical poles plus the electrical pre-filter pole give 7 poles total.
     private double iirState1 = 0.0;
     private double iirState2 = 0.0;
@@ -103,40 +103,50 @@ public class OneBitHardwareFilter implements AudioProcessor
     private double iirState4 = 0.0;
     private double iirState5 = 0.0;
     private double iirState6 = 0.0;
-    private final double iirAlpha;    // = 1 - exp(-1 / (INTERNAL_RATE * tauUs * 1e-6)) — for PWM loop at 176,400 Hz
-    private final double iirAlphaDsd; // = 1 - exp(-1 / (44100 * tauUs * 1e-6))         — for DSD mode at 44,100 Hz
+    private final double iirAlpha; // = 1 - exp(-1 / (INTERNAL_RATE * tauUs * 1e-6)) — for PWM loop at 176,400 Hz
+    private final double iirAlphaDsd; // = 1 - exp(-1 / (44100 * tauUs * 1e-6)) — for DSD mode at 44,100 Hz
 
     // PC-speaker resonance biquads (Direct Form I, Audio EQ Cookbook peaking EQ).
     // null for apple2 (no resonance peaks). At most two biquads are allocated.
     // Each coeffs array: {b0/a0, b1/a0, b2/a0, a1/a0, a2/a0}
-    // Each state array:  {x1, x2, y1, y2}
+    // Each state array: {x1, x2, y1, y2}
     private final double @Nullable [] biquad1Coeffs;
     private final double @Nullable [] biquad1State;
     private final double @Nullable [] biquad2Coeffs;
     private final double @Nullable [] biquad2State;
 
     /**
-     * @param enabled        whether the filter is active (pass-through when false)
-     * @param mode           "pwm" (cone simulation) or "dsd" (delta-sigma, unchanged)
-     * @param carrierHz      PWM carrier frequency in Hz (22050 for apple2, 15200 for pc)
-     * @param levels         number of discrete duty-cycle levels (32 for apple2, 78 for pc)
-     * @param tauUs          speaker-cone mechanical time constant in microseconds.
-     *                       Derived from the original smoothAlpha via
-     *                       τ = −1 / (44100 × ln(1 − smoothAlpha)).
-     *                       apple2: 28.4 µs (from α=0.55), pc: 37.9 µs (from α=0.45).
-     * @param preBitDepth    source audio bit depth to pre-quantise to before PWM encoding
-     *                       (e.g. 8 for 8-bit PCM), or 0 to disable. Models the limited
-     *                       bit depth of original source material. No dither applied —
-     *                       historically accurate: 1980s tools used simple rounding.
-     * @param driveGain      input gain applied before PWM and removed after IIR (1.0 = unity).
-     *                       Drives the signal harder into the quantiser, reducing quantisation
-     *                       noise by ~6 dB per doubling. Output level is preserved.
-     * @param resonancePeaks flat array of {f0Hz, dBgain, Q} triplets for peaking biquads,
-     *                       or null/empty for no resonance (apple2, pc). At most two triplets
-     *                       (six elements) are used; extras are ignored per YAGNI.
-     * @param auxOut         when true, bypass the 6 cone IIR poles and biquad resonance filters
-     *                       and return the voice-coil pre-filter output instead (aux jack simulation)
-     * @param next           next processor in the chain
+     * @param enabled
+     *            whether the filter is active (pass-through when false)
+     * @param mode
+     *            "pwm" (cone simulation) or "dsd" (delta-sigma, unchanged)
+     * @param carrierHz
+     *            PWM carrier frequency in Hz (22050 for apple2, 15200 for pc)
+     * @param levels
+     *            number of discrete duty-cycle levels (32 for apple2, 78 for pc)
+     * @param tauUs
+     *            speaker-cone mechanical time constant in microseconds.
+     *            Derived from the original smoothAlpha via
+     *            τ = −1 / (44100 × ln(1 − smoothAlpha)).
+     *            apple2: 28.4 µs (from α=0.55), pc: 37.9 µs (from α=0.45).
+     * @param preBitDepth
+     *            source audio bit depth to pre-quantise to before PWM encoding
+     *            (e.g. 8 for 8-bit PCM), or 0 to disable. Models the limited
+     *            bit depth of original source material. No dither applied —
+     *            historically accurate: 1980s tools used simple rounding.
+     * @param driveGain
+     *            input gain applied before PWM and removed after IIR (1.0 = unity).
+     *            Drives the signal harder into the quantiser, reducing quantisation
+     *            noise by ~6 dB per doubling. Output level is preserved.
+     * @param resonancePeaks
+     *            flat array of {f0Hz, dBgain, Q} triplets for peaking biquads,
+     *            or null/empty for no resonance (apple2, pc). At most two triplets
+     *            (six elements) are used; extras are ignored per YAGNI.
+     * @param auxOut
+     *            when true, bypass the 6 cone IIR poles and biquad resonance filters
+     *            and return the voice-coil pre-filter output instead (aux jack simulation)
+     * @param next
+     *            next processor in the chain
      */
     public OneBitHardwareFilter(boolean enabled, String mode,
             double carrierHz, double levels, double tauUs, int preBitDepth, double driveGain,
@@ -148,36 +158,47 @@ public class OneBitHardwareFilter implements AudioProcessor
         this.mode = mode != null ? mode.toLowerCase(ROOT) : "pwm";
         this.subCarrierStep = carrierHz / INTERNAL_RATE;
         this.levels = levels;
-        this.preLevels   = preBitDepth > 0 ? (1 << (preBitDepth - 1)) : 0;
-        this.driveGain   = driveGain > 0.0 ? driveGain : 1.0;
+        this.preLevels = preBitDepth > 0 ? (1 << (preBitDepth - 1)) : 0;
+        this.driveGain = driveGain > 0.0 ? driveGain : 1.0;
         this.invDriveGain = 1.0 / this.driveGain;
-        this.iirAlpha    = 1.0 - exp(-1.0 / (INTERNAL_RATE * tauUs * 1e-6));
+        this.iirAlpha = 1.0 - exp(-1.0 / (INTERNAL_RATE * tauUs * 1e-6));
         this.iirAlphaDsd = 1.0 - exp(-1.0 / (44100.0 * tauUs * 1e-6));
         // Voice-coil electrical time constant: τ_e = 10 µs (L/R ≈ 0.1mH / 8Ω = 12.5 µs, conservative)
         this.iirAlphaPre = 1.0 - exp(-1.0 / (INTERNAL_RATE * 10e-6));
 
-        if (resonancePeaks != null && resonancePeaks.length >= 3) {
+        if (resonancePeaks != null && resonancePeaks.length >= 3)
+        {
             biquad1Coeffs = computePeakingBiquad(resonancePeaks[0], resonancePeaks[1], resonancePeaks[2]);
-            biquad1State  = new double[4];
-        } else {
-            biquad1Coeffs = null;
-            biquad1State  = null;
+            biquad1State = new double[4];
         }
-        if (resonancePeaks != null && resonancePeaks.length >= 6) {
+        else
+        {
+            biquad1Coeffs = null;
+            biquad1State = null;
+        }
+        if (resonancePeaks != null && resonancePeaks.length >= 6)
+        {
             biquad2Coeffs = computePeakingBiquad(resonancePeaks[3], resonancePeaks[4], resonancePeaks[5]);
-            biquad2State  = new double[4];
-        } else {
+            biquad2State = new double[4];
+        }
+        else
+        {
             biquad2Coeffs = null;
-            biquad2State  = null;
+            biquad2State = null;
         }
     }
 
     @Override
     public void process(float[] left, float[] right, int frames)
     {
-        if (!enabled) { next.process(left, right, frames); return; }
+        if (!enabled)
+        {
+            next.process(left, right, frames);
+            return;
+        }
 
-        for (int i = 0; i < frames; i++) {
+        for (int i = 0; i < frames; i++)
+        {
             float filtered = processOneSample((left[i] + right[i]) * 0.5);
             left[i] = filtered;
             right[i] = filtered;
@@ -188,25 +209,33 @@ public class OneBitHardwareFilter implements AudioProcessor
     @Override
     public void processInterleaved(short[] interleavedPcm, int frames, int channels)
     {
-        if (!enabled) { next.processInterleaved(interleavedPcm, frames, channels); return; }
+        if (!enabled)
+        {
+            next.processInterleaved(interleavedPcm, frames, channels);
+            return;
+        }
 
-        for (int i = 0; i < frames; i++) {
+        for (int i = 0; i < frames; i++)
+        {
             int lIdx = i * channels;
             float l = interleavedPcm[lIdx] / 32768.0f;
             float r = channels > 1 ? interleavedPcm[lIdx + 1] / 32768.0f : l;
             float filtered = processOneSample((l + r) * 0.5);
-            short out = (short) max(-32768, min(32767, (int)(filtered * 32768.0)));
+            short out = (short) max(-32768, min(32767, (int) (filtered * 32768.0)));
             interleavedPcm[lIdx] = out;
-            if (channels > 1) interleavedPcm[lIdx + 1] = out;
+            if (channels > 1)
+                interleavedPcm[lIdx + 1] = out;
         }
         next.processInterleaved(interleavedPcm, frames, channels);
     }
 
     private float processOneSample(double monoIn)
     {
-        if ("dsd".equals(mode)) {
+        if ("dsd".equals(mode))
+        {
             // Delta-sigma: unchanged from original implementation
-            if (abs(monoIn) < 1e-4) return 0.0f;
+            if (abs(monoIn) < 1e-4)
+                return 0.0f;
             dsdErr += monoIn + (rand.nextDouble() - 0.5) * 0.1;
             double out = dsdErr > 0.0 ? 1.0 : -1.0;
             dsdErr -= out;
@@ -217,13 +246,15 @@ public class OneBitHardwareFilter implements AudioProcessor
 
         // Drive gain: scale up before quantisation, scale back down after IIR.
         // Reduces quantisation noise by ~6 dB per doubling; output level is preserved.
-        if (driveGain != 1.0) {
+        if (driveGain != 1.0)
+        {
             monoIn = max(-1.0, min(1.0, monoIn * driveGain));
         }
 
         // Pre-quantise to source bit depth (e.g. 8-bit PCM). Models the limited resolution of
         // 1980s source material fed into the hardware. No dither — historically accurate.
-        if (preLevels > 0) {
+        if (preLevels > 0)
+        {
             monoIn = round(monoIn * preLevels) / (double) preLevels;
         }
 
@@ -233,51 +264,62 @@ public class OneBitHardwareFilter implements AudioProcessor
         // reproduces this. Carrier phase still advances so there is no phase discontinuity (pop)
         // when audio resumes. Note: running at duty=0.5 does NOT average to ~0 — the 2-pole IIR
         // only attenuates the ~15 kHz carrier by ~23 dB, leaving audible residual noise.
-        if (abs(monoIn) < 1e-4) {
-            for (int s = 0; s < OVERSAMPLE; s++) {
+        if (abs(monoIn) < 1e-4)
+        {
+            for (int s = 0; s < OVERSAMPLE; s++)
+            {
                 iirStatePre += iirAlphaPre * (0.0 - iirStatePre);
-                if (!auxOut) {
+                if (!auxOut)
+                {
                     iirState1 += iirAlpha * (iirStatePre - iirState1);
-                    iirState2 += iirAlpha * (iirState1  - iirState2);
-                    iirState3 += iirAlpha * (iirState2  - iirState3);
-                    iirState4 += iirAlpha * (iirState3  - iirState4);
-                    iirState5 += iirAlpha * (iirState4  - iirState5);
-                    iirState6 += iirAlpha * (iirState5  - iirState6);
+                    iirState2 += iirAlpha * (iirState1 - iirState2);
+                    iirState3 += iirAlpha * (iirState2 - iirState3);
+                    iirState4 += iirAlpha * (iirState3 - iirState4);
+                    iirState5 += iirAlpha * (iirState4 - iirState5);
+                    iirState6 += iirAlpha * (iirState5 - iirState6);
                 }
                 carrierPhase = (carrierPhase + subCarrierStep) % 1.0;
             }
-            if (auxOut) return (float)(iirStatePre * invDriveGain);
+            if (auxOut)
+                return (float) (iirStatePre * invDriveGain);
             double out = iirState6 * invDriveGain;
             double[] c1 = biquad1Coeffs, s1 = biquad1State;
-            if (c1 != null && s1 != null) out = applyBiquad(c1, s1, out);
+            if (c1 != null && s1 != null)
+                out = applyBiquad(c1, s1, out);
             double[] c2 = biquad2Coeffs, s2 = biquad2State;
-            if (c2 != null && s2 != null) out = applyBiquad(c2, s2, out);
+            if (c2 != null && s2 != null)
+                out = applyBiquad(c2, s2, out);
             return (float) out;
         }
 
         double rawDuty = max(0.0, min(1.0, (monoIn + 1.0) * 0.5));
-        double duty    = round(rawDuty * levels) / levels;
+        double duty = round(rawDuty * levels) / levels;
 
-        for (int s = 0; s < OVERSAMPLE; s++) {
+        for (int s = 0; s < OVERSAMPLE; s++)
+        {
             double bit = (carrierPhase < duty) ? 1.0 : -1.0;
             iirStatePre += iirAlphaPre * (bit - iirStatePre);
-            if (!auxOut) {
+            if (!auxOut)
+            {
                 iirState1 += iirAlpha * (iirStatePre - iirState1);
-                iirState2 += iirAlpha * (iirState1  - iirState2);
-                iirState3 += iirAlpha * (iirState2  - iirState3);
-                iirState4 += iirAlpha * (iirState3  - iirState4);
-                iirState5 += iirAlpha * (iirState4  - iirState5);
-                iirState6 += iirAlpha * (iirState5  - iirState6);
+                iirState2 += iirAlpha * (iirState1 - iirState2);
+                iirState3 += iirAlpha * (iirState2 - iirState3);
+                iirState4 += iirAlpha * (iirState3 - iirState4);
+                iirState5 += iirAlpha * (iirState4 - iirState5);
+                iirState6 += iirAlpha * (iirState5 - iirState6);
             }
             carrierPhase = (carrierPhase + subCarrierStep) % 1.0;
         }
-        if (auxOut) return (float)(iirStatePre * invDriveGain);
+        if (auxOut)
+            return (float) (iirStatePre * invDriveGain);
 
         double out = iirState6 * invDriveGain;
         double[] c1 = biquad1Coeffs, s1 = biquad1State;
-        if (c1 != null && s1 != null) out = applyBiquad(c1, s1, out);
+        if (c1 != null && s1 != null)
+            out = applyBiquad(c1, s1, out);
         double[] c2 = biquad2Coeffs, s2 = biquad2State;
-        if (c2 != null && s2 != null) out = applyBiquad(c2, s2, out);
+        if (c2 != null && s2 != null)
+            out = applyBiquad(c2, s2, out);
         return (float) out;
     }
 
@@ -293,18 +335,18 @@ public class OneBitHardwareFilter implements AudioProcessor
      */
     private static double[] computePeakingBiquad(double f0Hz, double dBgain, double Q)
     {
-        double A     = pow(10.0, dBgain / 40.0);
-        double w0    = 2.0 * PI * f0Hz / 44100.0;
+        double A = pow(10.0, dBgain / 40.0);
+        double w0 = 2.0 * PI * f0Hz / 44100.0;
         double alpha = sin(w0) / (2.0 * Q);
 
-        double b0 =  1.0 + alpha * A;
+        double b0 = 1.0 + alpha * A;
         double b1 = -2.0 * cos(w0);
-        double b2 =  1.0 - alpha * A;
-        double a0 =  1.0 + alpha / A;
+        double b2 = 1.0 - alpha * A;
+        double a0 = 1.0 + alpha / A;
         double a1 = -2.0 * cos(w0);
-        double a2 =  1.0 - alpha / A;
+        double a2 = 1.0 - alpha / A;
 
-        return new double[]{ b0/a0, b1/a0, b2/a0, a1/a0, a2/a0 };
+        return new double[] { b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0 };
     }
 
     /**
@@ -314,10 +356,12 @@ public class OneBitHardwareFilter implements AudioProcessor
      */
     private static double applyBiquad(double[] coeffs, double[] state, double x)
     {
-        double y = coeffs[0]*x + coeffs[1]*state[0] + coeffs[2]*state[1]
-                               - coeffs[3]*state[2] - coeffs[4]*state[3];
-        state[1] = state[0]; state[0] = x;
-        state[3] = state[2]; state[2] = y;
+        double y = coeffs[0] * x + coeffs[1] * state[0] + coeffs[2] * state[1]
+                - coeffs[3] * state[2] - coeffs[4] * state[3];
+        state[1] = state[0];
+        state[0] = x;
+        state[3] = state[2];
+        state[2] = y;
         return y;
     }
 
@@ -325,16 +369,18 @@ public class OneBitHardwareFilter implements AudioProcessor
     public void reset()
     {
         carrierPhase = 0.0;
-        dsdErr       = 0.0;
-        iirStatePre  = 0.0;
-        iirState1    = 0.0;
-        iirState2    = 0.0;
-        iirState3    = 0.0;
-        iirState4    = 0.0;
-        iirState5    = 0.0;
-        iirState6    = 0.0;
-        if (biquad1State != null) Arrays.fill(biquad1State, 0.0);
-        if (biquad2State != null) Arrays.fill(biquad2State, 0.0);
+        dsdErr = 0.0;
+        iirStatePre = 0.0;
+        iirState1 = 0.0;
+        iirState2 = 0.0;
+        iirState3 = 0.0;
+        iirState4 = 0.0;
+        iirState5 = 0.0;
+        iirState6 = 0.0;
+        if (biquad1State != null)
+            Arrays.fill(biquad1State, 0.0);
+        if (biquad2State != null)
+            Arrays.fill(biquad2State, 0.0);
         next.reset();
     }
 }

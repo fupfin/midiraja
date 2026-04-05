@@ -31,16 +31,32 @@ import com.fupfin.midiraja.ui.PlaybackEventListener;
 
 class PlaylistPlayerMediaKeysTest
 {
-    @TempDir Path tmp;
+    @TempDir
+    Path tmp;
 
-    @Test void drainAndUpdate_calledAtTrackStart() throws Exception
+    @Test
+    void drainAndUpdate_calledAtTrackStart() throws Exception
     {
         var updates = new CopyOnWriteArrayList<NowPlayingInfo>();
-        boolean[] startWasCalled = {false};
-        var testKeys = new MediaKeyIntegration() {
-            @Override public void start(PlaybackCommands c) { startWasCalled[0] = true; }
-            @Override public void drainAndUpdate(NowPlayingInfo info) { updates.add(info); }
-            @Override public void close() {}
+        boolean[] startWasCalled = { false };
+        var testKeys = new MediaKeyIntegration()
+        {
+            @Override
+            public void start(PlaybackCommands c)
+            {
+                startWasCalled[0] = true;
+            }
+
+            @Override
+            public void drainAndUpdate(NowPlayingInfo info)
+            {
+                updates.add(info);
+            }
+
+            @Override
+            public void close()
+            {
+            }
         };
 
         // Build a MIDI file with a title meta event
@@ -50,7 +66,7 @@ class PlaylistPlayerMediaKeysTest
         byte[] titleBytes = "TestSong".getBytes();
         titleMsg.setMessage(0x03, titleBytes, titleBytes.length);
         track.add(new javax.sound.midi.MidiEvent(titleMsg, 0L));
-        var eot = new javax.sound.midi.MetaMessage(0x2F, new byte[]{}, 0);
+        var eot = new javax.sound.midi.MetaMessage(0x2F, new byte[] {}, 0);
         track.add(new javax.sound.midi.MidiEvent(eot, 10L));
 
         var midiFile = tmp.resolve("test.mid").toFile();
@@ -58,8 +74,8 @@ class PlaylistPlayerMediaKeysTest
 
         var provider = new PlaylistPlayerTest.MockMidiProvider();
 
-        PlaylistPlayerMediaKeysTest.MinimalEngineFactory factory =
-                (s, p, ctx, pipeline, shutdown, speed, start) -> new MinimalEngine(ctx, pipeline);
+        PlaylistPlayerMediaKeysTest.MinimalEngineFactory factory = (s, p, ctx, pipeline, shutdown, speed,
+                start) -> new MinimalEngine(ctx, pipeline);
 
         var player = new PlaylistPlayer(factory, null, false, true, true,
                 System.err, testKeys, java.util.Set.of());
@@ -88,10 +104,12 @@ class PlaylistPlayerMediaKeysTest
         MinimalEngine(PlaylistContext ctx, PlaybackPipeline pipeline)
         {
             super(null, null, ctx, pipeline,
-                  () -> false, 1.0, Optional.empty(), PlaybackStatus.FINISHED);
+                    () -> false, 1.0, Optional.empty(), PlaybackStatus.FINISHED);
         }
 
         @Override
-        public void addPlaybackEventListener(PlaybackEventListener listener) {}
+        public void addPlaybackEventListener(PlaybackEventListener listener)
+        {
+        }
     }
 }

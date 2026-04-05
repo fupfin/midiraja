@@ -10,16 +10,27 @@ import java.nio.file.Path;
 /**
  * Measures RMS and peak levels (dBFS) of 16-bit stereo WAV files.
  *
- * <p>Usage: ./gradlew measureLoudness -PwavFiles="a.wav,b.wav,..."
+ * <p>
+ * Usage: ./gradlew measureLoudness -PwavFiles="a.wav,b.wav,..."
  */
 public class WavRmsMeter
 {
     record Result(String name, double rmsL, double rmsR, double peakL, double peakR)
     {
-        double rmsLR() { return (rmsL + rmsR) / 2.0; }
-        double peakLR() { return Math.max(peakL, peakR); }
+        double rmsLR()
+        {
+            return (rmsL + rmsR) / 2.0;
+        }
 
-        static double toDb(double linear) { return linear > 0 ? 20.0 * Math.log10(linear) : -120.0; }
+        double peakLR()
+        {
+            return Math.max(peakL, peakR);
+        }
+
+        static double toDb(double linear)
+        {
+            return linear > 0 ? 20.0 * Math.log10(linear) : -120.0;
+        }
 
         void print()
         {
@@ -78,7 +89,9 @@ public class WavRmsMeter
             }
 
             if (bitsPerSample != 16)
+            {
                 throw new IOException("Only 16-bit PCM supported, got " + bitsPerSample);
+            }
 
             f.seek(dataOffset);
             int totalSamples = (int) (dataLen / 2);

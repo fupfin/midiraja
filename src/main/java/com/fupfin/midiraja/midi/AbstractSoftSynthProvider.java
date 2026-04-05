@@ -21,11 +21,13 @@ import com.fupfin.midiraja.dsp.MasterGainFilter;
 /**
  * Base class for synthesizers that use a native bridge and a dedicated render thread.
  *
- * @param <T> The type of the native bridge.
+ * @param <T>
+ *            The type of the native bridge.
  */
-@SuppressWarnings({"ThreadPriorityCheck", "EmptyCatch"})
+@SuppressWarnings({ "ThreadPriorityCheck", "EmptyCatch" })
 public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
-        implements SoftSynthProvider
+        implements
+            SoftSynthProvider
 {
     protected final T bridge;
     protected final @Nullable AudioProcessor audioOut;
@@ -72,7 +74,8 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
     @Override
     public void sendMessage(byte[] data)
     {
-        if (data == null || data.length == 0) return;
+        if (data == null || data.length == 0)
+            return;
         eventQueue.offer(data.clone());
     }
 
@@ -82,9 +85,9 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
         eventQueue.clear();
         for (int ch = 0; ch < 16; ch++)
         {
-            eventQueue.offer(new byte[] {(byte) (0xB0 | ch), 64, 0});  // Sustain Off
-            eventQueue.offer(new byte[] {(byte) (0xB0 | ch), 123, 0}); // All Notes Off
-            eventQueue.offer(new byte[] {(byte) (0xB0 | ch), 120, 0}); // All Sound Off
+            eventQueue.offer(new byte[] { (byte) (0xB0 | ch), 64, 0 }); // Sustain Off
+            eventQueue.offer(new byte[] { (byte) (0xB0 | ch), 123, 0 }); // All Notes Off
+            eventQueue.offer(new byte[] { (byte) (0xB0 | ch), 120, 0 }); // All Sound Off
         }
         // Signal the render thread to reset DSP state (AmigaPaula, Reverb, etc.) on the next
         // frame, so any click from All Sound Off does not resonate through stateful filters.
@@ -99,14 +102,13 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
         {
             try
             {
-                eventQueue.offer(new byte[] {(byte) (0xB0 | ch), 64, 0});
-                eventQueue.offer(new byte[] {(byte) (0xB0 | ch), 123, 0});
-                eventQueue.offer(new byte[] {(byte) (0xB0 | ch), 120, 0});
-                eventQueue.offer(new byte[] {(byte) (0xB0 | ch), 121, 0});
+                eventQueue.offer(new byte[] { (byte) (0xB0 | ch), 64, 0 });
+                eventQueue.offer(new byte[] { (byte) (0xB0 | ch), 123, 0 });
+                eventQueue.offer(new byte[] { (byte) (0xB0 | ch), 120, 0 });
+                eventQueue.offer(new byte[] { (byte) (0xB0 | ch), 121, 0 });
             }
             catch (Exception _)
-            {
-            }
+            {}
         }
     }
 
@@ -119,8 +121,7 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
             Thread.sleep(20);
         }
         catch (InterruptedException _)
-        {
-        }
+        {}
 
         eventQueue.clear();
         bridge.panic();
@@ -151,8 +152,7 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
                 renderThread.join(500);
             }
             catch (InterruptedException _)
-            {
-            }
+            {}
         }
         bridge.close();
     }
@@ -160,73 +160,98 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
     protected void startRenderThread(String name)
     {
         running = true;
-        renderThread = new Thread(() -> {
-            short[] pcmBuffer = new short[FRAMES_PER_RENDER * 2];
-            while (running)
-            {
-                if (renderPaused)
-                {
-                    try
-                    {
-                        Thread.sleep(1);
-                    }
-                    catch (InterruptedException e)
-                    {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                    continue;
-                }
-
-                byte[] event;
-                while ((event = eventQueue.poll()) != null)
-                {
-                    dispatchToNative(event);
-                }
-
-                if (pendingDspReset)
-                {
-                    pendingDspReset = false;
-                    bridge.generate(pcmBuffer, FRAMES_PER_RENDER); // let synth stabilise to silence
-                    if (audioOut != null) audioOut.reset();        // clear DSP + flush ring buffer
-                    java.util.Arrays.fill(pcmBuffer, (short) 0);
-                    if (audioOut != null) audioOut.processInterleaved(pcmBuffer, FRAMES_PER_RENDER, 2);
-                    renderPaused = true; // stop render thread; onPlaybackStarted() resumes it
-                    continue;
-                }
-
-                bridge.generate(pcmBuffer, FRAMES_PER_RENDER);
-
-                if (audioOut != null)
-                {
-                    audioOut.processInterleaved(pcmBuffer, FRAMES_PER_RENDER, 2);
-                }
-                else
-                {
-                    try
-                    {
-                        Thread.sleep(10);
-                    }
-                    catch (InterruptedException e)
-                    {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
-            }
-        }, name);
+        renderThread = new Thread(() -> renderLoop(), name);
         renderThread.setPriority(Thread.MAX_PRIORITY);
         renderThread.setDaemon(true);
         renderThread.start();
     }
 
+    private void renderLoop()
+    {
+        short[] pcmBuffer = new short[FRAMES_PER_RENDER * 2];
+        while (running)
+        {
+            if (renderPaused)
+            {
+                try
+                {
+                    Thread.sleep(1);
+                }
+                catch (InterruptedException e)
+                {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                continue;
+            }
+
+            byte[] event;
+            while ((event = eventQueue.poll()) != null)
+            {
+                dispatchToNative(event);
+            }
+
+            if (pendingDspReset)
+            {
+                pendingDspReset = false;
+                bridge.generate(pcmBuffer, FRAMES_PER_RENDER); // let synth stabilise to silence
+                if (audioOut != null)
+                    audioOut.reset(); // clear DSP + flush ring buffer
+                java.util.Arrays.fill(pcmBuffer, (short) 0);
+                if (audioOut != null)
+                    audioOut.processInterleaved(pcmBuffer, FRAMES_PER_RENDER, 2);
+                renderPaused = true; // stop render thread; onPlaybackStarted() resumes it
+                continue;
+            }
+
+            bridge.generate(pcmBuffer, FRAMES_PER_RENDER);
+
+            if (audioOut != null)
+            {
+                audioOut.processInterleaved(pcmBuffer, FRAMES_PER_RENDER, 2);
+            }
+            else
+            {
+                try
+                {
+                    Thread.sleep(10);
+                }
+                catch (InterruptedException e)
+                {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+    }
+
     protected void dispatchToNative(byte[] data)
     {
-        if(data==null||data.length==0)return;int status=data[0]&0xFF;if(status>=0xF0){if(data.length>1)bridge.systemExclusive(data);return;}
+        if (data == null || data.length == 0)
+            return;
+        int status = data[0] & 0xFF;
+        if (status >= 0xF0)
+        {
+            if (data.length > 1)
+                bridge.systemExclusive(data);
+            return;
+        }
 
-        int command=status&0xF0;int channel=status&0x0F;if(data.length<2)return;int data1=data[1]&0xFF;int data2=(data.length>=3)?(data[2]&0xFF):0;
+        int command = status & 0xF0;
+        int channel = status & 0x0F;
+        if (data.length < 2)
+            return;
+        int data1 = data[1] & 0xFF;
+        int data2 = (data.length >= 3) ? (data[2] & 0xFF) : 0;
 
-        switch(command){case 0x90->bridge.noteOn(channel,data1,data2);case 0x80->bridge.noteOff(channel,data1);case 0xB0->bridge.controlChange(channel,data1,data2);case 0xC0->bridge.patchChange(channel,data1);case 0xE0->bridge.pitchBend(channel,(data2<<7)|data1);}
+        switch (command)
+        {
+            case 0x90 -> bridge.noteOn(channel, data1, data2);
+            case 0x80 -> bridge.noteOff(channel, data1);
+            case 0xB0 -> bridge.controlChange(channel, data1, data2);
+            case 0xC0 -> bridge.patchChange(channel, data1);
+            case 0xE0 -> bridge.pitchBend(channel, (data2 << 7) | data1);
+        }
     }
 
     /** Returns {@code " [NAME]"} for a retro/dac mode tag, or {@code ""} when mode is null. */

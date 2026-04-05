@@ -31,7 +31,7 @@ public final class Theme
     public static final String FORMAT_INVERT = "\033[7m";
 
     // --- UI Magic Characters ---
-    public static final String ICON_LOOP    = "↺"; // U+21BA ANTICLOCKWISE OPEN CIRCLE ARROW
+    public static final String ICON_LOOP = "↺"; // U+21BA ANTICLOCKWISE OPEN CIRCLE ARROW
     public static final String ICON_SHUFFLE = "⇅"; // U+21C5 UPWARDS ARROW LEFTWARDS OF DOWNWARDS ARROW
     public static final String CHAR_BLOCK_FULL = "█";
     public static final String CHAR_BLOCK_EMPTY = "░";
@@ -54,7 +54,7 @@ public final class Theme
     public static final String TERM_HIDE_CURSOR = "\033[?25l";
     public static final String TERM_SHOW_CURSOR = "\033[?25h";
     public static final String TERM_AUTOWRAP_OFF = "\033[?7l";
-    public static final String TERM_AUTOWRAP_ON  = "\033[?7h";
+    public static final String TERM_AUTOWRAP_ON = "\033[?7h";
     public static final String TERM_ALT_SCREEN_ENABLE = "\033[?1049h";
     public static final String TERM_ALT_SCREEN_DISABLE = "\033[?1049l";
 
@@ -70,5 +70,7 @@ public final class Theme
             + "\033[?1015l"; // URXVT mouse extension off
 
     private Theme()
-    {} // Prevent instantiation
+    {
+        // Prevent instantiation
+    }
 }

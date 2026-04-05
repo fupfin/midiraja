@@ -24,7 +24,8 @@ import org.jspecify.annotations.Nullable;
 public class MidiUtils
 {
     private MidiUtils()
-    {}
+    {
+    }
 
     /**
      * Checks if the file has a valid MIDI 'MThd' header.
@@ -34,7 +35,8 @@ public class MidiUtils
         try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file)))
         {
             byte[] header = new byte[4];
-            if (bis.read(header) < 4) return false;
+            if (bis.read(header) < 4)
+                return false;
             return header[0] == 'M' && header[1] == 'T' && header[2] == 'h' && header[3] == 'd';
         }
         catch (IOException e)
@@ -68,7 +70,8 @@ public class MidiUtils
                     if (data != null && data.length > 0)
                     {
                         String text = new String(data, StandardCharsets.UTF_8).trim();
-                        if (!text.isEmpty() && !text.matches("^[\\s\\p{C}]+$")) return text;
+                        if (!text.isEmpty() && !text.matches("^[\\s\\p{C}]+$"))
+                            return text;
                     }
                 }
             }

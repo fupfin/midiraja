@@ -17,7 +17,8 @@ public interface Panel extends LayoutListener, PlaybackEventListener
      * Renders the panel's content into the provided StringBuilder. The panel should use its cached
      * layout constraints and state.
      *
-     * @param buffer The ScreenBuffer to append the rendered ANSI/text content to.
+     * @param buffer
+     *            The ScreenBuffer to append the rendered ANSI/text content to.
      */
     void render(ScreenBuffer buffer);
 
@@ -26,10 +27,12 @@ public interface Panel extends LayoutListener, PlaybackEventListener
      */
     default String truncate(String text, int maxLength)
     {
-        if (text == null) return "";
+        if (text == null)
+            return "";
         // Strip ANSI codes to calculate visible length
         String stripped = text.replaceAll("\\033\\[[;\\d]*m", "");
-        if (stripped.length() <= maxLength) return text;
+        if (stripped.length() <= maxLength)
+            return text;
 
         // If we must truncate, it's safer to truncate the stripped version to avoid breaking ANSI
         // codes

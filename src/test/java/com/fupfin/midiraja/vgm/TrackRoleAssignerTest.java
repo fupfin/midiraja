@@ -17,27 +17,36 @@ import javax.sound.midi.Track;
 
 import org.junit.jupiter.api.Test;
 
-class TrackRoleAssignerTest {
+class TrackRoleAssignerTest
+{
 
     /** Creates a Sequence with a tempo track (index 0) and 15 channel tracks (indices 1-15). */
-    private static Sequence makeSequence() throws InvalidMidiDataException {
+    private static Sequence makeSequence() throws InvalidMidiDataException
+    {
         var seq = new Sequence(Sequence.PPQ, 480);
-        for (int i = 0; i < 16; i++) seq.createTrack(); // track 0 = tempo, 1-15 = channels
+        for (int i = 0; i < 16; i++)
+        {
+            seq.createTrack(); // track 0 = tempo, 1-15 = channels
+        }
         return seq;
     }
 
     private static void addNote(Track track, int ch, int note, long startTick, long duration)
-            throws InvalidMidiDataException {
+            throws InvalidMidiDataException
+    {
         track.add(new MidiEvent(
                 new ShortMessage(ShortMessage.NOTE_ON, ch, note, 100), startTick));
         track.add(new MidiEvent(
                 new ShortMessage(ShortMessage.NOTE_OFF, ch, note, 0), startTick + duration));
     }
 
-    private static ShortMessage findProgramChange(Track track) {
-        for (int i = 0; i < track.size(); i++) {
+    private static ShortMessage findProgramChange(Track track)
+    {
+        for (int i = 0; i < track.size(); i++)
+        {
             var msg = track.get(i).getMessage();
-            if (msg instanceof ShortMessage sm && sm.getCommand() == ShortMessage.PROGRAM_CHANGE) {
+            if (msg instanceof ShortMessage sm && sm.getCommand() == ShortMessage.PROGRAM_CHANGE)
+            {
                 return sm;
             }
         }
@@ -45,7 +54,8 @@ class TrackRoleAssignerTest {
     }
 
     @Test
-    void bassTrack_getsElectricBass() throws Exception {
+    void bassTrack_getsElectricBass() throws Exception
+    {
         var seq = makeSequence();
         var tracks = seq.getTracks();
 
@@ -64,7 +74,8 @@ class TrackRoleAssignerTest {
     }
 
     @Test
-    void leadTrack_getsElectricPiano1() throws Exception {
+    void leadTrack_getsElectricPiano1() throws Exception
+    {
         var seq = makeSequence();
         var tracks = seq.getTracks();
 
@@ -80,7 +91,8 @@ class TrackRoleAssignerTest {
     }
 
     @Test
-    void harmonyTrack_getsElectricPiano2() throws Exception {
+    void harmonyTrack_getsElectricPiano2() throws Exception
+    {
         var seq = makeSequence();
         var tracks = seq.getTracks();
 
@@ -108,7 +120,8 @@ class TrackRoleAssignerTest {
     }
 
     @Test
-    void percussiveTrack_getsXylophone() throws Exception {
+    void percussiveTrack_getsXylophone() throws Exception
+    {
         var seq = makeSequence();
         var tracks = seq.getTracks();
 

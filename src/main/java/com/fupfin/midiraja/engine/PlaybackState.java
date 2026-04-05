@@ -15,20 +15,36 @@ import com.fupfin.midiraja.ui.PlaybackEventListener;
 public interface PlaybackState
 {
     PlaylistContext getContext();
+
     Sequence getSequence();
+
     long getCurrentMicroseconds();
+
     long getTotalMicroseconds();
+
     int[] getChannelPrograms();
+
     float getCurrentBpm();
+
     double getCurrentSpeed();
+
     int getCurrentTranspose();
+
     double getVolumeScale();
+
     boolean isPlaying();
+
     boolean isPaused();
+
     boolean isLoopEnabled();
+
     boolean isShuffleEnabled();
+
     boolean isBookmarked();
+
     String getFilterDescription();
+
     String getPortSuffix();
+
     void addPlaybackEventListener(PlaybackEventListener listener);
 }

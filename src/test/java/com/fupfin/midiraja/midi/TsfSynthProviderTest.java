@@ -27,57 +27,81 @@ class TsfSynthProviderTest
         int soundfontSampleRate = -1;
         List<String> eventLog = new ArrayList<>();
 
-        @Override public void loadSoundfontFile(String path, int sampleRate)
+        @Override
+        public void loadSoundfontFile(String path, int sampleRate)
         {
             soundfontPath = path;
             soundfontSampleRate = sampleRate;
             initialized = true;
         }
-        @Override public void init(int sampleRate)
+
+        @Override
+        public void init(int sampleRate)
         {
         }
-        @Override public void reset()
+
+        @Override
+        public void reset()
         {
             resetCalled = true;
         }
-        @Override public void panic()
+
+        @Override
+        public void panic()
         {
             panicCalled = true;
         }
-        @Override public void noteOn(int channel, int note, int velocity)
+
+        @Override
+        public void noteOn(int channel, int note, int velocity)
         {
             eventLog.add(String.format("NOTE_ON ch:%d note:%d vel:%d", channel, note, velocity));
         }
-        @Override public void noteOff(int channel, int note)
+
+        @Override
+        public void noteOff(int channel, int note)
         {
             eventLog.add(String.format("NOTE_OFF ch:%d note:%d", channel, note));
         }
-        @Override public void controlChange(int channel, int type, int value)
+
+        @Override
+        public void controlChange(int channel, int type, int value)
         {
             eventLog.add(String.format("CC ch:%d type:%d val:%d", channel, type, value));
         }
-        @Override public void patchChange(int channel, int patch)
+
+        @Override
+        public void patchChange(int channel, int patch)
         {
             eventLog.add(String.format("PC ch:%d patch:%d", channel, patch));
         }
-        @Override public void pitchBend(int channel, int pitch)
+
+        @Override
+        public void pitchBend(int channel, int pitch)
         {
             eventLog.add(String.format("PB ch:%d pitch:%d", channel, pitch));
         }
-        @Override public void systemExclusive(byte[] data)
+
+        @Override
+        public void systemExclusive(byte[] data)
         {
             eventLog.add(String.format("SYSEX len:%d", data.length));
         }
-        @Override public void generate(short[] buffer, int stereoFrames)
+
+        @Override
+        public void generate(short[] buffer, int stereoFrames)
         {
         }
-        @Override public void close()
+
+        @Override
+        public void close()
         {
             closed = true;
         }
     }
 
-    @Test void testLifecycleAndMidiRouting() throws Exception
+    @Test
+    void testLifecycleAndMidiRouting() throws Exception
     {
         MockTsfBridge mockBridge = new MockTsfBridge();
         TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null, null);
@@ -93,12 +117,12 @@ class TsfSynthProviderTest
         assertEquals(44100, mockBridge.soundfontSampleRate);
 
         // MIDI routing
-        provider.sendMessage(new byte[] {(byte) 0x90, 60, 100});
-        provider.sendMessage(new byte[] {(byte) 0x80, 64, 0});
-        provider.sendMessage(new byte[] {(byte) 0xB0, 7, 120});
-        provider.sendMessage(new byte[] {(byte) 0xC0, 5});
-        provider.sendMessage(new byte[] {(byte) 0xE0, 0, 64});
-        provider.sendMessage(new byte[] {(byte) 0xF0, 0x7E, 0x7F, 0x09, 0x01, (byte) 0xF7});
+        provider.sendMessage(new byte[] { (byte) 0x90, 60, 100 });
+        provider.sendMessage(new byte[] { (byte) 0x80, 64, 0 });
+        provider.sendMessage(new byte[] { (byte) 0xB0, 7, 120 });
+        provider.sendMessage(new byte[] { (byte) 0xC0, 5 });
+        provider.sendMessage(new byte[] { (byte) 0xE0, 0, 64 });
+        provider.sendMessage(new byte[] { (byte) 0xF0, 0x7E, 0x7F, 0x09, 0x01, (byte) 0xF7 });
 
         provider.flushEventQueueForTest();
 
@@ -115,7 +139,8 @@ class TsfSynthProviderTest
         assertTrue(mockBridge.closed, "Bridge should be closed on closePort");
     }
 
-    @Test void testPanic() throws Exception
+    @Test
+    void testPanic() throws Exception
     {
         MockTsfBridge mockBridge = new MockTsfBridge();
         TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null, null);
@@ -124,40 +149,42 @@ class TsfSynthProviderTest
 
         // bridge.panic() must NOT be called directly from provider.panic() (not thread-safe)
         assertFalse(mockBridge.panicCalled,
-            "bridge.panic() should NOT be called from provider.panic()");
+                "bridge.panic() should NOT be called from provider.panic()");
 
         // 16 channels × 4 CCs = 64 events queued
         provider.flushEventQueueForTest();
         assertEquals(64, mockBridge.eventLog.size(),
-            "panic() should enqueue 4 CCs per channel × 16 channels = 64 events");
+                "panic() should enqueue 4 CCs per channel × 16 channels = 64 events");
     }
 
-    @Test void testPrepareForNewTrack() throws Exception
+    @Test
+    void testPrepareForNewTrack() throws Exception
     {
         MockTsfBridge mockBridge = new MockTsfBridge();
         TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null, null);
 
-        provider.sendMessage(new byte[] {(byte) 0x90, 60, 100});
+        provider.sendMessage(new byte[] { (byte) 0x90, 60, 100 });
 
         provider.prepareForNewTrack(null);
 
         assertTrue(mockBridge.panicCalled,
-            "bridge.panic() should be called in prepareForNewTrack");
+                "bridge.panic() should be called in prepareForNewTrack");
         assertTrue(mockBridge.resetCalled, "bridge.reset() should be called in prepareForNewTrack");
 
         provider.flushEventQueueForTest();
         // prepareForNewTrack clears stale events and queues CC121 on all 16 channels to
         // initialise f->channels in TSF (tsf_channel_note_on is a no-op when f->channels==NULL).
         assertEquals(16, mockBridge.eventLog.size(),
-            "prepareForNewTrack should queue CC121 (Reset All Controllers) on all 16 channels");
+                "prepareForNewTrack should queue CC121 (Reset All Controllers) on all 16 channels");
         for (int ch = 0; ch < 16; ch++)
         {
             assertEquals("CC ch:" + ch + " type:121 val:0", mockBridge.eventLog.get(ch),
-                "Channel " + ch + " should have CC121=0 (Reset All Controllers)");
+                    "Channel " + ch + " should have CC121=0 (Reset All Controllers)");
         }
     }
 
-    @Test void testGetOutputPorts()
+    @Test
+    void testGetOutputPorts()
     {
         MockTsfBridge mockBridge = new MockTsfBridge();
         TsfSynthProvider provider = new TsfSynthProvider(mockBridge, null, null);

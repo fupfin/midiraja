@@ -8,10 +8,12 @@ import java.io.PrintStream;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
 
-class MidirajaCommandTest {
+class MidirajaCommandTest
+{
 
     @Test
-    void testFastFailOnNonExistentFile() {
+    void testFastFailOnNonExistentFile()
+    {
         MidirajaCommand app = new MidirajaCommand();
         CommandLine cmd = new CommandLine(app);
 

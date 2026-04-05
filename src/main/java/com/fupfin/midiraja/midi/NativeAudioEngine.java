@@ -1,18 +1,16 @@
 package com.fupfin.midiraja.midi;
 
-
 import java.io.File;
 import java.lang.foreign.*;
 import java.lang.invoke.*;
 
 import org.jspecify.annotations.Nullable;
 
-
 @SuppressWarnings("EmptyCatch")
 public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
 {
-    private static final java.util.logging.Logger log =
-            java.util.logging.Logger.getLogger(NativeAudioEngine.class.getName());
+    private static final java.util.logging.Logger log = java.util.logging.Logger
+            .getLogger(NativeAudioEngine.class.getName());
     private @Nullable WavFileWriter wavWriter = null;
     private MemorySegment ctx = MemorySegment.NULL;
     private final MethodHandle midiraja_audio_init;
@@ -55,12 +53,10 @@ public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
         midiraja_audio_flush = downcall("midiraja_audio_flush",
                 FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
 
-        midiraja_audio_get_device_latency_frames =
-                downcall("midiraja_audio_get_device_latency_frames",
-                        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        midiraja_audio_get_device_latency_frames = downcall("midiraja_audio_get_device_latency_frames",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
 
-        midiraja_audio_close =
-                downcall("midiraja_audio_close", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        midiraja_audio_close = downcall("midiraja_audio_close", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
     }
 
     public static java.util.List<FunctionDescriptor> allDowncallDescriptors()
@@ -247,8 +243,7 @@ public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
             midiraja_audio_flush.invokeExact(ctx);
         }
         catch (Throwable _)
-        {
-        }
+        {}
     }
 
     @Override
@@ -261,8 +256,7 @@ public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
                 midiraja_audio_close.invokeExact(ctx);
             }
             catch (Throwable _)
-            {
-            }
+            {}
             ctx = MemorySegment.NULL;
         }
         pushBuffer = null;
@@ -271,7 +265,6 @@ public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
             super.close();
         }
         catch (Exception _)
-        {
-        }
+        {}
     }
 }

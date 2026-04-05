@@ -15,32 +15,40 @@ import org.jline.utils.InfoCmp;
  * Factory for JLine {@link KeyMap}s with the shared navigation bindings used across all
  * interactive terminal screens.
  *
- * <p>The standard set binds: UP arrow, DOWN arrow, Enter (SELECT), ESC and Ctrl+C (QUIT).
+ * <p>
+ * The standard set binds: UP arrow, DOWN arrow, Enter (SELECT), ESC and Ctrl+C (QUIT).
  * Callers add extra bindings after the factory call via {@code km.bind(...)}.
  *
- * <p>ISIG must be disabled before the map is used so that {@code \x03} is delivered as a
+ * <p>
+ * ISIG must be disabled before the map is used so that {@code \x03} is delivered as a
  * character rather than generating SIGINT.
  */
 public final class NavKeyMapFactory
 {
     private NavKeyMapFactory()
-    {}
+    {
+    }
 
     /**
      * Builds a {@link KeyMap} with standard UP, DOWN, SELECT, and QUIT bindings.
      *
-     * @param terminal     live terminal used to resolve terminfo capability sequences
-     * @param upAction     bound to the UP arrow key
-     * @param downAction   bound to the DOWN arrow key
-     * @param selectAction bound to Enter (\r and \n)
-     * @param quitAction   bound to ESC, Ctrl+C (\003), "q", and "Q"
+     * @param terminal
+     *            live terminal used to resolve terminfo capability sequences
+     * @param upAction
+     *            bound to the UP arrow key
+     * @param downAction
+     *            bound to the DOWN arrow key
+     * @param selectAction
+     *            bound to Enter (\r and \n)
+     * @param quitAction
+     *            bound to ESC, Ctrl+C (\003), "q", and "Q"
      */
     public static <T> KeyMap<T> buildNavKeyMap(Terminal terminal,
             T upAction, T downAction, T selectAction, T quitAction)
     {
         var km = new KeyMap<T>();
         km.setAmbiguousTimeout(100);
-        bindArrow(km, terminal, InfoCmp.Capability.key_up,   upAction,   "A");
+        bindArrow(km, terminal, InfoCmp.Capability.key_up, upAction, "A");
         bindArrow(km, terminal, InfoCmp.Capability.key_down, downAction, "B");
         km.bind(selectAction, "\r", "\n");
         // ESC alone → quit; disambiguated from ESC-sequences by the 100ms ambiguous timeout

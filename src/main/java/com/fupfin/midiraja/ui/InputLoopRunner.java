@@ -18,7 +18,8 @@ import com.fupfin.midiraja.io.TerminalIO.TerminalKey;
 public class InputLoopRunner
 {
     private InputLoopRunner()
-    {}
+    {
+    }
 
     /**
      * Standard polling loop for terminal input. Blocks and reads keys until the engine stops

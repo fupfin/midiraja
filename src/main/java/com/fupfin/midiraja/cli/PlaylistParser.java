@@ -7,7 +7,6 @@
 
 package com.fupfin.midiraja.cli;
 
-
 import java.io.File;
 import java.io.PrintStream;
 import java.nio.file.Files;
@@ -28,8 +27,8 @@ import com.fupfin.midiraja.media.MusicFormatLoader;
  */
 public class PlaylistParser
 {
-    private static final java.util.logging.Logger log =
-            java.util.logging.Logger.getLogger(PlaylistParser.class.getName());
+    private static final java.util.logging.Logger log = java.util.logging.Logger
+            .getLogger(PlaylistParser.class.getName());
 
     private final PrintStream err;
     private final boolean verbose;
@@ -71,7 +70,7 @@ public class PlaylistParser
         return new ParseResult(playlist, acc.build());
     }
 
-    @SuppressWarnings({"StringSplitter", "EmptyCatch"})
+    @SuppressWarnings({ "StringSplitter", "EmptyCatch" })
     private void parsePlaylistFile(File playlistFile, List<File> playlist, DirectiveAccumulator acc)
     {
         try
@@ -114,7 +113,7 @@ public class PlaylistParser
                         }
 
                         // Key-value directives
-                        int[] vIdx = {i};
+                        int[] vIdx = { i };
                         String rawVolume = parseKeyValue(tokens, i, vIdx, "--volume", "-v");
                         if (rawVolume != null)
                         {
@@ -124,12 +123,11 @@ public class PlaylistParser
                                 logVerbose("Applied directive from playlist: --volume " + acc.volume);
                             }
                             catch (NumberFormatException e)
-                            {
-                            }
+                            {}
                             i = vIdx[0];
                         }
 
-                        int[] xIdx = {i};
+                        int[] xIdx = { i };
                         String rawSpeed = parseKeyValue(tokens, i, xIdx, "--speed", "-x");
                         if (rawSpeed != null)
                         {
@@ -139,8 +137,7 @@ public class PlaylistParser
                                 logVerbose("Applied directive from playlist: --speed " + acc.speed);
                             }
                             catch (NumberFormatException e)
-                            {
-                            }
+                            {}
                             i = xIdx[0];
                         }
                     }
@@ -179,7 +176,8 @@ public class PlaylistParser
             log.warning("Error reading playlist file '" + playlistFile.getName() + "': " + e.getMessage());
             err.println("Error reading playlist file '" + playlistFile.getName() + "': "
                     + e.getMessage());
-            if (verbose) e.printStackTrace(err);
+            if (verbose)
+                e.printStackTrace(err);
         }
     }
 
@@ -200,7 +198,8 @@ public class PlaylistParser
         {
             log.warning("Error reading directory '" + dir.getName() + "': " + e.getMessage());
             err.println("Error reading directory '" + dir.getName() + "': " + e.getMessage());
-            if (verbose) e.printStackTrace(err);
+            if (verbose)
+                e.printStackTrace(err);
         }
     }
 
@@ -224,12 +223,17 @@ public class PlaylistParser
      * Tries to extract the value for a key-value directive in either {@code --key=val} or
      * {@code --key val} form.
      *
-     * @param tokens   full token array
-     * @param i        current index
-     * @param indexRef single-element array; updated to the new index when {@code --key val} form
-     *                 consumes the next token (otherwise left unchanged)
-     * @param longKey  long form, e.g. {@code "--volume"}
-     * @param shortKey short form, e.g. {@code "-v"}
+     * @param tokens
+     *            full token array
+     * @param i
+     *            current index
+     * @param indexRef
+     *            single-element array; updated to the new index when {@code --key val} form
+     *            consumes the next token (otherwise left unchanged)
+     * @param longKey
+     *            long form, e.g. {@code "--volume"}
+     * @param shortKey
+     *            short form, e.g. {@code "-v"}
      * @return the raw string value, or {@code null} if the token does not match either form
      */
     private static @Nullable String parseKeyValue(String[] tokens, int i, int[] indexRef,
@@ -267,8 +271,8 @@ public class PlaylistParser
          * the same M3U are scanned recursively.
          */
         boolean effectiveRecursive;
-        int     volume = -1;         // -1 = no directive
-        double  speed  = Double.NaN; // NaN = no directive
+        int volume = -1; // -1 = no directive
+        double speed = Double.NaN; // NaN = no directive
 
         DirectiveAccumulator(boolean initialRecursive)
         {

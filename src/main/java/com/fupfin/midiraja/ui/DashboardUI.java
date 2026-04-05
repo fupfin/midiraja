@@ -27,8 +27,7 @@ public class DashboardUI implements PlaybackUI
     private final ControlsPanel controlsPanel = new ControlsPanel();
     private final PlaylistPanel rawPlaylistPanel = new PlaylistPanel();
 
-    private final TitledPanel titledNowPlayingPanel =
-            new TitledPanel("NOW PLAYING", nowPlayingPanel);
+    private final TitledPanel titledNowPlayingPanel = new TitledPanel("NOW PLAYING", nowPlayingPanel);
     private final TitledPanel channelPanel = new TitledPanel("MIDI CHANNELS", rawChannelPanel);
     private final TitledPanel titledPlaylistPanel = new TitledPanel("PLAYLIST", rawPlaylistPanel);
 
@@ -44,8 +43,7 @@ public class DashboardUI implements PlaybackUI
                 if (msg instanceof MetaMessage m && m.getType() == 0x02)
                 {
                     String text = new String(m.getData(), StandardCharsets.US_ASCII).trim();
-                    if (!text.isEmpty() && text.chars().allMatch(c -> (c >= 32 && c < 127)
-                            || (c >= 160 && c <= 255)))
+                    if (!text.isEmpty() && text.chars().allMatch(c -> (c >= 32 && c < 127) || (c >= 160 && c <= 255)))
                         return text;
                 }
             }
@@ -55,8 +53,10 @@ public class DashboardUI implements PlaybackUI
 
     static String playlistTag(boolean loopActive, boolean shuffleActive)
     {
-        String loopIcon    = (loopActive    ? Theme.COLOR_HIGHLIGHT : Theme.COLOR_DIM_FG) + Theme.ICON_LOOP    + Theme.COLOR_RESET;
-        String shuffleIcon = (shuffleActive ? Theme.COLOR_HIGHLIGHT : Theme.COLOR_DIM_FG) + Theme.ICON_SHUFFLE + Theme.COLOR_RESET;
+        String loopIcon = (loopActive ? Theme.COLOR_HIGHLIGHT : Theme.COLOR_DIM_FG) + Theme.ICON_LOOP
+                + Theme.COLOR_RESET;
+        String shuffleIcon = (shuffleActive ? Theme.COLOR_HIGHLIGHT : Theme.COLOR_DIM_FG) + Theme.ICON_SHUFFLE
+                + Theme.COLOR_RESET;
         return "(" + loopIcon + shuffleIcon + ")";
     }
 
@@ -64,7 +64,8 @@ public class DashboardUI implements PlaybackUI
     public void runRenderLoop(PlaybackState engine)
     {
         var term = TerminalIO.CONTEXT.get();
-        if (!term.isInteractive()) return;
+        if (!term.isInteractive())
+            return;
 
         engine.addPlaybackEventListener(nowPlayingPanel);
         engine.addPlaybackEventListener(rawChannelPanel);
@@ -120,10 +121,8 @@ public class DashboardUI implements PlaybackUI
                 Map<DashboardLayoutManager.PanelId, LayoutConstraints> layout = layoutManager
                         .calculateLayout(termWidth, termHeight, engine.getContext().files().size());
 
-                LayoutConstraints chanC =
-                        requireNonNull(layout.get(DashboardLayoutManager.PanelId.CHANNELS));
-                LayoutConstraints playC =
-                        requireNonNull(layout.get(DashboardLayoutManager.PanelId.PLAYLIST));
+                LayoutConstraints chanC = requireNonNull(layout.get(DashboardLayoutManager.PanelId.CHANNELS));
+                LayoutConstraints playC = requireNonNull(layout.get(DashboardLayoutManager.PanelId.PLAYLIST));
 
                 if (chanC.isHorizontal())
                 {
@@ -181,8 +180,8 @@ public class DashboardUI implements PlaybackUI
 
     private void recalculateLayout(int width, int height, int listSize)
     {
-        Map<DashboardLayoutManager.PanelId, LayoutConstraints> layout =
-                layoutManager.calculateLayout(width, height, listSize);
+        Map<DashboardLayoutManager.PanelId, LayoutConstraints> layout = layoutManager.calculateLayout(width, height,
+                listSize);
         titledNowPlayingPanel.onLayoutUpdated(
                 requireNonNull(layout.get(DashboardLayoutManager.PanelId.METADATA)));
         channelPanel.onLayoutUpdated(
@@ -203,7 +202,8 @@ public class DashboardUI implements PlaybackUI
     public void suspend(com.fupfin.midiraja.io.TerminalIO term, boolean altScreen)
     {
         // Exit alt screen so the shell is visible while the process is stopped.
-        if (altScreen) term.print(Theme.TERM_ALT_SCREEN_DISABLE);
+        if (altScreen)
+            term.print(Theme.TERM_ALT_SCREEN_DISABLE);
         term.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_AUTOWRAP_ON);
     }
 
@@ -211,7 +211,8 @@ public class DashboardUI implements PlaybackUI
     public void resume(com.fupfin.midiraja.io.TerminalIO term, boolean altScreen)
     {
         // Re-enter alt screen; the render loop will redraw on the next tick.
-        if (altScreen) term.print(Theme.TERM_ALT_SCREEN_ENABLE);
+        if (altScreen)
+            term.print(Theme.TERM_ALT_SCREEN_ENABLE);
         term.print(Theme.TERM_HIDE_CURSOR + Theme.TERM_AUTOWRAP_OFF);
     }
 }

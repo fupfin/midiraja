@@ -40,7 +40,8 @@ public class Voice
 
     private float readSample(int index)
     {
-        if (index < 0 || index >= sample.length()) return 0.0f;
+        if (index < 0 || index >= sample.length())
+            return 0.0f;
         if (sample.is16Bit())
         {
             int bytePos = index * 2;
@@ -48,7 +49,8 @@ public class Voice
             {
                 short val = sample.pcmData().get(ValueLayout.JAVA_SHORT_UNALIGNED,
                         bytePos);
-                if (sample.isUnsigned()) val = (short) ((val & 0xFFFF) - 32768);
+                if (sample.isUnsigned())
+                    val = (short) ((val & 0xFFFF) - 32768);
                 return val / 32768.0f;
             }
         }
@@ -58,7 +60,8 @@ public class Voice
             if (bytePos < sample.pcmData().byteSize())
             {
                 byte val = sample.pcmData().get(ValueLayout.JAVA_BYTE, bytePos);
-                if (sample.isUnsigned()) val = (byte) ((val & 0xFF) - 128);
+                if (sample.isUnsigned())
+                    val = (byte) ((val & 0xFF) - 128);
                 return val / 128.0f;
             }
         }
@@ -67,7 +70,8 @@ public class Voice
 
     public void render(float[] left, float[] right, int frames, int outputSampleRate)
     {
-        if (!active) return;
+        if (!active)
+            return;
 
         // Ratio adjusted for potential differences between output device rate and
         // sample original rate
@@ -124,7 +128,8 @@ public class Voice
                 if (currentVolume < targetVolume)
                 {
                     currentVolume += attackRate;
-                    if (currentVolume > targetVolume) currentVolume = targetVolume;
+                    if (currentVolume > targetVolume)
+                        currentVolume = targetVolume;
                 }
             }
 

@@ -66,8 +66,8 @@ class XmParserTest
         buf.put(80, (byte) 0);
 
         // Pattern at offset 336
-        buf.putInt(patternBase, patHdrSize);      // header size
-        buf.put(patternBase + 4, (byte) 0);       // packing type
+        buf.putInt(patternBase, patHdrSize); // header size
+        buf.put(patternBase + 4, (byte) 0); // packing type
         buf.putShort(patternBase + 5, (short) rows);
         buf.putShort(patternBase + 7, (short) packedSize);
 

@@ -10,7 +10,6 @@ package com.fupfin.midiraja.media;
 import java.io.File;
 import java.util.Locale;
 import java.util.Set;
-
 import javax.sound.midi.Sequence;
 
 import com.fupfin.midiraja.it.ItFileDetector;
@@ -31,18 +30,22 @@ import com.fupfin.midiraja.xm.XmParser;
 /**
  * Single entry point for loading any supported music file format into a MIDI {@link Sequence}.
  *
- * <p>To add a new format: add its detector/parser/converter here and extend
+ * <p>
+ * To add a new format: add its detector/parser/converter here and extend
  * {@link #isSupportedFile}.
  */
 public final class MusicFormatLoader
 {
-    private MusicFormatLoader() {}
+    private MusicFormatLoader()
+    {
+    }
 
     /**
      * Detects the format of {@code file} and converts it to a {@link Sequence}.
      *
-     * @param mutedChannels MIDI channel indices (0-based) to silence during conversion;
-     *                      ignored for plain MIDI files
+     * @param mutedChannels
+     *            MIDI channel indices (0-based) to silence during conversion;
+     *            ignored for plain MIDI files
      */
     public static Sequence load(File file, Set<Integer> mutedChannels) throws Exception
     {
@@ -70,6 +73,6 @@ public final class MusicFormatLoader
         return name.endsWith(".mid") || name.endsWith(".midi")
                 || name.endsWith(".vgm") || name.endsWith(".vgz")
                 || name.endsWith(".mod") || name.endsWith(".s3m")
-                || name.endsWith(".xm")  || name.endsWith(".it");
+                || name.endsWith(".xm") || name.endsWith(".it");
     }
 }

@@ -22,7 +22,8 @@ class AltScreenScopeTest
     void enter_emitsAltScreenEnableAndHideCursor()
     {
         var sw = new StringWriter();
-        try (var ignored = AltScreenScope.enter(new PrintWriter(sw))) {}
+        try (var ignored = AltScreenScope.enter(new PrintWriter(sw)))
+        {}
 
         String output = sw.toString();
         assertTrue(output.contains(Theme.TERM_ALT_SCREEN_ENABLE),
@@ -61,7 +62,7 @@ class AltScreenScopeTest
     {
         var sw = new StringWriter();
         var scope = AltScreenScope.enter(new PrintWriter(sw));
-        sw.getBuffer().setLength(0);  // clear enter output
+        sw.getBuffer().setLength(0); // clear enter output
         scope.exit();
         assertTrue(sw.toString().contains(Theme.TERM_ALT_SCREEN_DISABLE));
     }
@@ -72,7 +73,7 @@ class AltScreenScopeTest
         var sw = new StringWriter();
         try (var scope = AltScreenScope.enter(new PrintWriter(sw)))
         {
-            sw.getBuffer().setLength(0);  // clear enter output
+            sw.getBuffer().setLength(0); // clear enter output
             scope.clearScreen();
             String output = sw.toString();
             assertTrue(output.contains(Theme.TERM_CURSOR_HOME),
@@ -88,13 +89,13 @@ class AltScreenScopeTest
         var sw = new StringWriter();
         try (var scope = AltScreenScope.enter(new PrintWriter(sw)))
         {
-            sw.getBuffer().setLength(0);  // clear enter output
-            scope.exit();  // first close
-        }  // try-with-resources calls close() a second time
-        // Total disable+show output must appear exactly once
+            sw.getBuffer().setLength(0); // clear enter output
+            scope.exit(); // first close
+        } // try-with-resources calls close() a second time
+          // Total disable+show output must appear exactly once
         String output = sw.toString();
         int firstOccurrence = output.indexOf(Theme.TERM_ALT_SCREEN_DISABLE);
-        int lastOccurrence  = output.lastIndexOf(Theme.TERM_ALT_SCREEN_DISABLE);
+        int lastOccurrence = output.lastIndexOf(Theme.TERM_ALT_SCREEN_DISABLE);
         assertTrue(firstOccurrence >= 0, "TERM_ALT_SCREEN_DISABLE must appear at least once");
         assertEquals(firstOccurrence, lastOccurrence,
                 "TERM_ALT_SCREEN_DISABLE must appear exactly once (idempotent close)");

@@ -29,26 +29,30 @@ class ItParserTest
         int patNum = 1;
 
         // Offset tables: after 192-byte header
-        int orderOffset  = 192;
-        int insOffBase   = orderOffset + ordNum;
-        int smpOffBase   = insOffBase;
-        int patOffBase   = smpOffBase;
+        int orderOffset = 192;
+        int insOffBase = orderOffset + ordNum;
+        int smpOffBase = insOffBase;
+        int patOffBase = smpOffBase;
         int patDataOffset = patOffBase + patNum * 4;
 
         // Pattern: 2-byte packed length + 2-byte row count + 4 reserved + 1 end-of-row byte
-        int rowCount    = 1;
-        int packedSize  = 1; // just one end-of-row byte (0x00)
+        int rowCount = 1;
+        int packedSize = 1; // just one end-of-row byte (0x00)
         int patTotalSize = 8 + packedSize;
 
         int totalLen = patDataOffset + patTotalSize;
         var buf = ByteBuffer.allocate(totalLen).order(ByteOrder.LITTLE_ENDIAN);
 
         // Magic
-        buf.put(0, (byte) 'I'); buf.put(1, (byte) 'M'); buf.put(2, (byte) 'P'); buf.put(3, (byte) 'M');
+        buf.put(0, (byte) 'I');
+        buf.put(1, (byte) 'M');
+        buf.put(2, (byte) 'P');
+        buf.put(3, (byte) 'M');
 
         // Title
         byte[] tb = title.getBytes(StandardCharsets.US_ASCII);
-        for (int i = 0; i < Math.min(26, tb.length); i++) buf.put(4 + i, tb[i]);
+        for (int i = 0; i < Math.min(26, tb.length); i++)
+            buf.put(4 + i, tb[i]);
 
         // Counts
         buf.putShort(32, (short) ordNum);
@@ -70,7 +74,7 @@ class ItParserTest
         buf.putInt(patOffBase, patDataOffset);
 
         // Pattern data
-        buf.putShort(patDataOffset,     (short) packedSize);
+        buf.putShort(patDataOffset, (short) packedSize);
         buf.putShort(patDataOffset + 2, (short) rowCount);
         // reserved 4 bytes already zero
         buf.put(patDataOffset + 8, (byte) 0); // end-of-row

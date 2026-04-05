@@ -15,29 +15,31 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class GusBankTest {
-  @Test
-  void testParseGusCfg(@TempDir Path tempDir) throws IOException {
-    // Mock a gus.cfg file
-    String cfgContent = """
-            # This is a comment
-            bank 0
-            0 acpiano.pat
-            1 britepno.pat volume=110
+class GusBankTest
+{
+    @Test
+    void testParseGusCfg(@TempDir Path tempDir) throws IOException
+    {
+        // Mock a gus.cfg file
+        String cfgContent = """
+                # This is a comment
+                bank 0
+                0 acpiano.pat
+                1 britepno.pat volume=110
 
-            bank 1
-            0 synth-bass.pat
-            """;
+                bank 1
+                0 synth-bass.pat
+                """;
 
-    GusBank bank = new GusBank(tempDir);
-    bank.loadConfig(cfgContent);
+        GusBank bank = new GusBank(tempDir);
+        bank.loadConfig(cfgContent);
 
-    // Check mapping
-    assertEquals("acpiano.pat", bank.getPatchMapping(0, 0).orElseThrow());
-    assertEquals("britepno.pat", bank.getPatchMapping(0, 1).orElseThrow());
-    assertEquals("synth-bass.pat", bank.getPatchMapping(1, 0).orElseThrow());
+        // Check mapping
+        assertEquals("acpiano.pat", bank.getPatchMapping(0, 0).orElseThrow());
+        assertEquals("britepno.pat", bank.getPatchMapping(0, 1).orElseThrow());
+        assertEquals("synth-bass.pat", bank.getPatchMapping(1, 0).orElseThrow());
 
-    // Check non-existent
-    assertTrue(bank.getPatchMapping(0, 99).isEmpty());
-  }
+        // Check non-existent
+        assertTrue(bank.getPatchMapping(0, 99).isEmpty());
+    }
 }

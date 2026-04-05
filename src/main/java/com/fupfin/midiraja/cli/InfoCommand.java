@@ -26,8 +26,7 @@ import com.fupfin.midiraja.midi.AbstractFFMBridge;
 import com.fupfin.midiraja.midi.MidiProviderFactory;
 import com.fupfin.midiraja.midi.gus.GusSynthProvider;
 
-@Command(name = "info", mixinStandardHelpOptions = true,
-        description = "Print system and environment diagnostics for bug reports.")
+@Command(name = "info", mixinStandardHelpOptions = true, description = "Print system and environment diagnostics for bug reports.")
 public class InfoCommand implements Callable<Integer>
 {
     @ParentCommand
@@ -37,7 +36,9 @@ public class InfoCommand implements Callable<Integer>
     @Mixin
     private final CommonOptions common = new CommonOptions();
 
-    record LibInfo(String name, AbstractFFMBridge.LibProbeResult result) {}
+    record LibInfo(String name, AbstractFFMBridge.LibProbeResult result)
+    {
+    }
 
     @Override
     public Integer call()
@@ -73,7 +74,8 @@ public class InfoCommand implements Callable<Integer>
         String gusPatches = GusSynthProvider.findPatches();
 
         String osLower = osName.toLowerCase(Locale.ROOT);
-        String[] searchPaths = osLower.contains("mac") ? LibraryPaths.DARWIN
+        String[] searchPaths = osLower.contains("mac")
+                ? LibraryPaths.DARWIN
                 : (osLower.contains("linux") ? LibraryPaths.LINUX : LibraryPaths.WINDOWS);
 
         String report = buildReport(version, commit, nativeImage, osName, osArch, javaVersion,

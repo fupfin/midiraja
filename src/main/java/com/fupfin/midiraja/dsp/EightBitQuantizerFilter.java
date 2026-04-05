@@ -21,7 +21,8 @@ public class EightBitQuantizerFilter implements AudioProcessor
     @Override
     public void process(float[] left, float[] right, int frames)
     {
-        if (!enabled) return;
+        if (!enabled)
+            return;
 
         // 8-bit has 256 discrete levels, ranging from -128 to 127
         for (int i = 0; i < frames; i++)

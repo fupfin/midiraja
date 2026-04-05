@@ -17,8 +17,8 @@ public record NowPlayingInfo(
         String artist,
         long durationMicros,
         long positionMicros,
-        boolean isPlaying
-) {
+        boolean isPlaying)
+{
     public NowPlayingInfo
     {
         java.util.Objects.requireNonNull(title, "title");

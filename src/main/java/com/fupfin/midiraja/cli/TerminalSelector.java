@@ -32,7 +32,8 @@ import com.fupfin.midiraja.ui.ScreenBuffer;
 public final class TerminalSelector
 {
     private TerminalSelector()
-    {}
+    {
+    }
 
     /** A selectable item or a visual separator. A null {@code value} denotes a separator. */
     public record Item<T>(@Nullable T value, String label, String description)
@@ -62,12 +63,18 @@ public final class TerminalSelector
     /**
      * Configuration for the full-screen selection UI.
      *
-     * @param title        Title text shown in the header bar (e.g. {@code " SELECT ENGINE "})
-     * @param minBoxWidth  Minimum box width
-     * @param maxBoxWidth  Maximum box width (clamped to terminal width − 4)
-     * @param logoMinWidth Minimum terminal width required to show the logo; ≤0 = never show
-     * @param logoLineCount Number of lines the logo occupies (used for vertical centering)
-     * @param logoRenderer Lambda that appends logo content to the buffer; null = no logo
+     * @param title
+     *            Title text shown in the header bar (e.g. {@code " SELECT ENGINE "})
+     * @param minBoxWidth
+     *            Minimum box width
+     * @param maxBoxWidth
+     *            Maximum box width (clamped to terminal width − 4)
+     * @param logoMinWidth
+     *            Minimum terminal width required to show the logo; ≤0 = never show
+     * @param logoLineCount
+     *            Number of lines the logo occupies (used for vertical centering)
+     * @param logoRenderer
+     *            Lambda that appends logo content to the buffer; null = no logo
      */
     public record FullScreenConfig(
             String title,
@@ -111,15 +118,23 @@ public final class TerminalSelector
      */
     public sealed interface SelectResult<T>
             permits SelectResult.Chosen, SelectResult.Delete, SelectResult.Promote,
-                    SelectResult.Cancelled
+            SelectResult.Cancelled
     {
-        record Chosen<T>(T value) implements SelectResult<T> {}
+        record Chosen<T>(T value) implements SelectResult<T>
+        {
+        }
 
-        record Delete<T>(T value) implements SelectResult<T> {}
+        record Delete<T>(T value) implements SelectResult<T>
+        {
+        }
 
-        record Promote<T>(T value) implements SelectResult<T> {}
+        record Promote<T>(T value) implements SelectResult<T>
+        {
+        }
 
-        record Cancelled<T>() implements SelectResult<T> {}
+        record Cancelled<T>() implements SelectResult<T>
+        {
+        }
     }
 
     /**
@@ -128,8 +143,10 @@ public final class TerminalSelector
     public static SelectionMode resolveMode(boolean isInteractive, int termHeight,
             boolean preferFull, boolean preferMini, boolean preferClassic)
     {
-        if (!isInteractive || preferClassic) return SelectionMode.CLASSIC;
-        if (preferMini) return SelectionMode.MINI;
+        if (!isInteractive || preferClassic)
+            return SelectionMode.CLASSIC;
+        if (preferMini)
+            return SelectionMode.MINI;
         return (preferFull || termHeight >= 10) ? SelectionMode.FULL : SelectionMode.MINI;
     }
 
@@ -165,7 +182,8 @@ public final class TerminalSelector
             boolean preferFull, boolean preferMini, boolean preferClassic,
             PrintStream err) throws Exception
     {
-        if (items.isEmpty()) return new SelectResult.Cancelled<>();
+        if (items.isEmpty())
+            return new SelectResult.Cancelled<>();
 
         var probe = new JLineTerminalIO();
         probe.init();
@@ -194,7 +212,8 @@ public final class TerminalSelector
     static int firstSelectable(List<? extends Item<?>> items)
     {
         for (int i = 0; i < items.size(); i++)
-            if (!items.get(i).isSeparator()) return i;
+            if (!items.get(i).isSeparator())
+                return i;
         return 0;
     }
 
@@ -206,9 +225,9 @@ public final class TerminalSelector
     static KeyMap<String> buildNavKeyMapWithActions(Terminal terminal)
     {
         var km = buildNavKeyMap(terminal);
-        km.bind("DELETE",  "d", "D");
+        km.bind("DELETE", "d", "D");
         km.bind("CONFIRM", "y", "Y");
-        km.bind("ABORT",   "n", "N");
+        km.bind("ABORT", "n", "N");
         return km;
     }
 }

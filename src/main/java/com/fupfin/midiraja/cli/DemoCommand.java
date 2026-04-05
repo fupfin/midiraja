@@ -43,8 +43,7 @@ import com.fupfin.midiraja.midi.gus.GusSynthProvider;
 import com.fupfin.midiraja.midi.psg.PsgSynthProvider;
 import com.fupfin.midiraja.ui.Theme;
 
-@Command(name = "demo", description = "Play the curated demo playlist showcasing all synthesis engines.",
-        mixinStandardHelpOptions = true)
+@Command(name = "demo", description = "Play the curated demo playlist showcasing all synthesis engines.", mixinStandardHelpOptions = true)
 public class DemoCommand implements Callable<Integer>
 {
     @ParentCommand
@@ -94,7 +93,8 @@ public class DemoCommand implements Callable<Integer>
                         extractEngineName(file.getName()),
                         common.uiOptions.classicMode, p.getOut());
 
-                if (nav == PlaybackStatus.QUIT_ALL) break;
+                if (nav == PlaybackStatus.QUIT_ALL)
+                    break;
                 if (nav == PlaybackStatus.PREVIOUS)
                 {
                     currentIdx = (currentIdx - 1 + total) % total;
@@ -123,7 +123,8 @@ public class DemoCommand implements Callable<Integer>
                 runner.setSuppressHoldAtEnd(true);
                 runner.setExitOnNavBoundary(true);
 
-                int exitCode = runner.run(pwa.provider(), true, Optional.empty(), pwa.soundbank(), List.of(file), common, List.of());
+                int exitCode = runner.run(pwa.provider(), true, Optional.empty(), pwa.soundbank(), List.of(file),
+                        common, List.of());
 
                 if (exitCode != 0 || MidirajaCommand.SHUTTING_DOWN)
                 {
@@ -157,7 +158,9 @@ public class DemoCommand implements Callable<Integer>
         return 0;
     }
 
-    private record ProviderWithArgs(MidiOutProvider provider, Optional<String> soundbank) {}
+    private record ProviderWithArgs(MidiOutProvider provider, Optional<String> soundbank)
+    {
+    }
 
     private static boolean hasTag(String fileName, String tag)
     {
@@ -169,7 +172,8 @@ public class DemoCommand implements Callable<Integer>
         if (hasTag(fileName, "tsf"))
         {
             var provider = new TsfSynthProvider(new FFMTsfNativeBridge(), buildPipeline(2), null);
-            return withGain(provider, Optional.ofNullable(findResource("soundfonts/FluidR3_GM.sf3")), provider::setMasterGain);
+            return withGain(provider, Optional.ofNullable(findResource("soundfonts/FluidR3_GM.sf3")),
+                    provider::setMasterGain);
         }
         if (hasTag(fileName, "gus"))
         {
@@ -179,12 +183,14 @@ public class DemoCommand implements Callable<Integer>
         }
         if (hasTag(fileName, "opl3"))
         {
-            var provider = new AdlMidiSynthProvider(new FFMAdlMidiNativeBridge(), buildPipeline(2), 0, 4, common.retroMode.orElse(null));
+            var provider = new AdlMidiSynthProvider(new FFMAdlMidiNativeBridge(), buildPipeline(2), 0, 4,
+                    common.retroMode.orElse(null));
             return withGain(provider, Optional.of("bank:0"), provider::setMasterGain);
         }
         if (hasTag(fileName, "opn2"))
         {
-            var provider = new OpnMidiSynthProvider(new FFMOpnMidiNativeBridge(), buildPipeline(2), 0, 4, common.retroMode.orElse(null));
+            var provider = new OpnMidiSynthProvider(new FFMOpnMidiNativeBridge(), buildPipeline(2), 0, 4,
+                    common.retroMode.orElse(null));
             return withGain(provider, Optional.of(""), provider::setMasterGain);
         }
         if (hasTag(fileName, "psg"))
@@ -203,7 +209,8 @@ public class DemoCommand implements Callable<Integer>
     private ProviderWithArgs withGain(MidiOutProvider provider, Optional<String> soundbank,
             Consumer<MasterGainFilter> setGain)
     {
-        if (fxOptions.masterGain != null) setGain.accept(fxOptions.masterGain);
+        if (fxOptions.masterGain != null)
+            setGain.accept(fxOptions.masterGain);
         return new ProviderWithArgs(provider, soundbank);
     }
 
@@ -225,23 +232,25 @@ public class DemoCommand implements Callable<Integer>
     private File findDemoDirectory()
     {
         String[] paths = {
-            "src/main/resources/demomidi",
-            "share/midra/demomidi",
-            "share/demomidi",
-            "../share/midra/demomidi"
+                "src/main/resources/demomidi",
+                "share/midra/demomidi",
+                "share/demomidi",
+                "../share/midra/demomidi"
         };
 
         String midraData = System.getenv("MIDRA_DATA");
         if (midraData != null)
         {
             File f = new File(midraData, "demomidi");
-            if (f.exists()) return f;
+            if (f.exists())
+                return f;
         }
 
         for (String p : paths)
         {
             File f = new File(p);
-            if (f.exists()) return f;
+            if (f.exists())
+                return f;
         }
         return null;
     }
@@ -252,10 +261,12 @@ public class DemoCommand implements Callable<Integer>
         if (midraData != null)
         {
             File f = new File(midraData, subPath);
-            if (f.exists()) return f.getAbsolutePath();
+            if (f.exists())
+                return f.getAbsolutePath();
         }
         File dev = new File("build", subPath);
-        if (dev.exists()) return dev.getAbsolutePath();
+        if (dev.exists())
+            return dev.getAbsolutePath();
         return null;
     }
 
@@ -268,13 +279,13 @@ public class DemoCommand implements Callable<Integer>
     static
     {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put("tsf",   "TinySoundFont (General MIDI SF3)");
-        m.put("gus",   "GUS Patches (FreePats)");
-        m.put("opl3",  "OPL3 FM Synthesis (libADLMIDI)");
-        m.put("opn2",  "OPN2 FM Synthesis (libOPNMIDI)");
-        m.put("psg",   "PSG Chip Synthesis (AY-3-8910)");
-        m.put("beep",  "PC Beeper");
-        m.put("munt",  "MT-32 Emulation (Munt)");
+        m.put("tsf", "TinySoundFont (General MIDI SF3)");
+        m.put("gus", "GUS Patches (FreePats)");
+        m.put("opl3", "OPL3 FM Synthesis (libADLMIDI)");
+        m.put("opn2", "OPN2 FM Synthesis (libOPNMIDI)");
+        m.put("psg", "PSG Chip Synthesis (AY-3-8910)");
+        m.put("beep", "PC Beeper");
+        m.put("munt", "MT-32 Emulation (Munt)");
         m.put("fluid", "FluidSynth");
         ENGINE_DISPLAY_NAMES = Collections.unmodifiableMap(m);
     }
@@ -282,14 +293,17 @@ public class DemoCommand implements Callable<Integer>
     /** Extracts a human-readable title from a demo filename like {@code 03-gus-entertainer.mid}. */
     static String extractSongTitle(String fileName)
     {
-        String base = fileName.replaceFirst("\\.[^.]+$", "");   // strip extension
+        String base = fileName.replaceFirst("\\.[^.]+$", ""); // strip extension
         String[] parts = base.split("-");
         var sb = new StringBuilder();
         for (int i = 0; i < parts.length; i++)
         {
-            if (i == 0) continue;                               // skip leading number
-            if (i == 1 && ENGINE_DISPLAY_NAMES.containsKey(parts[i].toLowerCase(Locale.ROOT))) continue;
-            if (!sb.isEmpty()) sb.append(' ');
+            if (i == 0)
+                continue; // skip leading number
+            if (i == 1 && ENGINE_DISPLAY_NAMES.containsKey(parts[i].toLowerCase(Locale.ROOT)))
+                continue;
+            if (!sb.isEmpty())
+                sb.append(' ');
             String word = parts[i];
             sb.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
         }

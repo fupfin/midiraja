@@ -62,7 +62,8 @@ public class EngineSelector
      */
     private static void resetTerminalToSane()
     {
-        if (System.getProperty("os.name", "").toLowerCase().contains("win")) return;
+        if (System.getProperty("os.name", "").toLowerCase().contains("win"))
+            return;
         try
         {
             new ProcessBuilder("stty", "sane")
@@ -73,8 +74,7 @@ public class EngineSelector
                     .waitFor(1, TimeUnit.SECONDS);
         }
         catch (Exception _)
-        {
-        }
+        {}
     }
 
     /**
@@ -93,21 +93,31 @@ public class EngineSelector
                 64, 84,
                 Logo.WIDTH + 4,
                 Logo.LINES.size() + 2, // +1 for subtitle, +1 for blank line
-                (buf, width) -> {
-                    int logoPad = Math.max(0, (width - Logo.WIDTH) / 2);
-                    for (int li = 0; li < Logo.LINES.size(); li++)
-                        buf.repeat(" ", logoPad).append(Logo.LINE_COLORS.get(li))
-                                .append(Logo.LINES.get(li)).append(Theme.COLOR_RESET).appendLine();
-                    int subtitlePad = Math.max(0, (width - Logo.SUBTITLE.length()) / 2);
-                    buf.repeat(" ", subtitlePad)
-                            .append(Theme.COLOR_VU).append(Logo.VU_BARS)
-                            .append(Theme.COLOR_DIM_FG).append("  ").append(Logo.SUBTITLE_TEXT)
-                            .append(Theme.COLOR_RESET).appendLine();
-                    buf.appendLine();
-                });
+                EngineSelector::renderLogo);
 
         return TerminalSelector.select(items, config, uiOpts.fullMode, uiOpts.miniMode,
                 uiOpts.classicMode, err);
+    }
+
+    private static void renderLogo(com.fupfin.midiraja.ui.ScreenBuffer buf, int width)
+    {
+        int logoPad = Math.max(0, (width - Logo.WIDTH) / 2);
+        for (int li = 0; li < Logo.LINES.size(); li++)
+        {
+            buf.repeat(" ", logoPad).append(Logo.LINE_COLORS.get(li))
+                    .append(Logo.LINES.get(li)).append(Theme.COLOR_RESET).appendLine();
+        }
+        int subtitlePad = Math.max(0, (width - Logo.SUBTITLE.length()) / 2);
+        buf.repeat(" ", subtitlePad)
+                .append(Theme.COLOR_VU).append(Logo.VU_BARS)
+                .append(Theme.COLOR_DIM_FG).append("  ").append(Logo.SUBTITLE_TEXT)
+                .append(Theme.COLOR_RESET).appendLine();
+        buf.appendLine();
+    }
+
+    private static TerminalSelector.Item<Choice> portItem(MidiPort p)
+    {
+        return TerminalSelector.Item.of(new Choice.Port(p.index()), p.name(), "OS MIDI port");
     }
 
     static List<TerminalSelector.Item<Choice>> buildItems(List<MidiPort> ports)
@@ -115,8 +125,7 @@ public class EngineSelector
         var list = new ArrayList<TerminalSelector.Item<Choice>>();
         if (!ports.isEmpty())
         {
-            ports.forEach(p -> list.add(
-                    TerminalSelector.Item.of(new Choice.Port(p.index()), p.name(), "OS MIDI port")));
+            ports.forEach(p -> list.add(portItem(p)));
             list.add(TerminalSelector.Item
                     .separator("── Built-in Engines ───────────────────────────────────────"));
         }

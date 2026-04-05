@@ -12,7 +12,8 @@ import com.fupfin.midiraja.engine.PlaybackCommands;
 /**
  * Abstraction for OS media key integration (play/pause, next, previous, seek).
  *
- * <p>Call sequence: {@code start()} → any number of {@code drainAndUpdate()} → {@code close()}.
+ * <p>
+ * Call sequence: {@code start()} → any number of {@code drainAndUpdate()} → {@code close()}.
  * All methods are safe to call out of order or multiple times.
  */
 public interface MediaKeyIntegration extends AutoCloseable

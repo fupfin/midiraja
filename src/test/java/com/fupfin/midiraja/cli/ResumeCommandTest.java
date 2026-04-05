@@ -11,12 +11,15 @@ import picocli.CommandLine;
 
 import com.fupfin.midiraja.MidirajaCommand;
 
-class ResumeCommandTest {
+class ResumeCommandTest
+{
 
     @Test
-    void resumeWithEmptyHistory_printsNoHistory(@TempDir Path tmpDir) {
+    void resumeWithEmptyHistory_printsNoHistory(@TempDir Path tmpDir)
+    {
         System.setProperty("midiraja.history.path", tmpDir.resolve("history.json").toString());
-        try {
+        try
+        {
             var out = new ByteArrayOutputStream();
             var err = new ByteArrayOutputStream();
             var cmd = new CommandLine(new MidirajaCommand())
@@ -26,7 +29,9 @@ class ResumeCommandTest {
             var output = err.toString() + out.toString();
             assertTrue(output.contains("No session history"),
                     "Expected 'No session history' message, got: " + output);
-        } finally {
+        }
+        finally
+        {
             System.clearProperty("midiraja.history.path");
         }
     }

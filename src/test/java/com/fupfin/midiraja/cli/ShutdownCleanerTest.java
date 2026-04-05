@@ -25,14 +25,50 @@ class ShutdownCleanerTest
     {
         boolean closed = false;
 
-        @Override public boolean isInteractive() { return false; }
-        @Override public void init() {}
-        @Override public void close() { closed = true; }
-        @Override public TerminalKey readKey() { return TerminalKey.NONE; }
-        @Override public void print(String str) {}
-        @Override public void println(String str) {}
-        @Override public int getWidth() { return 80; }
-        @Override public int getHeight() { return 24; }
+        @Override
+        public boolean isInteractive()
+        {
+            return false;
+        }
+
+        @Override
+        public void init()
+        {
+        }
+
+        @Override
+        public void close()
+        {
+            closed = true;
+        }
+
+        @Override
+        public TerminalKey readKey()
+        {
+            return TerminalKey.NONE;
+        }
+
+        @Override
+        public void print(String str)
+        {
+        }
+
+        @Override
+        public void println(String str)
+        {
+        }
+
+        @Override
+        public int getWidth()
+        {
+            return 80;
+        }
+
+        @Override
+        public int getHeight()
+        {
+            return 24;
+        }
     }
 
     /** Minimal MidiOutProvider stub — records whether panic() and closePort() were called. */
@@ -41,10 +77,27 @@ class ShutdownCleanerTest
         boolean panicCalled = false;
         boolean closePortCalled = false;
 
-        @Override public List<MidiPort> getOutputPorts() { return List.of(); }
-        @Override public void openPort(int portIndex) {}
-        @Override public void sendMessage(byte[] data) {}
-        @Override public void closePort() { closePortCalled = true; }
+        @Override
+        public List<MidiPort> getOutputPorts()
+        {
+            return List.of();
+        }
+
+        @Override
+        public void openPort(int portIndex)
+        {
+        }
+
+        @Override
+        public void sendMessage(byte[] data)
+        {
+        }
+
+        @Override
+        public void closePort()
+        {
+            closePortCalled = true;
+        }
 
         @Override
         public void panic()
@@ -98,8 +151,13 @@ class ShutdownCleanerTest
     @Test
     void closePort_calledEvenWhenPanicThrows()
     {
-        var panicThrowsProvider = new FakeMidiOutProvider() {
-            @Override public void panic() { throw new RuntimeException("boom"); }
+        var panicThrowsProvider = new FakeMidiOutProvider()
+        {
+            @Override
+            public void panic()
+            {
+                throw new RuntimeException("boom");
+            }
         };
         var io = new FakeTerminalIO();
         var portClosed = new AtomicBoolean(false);

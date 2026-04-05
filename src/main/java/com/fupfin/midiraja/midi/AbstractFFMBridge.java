@@ -16,36 +16,36 @@ import com.fupfin.midiraja.LibraryPaths;
 public abstract class AbstractFFMBridge implements AutoCloseable
 {
     /** Result of a non-throwing library probe. {@code resolvedPath} is null when not found. */
-    public record LibProbeResult(boolean found, @Nullable String resolvedPath) {}
+    public record LibProbeResult(boolean found, @Nullable String resolvedPath)
+    {
+    }
 
-    protected static final FunctionDescriptor DESC_INIT =
-            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
-    protected static final FunctionDescriptor DESC_VOID_PTR =
-            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS);
-    protected static final FunctionDescriptor DESC_PTR_INT =
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT);
-    protected static final FunctionDescriptor DESC_PTR_STR =
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+    protected static final FunctionDescriptor DESC_INIT = FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.JAVA_LONG);
+    protected static final FunctionDescriptor DESC_VOID_PTR = FunctionDescriptor.ofVoid(ValueLayout.ADDRESS);
+    protected static final FunctionDescriptor DESC_PTR_INT = FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT);
+    protected static final FunctionDescriptor DESC_PTR_STR = FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS);
     protected static final FunctionDescriptor DESC_PTR_PTR_LONG = FunctionDescriptor.of(
             ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
     protected static final FunctionDescriptor DESC_GENERATE = FunctionDescriptor.of(
             ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS);
-    protected static final FunctionDescriptor DESC_NOTE_ON =
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
-                    ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE);
+    protected static final FunctionDescriptor DESC_NOTE_ON = FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
+            ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE);
     protected static final FunctionDescriptor DESC_NOTE_OFF = FunctionDescriptor
             .ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE);
-    protected static final FunctionDescriptor DESC_CTRL_CHANGE =
-            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE,
-                    ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE);
+    protected static final FunctionDescriptor DESC_CTRL_CHANGE = FunctionDescriptor.ofVoid(ValueLayout.ADDRESS,
+            ValueLayout.JAVA_BYTE,
+            ValueLayout.JAVA_BYTE, ValueLayout.JAVA_BYTE);
     protected static final FunctionDescriptor DESC_PITCH_BEND = FunctionDescriptor
             .ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_BYTE, ValueLayout.JAVA_SHORT);
     protected static final FunctionDescriptor DESC_SYS_EX = FunctionDescriptor.of(
             ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
-    protected static final FunctionDescriptor DESC_ERROR_INFO =
-            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS);
-    protected static final FunctionDescriptor DESC_NO_ARGS_INT =
-            FunctionDescriptor.of(ValueLayout.JAVA_INT);
+    protected static final FunctionDescriptor DESC_ERROR_INFO = FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS);
+    protected static final FunctionDescriptor DESC_NO_ARGS_INT = FunctionDescriptor.of(ValueLayout.JAVA_INT);
 
     protected final Arena arena;
     protected final SymbolLookup lib;
@@ -65,21 +65,27 @@ public abstract class AbstractFFMBridge implements AutoCloseable
     /**
      * Renders audio into the provided buffer using the given generate method handle.
      *
-     * <p>The generate handle must accept {@code (MemorySegment device, int sampleCount,
+     * <p>
+     * The generate handle must accept {@code (MemorySegment device, int sampleCount,
      * MemorySegment out)} and return {@code int}. Allocates a native render buffer lazily and
      * reuses it across calls to avoid per-frame allocation.
      *
-     * <p>Must be called only from a single render thread per bridge instance. The internal
+     * <p>
+     * Must be called only from a single render thread per bridge instance. The internal
      * {@code renderBuffer} and {@code currentRenderBufferSize} fields are not synchronized.
      *
-     * @param generateHandle the native generate method handle
-     * @param device the native device pointer
-     * @param buffer the Java output buffer to fill
+     * @param generateHandle
+     *            the native generate method handle
+     * @param device
+     *            the native device pointer
+     * @param buffer
+     *            the Java output buffer to fill
      */
-    @SuppressWarnings({"EmptyCatch", "UnusedVariable"})
+    @SuppressWarnings({ "EmptyCatch", "UnusedVariable" })
     protected void generateInto(MethodHandle generateHandle, MemorySegment device, short[] buffer)
     {
-        if (device.equals(MemorySegment.NULL) || buffer == null || buffer.length == 0) return;
+        if (device.equals(MemorySegment.NULL) || buffer == null || buffer.length == 0)
+            return;
 
         int requiredBytes = buffer.length * 2; // 2 bytes per short
         if (currentRenderBufferSize < requiredBytes)
@@ -124,18 +130,23 @@ public abstract class AbstractFFMBridge implements AutoCloseable
     public static SymbolLookup tryLoadLibrary(Arena arena, String fallbackDevDir, String... paths)
             throws RuntimeException
     {
-        if (paths.length == 0) throw new IllegalArgumentException("No library paths provided");
+        if (paths.length == 0)
+            throw new IllegalArgumentException("No library paths provided");
         List<String> failedPaths = new ArrayList<>();
         String projectRoot = new File("").getAbsolutePath();
 
         String osName = System.getProperty("os.name").toLowerCase(Locale.ROOT);
-        String osFamily = osName.contains("mac") ? "macos"
+        String osFamily = osName.contains("mac")
+                ? "macos"
                 : (osName.contains("linux") ? "linux" : "windows");
         String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
-        if (arch.equals("amd64")) arch = "x86_64";
-        if (arch.equals("arm64")) arch = "aarch64";
+        if (arch.equals("amd64"))
+            arch = "x86_64";
+        if (arch.equals("arm64"))
+            arch = "aarch64";
 
-        String[] osFallbackDirs = osName.contains("mac") ? LibraryPaths.DARWIN
+        String[] osFallbackDirs = osName.contains("mac")
+                ? LibraryPaths.DARWIN
                 : (osName.contains("linux") ? LibraryPaths.LINUX : LibraryPaths.WINDOWS);
 
         List<String> allPaths = new ArrayList<>();
@@ -165,7 +176,8 @@ public abstract class AbstractFFMBridge implements AutoCloseable
                     allPaths.add(jarDir.getAbsolutePath() + "/" + path);
             }
         }
-        catch (Exception | Error ignored) {}
+        catch (Exception | Error ignored)
+        {}
 
         // Then bare filenames (resolved by the OS dynamic linker, including rpath)
         allPaths.addAll(List.of(paths));
@@ -216,23 +228,29 @@ public abstract class AbstractFFMBridge implements AutoCloseable
     /**
      * Probes whether a native library is available without throwing on failure.
      *
-     * <p>Uses the same path resolution logic as {@link #tryLoadLibrary} but returns a
+     * <p>
+     * Uses the same path resolution logic as {@link #tryLoadLibrary} but returns a
      * {@link LibProbeResult} instead of throwing. For bare library names (non-absolute paths),
      * a temporary confined arena is used and closed immediately after the probe.
      */
     public static LibProbeResult probeLibrary(String fallbackDevDir, String... paths)
     {
-        if (paths.length == 0) return new LibProbeResult(false, null);
+        if (paths.length == 0)
+            return new LibProbeResult(false, null);
         String projectRoot = new File("").getAbsolutePath();
 
         String osName = System.getProperty("os.name").toLowerCase(Locale.ROOT);
-        String osFamily = osName.contains("mac") ? "macos"
+        String osFamily = osName.contains("mac")
+                ? "macos"
                 : (osName.contains("linux") ? "linux" : "windows");
         String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
-        if (arch.equals("amd64")) arch = "x86_64";
-        if (arch.equals("arm64")) arch = "aarch64";
+        if (arch.equals("amd64"))
+            arch = "x86_64";
+        if (arch.equals("arm64"))
+            arch = "aarch64";
 
-        String[] osFallbackDirs = osName.contains("mac") ? LibraryPaths.DARWIN
+        String[] osFallbackDirs = osName.contains("mac")
+                ? LibraryPaths.DARWIN
                 : (osName.contains("linux") ? LibraryPaths.LINUX : LibraryPaths.WINDOWS);
 
         List<String> allPaths = new ArrayList<>(List.of(paths));
@@ -272,8 +290,7 @@ public abstract class AbstractFFMBridge implements AutoCloseable
                     return new LibProbeResult(true, path);
                 }
                 catch (IllegalArgumentException e)
-                {
-                }
+                {}
             }
         }
         return new LibProbeResult(false, null);

@@ -15,25 +15,25 @@ import java.util.List;
 public final class Logo
 {
     private Logo()
-    {}
+    {
+    }
 
     // "MIDIraja" in 5-line ANSI Shadow style — 64 chars wide, 5 lines
     // Top-to-bottom amber gradient: bright (215) → dim (94)
     public static final List<String> LINE_COLORS = Collections.unmodifiableList(List.of(
-        "\033[38;5;215m",  // line 1 — brightest amber
-        "\033[38;5;214m",  // line 2
-        "\033[38;5;172m",  // line 3 — medium amber
-        "\033[38;5;130m",  // line 4
-        "\033[38;5;94m"    // line 5 — darkest amber
+            "\033[38;5;215m", // line 1 — brightest amber
+            "\033[38;5;214m", // line 2
+            "\033[38;5;172m", // line 3 — medium amber
+            "\033[38;5;130m", // line 4
+            "\033[38;5;94m" // line 5 — darkest amber
     ));
 
     public static final List<String> LINES = Collections.unmodifiableList(List.of(
-        "███╗   ███╗ ██╗ ██████╗  ██╗",
-        "████╗ ████║ ██║ ██╔══██╗ ██║██╗████╗ ██████╗     ██╗ ██████╗",
-        "██╔████╔██║ ██║ ██║  ██║ ██║ ██╔═══╝██╔══██║     ▇▇║██╔══██║",
-        "██║ ╚═╝ ██║ ██║ ██████╔╝ ██║ ██║     ████ ██╗██╗ ██║ ████ ██╗",
-        "╚═╝     ╚═╝ ╚═╝ ╚═════╝  ╚═╝ ╚═╝     ╚═══╝╚═╝╚████╔╝ ╚═══╝╚═╝"
-    ));
+            "███╗   ███╗ ██╗ ██████╗  ██╗",
+            "████╗ ████║ ██║ ██╔══██╗ ██║██╗████╗ ██████╗     ██╗ ██████╗",
+            "██╔████╔██║ ██║ ██║  ██║ ██║ ██╔═══╝██╔══██║     ▇▇║██╔══██║",
+            "██║ ╚═╝ ██║ ██║ ██████╔╝ ██║ ██║     ████ ██╗██╗ ██║ ████ ██╗",
+            "╚═╝     ╚═╝ ╚═╝ ╚═════╝  ╚═╝ ╚═╝     ╚═══╝╚═╝╚████╔╝ ╚═══╝╚═╝"));
 
     public static final String TAGLINE = "Terminal Lover's MIDI Player";
     public static final String VU_BARS = "[▃▅▇▅▆▄]";

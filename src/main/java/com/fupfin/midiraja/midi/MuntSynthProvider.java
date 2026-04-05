@@ -64,62 +64,65 @@ public class MuntSynthProvider implements SoftSynthProvider
     private void startRenderThread()
     {
         running = true;
-        renderThread = new Thread(() -> {
-            // Reset the render-clock reference to "now" so events queued between
-            // openSynth() and this first cycle don't get far-future timestamps.
-            bridge.resetRenderTiming();
-
-            // Buffer size: 512 frames = 1024 shorts (stereo)
-            // 512 frames at 32kHz is 16ms of audio.
-            final int framesToRender = 512;
-            short[] pcmBuffer = new short[framesToRender * 2];
-
-            while (running)
-            {
-                // Spin while prepareForNewTrack() is cycling the Munt synth context.
-                // close_synth / open_synth are NOT thread-safe with render_bit16s.
-                if (renderPaused)
-                {
-                    try
-                    {
-                        Thread.sleep(1);
-                    }
-                    catch (InterruptedException e)
-                    {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                    continue;
-                }
-
-                // Pull rendered PCM data from Munt (it fills the pcmBuffer)
-                bridge.renderAudio(pcmBuffer, framesToRender);
-
-                // Push it to the miniaudio ring buffer.
-                // This call will safely block if the buffer is full, pacing the thread.
-                if (audioOut != null)
-                {
-                    audioOut.processInterleaved(pcmBuffer, framesToRender, 2);
-                }
-                else
-                {
-                    try
-                    {
-                        Thread.sleep(16);
-                    }
-                    catch (InterruptedException e)
-                    {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
-            }
-        });
+        renderThread = new Thread(this::renderLoop);
         // AUDIO PRIORITY: We need high priority to prevent dropouts,
         // even if the thread scheduler is not guaranteed to honor it.
         renderThread.setPriority(Thread.MAX_PRIORITY);
         renderThread.setDaemon(true);
         renderThread.start();
+    }
+
+    private void renderLoop()
+    {
+        // Reset the render-clock reference to "now" so events queued between
+        // openSynth() and this first cycle don't get far-future timestamps.
+        bridge.resetRenderTiming();
+
+        // Buffer size: 512 frames = 1024 shorts (stereo)
+        // 512 frames at 32kHz is 16ms of audio.
+        final int framesToRender = 512;
+        short[] pcmBuffer = new short[framesToRender * 2];
+
+        while (running)
+        {
+            // Spin while prepareForNewTrack() is cycling the Munt synth context.
+            // close_synth / open_synth are NOT thread-safe with render_bit16s.
+            if (renderPaused)
+            {
+                try
+                {
+                    Thread.sleep(1);
+                }
+                catch (InterruptedException e)
+                {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                continue;
+            }
+
+            // Pull rendered PCM data from Munt (it fills the pcmBuffer)
+            bridge.renderAudio(pcmBuffer, framesToRender);
+
+            // Push it to the miniaudio ring buffer.
+            // This call will safely block if the buffer is full, pacing the thread.
+            if (audioOut != null)
+            {
+                audioOut.processInterleaved(pcmBuffer, framesToRender, 2);
+            }
+            else
+            {
+                try
+                {
+                    Thread.sleep(16);
+                }
+                catch (InterruptedException e)
+                {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
     }
 
     @Override
@@ -144,7 +147,8 @@ public class MuntSynthProvider implements SoftSynthProvider
     {
         bridge.loadRoms(path);
         String desc = bridge.getRomDescription();
-        if (desc != null) portName = desc.replace(" Control", "");
+        if (desc != null)
+            portName = desc.replace(" Control", "");
         bridge.openSynth();
 
         if (audioOut != null)
@@ -164,11 +168,11 @@ public class MuntSynthProvider implements SoftSynthProvider
             Thread.sleep(20);
         }
         catch (InterruptedException _)
-        {
-        }
+        {}
 
         // Step 2: Flush the ring buffer to discard audio from the previous song.
-        if (audioOut != null) audioOut.reset();
+        if (audioOut != null)
+            audioOut.reset();
 
         // Step 3: Fast-drain the MT-32 reverb tail WITHOUT pushing to the ring buffer.
         //
@@ -211,7 +215,8 @@ public class MuntSynthProvider implements SoftSynthProvider
     @Override
     public void sendMessage(byte[] data) throws Exception
     {
-        if (data == null || data.length == 0) return;
+        if (data == null || data.length == 0)
+            return;
 
         int status = data[0] & 0xFF;
         if (status >= 0xF0)
@@ -230,19 +235,19 @@ public class MuntSynthProvider implements SoftSynthProvider
 
             switch (command)
             {
-                case 0x90:
+                case 0x90 :
                     bridge.playNoteOn(channel, data1, data2);
                     break;
-                case 0x80:
+                case 0x80 :
                     bridge.playNoteOff(channel, data1);
                     break;
-                case 0xB0:
+                case 0xB0 :
                     bridge.playControlChange(channel, data1, data2);
                     break;
-                case 0xC0:
+                case 0xC0 :
                     bridge.playProgramChange(channel, data1);
                     break;
-                case 0xE0:
+                case 0xE0 :
                     int bend = (data2 << 7) | data1;
                     bridge.playPitchBend(channel, bend);
                     break;

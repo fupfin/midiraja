@@ -31,7 +31,8 @@ public class JLineTerminalIO implements TerminalIO
     @Override
     public boolean isInteractive()
     {
-        if (terminal == null) return false;
+        if (terminal == null)
+            return false;
         String type = terminal.getType();
         return !Terminal.TYPE_DUMB.equals(type) && !Terminal.TYPE_DUMB_COLOR.equals(type);
     }
@@ -57,29 +58,29 @@ public class JLineTerminalIO implements TerminalIO
         // then add the playback-specific bindings on top.
         var km = NavKeyMapFactory.buildNavKeyMap(terminal,
                 TerminalKey.PREV_TRACK, TerminalKey.NEXT_TRACK,
-                TerminalKey.NONE,       TerminalKey.QUIT);
+                TerminalKey.NONE, TerminalKey.QUIT);
 
         // Left/right arrows — not part of the minimal nav set
         NavKeyMapFactory.bindArrow(km, terminal, InfoCmp.Capability.key_right,
-                TerminalKey.SEEK_FORWARD,  "C");
+                TerminalKey.SEEK_FORWARD, "C");
         NavKeyMapFactory.bindArrow(km, terminal, InfoCmp.Capability.key_left,
                 TerminalKey.SEEK_BACKWARD, "D");
 
         // Playback-specific single-character bindings
-        km.bind(TerminalKey.PAUSE,          " ");
-        km.bind(TerminalKey.NEXT_TRACK,     "n", "N");
-        km.bind(TerminalKey.PREV_TRACK,     "p", "P");
-        km.bind(TerminalKey.VOLUME_UP,      "+", "=", "u", "U");
-        km.bind(TerminalKey.VOLUME_DOWN,    "-", "_", "d", "D");
-        km.bind(TerminalKey.SEEK_FORWARD,   "f", "F");
-        km.bind(TerminalKey.SEEK_BACKWARD,  "b", "B");
-        km.bind(TerminalKey.TRANSPOSE_UP,   "'");
+        km.bind(TerminalKey.PAUSE, " ");
+        km.bind(TerminalKey.NEXT_TRACK, "n", "N");
+        km.bind(TerminalKey.PREV_TRACK, "p", "P");
+        km.bind(TerminalKey.VOLUME_UP, "+", "=", "u", "U");
+        km.bind(TerminalKey.VOLUME_DOWN, "-", "_", "d", "D");
+        km.bind(TerminalKey.SEEK_FORWARD, "f", "F");
+        km.bind(TerminalKey.SEEK_BACKWARD, "b", "B");
+        km.bind(TerminalKey.TRANSPOSE_UP, "'");
         km.bind(TerminalKey.TRANSPOSE_DOWN, "/");
-        km.bind(TerminalKey.SPEED_UP,       ".", ">");
-        km.bind(TerminalKey.SPEED_DOWN,     ",", "<");
-        km.bind(TerminalKey.BOOKMARK,       "*");
+        km.bind(TerminalKey.SPEED_UP, ".", ">");
+        km.bind(TerminalKey.SPEED_DOWN, ",", "<");
+        km.bind(TerminalKey.BOOKMARK, "*");
         km.bind(TerminalKey.RESUME_SESSION, "r", "R");
-        km.bind(TerminalKey.TOGGLE_LOOP,    "l", "L");
+        km.bind(TerminalKey.TOGGLE_LOOP, "l", "L");
         km.bind(TerminalKey.TOGGLE_SHUFFLE, "s", "S");
 
         return km;
@@ -122,8 +123,7 @@ public class JLineTerminalIO implements TerminalIO
                 System.out.flush();
             }
             catch (Exception _)
-            {
-            }
+            {}
         }
     }
 
@@ -150,7 +150,8 @@ public class JLineTerminalIO implements TerminalIO
     /**
      * Installs JLine SIGTSTP/SIGCONT handlers.
      *
-     * <p>On SIGTSTP: calls {@code onSuspend}, resets the TSTP handler to the OS default, then
+     * <p>
+     * On SIGTSTP: calls {@code onSuspend}, resets the TSTP handler to the OS default, then
      * sends SIGTSTP to the current process (which pauses all threads). Execution resumes here
      * after SIGCONT is received; the TSTP handler is then re-registered and {@code onResume} is
      * called.
@@ -159,24 +160,29 @@ public class JLineTerminalIO implements TerminalIO
     public void installSuspendHandlers(Runnable onSuspend, Runnable onResume)
     {
         var t = terminal;
-        if (t == null) return;
-        t.handle(org.jline.terminal.Terminal.Signal.TSTP, signal -> {
-            onSuspend.run();
-            // Reset to default before re-raising so the OS actually suspends the process.
-            t.handle(org.jline.terminal.Terminal.Signal.TSTP,
-                    org.jline.terminal.Terminal.SignalHandler.SIG_DFL);
-            try
-            {
-                new ProcessBuilder("/bin/kill", "-TSTP",
-                        String.valueOf(ProcessHandle.current().pid())).start().waitFor();
-            }
-            catch (Exception _)
-            {
-            }
-            // Execution resumes here after SIGCONT.
-            installSuspendHandlers(onSuspend, onResume);
-            onResume.run();
-        });
+        if (t == null)
+            return;
+        t.handle(org.jline.terminal.Terminal.Signal.TSTP,
+                signal -> handleTstp(t, onSuspend, onResume));
+    }
+
+    @SuppressWarnings("EmptyCatch")
+    private void handleTstp(org.jline.terminal.Terminal t, Runnable onSuspend, Runnable onResume)
+    {
+        onSuspend.run();
+        // Reset to default before re-raising so the OS actually suspends the process.
+        t.handle(org.jline.terminal.Terminal.Signal.TSTP,
+                org.jline.terminal.Terminal.SignalHandler.SIG_DFL);
+        try
+        {
+            new ProcessBuilder("/bin/kill", "-TSTP",
+                    String.valueOf(ProcessHandle.current().pid())).start().waitFor();
+        }
+        catch (Exception _)
+        {}
+        // Execution resumes here after SIGCONT.
+        installSuspendHandlers(onSuspend, onResume);
+        onResume.run();
     }
 
     @Override

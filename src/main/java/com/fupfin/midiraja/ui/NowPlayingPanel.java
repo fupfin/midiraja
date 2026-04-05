@@ -69,7 +69,8 @@ public class NowPlayingPanel implements Panel
 
     @Override
     public void onPlaybackStateChanged()
-    {}
+    {
+    }
 
     @Override
     public void onTick(long currentMicroseconds)
@@ -85,7 +86,8 @@ public class NowPlayingPanel implements Panel
 
     @Override
     public void onChannelActivity(int channel, int velocity)
-    {}
+    {
+    }
 
     @Override
     public void onBookmarkChanged(boolean bookmarked)
@@ -96,7 +98,8 @@ public class NowPlayingPanel implements Panel
     @Override
     public void render(ScreenBuffer buffer)
     {
-        if (constraints.height() <= 0 || context == null) return;
+        if (constraints.height() <= 0 || context == null)
+            return;
 
         String title = context.sequenceTitle() != null ? context.sequenceTitle() : "";
         String fileName = context.files().get(context.currentIndex()).getName();
@@ -115,7 +118,7 @@ public class NowPlayingPanel implements Panel
         int timeLen = timeStr.length();
 
         // Fixed visual length without bar:
-        // "Time:      " (11) + pauseIndicator + "00:00 / 00:00" + "  " + bar + "  " + "100%"
+        // "Time: " (11) + pauseIndicator + "00:00 / 00:00" + " " + bar + " " + "100%"
         // Total fixed = 23 + visiblePauseLen + timeLen
         int barWidth = max(10, constraints.width() - 23 - visiblePauseLen - timeLen);
 
@@ -128,7 +131,7 @@ public class NowPlayingPanel implements Panel
 
         // Consistent label alignment (10 chars padding)
         String fmtLabel = "%-10s %s";
-        String fmtTime  = "%-10s %s%s / %s  %s  %3d%%";
+        String fmtTime = "%-10s %s%s / %s  %s  %3d%%";
 
         // Build lines in display order; output the first h of them, then pad.
         var lines = new java.util.ArrayList<String>();
@@ -149,7 +152,9 @@ public class NowPlayingPanel implements Panel
                     truncate(copyright, max(10, constraints.width() - 11))));
 
         int shown = min(h, lines.size());
-        for (int i = 0; i < shown; i++) buffer.append(lines.get(i)).append("\n");
-        for (int i = shown; i < h; i++) buffer.append("\n");
+        for (int i = 0; i < shown; i++)
+            buffer.append(lines.get(i)).append("\n");
+        for (int i = shown; i < h; i++)
+            buffer.append("\n");
     }
 }

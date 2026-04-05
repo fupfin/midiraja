@@ -28,7 +28,8 @@ class PlaylistParserTest
     private ByteArrayOutputStream errBytes;
     private CommonOptions common;
 
-    @BeforeEach void setUp()
+    @BeforeEach
+    void setUp()
     {
         errBytes = new ByteArrayOutputStream();
         parser = new PlaylistParser(new PrintStream(errBytes), false);
@@ -37,7 +38,8 @@ class PlaylistParserTest
 
     // ── Basic file/directory handling ────────────────────────────────────────────
 
-    @Test void testParseMidiFile(@TempDir Path tempDir) throws Exception
+    @Test
+    void testParseMidiFile(@TempDir Path tempDir) throws Exception
     {
         File midiFile = createTestMidi(tempDir, "song.mid");
 
@@ -47,7 +49,8 @@ class PlaylistParserTest
         assertEquals(midiFile, result.get(0));
     }
 
-    @Test void testParseDirectory(@TempDir Path tempDir) throws Exception
+    @Test
+    void testParseDirectory(@TempDir Path tempDir) throws Exception
     {
         createTestMidi(tempDir, "a.mid");
         createTestMidi(tempDir, "b.mid");
@@ -59,7 +62,8 @@ class PlaylistParserTest
         assertEquals(2, result.size());
     }
 
-    @Test void testParseDirectoryNonRecursive(@TempDir Path tempDir) throws Exception
+    @Test
+    void testParseDirectoryNonRecursive(@TempDir Path tempDir) throws Exception
     {
         createTestMidi(tempDir, "top.mid");
         Path subDir = tempDir.resolve("sub");
@@ -72,7 +76,8 @@ class PlaylistParserTest
         assertEquals(1, result.size());
     }
 
-    @Test void testParseDirectoryRecursive(@TempDir Path tempDir) throws Exception
+    @Test
+    void testParseDirectoryRecursive(@TempDir Path tempDir) throws Exception
     {
         createTestMidi(tempDir, "top.mid");
         Path subDir = tempDir.resolve("sub");
@@ -87,7 +92,8 @@ class PlaylistParserTest
 
     // ── M3U playlist with #MIDRA: directives ────────────────────────────────────
 
-    @Test void testM3uShuffleDirectiveLongFlag(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uShuffleDirectiveLongFlag(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -99,7 +105,8 @@ class PlaylistParserTest
         assertEquals(1, result.files().size());
     }
 
-    @Test void testM3uShuffleDirectiveShortFlag(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uShuffleDirectiveShortFlag(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -110,7 +117,8 @@ class PlaylistParserTest
         assertTrue(result.directives().shuffle(), "#MIDRA: -s should set shuffle=true (new flag mapping)");
     }
 
-    @Test void testM3uLoopDirectiveLongFlag(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uLoopDirectiveLongFlag(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -121,7 +129,8 @@ class PlaylistParserTest
         assertTrue(result.directives().loop(), "#MIDRA: --loop should set loop=true");
     }
 
-    @Test void testM3uLoopDirectiveShortFlag(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uLoopDirectiveShortFlag(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -132,7 +141,8 @@ class PlaylistParserTest
         assertTrue(result.directives().loop(), "#MIDRA: -r should set loop=true");
     }
 
-    @Test void testM3uRecursiveDirectiveLongFlag(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uRecursiveDirectiveLongFlag(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -143,7 +153,8 @@ class PlaylistParserTest
         assertTrue(result.directives().recursive(), "#MIDRA: --recursive should set recursive=true");
     }
 
-    @Test void testM3uRecursiveDirectiveShortFlag(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uRecursiveDirectiveShortFlag(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -154,7 +165,8 @@ class PlaylistParserTest
         assertTrue(result.directives().recursive(), "#MIDRA: -R should set recursive=true");
     }
 
-    @Test void testM3uRecursiveDirectiveAffectsSubsequentDirectory(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uRecursiveDirectiveAffectsSubsequentDirectory(@TempDir Path tempDir) throws Exception
     {
         // Create nested structure: tempDir/sub/nested.mid
         Path subDir = tempDir.resolve("sub");
@@ -176,7 +188,8 @@ class PlaylistParserTest
 
     // ── M3U key-value directives ────────────────────────────────────────────────
 
-    @Test void testM3uVolumeDirective(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uVolumeDirective(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -187,7 +200,8 @@ class PlaylistParserTest
         assertEquals(75, result.directives().volume().getAsInt(), "#MIDRA: --volume 75 should set volume=75");
     }
 
-    @Test void testM3uVolumeDirectiveEqualsForm(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uVolumeDirectiveEqualsForm(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -198,7 +212,8 @@ class PlaylistParserTest
         assertEquals(60, result.directives().volume().getAsInt());
     }
 
-    @Test void testM3uVolumeDirectiveShortFlag(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uVolumeDirectiveShortFlag(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -209,7 +224,8 @@ class PlaylistParserTest
         assertEquals(80, result.directives().volume().getAsInt(), "#MIDRA: -v 80 should set volume=80");
     }
 
-    @Test void testM3uSpeedDirective(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uSpeedDirective(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -220,7 +236,8 @@ class PlaylistParserTest
         assertEquals(1.5, result.directives().speed().getAsDouble(), 0.001, "#MIDRA: --speed 1.5 should set speed=1.5");
     }
 
-    @Test void testM3uSpeedDirectiveEqualsForm(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uSpeedDirectiveEqualsForm(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -231,12 +248,13 @@ class PlaylistParserTest
         assertEquals(2.0, result.directives().speed().getAsDouble(), 0.001);
     }
 
-    @Test void testM3uMultipleDirectives(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uMultipleDirectives(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(
-            m3u.toPath(), "#MIDRA: --shuffle --loop --volume 50\n" + midi.getAbsolutePath() + "\n");
+                m3u.toPath(), "#MIDRA: --shuffle --loop --volume 50\n" + midi.getAbsolutePath() + "\n");
 
         var result = parser.parse(List.of(m3u), common);
 
@@ -245,7 +263,8 @@ class PlaylistParserTest
         assertEquals(50, result.directives().volume().getAsInt(), "volume should be 50");
     }
 
-    @Test void applyTo_updatesCommonOptionsFields(@TempDir Path tempDir) throws Exception
+    @Test
+    void applyTo_updatesCommonOptionsFields(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -255,26 +274,28 @@ class PlaylistParserTest
         var result = parser.parse(List.of(m3u), common);
         result.directives().applyTo(common);
 
-        assertTrue(common.shuffle,   "applyTo should set shuffle on CommonOptions");
-        assertEquals(70,  common.volume, "applyTo should set volume on CommonOptions");
+        assertTrue(common.shuffle, "applyTo should set shuffle on CommonOptions");
+        assertEquals(70, common.volume, "applyTo should set volume on CommonOptions");
         assertEquals(1.2, common.speed, 0.001, "applyTo should set speed on CommonOptions");
     }
 
     // ── M3U comment and blank line handling ─────────────────────────────────────
 
-    @Test void testM3uIgnoresComments(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uIgnoresComments(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(
-            m3u.toPath(), "#EXTM3U\n# This is a comment\n\n" + midi.getAbsolutePath() + "\n");
+                m3u.toPath(), "#EXTM3U\n# This is a comment\n\n" + midi.getAbsolutePath() + "\n");
 
         List<File> result = parser.parse(List.of(m3u), common).files();
 
         assertEquals(1, result.size());
     }
 
-    @Test void testM3uRelativePaths(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uRelativePaths(@TempDir Path tempDir) throws Exception
     {
         createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -286,7 +307,8 @@ class PlaylistParserTest
         assertTrue(result.get(0).exists());
     }
 
-    @Test void testM3uMissingTrackSkipped(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uMissingTrackSkipped(@TempDir Path tempDir) throws Exception
     {
         File m3u = tempDir.resolve("playlist.m3u").toFile();
         Files.writeString(m3u.toPath(), "nonexistent.mid\n");
@@ -296,7 +318,8 @@ class PlaylistParserTest
         assertEquals(0, result.size());
     }
 
-    @Test void testTxtPlaylistExtension(@TempDir Path tempDir) throws Exception
+    @Test
+    void testTxtPlaylistExtension(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File txt = tempDir.resolve("playlist.txt").toFile();
@@ -309,36 +332,42 @@ class PlaylistParserTest
 
     // ── normalize ────────────────────────────────────────────────────────────────
 
-    @Test void normalize_noTrailingQuote_returnsSameInstance()
+    @Test
+    void normalize_noTrailingQuote_returnsSameInstance()
     {
         var f = new File("song.mid");
         assertSame(f, PlaylistParser.normalize(f));
     }
 
-    @Test void normalize_oneTrailingQuote_stripped()
+    @Test
+    void normalize_oneTrailingQuote_stripped()
     {
         assertEquals(new File("song.mid"), PlaylistParser.normalize(new File("song.mid\"")));
     }
 
-    @Test void normalize_multipleTrailingQuotes_allStripped()
+    @Test
+    void normalize_multipleTrailingQuotes_allStripped()
     {
         assertEquals(new File("song.mid"), PlaylistParser.normalize(new File("song.mid\"\"")));
     }
 
-    @Test void normalize_quoteInMiddle_notStripped()
+    @Test
+    void normalize_quoteInMiddle_notStripped()
     {
         var f = new File("my\"song.mid");
         assertSame(f, PlaylistParser.normalize(f));
     }
 
-    @Test void normalize_onlyQuotes_becomesEmptyPath()
+    @Test
+    void normalize_onlyQuotes_becomesEmptyPath()
     {
         assertEquals(new File(""), PlaylistParser.normalize(new File("\"\"")));
     }
 
     // ── M3U directive gap cases ──────────────────────────────────────────────────
 
-    @Test void testM3uVolumeDirectiveShortEquals(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uVolumeDirectiveShortEquals(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -349,7 +378,8 @@ class PlaylistParserTest
         assertEquals(80, result.directives().volume().getAsInt(), "-v=80 short form with equals should set volume=80");
     }
 
-    @Test void testM3uSpeedDirectiveShortSpace(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uSpeedDirectiveShortSpace(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -360,7 +390,8 @@ class PlaylistParserTest
         assertEquals(1.5, result.directives().speed().getAsDouble(), 0.001, "-x 1.5 space form should set speed=1.5");
     }
 
-    @Test void testM3uInvalidVolumeIgnored(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uInvalidVolumeIgnored(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -371,7 +402,8 @@ class PlaylistParserTest
         assertTrue(result.directives().volume().isEmpty(), "invalid number should leave volume directive absent");
     }
 
-    @Test void testM3uCaseInsensitivePrefix(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uCaseInsensitivePrefix(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -382,7 +414,8 @@ class PlaylistParserTest
         assertTrue(result.directives().shuffle(), "lowercase #midra: prefix should be recognized");
     }
 
-    @Test void testM3uDirectiveNoSpaceAfterColon(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uDirectiveNoSpaceAfterColon(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -393,7 +426,8 @@ class PlaylistParserTest
         assertTrue(result.directives().loop(), "#MIDRA: without space after colon should work");
     }
 
-    @Test void testM3uVolumeAtEndOfTokens(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3uVolumeAtEndOfTokens(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u = tempDir.resolve("playlist.m3u").toFile();
@@ -405,7 +439,8 @@ class PlaylistParserTest
         assertTrue(result.directives().volume().isEmpty(), "missing value token should leave volume directive absent");
     }
 
-    @Test void testM3u8Extension(@TempDir Path tempDir) throws Exception
+    @Test
+    void testM3u8Extension(@TempDir Path tempDir) throws Exception
     {
         File midi = createTestMidi(tempDir, "track.mid");
         File m3u8 = tempDir.resolve("playlist.m3u8").toFile();
@@ -419,7 +454,8 @@ class PlaylistParserTest
 
     // ── parseDirectory sort order ────────────────────────────────────────────────
 
-    @Test void parseDirectory_resultIsSortedAlphabetically(@TempDir Path tempDir) throws Exception
+    @Test
+    void parseDirectory_resultIsSortedAlphabetically(@TempDir Path tempDir) throws Exception
     {
         createTestMidi(tempDir, "c.mid");
         createTestMidi(tempDir, "a.mid");

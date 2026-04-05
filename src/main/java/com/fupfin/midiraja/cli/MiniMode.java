@@ -20,7 +20,9 @@ import com.fupfin.midiraja.ui.Theme;
 
 final class MiniMode
 {
-    private MiniMode() {}
+    private MiniMode()
+    {
+    }
 
     /** Arrow-key menu that redraws in-place (mini / small terminal). */
     @Nullable
@@ -41,7 +43,8 @@ final class MiniMode
 
             while (true)
             {
-                if (!firstDraw) terminal.writer().print("\033[" + numLines + "A");
+                if (!firstDraw)
+                    terminal.writer().print("\033[" + numLines + "A");
                 firstDraw = false;
 
                 terminal.writer().println(config.title().strip() + ":");
@@ -63,19 +66,23 @@ final class MiniMode
                 }
                 terminal.writer().flush();
 
-                if (terminal.reader().peek(100) == NonBlockingReader.READ_EXPIRED) continue;
+                if (terminal.reader().peek(100) == NonBlockingReader.READ_EXPIRED)
+                    continue;
                 String action = bindingReader.readBinding(km, null, false);
-                if (action == null) continue;
+                if (action == null)
+                    continue;
 
                 switch (action)
                 {
-                    case "QUIT" -> {
+                    case "QUIT" ->
+                    {
                         clearLines(terminal, numLines);
                         terminal.writer().print(Theme.TERM_SHOW_CURSOR);
                         terminal.writer().flush();
                         return null;
                     }
-                    case "SELECT" -> {
+                    case "SELECT" ->
+                    {
                         clearLines(terminal, numLines);
                         terminal.writer().print(Theme.TERM_SHOW_CURSOR);
                         terminal.writer().flush();
@@ -107,7 +114,8 @@ final class MiniMode
 
             while (true)
             {
-                if (!firstDraw) terminal.writer().print("\033[" + numLines + "A");
+                if (!firstDraw)
+                    terminal.writer().print("\033[" + numLines + "A");
                 firstDraw = false;
 
                 terminal.writer().println(config.title().strip() + ":");
@@ -134,15 +142,18 @@ final class MiniMode
                         + Theme.COLOR_RESET + Theme.TERM_CLEAR_TO_EOL);
                 terminal.writer().flush();
 
-                if (terminal.reader().peek(100) == NonBlockingReader.READ_EXPIRED) continue;
+                if (terminal.reader().peek(100) == NonBlockingReader.READ_EXPIRED)
+                    continue;
                 String action = bindingReader.readBinding(km, null, false);
-                if (action == null) continue;
+                if (action == null)
+                    continue;
 
                 if (confirmingDelete)
                 {
                     switch (action)
                     {
-                        case "CONFIRM" -> {
+                        case "CONFIRM" ->
+                        {
                             clearLines(terminal, numLines);
                             terminal.writer().print(Theme.TERM_SHOW_CURSOR);
                             terminal.writer().flush();
@@ -155,13 +166,15 @@ final class MiniMode
 
                 switch (action)
                 {
-                    case "QUIT" -> {
+                    case "QUIT" ->
+                    {
                         clearLines(terminal, numLines);
                         terminal.writer().print(Theme.TERM_SHOW_CURSOR);
                         terminal.writer().flush();
                         return new TerminalSelector.SelectResult.Cancelled<>();
                     }
-                    case "SELECT" -> {
+                    case "SELECT" ->
+                    {
                         clearLines(terminal, numLines);
                         terminal.writer().print(Theme.TERM_SHOW_CURSOR);
                         terminal.writer().flush();

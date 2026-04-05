@@ -37,7 +37,9 @@ public class StatusPanel implements Panel
 
     @Override
     public void onPlaybackStateChanged()
-    {} // Handled by polling properties for now, or we can add specific setters
+    {
+        // Handled by polling properties for now, or we can add specific setters
+    }
 
     public void updateState(long currentMicros, long totalMicros, float bpm, double speed,
             double volumeScale, int transpose, boolean isPaused, PlaylistContext context)
@@ -66,12 +68,14 @@ public class StatusPanel implements Panel
 
     @Override
     public void onChannelActivity(int channel, int velocity)
-    {}
+    {
+    }
 
     @Override
     public void render(ScreenBuffer buffer)
     {
-        if (constraints.height() <= 0) return;
+        if (constraints.height() <= 0)
+            return;
         boolean incHrs = (totalMicros / 1000000) >= 3600;
         String totStr = formatTime(totalMicros, incHrs);
         String curStr = formatTime(currentMicros, incHrs);
@@ -84,8 +88,10 @@ public class StatusPanel implements Panel
         StringBuilder bar = new StringBuilder("[");
         for (int i = 0; i < barWidth; i++)
         {
-            if (i < filled) bar.append("=");
-            else if (i == filled) bar.append(">");
+            if (i < filled)
+                bar.append("=");
+            else if (i == filled)
+                bar.append(">");
             else
                 bar.append("-");
         }
@@ -122,8 +128,10 @@ public class StatusPanel implements Panel
                     curStr, totStr, bar, percent));
             buffer.append(String.format("    Transpose: %+d\n", transpose));
             buffer.append(String.format("    Volume:    %d%%\n", (int) (volumeScale * 100)));
-            String portInfo = context != null ? String.format("[%d] %s",
-                    context.targetPort().index(), context.targetPort().name()) : "Unknown";
+            String portInfo = context != null
+                    ? String.format("[%d] %s",
+                            context.targetPort().index(), context.targetPort().name())
+                    : "Unknown";
             buffer.append(String.format("    Port:      %s\n", portInfo));
 
             // Fill any remaining height

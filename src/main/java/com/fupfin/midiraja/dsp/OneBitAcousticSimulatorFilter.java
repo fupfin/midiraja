@@ -21,7 +21,8 @@ public class OneBitAcousticSimulatorFilter implements AudioProcessor
     @Override
     public void process(float[] left, float[] right, int frames)
     {
-        if (!enabled) return;
+        if (!enabled)
+            return;
         simulator.process(left, right, frames);
         next.process(left, right, frames);
     }

@@ -9,37 +9,44 @@ package com.fupfin.midiraja.vgm;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import javax.sound.midi.MidiEvent;
 import javax.sound.midi.Sequence;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 
 import org.junit.jupiter.api.Test;
 
-class Ym2151MidiConverterTest {
+class Ym2151MidiConverterTest
+{
 
     // Helper: chip=5 (YM2151), addr, data
-    private static VgmEvent opm(int addr, int data) {
-        return new VgmEvent(0, 5, new byte[]{(byte) addr, (byte) data});
+    private static VgmEvent opm(int addr, int data)
+    {
+        return new VgmEvent(0, 5, new byte[] { (byte) addr, (byte) data });
     }
 
-    private static Track[] makeTracks() throws Exception {
+    private static Track[] makeTracks() throws Exception
+    {
         var seq = new Sequence(Sequence.PPQ, 480);
         var tracks = new Track[15];
-        for (int i = 0; i < 15; i++) tracks[i] = seq.createTrack();
+        for (int i = 0; i < 15; i++)
+            tracks[i] = seq.createTrack();
         return tracks;
     }
 
-    private static ShortMessage findFirst(Track track, int command) {
-        for (int i = 0; i < track.size(); i++) {
+    private static ShortMessage findFirst(Track track, int command)
+    {
+        for (int i = 0; i < track.size(); i++)
+        {
             var msg = track.get(i).getMessage();
-            if (msg instanceof ShortMessage sm && sm.getCommand() == command) return sm;
+            if (msg instanceof ShortMessage sm && sm.getCommand() == command)
+                return sm;
         }
         return null;
     }
 
     @Test
-    void keyOn_producesNoteOn_onCorrectChannel() throws Exception {
+    void keyOn_producesNoteOn_onCorrectChannel() throws Exception
+    {
         var converter = new Ym2151MidiConverter(0); // ch offset=0
         var tracks = makeTracks();
 
@@ -59,22 +66,24 @@ class Ym2151MidiConverterTest {
     }
 
     @Test
-    void keyOn_ch3_routesToCorrectMidiChannel() throws Exception {
+    void keyOn_ch3_routesToCorrectMidiChannel() throws Exception
+    {
         var converter = new Ym2151MidiConverter(0);
         var tracks = makeTracks();
 
         converter.convert(opm(0x23, 0x04), tracks, 0, 0); // alg=4, fb=0, ch 3
-        converter.convert(opm(0x73, 0), tracks, 0, 0);     // C1 TL=0, ch 3
-        converter.convert(opm(0x7B, 0), tracks, 0, 0);     // C2 TL=0, ch 3
-        converter.convert(opm(0x2B, 0x4E), tracks, 0, 0);  // KC, ch 3
-        converter.convert(opm(0x08, 0x7B), tracks, 0, 1);  // key-on ch=3
+        converter.convert(opm(0x73, 0), tracks, 0, 0); // C1 TL=0, ch 3
+        converter.convert(opm(0x7B, 0), tracks, 0, 0); // C2 TL=0, ch 3
+        converter.convert(opm(0x2B, 0x4E), tracks, 0, 0); // KC, ch 3
+        converter.convert(opm(0x08, 0x7B), tracks, 0, 1); // key-on ch=3
 
         var noteOn = findFirst(tracks[3], ShortMessage.NOTE_ON);
         assertNotNull(noteOn, "NoteOn should be on MIDI ch 3");
     }
 
     @Test
-    void midiChOffset_shiftsChannels() throws Exception {
+    void midiChOffset_shiftsChannels() throws Exception
+    {
         var converter = new Ym2151MidiConverter(3); // offset=3 (shared with YM2612)
         var tracks = makeTracks();
 
@@ -90,7 +99,8 @@ class Ym2151MidiConverterTest {
     }
 
     @Test
-    void tl_affectsVelocity() throws Exception {
+    void tl_affectsVelocity() throws Exception
+    {
         var converter = new Ym2151MidiConverter(0);
         var tracks = makeTracks();
 
@@ -108,7 +118,8 @@ class Ym2151MidiConverterTest {
     }
 
     @Test
-    void programChange_emittedByConverter() throws Exception {
+    void programChange_emittedByConverter() throws Exception
+    {
         // Stable FM converters (YM2151) emit per-note Program Change.
         var converter = new Ym2151MidiConverter(0);
         var tracks = makeTracks();
@@ -126,7 +137,8 @@ class Ym2151MidiConverterTest {
     }
 
     @Test
-    void pan_lrMask_emitsCc10() throws Exception {
+    void pan_lrMask_emitsCc10() throws Exception
+    {
         var converter = new Ym2151MidiConverter(0);
         var tracks = makeTracks();
 
@@ -144,16 +156,17 @@ class Ym2151MidiConverterTest {
     }
 
     @Test
-    void keyOff_producesNoteOff() throws Exception {
+    void keyOff_producesNoteOff() throws Exception
+    {
         var converter = new Ym2151MidiConverter(0);
         var tracks = makeTracks();
 
         converter.convert(opm(0x20, 0x04), tracks, 0, 0); // alg=4
-        converter.convert(opm(0x70, 0), tracks, 0, 0);     // C1 TL=0
-        converter.convert(opm(0x78, 0), tracks, 0, 0);     // C2 TL=0
-        converter.convert(opm(0x28, 0x4E), tracks, 0, 0);  // KC oct=4, C
-        converter.convert(opm(0x08, 0x78), tracks, 0, 1);  // key-on ch=0
-        converter.convert(opm(0x08, 0x00), tracks, 0, 2);  // key-off ch=0 (operator mask=0)
+        converter.convert(opm(0x70, 0), tracks, 0, 0); // C1 TL=0
+        converter.convert(opm(0x78, 0), tracks, 0, 0); // C2 TL=0
+        converter.convert(opm(0x28, 0x4E), tracks, 0, 0); // KC oct=4, C
+        converter.convert(opm(0x08, 0x78), tracks, 0, 1); // key-on ch=0
+        converter.convert(opm(0x08, 0x00), tracks, 0, 2); // key-off ch=0 (operator mask=0)
 
         var noteOff = findFirst(tracks[0], ShortMessage.NOTE_OFF);
         assertNotNull(noteOff, "Key-off (operator mask=0) must produce NoteOff");
@@ -161,23 +174,25 @@ class Ym2151MidiConverterTest {
     }
 
     @Test
-    void invalidKcNoteCode_suppressesNote() throws Exception {
+    void invalidKcNoteCode_suppressesNote() throws Exception
+    {
         var converter = new Ym2151MidiConverter(0);
         var tracks = makeTracks();
 
         converter.convert(opm(0x20, 0x04), tracks, 0, 0); // alg=4
-        converter.convert(opm(0x70, 0), tracks, 0, 0);     // C1 TL=0
-        converter.convert(opm(0x78, 0), tracks, 0, 0);     // C2 TL=0
+        converter.convert(opm(0x70, 0), tracks, 0, 0); // C1 TL=0
+        converter.convert(opm(0x78, 0), tracks, 0, 0); // C2 TL=0
         // KC with note code 3 (invalid — KC_SEMITONE[3] == -1)
         converter.convert(opm(0x28, 0x43), tracks, 0, 0);
-        converter.convert(opm(0x08, 0x78), tracks, 0, 1);  // key-on ch=0
+        converter.convert(opm(0x08, 0x78), tracks, 0, 1); // key-on ch=0
 
         var noteOn = findFirst(tracks[0], ShortMessage.NOTE_ON);
         assertNull(noteOn, "Invalid KC note code 3 should suppress NoteOn");
     }
 
     @Test
-    void kcNote_cSharp_octave3() throws Exception {
+    void kcNote_cSharp_octave3() throws Exception
+    {
         var converter = new Ym2151MidiConverter(0);
         var tracks = makeTracks();
 

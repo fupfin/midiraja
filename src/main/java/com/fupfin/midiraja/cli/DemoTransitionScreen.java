@@ -31,7 +31,8 @@ class DemoTransitionScreen
     private static final int AUTOPLAY_SECONDS = 5;
 
     private DemoTransitionScreen()
-    {}
+    {
+    }
 
     /**
      * Shows the transition screen between demo tracks.
@@ -39,12 +40,18 @@ class DemoTransitionScreen
      * In classic mode: prints a one-line summary and returns immediately. In full/mini TUI mode:
      * shows a full-screen panel with a {@value #AUTOPLAY_SECONDS}-second countdown.
      *
-     * @param trackIndex  0-based index of the track about to play
-     * @param totalTracks total number of tracks in the demo
-     * @param songTitle   human-readable song title
-     * @param engineLabel human-readable synthesis engine name
-     * @param classicMode if {@code true}, skip the TUI and print to {@code out} instead
-     * @param out         output stream used in classic mode
+     * @param trackIndex
+     *            0-based index of the track about to play
+     * @param totalTracks
+     *            total number of tracks in the demo
+     * @param songTitle
+     *            human-readable song title
+     * @param engineLabel
+     *            human-readable synthesis engine name
+     * @param classicMode
+     *            if {@code true}, skip the TUI and print to {@code out} instead
+     * @param out
+     *            output stream used in classic mode
      * @return {@code NEXT} to proceed, {@code PREVIOUS} to go back, {@code QUIT_ALL} to exit
      */
     static PlaybackStatus show(int trackIndex, int totalTracks, String songTitle,
@@ -137,7 +144,8 @@ class DemoTransitionScreen
                             .append(Theme.COLOR_RESET).appendLine();
 
                     String displayTitle = songTitle.length() > maxLen
-                            ? songTitle.substring(0, maxLen - 1) + "…" : songTitle;
+                            ? songTitle.substring(0, maxLen - 1) + "…"
+                            : songTitle;
                     buf.repeat(" ", padLeft + 4).append(displayTitle).appendLine();
 
                     buf.appendLine();
@@ -150,7 +158,8 @@ class DemoTransitionScreen
                             .append(Theme.COLOR_RESET).appendLine();
 
                     String displayEngine = engineLabel.length() > maxLen
-                            ? engineLabel.substring(0, maxLen - 1) + "…" : engineLabel;
+                            ? engineLabel.substring(0, maxLen - 1) + "…"
+                            : engineLabel;
                     buf.repeat(" ", padLeft + 4).append(displayEngine).appendLine();
 
                     buf.appendLine();
@@ -171,17 +180,38 @@ class DemoTransitionScreen
                     writer.print(buf.toString());
                     writer.flush();
 
-                    if (terminal.reader().peek(200) == NonBlockingReader.READ_EXPIRED) continue;
+                    if (terminal.reader().peek(200) == NonBlockingReader.READ_EXPIRED)
+                        continue;
                     PlaybackStatus action = bindingReader.readBinding(keyMap, null, false);
-                    if (action == null) continue;
+                    if (action == null)
+                        continue;
 
                     switch (action)
                     {
-                        case QUIT_ALL -> { alt.exit();        return PlaybackStatus.QUIT_ALL; }
-                        case PREVIOUS -> { alt.clearScreen(); return PlaybackStatus.PREVIOUS; }
-                        case NEXT     -> { alt.clearScreen(); return PlaybackStatus.NEXT; }
-                        case FINISHED -> { alt.clearScreen(); return PlaybackStatus.FINISHED; }
-                        default       -> { /* ignore */ }
+                        case QUIT_ALL ->
+                        {
+                            alt.exit();
+                            return PlaybackStatus.QUIT_ALL;
+                        }
+                        case PREVIOUS ->
+                        {
+                            alt.clearScreen();
+                            return PlaybackStatus.PREVIOUS;
+                        }
+                        case NEXT ->
+                        {
+                            alt.clearScreen();
+                            return PlaybackStatus.NEXT;
+                        }
+                        case FINISHED ->
+                        {
+                            alt.clearScreen();
+                            return PlaybackStatus.FINISHED;
+                        }
+                        default ->
+                        {
+                            /* ignore */
+                        }
                     }
                 }
             }

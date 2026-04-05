@@ -114,8 +114,7 @@ public class CovoxFilter implements AudioProcessor
             int idxL = Math.max(0, Math.min(255, Math.round((inL * 0.5f + 0.5f) * 255f)));
             float outL = dacLut[idxL];
             lastOutL += LPF_ALPHA * (outL - lastOutL);
-            interleavedPcm[leftIdx] =
-                    (short) Math.max(-32768, Math.min(32767, lastOutL * 32768.0f));
+            interleavedPcm[leftIdx] = (short) Math.max(-32768, Math.min(32767, lastOutL * 32768.0f));
 
             // Right
             if (channels > 1)
@@ -125,8 +124,7 @@ public class CovoxFilter implements AudioProcessor
                 int idxR = Math.max(0, Math.min(255, Math.round((inR * 0.5f + 0.5f) * 255f)));
                 float outR = dacLut[idxR];
                 lastOutR += LPF_ALPHA * (outR - lastOutR);
-                interleavedPcm[rightIdx] =
-                        (short) Math.max(-32768, Math.min(32767, lastOutR * 32768.0f));
+                interleavedPcm[rightIdx] = (short) Math.max(-32768, Math.min(32767, lastOutR * 32768.0f));
             }
         }
 

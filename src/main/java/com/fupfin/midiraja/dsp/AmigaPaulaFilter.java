@@ -15,7 +15,10 @@ import java.util.Random;
  */
 public class AmigaPaulaFilter implements AudioProcessor
 {
-    public enum Profile { A500, A1200 }
+    public enum Profile
+    {
+        A500, A1200
+    }
 
     // A500: Paula output RC filter ~4.5kHz
     private static final float STATIC_LPF_ALPHA_A500 = 0.39f;
@@ -80,7 +83,8 @@ public class AmigaPaulaFilter implements AudioProcessor
             float sum = 0;
             for (int bit = 0; bit < 8; bit++)
             {
-                if ((i & (1 << bit)) != 0) sum += weights[bit];
+                if ((i & (1 << bit)) != 0)
+                    sum += weights[bit];
             }
             dacLut[i] = (sum / total) * 2.0f - 1.0f;
         }
@@ -103,14 +107,22 @@ public class AmigaPaulaFilter implements AudioProcessor
         for (int i = 0; i < frames; i++)
         {
             // Left channel
-            if (holdCounterL == 0) { prevHeldValL = heldValL; heldValL = dacLut[dacIndex(left[i])]; }
+            if (holdCounterL == 0)
+            {
+                prevHeldValL = heldValL;
+                heldValL = dacLut[dacIndex(left[i])];
+            }
             float interpL = prevHeldValL + (holdCounterL / 2.0f) * (heldValL - prevHeldValL);
             holdCounterL = (holdCounterL + 1) % 2;
             staticLpfL += staticAlpha * (interpL - staticLpfL);
             ledLp1L += LED_LPF_ALPHA * (staticLpfL - ledLp1L);
             ledLp2L += LED_LPF_ALPHA * (ledLp1L - ledLp2L);
             // Right channel
-            if (holdCounterR == 0) { prevHeldValR = heldValR; heldValR = dacLut[dacIndex(right[i])]; }
+            if (holdCounterR == 0)
+            {
+                prevHeldValR = heldValR;
+                heldValR = dacLut[dacIndex(right[i])];
+            }
             float interpR = prevHeldValR + (holdCounterR / 2.0f) * (heldValR - prevHeldValR);
             holdCounterR = (holdCounterR + 1) % 2;
             staticLpfR += staticAlpha * (interpR - staticLpfR);
@@ -140,7 +152,11 @@ public class AmigaPaulaFilter implements AudioProcessor
 
             // Left channel
             float inL = interleavedPcm[li] / 32768.0f;
-            if (holdCounterL == 0) { prevHeldValL = heldValL; heldValL = dacLut[dacIndex(inL)]; }
+            if (holdCounterL == 0)
+            {
+                prevHeldValL = heldValL;
+                heldValL = dacLut[dacIndex(inL)];
+            }
             float interpL = prevHeldValL + (holdCounterL / 2.0f) * (heldValL - prevHeldValL);
             holdCounterL = (holdCounterL + 1) % 2;
             staticLpfL += staticAlpha * (interpL - staticLpfL);
@@ -150,7 +166,11 @@ public class AmigaPaulaFilter implements AudioProcessor
             {
                 // Right channel
                 float inR = interleavedPcm[li + 1] / 32768.0f;
-                if (holdCounterR == 0) { prevHeldValR = heldValR; heldValR = dacLut[dacIndex(inR)]; }
+                if (holdCounterR == 0)
+                {
+                    prevHeldValR = heldValR;
+                    heldValR = dacLut[dacIndex(inR)];
+                }
                 float interpR = prevHeldValR + (holdCounterR / 2.0f) * (heldValR - prevHeldValR);
                 holdCounterR = (holdCounterR + 1) % 2;
                 staticLpfR += staticAlpha * (interpR - staticLpfR);
@@ -160,7 +180,7 @@ public class AmigaPaulaFilter implements AudioProcessor
                 // M/S stereo widening
                 float m = (ledLp2L + ledLp2R) * 0.5f;
                 float s = (ledLp2L - ledLp2R) * 0.5f;
-                interleavedPcm[li]     = (short) Math.max(-32768, Math.min(32767, (m + s * stereoWidth) * 32768.0f));
+                interleavedPcm[li] = (short) Math.max(-32768, Math.min(32767, (m + s * stereoWidth) * 32768.0f));
                 interleavedPcm[li + 1] = (short) Math.max(-32768, Math.min(32767, (m - s * stereoWidth) * 32768.0f));
             }
             else
@@ -174,8 +194,18 @@ public class AmigaPaulaFilter implements AudioProcessor
     @Override
     public void reset()
     {
-        holdCounterL = 0; heldValL = 0; prevHeldValL = 0; staticLpfL = 0; ledLp1L = 0; ledLp2L = 0;
-        holdCounterR = 0; heldValR = 0; prevHeldValR = 0; staticLpfR = 0; ledLp1R = 0; ledLp2R = 0;
+        holdCounterL = 0;
+        heldValL = 0;
+        prevHeldValL = 0;
+        staticLpfL = 0;
+        ledLp1L = 0;
+        ledLp2L = 0;
+        holdCounterR = 0;
+        heldValR = 0;
+        prevHeldValR = 0;
+        staticLpfR = 0;
+        ledLp1R = 0;
+        ledLp2R = 0;
         next.reset();
     }
 }

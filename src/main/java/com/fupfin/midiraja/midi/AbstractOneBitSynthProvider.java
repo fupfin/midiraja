@@ -18,7 +18,8 @@ import com.fupfin.midiraja.dsp.MasterGainFilter;
 /**
  * Base class for 1-bit/legacy hardware synth providers (Beep, PSG).
  *
- * <p>Handles render-thread lifecycle: spin-wait loop, audioOut dispatch, thread priority. Subclasses
+ * <p>
+ * Handles render-thread lifecycle: spin-wait loop, audioOut dispatch, thread priority. Subclasses
  * implement {@link #renderFrames} for the actual synthesis, and {@link #resetState} to clear
  * per-track state on song transition.
  */
@@ -58,18 +59,21 @@ public abstract class AbstractOneBitSynthProvider implements SoftSynthProvider
     @Override
     public void openPort(int portIndex) throws Exception
     {
-        if (audioOut != null) startRenderThread();
+        if (audioOut != null)
+            startRenderThread();
     }
 
     @Override
     public void loadSoundbank(String path) throws Exception
-    {}
+    {
+    }
 
     @Override
     public void closePort()
     {
         running = false;
-        if (renderThread != null) renderThread.interrupt();
+        if (renderThread != null)
+            renderThread.interrupt();
     }
 
     @Override
@@ -82,7 +86,8 @@ public abstract class AbstractOneBitSynthProvider implements SoftSynthProvider
     public void prepareForNewTrack(Sequence seq)
     {
         renderPaused = true;
-        if (audioOut != null) audioOut.reset();
+        if (audioOut != null)
+            audioOut.reset();
         resetState();
     }
 
@@ -95,28 +100,32 @@ public abstract class AbstractOneBitSynthProvider implements SoftSynthProvider
     protected void startRenderThread()
     {
         running = true;
-        renderThread = new Thread(() -> {
-            short[] pcmBuffer = new short[FRAMES_PER_CHUNK];
-            while (running)
-            {
-                if (renderPaused)
-                {
-                    try
-                    {
-                        Thread.sleep(1);
-                    }
-                    catch (InterruptedException e)
-                    {
-                        break;
-                    }
-                    continue;
-                }
-                renderFrames(pcmBuffer, FRAMES_PER_CHUNK);
-                if (audioOut != null) audioOut.processInterleaved(pcmBuffer, FRAMES_PER_CHUNK, 1);
-            }
-        });
+        renderThread = new Thread(this::renderLoop);
         renderThread.setPriority(Thread.MAX_PRIORITY);
         renderThread.setDaemon(true);
         renderThread.start();
+    }
+
+    private void renderLoop()
+    {
+        short[] pcmBuffer = new short[FRAMES_PER_CHUNK];
+        while (running)
+        {
+            if (renderPaused)
+            {
+                try
+                {
+                    Thread.sleep(1);
+                }
+                catch (InterruptedException e)
+                {
+                    break;
+                }
+                continue;
+            }
+            renderFrames(pcmBuffer, FRAMES_PER_CHUNK);
+            if (audioOut != null)
+                audioOut.processInterleaved(pcmBuffer, FRAMES_PER_CHUNK, 1);
+        }
     }
 }

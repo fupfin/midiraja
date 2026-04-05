@@ -22,18 +22,20 @@ import org.junit.jupiter.api.condition.EnabledIf;
  * Requires ROM files in munt_roms/ (MT32_CONTROL.ROM + MT32_PCM.ROM).
  * Automatically skipped if ROM files are absent.
  */
-@EnabledIf("muntRomsPresent") class FFMMuntNativeBridgeIntegrationTest
+@EnabledIf("muntRomsPresent")
+class FFMMuntNativeBridgeIntegrationTest
 {
     static boolean muntRomsPresent()
     {
         boolean hasControl = new File("munt_roms/MT32_CONTROL.ROM").exists()
-            || new File("munt_roms/mt32_control.rom").exists();
+                || new File("munt_roms/mt32_control.rom").exists();
         boolean hasPcm = new File("munt_roms/MT32_PCM.ROM").exists()
-            || new File("munt_roms/mt32_pcm.rom").exists();
+                || new File("munt_roms/mt32_pcm.rom").exists();
         return hasControl && hasPcm;
     }
 
-    @Test void testNoteOnProducesAudio() throws Exception
+    @Test
+    void testNoteOnProducesAudio() throws Exception
     {
         FFMMuntNativeBridge bridge = new FFMMuntNativeBridge();
         bridge.createSynth();

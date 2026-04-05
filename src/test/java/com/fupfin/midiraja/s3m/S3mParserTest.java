@@ -14,8 +14,6 @@ import java.nio.ByteOrder;
 
 import org.junit.jupiter.api.Test;
 
-import com.fupfin.midiraja.tracker.TrackerParseResult;
-
 class S3mParserTest
 {
     /**
@@ -26,11 +24,11 @@ class S3mParserTest
     {
         // We need: 96-byte header + ordNum orders + 0 ins paras + 1 pat para
         // + 1 pattern (64 empty rows)
-        int ordNum  = 1;
-        int insNum  = 0;
-        int patNum  = 1;
+        int ordNum = 1;
+        int insNum = 0;
+        int patNum = 1;
 
-        int orderOffset   = 96;
+        int orderOffset = 96;
         int insParaOffset = orderOffset + ordNum;
         int patParaOffset = insParaOffset; // no ins paras
         int patDataOffset = patParaOffset + patNum * 2;
@@ -53,7 +51,10 @@ class S3mParserTest
         buf.putShort(32, (short) ordNum);
         buf.putShort(34, (short) insNum);
         buf.putShort(36, (short) patNum);
-        buf.put(44, (byte) 'S'); buf.put(45, (byte) 'C'); buf.put(46, (byte) 'R'); buf.put(47, (byte) 'M');
+        buf.put(44, (byte) 'S');
+        buf.put(45, (byte) 'C');
+        buf.put(46, (byte) 'R');
+        buf.put(47, (byte) 'M');
         buf.put(49, (byte) speed);
         buf.put(50, (byte) tempo);
 
@@ -69,7 +70,8 @@ class S3mParserTest
 
         // Pattern data: packed length + 64 end-of-row markers
         buf.putShort(paraOffset, (short) 64);
-        for (int r = 0; r < 64; r++) buf.put(paraOffset + 2 + r, (byte) 0);
+        for (int r = 0; r < 64; r++)
+            buf.put(paraOffset + 2 + r, (byte) 0);
 
         return buf.array();
     }

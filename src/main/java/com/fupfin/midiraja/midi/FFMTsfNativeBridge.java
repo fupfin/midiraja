@@ -27,32 +27,32 @@ import java.util.List;
  * <b>Velocity conversion:</b> MIDI velocity (0–127) is converted to TSF's float range (0.0–1.0)
  * before calling {@code tsf_channel_note_on}.
  */
-@SuppressWarnings({"EmptyCatch", "UnusedVariable"})
+@SuppressWarnings({ "EmptyCatch", "UnusedVariable" })
 public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBridge
 {
     // TSF-specific FunctionDescriptors (not in AbstractFFMBridge)
-    private static final FunctionDescriptor DESC_TSF_SET_OUTPUT =
-            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
-                    ValueLayout.JAVA_INT, ValueLayout.JAVA_FLOAT);
-    private static final FunctionDescriptor DESC_TSF_RENDER_SHORT =
-            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
-                    ValueLayout.JAVA_INT);
-    private static final FunctionDescriptor DESC_TSF_CHANNEL_NOTE_ON =
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
-                    ValueLayout.JAVA_INT, ValueLayout.JAVA_FLOAT);
-    private static final FunctionDescriptor DESC_TSF_CHANNEL_INT_INT_INT_RETURN_INT =
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
-                    ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
-    private static final FunctionDescriptor DESC_TSF_CHANNEL_INT_INT_RETURN_INT =
-            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
-                    ValueLayout.JAVA_INT);
+    private static final FunctionDescriptor DESC_TSF_SET_OUTPUT = FunctionDescriptor.ofVoid(ValueLayout.ADDRESS,
+            ValueLayout.JAVA_INT,
+            ValueLayout.JAVA_INT, ValueLayout.JAVA_FLOAT);
+    private static final FunctionDescriptor DESC_TSF_RENDER_SHORT = FunctionDescriptor.ofVoid(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
+            ValueLayout.JAVA_INT);
+    private static final FunctionDescriptor DESC_TSF_CHANNEL_NOTE_ON = FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
+            ValueLayout.JAVA_INT, ValueLayout.JAVA_FLOAT);
+    private static final FunctionDescriptor DESC_TSF_CHANNEL_INT_INT_INT_RETURN_INT = FunctionDescriptor.of(
+            ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
+            ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
+    private static final FunctionDescriptor DESC_TSF_CHANNEL_INT_INT_RETURN_INT = FunctionDescriptor.of(
+            ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
+            ValueLayout.JAVA_INT);
     // tsf_channel_note_off takes (int channel, int key) — use JAVA_INT, not JAVA_BYTE like ADL
-    private static final FunctionDescriptor DESC_TSF_NOTE_OFF =
-            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
-                    ValueLayout.JAVA_INT);
+    private static final FunctionDescriptor DESC_TSF_NOTE_OFF = FunctionDescriptor.ofVoid(ValueLayout.ADDRESS,
+            ValueLayout.JAVA_INT,
+            ValueLayout.JAVA_INT);
     // tsf_load_memory: (const void* buffer, int size) → tsf*
-    private static final FunctionDescriptor DESC_TSF_LOAD_MEMORY =
-            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT);
+    private static final FunctionDescriptor DESC_TSF_LOAD_MEMORY = FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT);
 
     /**
      * Returns all {@link FunctionDescriptor}s used for FFM downcall handles in this class.
@@ -143,16 +143,14 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
         tsf_channel_note_off = downcall("tsf_channel_note_off", DESC_TSF_NOTE_OFF);
 
         // int tsf_channel_midi_control(tsf* f, int channel, int controller, int control_value)
-        tsf_channel_midi_control =
-                downcall("tsf_channel_midi_control", DESC_TSF_CHANNEL_INT_INT_INT_RETURN_INT);
+        tsf_channel_midi_control = downcall("tsf_channel_midi_control", DESC_TSF_CHANNEL_INT_INT_INT_RETURN_INT);
 
         // int tsf_channel_set_presetnumber(tsf* f, int channel, int preset_number, int flag_drums)
-        tsf_channel_set_presetnumber =
-                downcall("tsf_channel_set_presetnumber", DESC_TSF_CHANNEL_INT_INT_INT_RETURN_INT);
+        tsf_channel_set_presetnumber = downcall("tsf_channel_set_presetnumber",
+                DESC_TSF_CHANNEL_INT_INT_INT_RETURN_INT);
 
         // int tsf_channel_set_pitchwheel(tsf* f, int channel, int pitch_wheel)
-        tsf_channel_set_pitchwheel =
-                downcall("tsf_channel_set_pitchwheel", DESC_TSF_CHANNEL_INT_INT_RETURN_INT);
+        tsf_channel_set_pitchwheel = downcall("tsf_channel_set_pitchwheel", DESC_TSF_CHANNEL_INT_INT_RETURN_INT);
     }
 
     @Override
@@ -207,7 +205,8 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
     @Override
     public void reset()
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             tsf_reset.invokeExact(device);
@@ -221,7 +220,8 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
     @Override
     public void panic()
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             tsf_note_off_all.invokeExact(device);
@@ -235,7 +235,8 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
     @Override
     public void noteOn(int channel, int note, int velocity)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             // TSF takes float velocity in range 0.0–1.0
@@ -251,7 +252,8 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
     @Override
     public void noteOff(int channel, int note)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             tsf_channel_note_off.invokeExact(device, channel, note);
@@ -265,7 +267,8 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
     @Override
     public void controlChange(int channel, int type, int value)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             int ignored = (int) tsf_channel_midi_control.invokeExact(device, channel, type, value);
@@ -279,13 +282,13 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
     @Override
     public void patchChange(int channel, int patch)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         try
         {
             // isDrums = 1 for channel 9 (0-indexed), 0 otherwise
             int isDrums = (channel == 9) ? 1 : 0;
-            int ignored =
-                    (int) tsf_channel_set_presetnumber.invokeExact(device, channel, patch, isDrums);
+            int ignored = (int) tsf_channel_set_presetnumber.invokeExact(device, channel, patch, isDrums);
         }
         catch (Throwable e)
         {
@@ -296,7 +299,8 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
     @Override
     public void pitchBend(int channel, int pitch)
     {
-        if (device.equals(MemorySegment.NULL)) return;
+        if (device.equals(MemorySegment.NULL))
+            return;
         // pitch is 14-bit unsigned (0–16383), TSF tsf_channel_set_pitchwheel takes same range
         try
         {
@@ -317,7 +321,8 @@ public class FFMTsfNativeBridge extends AbstractFFMBridge implements TsfNativeBr
     @Override
     public void generate(short[] buffer, int stereoFrames)
     {
-        if (device.equals(MemorySegment.NULL) || buffer == null || buffer.length == 0) return;
+        if (device.equals(MemorySegment.NULL) || buffer == null || buffer.length == 0)
+            return;
 
         int requiredBytes = stereoFrames * 2 * Short.BYTES;
         if (currentRenderBufferShorts < stereoFrames * 2)

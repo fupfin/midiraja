@@ -24,8 +24,8 @@ import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.psg.PsgSynthProvider;
 
-@Command(name = "psg", aliases = {"ay", "msx"}, mixinStandardHelpOptions = true,
-        description = "PSG chiptune (MSX / ZX Spectrum / Atari ST).")
+@Command(name = "psg", aliases = { "ay",
+        "msx" }, mixinStandardHelpOptions = true, description = "PSG chiptune (MSX / ZX Spectrum / Atari ST).")
 public class PsgCommand implements Callable<Integer>
 {
     @Spec
@@ -36,28 +36,27 @@ public class PsgCommand implements Callable<Integer>
     @Nullable
     private MidirajaCommand parent;
 
-    @Parameters(index = "0..*", arity = "1..*",
-            description = "MIDI files, directories, or .m3u playlists to play.")
+    @Parameters(index = "0..*", arity = "1..*", description = "MIDI files, directories, or .m3u playlists to play.")
     private List<File> files = new ArrayList<>();
 
-    @Option(names = {"--chips"}, defaultValue = "4",
-            description = "Number of virtual PSG chips to instantiate (1 to 16). Default: 4 (12 channels). Set to 1 for authentic harsh arpeggios.")
+    @Option(names = {
+            "--chips" }, defaultValue = "4", description = "Number of virtual PSG chips to instantiate (1 to 16). Default: 4 (12 channels). Set to 1 for authentic harsh arpeggios.")
     private int chips = 4;
 
-    @Option(names = {"--vibrato"}, defaultValue = "5.0",
-            description = "Depth of the software vibrato LFO in parts per thousand (0-100). Default: 5.0 (subtle), 30.0 (heavy wobble). Set to 0 to disable.")
+    @Option(names = {
+            "--vibrato" }, defaultValue = "5.0", description = "Depth of the software vibrato LFO in parts per thousand (0-100). Default: 5.0 (subtle), 30.0 (heavy wobble). Set to 0 to disable.")
     private double vibratoDepth = 5.0;
 
-    @Option(names = {"--duty-sweep"}, defaultValue = "25.0",
-            description = "Width of the pulse-width sweep as a percentage (0-100). Default: 25.0 (gentle breathing), 45.0 (harsh wah-wah). Set to 0 to disable.")
+    @Option(names = {
+            "--duty-sweep" }, defaultValue = "25.0", description = "Width of the pulse-width sweep as a percentage (0-100). Default: 25.0 (gentle breathing), 45.0 (harsh wah-wah). Set to 0 to disable.")
     private double dutySweep = 25.0;
 
-    @Option(names = {"--scc"},
-            description = "Enable Konami SCC (K051649) Sound Cartridge emulation. Uses 32-byte custom wavetables for richer instruments instead of pure square waves.")
+    @Option(names = {
+            "--scc" }, description = "Enable Konami SCC (K051649) Sound Cartridge emulation. Uses 32-byte custom wavetables for richer instruments instead of pure square waves.")
     private boolean useScc = false;
 
-    @Option(names = {"--smooth"},
-            description = "Enable linear interpolation and continuous volume scaling for the SCC emulator. Produces a smooth, modern 'studio' sound instead of the historically accurate gritty hardware sound.")
+    @Option(names = {
+            "--smooth" }, description = "Enable linear interpolation and continuous volume scaling for the SCC emulator. Produces a smooth, modern 'studio' sound instead of the historically accurate gritty hardware sound.")
     private boolean smooth = false;
 
     @Mixin
@@ -65,8 +64,6 @@ public class PsgCommand implements Callable<Integer>
 
     @Mixin
     private final CommonOptions common = new CommonOptions();
-
-
 
     @Override
     public Integer call() throws Exception
@@ -96,7 +93,8 @@ public class PsgCommand implements Callable<Integer>
 
         var provider = new PsgSynthProvider(pipeline, finalChips, vibratoDepth, dutySweep, useScc,
                 smooth, common.retroMode.orElse(null));
-        if (fxOptions.masterGain != null) provider.setMasterGain(fxOptions.masterGain);
+        if (fxOptions.masterGain != null)
+            provider.setMasterGain(fxOptions.masterGain);
 
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false);
         runner.setFxOptions(fxOptions);
@@ -107,12 +105,17 @@ public class PsgCommand implements Callable<Integer>
     private List<String> originalArgs()
     {
         var rawArgs = java.util.Objects.requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(token -> {
-            if (!token.startsWith("-")) {
-                var f = new java.io.File(token);
-                if (f.exists()) return f.getAbsolutePath();
-            }
-            return token;
-        }).collect(java.util.stream.Collectors.toList());
+        return rawArgs.stream().map(this::resolveToken).collect(java.util.stream.Collectors.toList());
+    }
+
+    private String resolveToken(String token)
+    {
+        if (!token.startsWith("-"))
+        {
+            var f = new java.io.File(token);
+            if (f.exists())
+                return f.getAbsolutePath();
+        }
+        return token;
     }
 }

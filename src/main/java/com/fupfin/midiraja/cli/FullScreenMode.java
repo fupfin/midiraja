@@ -22,7 +22,9 @@ import com.fupfin.midiraja.ui.Theme;
 
 final class FullScreenMode
 {
-    private FullScreenMode() {}
+    private FullScreenMode()
+    {
+    }
 
     /** Full-screen alt-buffer menu with title box and optional logo. */
     @Nullable
@@ -33,7 +35,7 @@ final class FullScreenMode
         int selectedIdx = TerminalSelector.firstSelectable(items);
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build();
-             var alt = AltScreenScope.enter(terminal.writer()))
+                var alt = AltScreenScope.enter(terminal.writer()))
         {
             TerminalModeManager.enterRawNoIsig(terminal);
             var km = TerminalSelector.buildNavKeyMap(terminal);
@@ -46,10 +48,9 @@ final class FullScreenMode
                 int boxWidth = Math.max(config.minBoxWidth(),
                         Math.min(config.maxBoxWidth(), width - 4));
                 var logoRenderer = config.logoRenderer();
-                int logoLines =
-                        (logoRenderer != null && width >= config.logoMinWidth())
-                                ? config.logoLineCount()
-                                : 0;
+                int logoLines = (logoRenderer != null && width >= config.logoMinWidth())
+                        ? config.logoLineCount()
+                        : 0;
                 int boxHeight = items.size() + 4 + logoLines;
                 int padLeft = Math.max(0, (width - boxWidth) / 2);
                 int padTop = Math.max(0, (height - boxHeight) / 2);
@@ -112,16 +113,26 @@ final class FullScreenMode
                 terminal.writer().print(buf.toString());
                 terminal.writer().flush();
 
-                if (terminal.reader().peek(50) == NonBlockingReader.READ_EXPIRED) continue;
+                if (terminal.reader().peek(50) == NonBlockingReader.READ_EXPIRED)
+                    continue;
                 String action = bindingReader.readBinding(km, null, false);
-                if (action == null) continue;
+                if (action == null)
+                    continue;
 
                 switch (action)
                 {
-                    case "QUIT"   -> { alt.exit(); return null; }
-                    case "SELECT" -> { alt.exit(); return items.get(selectedIdx).requireValue(); }
-                    case "UP"     -> selectedIdx = TerminalSelector.nextSelectable(items, selectedIdx, -1);
-                    case "DOWN"   -> selectedIdx = TerminalSelector.nextSelectable(items, selectedIdx, 1);
+                    case "QUIT" ->
+                    {
+                        alt.exit();
+                        return null;
+                    }
+                    case "SELECT" ->
+                    {
+                        alt.exit();
+                        return items.get(selectedIdx).requireValue();
+                    }
+                    case "UP" -> selectedIdx = TerminalSelector.nextSelectable(items, selectedIdx, -1);
+                    case "DOWN" -> selectedIdx = TerminalSelector.nextSelectable(items, selectedIdx, 1);
                 }
             }
         }
@@ -136,7 +147,7 @@ final class FullScreenMode
         boolean confirmingDelete = false;
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build();
-             var alt = AltScreenScope.enter(terminal.writer()))
+                var alt = AltScreenScope.enter(terminal.writer()))
         {
             TerminalModeManager.enterRawNoIsig(terminal);
             var km = TerminalSelector.buildNavKeyMapWithActions(terminal);
@@ -149,10 +160,9 @@ final class FullScreenMode
                 int boxWidth = Math.max(config.minBoxWidth(),
                         Math.min(config.maxBoxWidth(), width - 4));
                 var logoRenderer = config.logoRenderer();
-                int logoLines =
-                        (logoRenderer != null && width >= config.logoMinWidth())
-                                ? config.logoLineCount()
-                                : 0;
+                int logoLines = (logoRenderer != null && width >= config.logoMinWidth())
+                        ? config.logoLineCount()
+                        : 0;
                 int boxHeight = items.size() + 4 + logoLines;
                 int padLeft = Math.max(0, (width - boxWidth) / 2);
                 int padTop = Math.max(0, (height - boxHeight) / 2);
@@ -217,15 +227,18 @@ final class FullScreenMode
                 terminal.writer().print(buf.toString());
                 terminal.writer().flush();
 
-                if (terminal.reader().peek(50) == NonBlockingReader.READ_EXPIRED) continue;
+                if (terminal.reader().peek(50) == NonBlockingReader.READ_EXPIRED)
+                    continue;
                 String action = bindingReader.readBinding(km, null, false);
-                if (action == null) continue;
+                if (action == null)
+                    continue;
 
                 if (confirmingDelete)
                 {
                     switch (action)
                     {
-                        case "CONFIRM" -> {
+                        case "CONFIRM" ->
+                        {
                             alt.exit();
                             return new TerminalSelector.SelectResult.Delete<>(items.get(selectedIdx).requireValue());
                         }
@@ -236,14 +249,19 @@ final class FullScreenMode
 
                 switch (action)
                 {
-                    case "QUIT"   -> { alt.exit(); return new TerminalSelector.SelectResult.Cancelled<>(); }
-                    case "SELECT" -> {
+                    case "QUIT" ->
+                    {
+                        alt.exit();
+                        return new TerminalSelector.SelectResult.Cancelled<>();
+                    }
+                    case "SELECT" ->
+                    {
                         alt.exit();
                         return new TerminalSelector.SelectResult.Chosen<>(items.get(selectedIdx).requireValue());
                     }
                     case "DELETE" -> confirmingDelete = true;
-                    case "UP"     -> selectedIdx = TerminalSelector.nextSelectable(items, selectedIdx, -1);
-                    case "DOWN"   -> selectedIdx = TerminalSelector.nextSelectable(items, selectedIdx, 1);
+                    case "UP" -> selectedIdx = TerminalSelector.nextSelectable(items, selectedIdx, -1);
+                    case "DOWN" -> selectedIdx = TerminalSelector.nextSelectable(items, selectedIdx, 1);
                 }
             }
         }

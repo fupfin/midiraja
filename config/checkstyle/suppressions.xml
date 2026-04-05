@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<suppressions>
+    <!-- Test methods use BDD-style snake_case naming: method_description_expectation -->
+    <suppress checks="MethodNameCheck" files=".*Test\.java"/>
+
+    <!-- FFM native bridge fields and methods mirror exact C function names and cannot be renamed -->
+    <suppress checks="MemberNameCheck"
+              files=".*(FFMAdlMidiNativeBridge|FFMMuntNativeBridge|FFMOpnMidiNativeBridge|FFMTsfNativeBridge|NativeAudioEngine|FluidSynthProvider)\.java"/>
+    <suppress checks="MethodNameCheck" files=".*FluidSynthProvider\.java"/>
+    <suppress checks="LocalVariableNameCheck" files=".*FluidSynthProvider\.java"/>
+
+    <!-- Platform OS provider code uses leading-underscore variables for discarded return values -->
+    <suppress checks="LocalVariableNameCheck"
+              files=".*(AlsaProvider|CoreMidiProvider|WinMmProvider)\.java"/>
+
+    <!-- BeepSynthProvider uses single-letter variable R as a standard math/signal name -->
+    <suppress checks="LocalVariableNameCheck" files=".*BeepSynthProvider\.java"/>
+
+    <!-- OneBitHardwareFilter uses Q/A as standard DSP/signal processing variable names -->
+    <suppress checks="ParameterNameCheck" files=".*OneBitHardwareFilter\.java"/>
+    <suppress checks="LocalVariableNameCheck" files=".*OneBitHardwareFilter\.java"/>
+
+    <!-- Version.java and LibraryPaths.java are build-generated files — do not modify -->
+    <suppress checks=".*" files=".*(Version|LibraryPaths)\.java"/>
+
+    <!-- Eclipse 4.29 incorrectly indents empty switch-arrow case blocks by one extra level;
+         the formatter produces `default ->\n    {\n    }` where { is at +4 instead of same level -->
+    <suppress checks="Indentation"
+              files=".*(InputHandler|VgmToMidiConverter|GameBoyDmgMidiConverter|Nes2A03MidiConverter|HuC6280MidiConverter)\.java"/>
+
+    <!-- PlaylistPlayer: shuffle callback is a single expression but argument list exceeds 120 chars -->
+    <suppress checks="LambdaBodyLength" files=".*PlaylistPlayer\.java"/>
+
+    <!-- PlaylistPlayerTest: factory lambdas must both increment a counter and return a mock engine -->
+    <suppress checks="LambdaBodyLength" files=".*PlaylistPlayerTest\.java"/>
+</suppressions>

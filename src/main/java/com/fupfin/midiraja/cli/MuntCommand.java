@@ -34,10 +34,9 @@ import com.fupfin.midiraja.midi.NativeAudioEngine;
 /**
  * Plays MIDI files through the built-in Munt MT-32 emulator.
  */
-@Command(name = "munt", aliases = {"mt32", "mt32emu", "lapc1", "cm32l"},
-        mixinStandardHelpOptions = true,
-        description = "MT-32 emulation (Roland MT-32/CM-32L).",
-        footer = {"", "Requires MT32_CONTROL.ROM and MT32_PCM.ROM in the specified ROM directory."})
+@Command(name = "munt", aliases = { "mt32", "mt32emu", "lapc1",
+        "cm32l" }, mixinStandardHelpOptions = true, description = "MT-32 emulation (Roland MT-32/CM-32L).", footer = {
+                "", "Requires MT32_CONTROL.ROM and MT32_PCM.ROM in the specified ROM directory." })
 public class MuntCommand implements Callable<Integer>
 {
     @Spec
@@ -48,12 +47,10 @@ public class MuntCommand implements Callable<Integer>
     @Nullable
     private MidirajaCommand parent;
 
-    @Parameters(index = "0",
-            description = "Directory containing MT32_CONTROL.ROM and MT32_PCM.ROM.")
+    @Parameters(index = "0", description = "Directory containing MT32_CONTROL.ROM and MT32_PCM.ROM.")
     private final File romDir = new File("");
 
-    @Parameters(index = "1..*", arity = "1..*",
-            description = "MIDI files, directories, or .m3u playlists to play.")
+    @Parameters(index = "1..*", arity = "1..*", description = "MIDI files, directories, or .m3u playlists to play.")
     private List<File> files = new ArrayList<>();
 
     @Mixin
@@ -78,8 +75,7 @@ public class MuntCommand implements Callable<Integer>
         var bridge = new FFMMuntNativeBridge();
         var provider = new MuntSynthProvider(bridge, pipeline);
 
-        var runner =
-                new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
         return runner.run(provider, true, Optional.empty(), Optional.of(romDir.getPath()), files,
                 common, originalArgs());
     }
@@ -87,12 +83,17 @@ public class MuntCommand implements Callable<Integer>
     private List<String> originalArgs()
     {
         var rawArgs = requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(token -> {
-            if (!token.startsWith("-")) {
-                var f = new java.io.File(token);
-                if (f.exists()) return f.getAbsolutePath();
-            }
-            return token;
-        }).collect(java.util.stream.Collectors.toList());
+        return rawArgs.stream().map(this::resolveToken).collect(java.util.stream.Collectors.toList());
+    }
+
+    private String resolveToken(String token)
+    {
+        if (!token.startsWith("-"))
+        {
+            var f = new java.io.File(token);
+            if (f.exists())
+                return f.getAbsolutePath();
+        }
+        return token;
     }
 }

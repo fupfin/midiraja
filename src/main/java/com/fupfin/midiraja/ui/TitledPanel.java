@@ -80,7 +80,8 @@ public class TitledPanel implements Panel
     @Override
     public void render(ScreenBuffer buffer)
     {
-        if (constraints.height() <= 0) return;
+        if (constraints.height() <= 0)
+            return;
 
         // Draw Header
         String header = " ≡≡[ " + title + " ]";
@@ -89,7 +90,7 @@ public class TitledPanel implements Panel
             int padding = Math.max(0,
                     constraints.width() - header.length() - rightTagVisibleLength - 3);
             buffer.append(header).append("≡".repeat(padding))
-                  .append(rightTag).append("≡≡").append(" \n");
+                    .append(rightTag).append("≡≡").append(" \n");
         }
         else
         {

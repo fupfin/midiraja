@@ -60,7 +60,8 @@ public class TsfSynthProvider extends AbstractSoftSynthProvider<TsfNativeBridge>
      * {@code tsf_channel_note_on()} is a silent no-op while {@code f->channels} is NULL, so every
      * NoteOn event is dropped until a CC event triggers the lazy {@code tsf_channel_init()}.
      *
-     * <p>We fix this by queuing CC121 (Reset All Controllers) on all 16 channels immediately after
+     * <p>
+     * We fix this by queuing CC121 (Reset All Controllers) on all 16 channels immediately after
      * the super call. The render thread will process them before the first NoteOn from the MIDI
      * file, ensuring {@code f->channels} is initialised at full volume.
      */
@@ -70,7 +71,7 @@ public class TsfSynthProvider extends AbstractSoftSynthProvider<TsfNativeBridge>
         super.prepareForNewTrack(sequence);
         for (int ch = 0; ch < 16; ch++)
         {
-            eventQueue.offer(new byte[] {(byte) (0xB0 | ch), 121, 0});
+            eventQueue.offer(new byte[] { (byte) (0xB0 | ch), 121, 0 });
         }
     }
 

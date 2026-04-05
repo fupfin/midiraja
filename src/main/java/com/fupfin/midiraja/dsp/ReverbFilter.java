@@ -40,11 +40,11 @@ public final class ReverbFilter extends AudioFilter
     private float scaleDry;
 
     // Freeverb default tuning parameters (scaled for 44.1kHz)
-    private static final int[] combTuningL = {1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617};
-    private static final int[] combTuningR = {1116 + 23, 1188 + 23, 1277 + 23, 1356 + 23, 1422 + 23,
-            1491 + 23, 1557 + 23, 1617 + 23};
-    private static final int[] allpassTuningL = {556, 441, 341, 225};
-    private static final int[] allpassTuningR = {556 + 23, 441 + 23, 341 + 23, 225 + 23};
+    private static final int[] combTuningL = { 1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617 };
+    private static final int[] combTuningR = { 1116 + 23, 1188 + 23, 1277 + 23, 1356 + 23, 1422 + 23,
+            1491 + 23, 1557 + 23, 1617 + 23 };
+    private static final int[] allpassTuningL = { 556, 441, 341, 225 };
+    private static final int[] allpassTuningR = { 556 + 23, 441 + 23, 341 + 23, 225 + 23 };
 
     // Sub-components
     private static class Comb
@@ -78,7 +78,8 @@ public final class ReverbFilter extends AudioFilter
             float output = buffer[bufIdx];
             filterStore = (output * damp2) + (filterStore * damp1);
             buffer[bufIdx] = input + (filterStore * feedback);
-            if (++bufIdx >= buffer.length) bufIdx = 0;
+            if (++bufIdx >= buffer.length)
+                bufIdx = 0;
             return output;
         }
     }
@@ -100,7 +101,8 @@ public final class ReverbFilter extends AudioFilter
             float bufferedValue = buffer[bufIdx];
             float output = -input + bufferedValue;
             buffer[bufIdx] = input + (bufferedValue * feedback);
-            if (++bufIdx >= buffer.length) bufIdx = 0;
+            if (++bufIdx >= buffer.length)
+                bufIdx = 0;
             return output;
         }
     }
@@ -113,8 +115,10 @@ public final class ReverbFilter extends AudioFilter
     private volatile boolean enabled = true;
 
     /**
-     * @param next Pipeline destination.
-     * @param preset The tuned environment preset.
+     * @param next
+     *            Pipeline destination.
+     * @param preset
+     *            The tuned environment preset.
      */
     public ReverbFilter(AudioProcessor next, Preset preset, float levelScale)
     {
@@ -193,7 +197,8 @@ public final class ReverbFilter extends AudioFilter
     {
         if (!enabled)
         {
-            if (next != null) next.process(left, right, frames);
+            if (next != null)
+                next.process(left, right, frames);
             return;
         }
 

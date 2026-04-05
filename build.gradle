@@ -419,7 +419,7 @@ distributions {
 checkstyle {
     toolVersion = "10.21.2"
     configFile = file("${rootDir}/config/checkstyle/checkstyle.xml")
-    ignoreFailures = true // 스타일 위반해도 빌드는 통과!
+    ignoreFailures = false
     showViolations = true
 }
 
@@ -433,6 +433,8 @@ pmd {
 spotless {
     java {
         target 'src/**/*.java'
+        // Allman-style brace formatting via Eclipse JDT formatter
+        eclipse('4.29').configFile('config/eclipse-formatter.xml')
         // Import order: static (top) → java/javax → external → project
         importOrder('\\#', 'java|javax', '', 'com.fupfin')
         removeUnusedImports()

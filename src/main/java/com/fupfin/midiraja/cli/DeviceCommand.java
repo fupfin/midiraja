@@ -22,12 +22,12 @@ import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiProviderFactory;
 
-@Command(name = "device", aliases = {"dev"}, mixinStandardHelpOptions = true,
-        description = "OS native MIDI ports (CoreMIDI / ALSA / Windows GS).",
-        footer = {"", "With no arguments, lists available MIDI output ports.",
+@Command(name = "device", aliases = {
+        "dev" }, mixinStandardHelpOptions = true, description = "OS native MIDI ports (CoreMIDI / ALSA / Windows GS).", footer = {
+                "", "With no arguments, lists available MIDI output ports.",
                 "  midra device                    # list ports",
                 "  midra device song.mid           # pick port interactively, then play",
-                "  midra device 1 song.mid         # play on port 1"})
+                "  midra device 1 song.mid         # play on port 1" })
 public class DeviceCommand implements Callable<Integer>
 {
     @Spec
@@ -38,12 +38,11 @@ public class DeviceCommand implements Callable<Integer>
     @Nullable
     private MidirajaCommand parent;
 
-    @Option(names = {"-l", "--list"}, description = "List available MIDI output ports and exit.")
+    @Option(names = { "-l", "--list" }, description = "List available MIDI output ports and exit.")
     private boolean list;
 
-    @Parameters(index = "0..*", arity = "0..*",
-            description = "[Optional Device ID/Name] followed by MIDI files or directories.\n"
-                    + "If the first argument is not a valid file/directory, it is treated as the device query.")
+    @Parameters(index = "0..*", arity = "0..*", description = "[Optional Device ID/Name] followed by MIDI files or directories.\n"
+            + "If the first argument is not a valid file/directory, it is treated as the device query.")
     private List<String> args = new ArrayList<>();
 
     @Mixin
@@ -96,12 +95,17 @@ public class DeviceCommand implements Callable<Integer>
     private List<String> originalArgs()
     {
         var rawArgs = java.util.Objects.requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(token -> {
-            if (!token.startsWith("-")) {
-                var f = new java.io.File(token);
-                if (f.exists()) return f.getAbsolutePath();
-            }
-            return token;
-        }).collect(java.util.stream.Collectors.toList());
+        return rawArgs.stream().map(this::resolveToken).collect(java.util.stream.Collectors.toList());
+    }
+
+    private String resolveToken(String token)
+    {
+        if (!token.startsWith("-"))
+        {
+            var f = new java.io.File(token);
+            if (f.exists())
+                return f.getAbsolutePath();
+        }
+        return token;
     }
 }

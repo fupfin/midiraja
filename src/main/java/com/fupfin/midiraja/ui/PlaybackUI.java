@@ -31,17 +31,25 @@ public interface PlaybackUI
      * Called before the process suspends (SIGTSTP). The implementation should restore the terminal
      * to a clean state so the shell is usable after the process is stopped.
      *
-     * @param term      the active terminal
-     * @param altScreen whether an alternate screen buffer is currently active
+     * @param term
+     *            the active terminal
+     * @param altScreen
+     *            whether an alternate screen buffer is currently active
      */
-    default void suspend(TerminalIO term, boolean altScreen) {}
+    default void suspend(TerminalIO term, boolean altScreen)
+    {
+    }
 
     /**
      * Called after the process resumes (SIGCONT). The implementation should re-enter the display
      * mode it was in before suspend.
      *
-     * @param term      the active terminal
-     * @param altScreen whether an alternate screen buffer should be re-entered
+     * @param term
+     *            the active terminal
+     * @param altScreen
+     *            whether an alternate screen buffer should be re-entered
      */
-    default void resume(TerminalIO term, boolean altScreen) {}
+    default void resume(TerminalIO term, boolean altScreen)
+    {
+    }
 }

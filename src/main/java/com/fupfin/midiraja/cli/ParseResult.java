@@ -11,8 +11,10 @@ import java.io.File;
 import java.util.List;
 
 /** Result of a playlist parse: the ordered file list and any M3U directives found. */
-record ParseResult(List<File> files, PlaylistDirectives directives) {
-    ParseResult {
+record ParseResult(List<File> files, PlaylistDirectives directives)
+{
+    ParseResult
+    {
         files = List.copyOf(files);
     }
 }

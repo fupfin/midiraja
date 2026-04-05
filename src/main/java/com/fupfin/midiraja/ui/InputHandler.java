@@ -14,7 +14,8 @@ import com.fupfin.midiraja.io.TerminalIO.TerminalKey;
 public class InputHandler
 {
     private InputHandler()
-    {}
+    {
+    }
 
     public static void handleCommonInput(PlaybackCommands engine, TerminalKey key)
     {
@@ -37,8 +38,8 @@ public class InputHandler
             case QUIT -> engine.requestStop(PlaybackStatus.QUIT_ALL);
             case RESUME_SESSION -> engine.requestStop(PlaybackStatus.RESUME_SESSION);
             default ->
-            {
-            }
+                {
+                }
         }
     }
 
@@ -47,8 +48,8 @@ public class InputHandler
         switch (key)
         {
             case TOGGLE_LOOP, TOGGLE_SHUFFLE ->
-            {
-            } // not available in mini mode
+                {
+                } // not available in mini mode
             default -> handleCommonInput(engine, key);
         }
     }

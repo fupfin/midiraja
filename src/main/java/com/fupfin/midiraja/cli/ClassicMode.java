@@ -16,7 +16,9 @@ import org.jspecify.annotations.Nullable;
 
 final class ClassicMode
 {
-    private ClassicMode() {}
+    private ClassicMode()
+    {
+    }
 
     /** Non-interactive fallback: numbered prompt on stderr. */
     @Nullable
@@ -35,13 +37,16 @@ final class ClassicMode
         err.print("Enter number: ");
         err.flush();
         var scanner = new Scanner(System.in, StandardCharsets.UTF_8);
-        if (!scanner.hasNextInt()) return null;
+        if (!scanner.hasNextInt())
+            return null;
         int sel = scanner.nextInt();
         int idx = 0;
         for (var item : items)
         {
-            if (item.isSeparator()) continue;
-            if (++idx == sel) return item.value();
+            if (item.isSeparator())
+                continue;
+            if (++idx == sel)
+                return item.value();
         }
         return null;
     }
@@ -62,14 +67,18 @@ final class ClassicMode
         err.print("Enter number (0 to cancel): ");
         err.flush();
         var scanner = new Scanner(System.in, StandardCharsets.UTF_8);
-        if (!scanner.hasNextInt()) return new TerminalSelector.SelectResult.Cancelled<>();
+        if (!scanner.hasNextInt())
+            return new TerminalSelector.SelectResult.Cancelled<>();
         int sel = scanner.nextInt();
-        if (sel == 0) return new TerminalSelector.SelectResult.Cancelled<>();
+        if (sel == 0)
+            return new TerminalSelector.SelectResult.Cancelled<>();
         int idx = 0;
         for (var item : items)
         {
-            if (item.isSeparator()) continue;
-            if (++idx == sel) return new TerminalSelector.SelectResult.Chosen<>(item.requireValue());
+            if (item.isSeparator())
+                continue;
+            if (++idx == sel)
+                return new TerminalSelector.SelectResult.Chosen<>(item.requireValue());
         }
         return new TerminalSelector.SelectResult.Cancelled<>();
     }

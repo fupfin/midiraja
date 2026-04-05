@@ -32,21 +32,56 @@ import com.fupfin.midiraja.ui.DumbUI;
  * delivered through PlaybackEngine → MuntSynthProvider → MuntNativeBridge.
  * Uses a counting mock bridge so no native library or ROM files are required.
  */
-@EnabledIf("monkeyIslandMidPresent") class PlaybackEngineIntegrationTest
+@EnabledIf("monkeyIslandMidPresent")
+class PlaybackEngineIntegrationTest
 {
     static boolean monkeyIslandMidPresent()
     {
         return new File("monkey_island.mid").exists();
     }
 
-    private static PlaybackPipeline minimalPipeline(MidiOutProvider provider) {
-        return new PlaybackPipeline() {
-            @Override public void sendMessage(byte[] d) throws Exception { provider.sendMessage(d); }
-            @Override public void adjustVolume(double d) {}
-            @Override public double getVolumeScale() { return 1.0; }
-            @Override public void adjustTranspose(int s) {}
-            @Override public int getCurrentTranspose() { return 0; }
-            @Override public void setIgnoreSysex(boolean i) {}
+    private static Void startEngine(PlaybackEngine engine) throws Exception
+    {
+        engine.start(new DumbUI());
+        return null;
+    }
+
+    private static PlaybackPipeline minimalPipeline(MidiOutProvider provider)
+    {
+        return new PlaybackPipeline()
+        {
+            @Override
+            public void sendMessage(byte[] d) throws Exception
+            {
+                provider.sendMessage(d);
+            }
+
+            @Override
+            public void adjustVolume(double d)
+            {
+            }
+
+            @Override
+            public double getVolumeScale()
+            {
+                return 1.0;
+            }
+
+            @Override
+            public void adjustTranspose(int s)
+            {
+            }
+
+            @Override
+            public int getCurrentTranspose()
+            {
+                return 0;
+            }
+
+            @Override
+            public void setIgnoreSysex(boolean i)
+            {
+            }
         };
     }
 
@@ -54,58 +89,79 @@ import com.fupfin.midiraja.ui.DumbUI;
     {
         int noteOnCount, noteOffCount, ccCount, pcCount, pbCount;
 
-        @Override public void createSynth()
-        {
-        }
-        @Override public void loadRoms(String romDirectory)
-        {
-        }
-        @Override public void openSynth()
-        {
-        }
-        @Override public void playSysex(byte[] sysexData)
-        {
-        }
-        @Override public void renderAudio(short[] buffer, int frames)
-        {
-        }
-        @Override public void close()
+        @Override
+        public void createSynth()
         {
         }
 
-        @Override public void playNoteOn(int channel, int key, int velocity)
+        @Override
+        public void loadRoms(String romDirectory)
+        {
+        }
+
+        @Override
+        public void openSynth()
+        {
+        }
+
+        @Override
+        public void playSysex(byte[] sysexData)
+        {
+        }
+
+        @Override
+        public void renderAudio(short[] buffer, int frames)
+        {
+        }
+
+        @Override
+        public void close()
+        {
+        }
+
+        @Override
+        public void playNoteOn(int channel, int key, int velocity)
         {
             noteOnCount++;
         }
-        @Override public void playNoteOff(int channel, int key)
+
+        @Override
+        public void playNoteOff(int channel, int key)
         {
             noteOffCount++;
         }
-        @Override public void playControlChange(int channel, int number, int value)
+
+        @Override
+        public void playControlChange(int channel, int number, int value)
         {
             ccCount++;
         }
-        @Override public void playProgramChange(int channel, int program)
+
+        @Override
+        public void playProgramChange(int channel, int program)
         {
             pcCount++;
         }
-        @Override public void playPitchBend(int channel, int value)
+
+        @Override
+        public void playPitchBend(int channel, int value)
         {
             pbCount++;
         }
     }
 
-    @Test void testAllEventsDelivered() throws Exception
+    @Test
+    void testAllEventsDelivered() throws Exception
     {
         // 1. Parse monkey_island.mid with the Java MIDI API
         Sequence seq = MidiSystem.getSequence(new File("monkey_island.mid"));
 
         // 2. Count expected events by iterating all tracks.
-        //    MuntSynthProvider.sendMessage() routes:
-        //      0x90 (any velocity, including vel=0) → playNoteOn()
-        //      0x80                                  → playNoteOff()
-        //      0xB0                                  → playControlChange()
-        //      0xC0                                  → playProgramChange()
+        // MuntSynthProvider.sendMessage() routes:
+        // 0x90 (any velocity, including vel=0) → playNoteOn()
+        // 0x80 → playNoteOff()
+        // 0xB0 → playControlChange()
+        // 0xC0 → playProgramChange()
         int expectedNoteOn = 0, expectedNoteOff = 0, expectedCC = 0, expectedPC = 0;
         for (Track track : seq.getTracks())
         {
@@ -134,29 +190,25 @@ import com.fupfin.midiraja.ui.DumbUI;
 
         // 4. Run PlaybackEngine at 1000x speed so the file completes in ~200ms wall-clock time
         PlaylistContext ctx = new PlaylistContext(
-            List.of(new File("monkey_island.mid")), 0, new MidiPort(0, "Test"), null, false, false);
+                List.of(new File("monkey_island.mid")), 0, new MidiPort(0, "Test"), null, false, false);
 
-        PlaybackEngine engine =
-            new MidiPlaybackEngine(seq, provider, ctx, minimalPipeline(provider), () -> false,
-                    1000.0, Optional.empty());
+        PlaybackEngine engine = new MidiPlaybackEngine(seq, provider, ctx, minimalPipeline(provider), () -> false,
+                1000.0, Optional.empty());
 
         MockTerminalIO mockIO = new MockTerminalIO();
-        ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> {
-            engine.start(new DumbUI());
-            return null;
-        });
+        ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> startEngine(engine));
 
         // 5. After playback, provider.panic() sends all-notes-off to
         // MuntSynthProvider.sendMessage(),
-        //    which routes them through the counting bridge. Account for these in expectations:
-        //      16 channels × 4 CC messages (sustain-off, all-notes-off, all-sound-off, reset-CC) =
-        //      64 16 channels × 128 note-off messages = 2048
+        // which routes them through the counting bridge. Account for these in expectations:
+        // 16 channels × 4 CC messages (sustain-off, all-notes-off, all-sound-off, reset-CC) =
+        // 64 16 channels × 128 note-off messages = 2048
         final int PANIC_CC_COUNT = 16 * 4;
         final int PANIC_NOTEOFF_COUNT = 16 * 128;
 
         assertEquals(expectedNoteOn, bridge.noteOnCount, "NoteOn count mismatch");
         assertEquals(
-            expectedNoteOff + PANIC_NOTEOFF_COUNT, bridge.noteOffCount, "NoteOff count mismatch");
+                expectedNoteOff + PANIC_NOTEOFF_COUNT, bridge.noteOffCount, "NoteOff count mismatch");
         assertEquals(expectedCC + PANIC_CC_COUNT, bridge.ccCount, "CC count mismatch");
         assertEquals(expectedPC, bridge.pcCount, "PC count mismatch");
     }

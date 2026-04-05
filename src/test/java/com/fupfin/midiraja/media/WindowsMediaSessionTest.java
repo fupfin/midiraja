@@ -20,42 +20,92 @@ import com.fupfin.midiraja.engine.PlaylistContext;
 @EnabledOnOs(OS.WINDOWS)
 class WindowsMediaSessionTest
 {
-    @Test void lifecycle_startUpdateClose_noException()
+    @Test
+    void lifecycle_startUpdateClose_noException()
     {
-        try (var session = new WindowsMediaSession()) {
+        var info = new NowPlayingInfo("Test", "", 60_000_000L, 5_000_000L, true);
+        try (var session = new WindowsMediaSession())
+        {
             assertDoesNotThrow(() -> session.start(noopCommands()));
-            assertDoesNotThrow(() -> session.drainAndUpdate(
-                new NowPlayingInfo("Test", "", 60_000_000L, 5_000_000L, true)));
+            assertDoesNotThrow(() -> session.drainAndUpdate(info));
         }
     }
 
-    @Test void drainAndUpdate_beforeStart_isNoOp()
+    @Test
+    void drainAndUpdate_beforeStart_isNoOp()
     {
-        try (var session = new WindowsMediaSession()) {
-            assertDoesNotThrow(() -> session.drainAndUpdate(
-                new NowPlayingInfo("T", "", 0, 0, false)));
+        var info = new NowPlayingInfo("T", "", 0, 0, false);
+        try (var session = new WindowsMediaSession())
+        {
+            assertDoesNotThrow(() -> session.drainAndUpdate(info));
         }
     }
 
-    @Test void close_beforeStart_isNoOp()
+    @Test
+    void close_beforeStart_isNoOp()
     {
         assertDoesNotThrow(() -> new WindowsMediaSession().close());
     }
 
     private static PlaybackCommands noopCommands()
     {
-        return new PlaybackCommands() {
-            @Override public boolean isPlaying() { return false; }
-            @Override public void requestStop(PlaybackStatus s) {}
-            @Override public void adjustVolume(double d) {}
-            @Override public void adjustSpeed(double d) {}
-            @Override public void adjustTranspose(int d) {}
-            @Override public void seekRelative(long d) {}
-            @Override public void togglePause() {}
-            @Override public void toggleLoop() {}
-            @Override public void toggleShuffle() {}
-            @Override public void fireBookmark() {}
-            @Override public void firePlayOrderChanged(PlaylistContext c) {}
+        return new PlaybackCommands()
+        {
+            @Override
+            public boolean isPlaying()
+            {
+                return false;
+            }
+
+            @Override
+            public void requestStop(PlaybackStatus s)
+            {
+            }
+
+            @Override
+            public void adjustVolume(double d)
+            {
+            }
+
+            @Override
+            public void adjustSpeed(double d)
+            {
+            }
+
+            @Override
+            public void adjustTranspose(int d)
+            {
+            }
+
+            @Override
+            public void seekRelative(long d)
+            {
+            }
+
+            @Override
+            public void togglePause()
+            {
+            }
+
+            @Override
+            public void toggleLoop()
+            {
+            }
+
+            @Override
+            public void toggleShuffle()
+            {
+            }
+
+            @Override
+            public void fireBookmark()
+            {
+            }
+
+            @Override
+            public void firePlayOrderChanged(PlaylistContext c)
+            {
+            }
         };
     }
 }

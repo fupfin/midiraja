@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -34,12 +35,12 @@ import com.fupfin.midiraja.midi.TsfSynthProvider;
 /**
  * Plays MIDI files using the built-in TinySoundFont SF2 synthesizer.
  */
-@Command(name = "soundfont", aliases = {"tsf", "sf2", "sf"}, mixinStandardHelpOptions = true,
-        description = "Built-in SoundFont synthesizer (SF2/SF3), no install needed.",
-        footer = {"",
+@Command(name = "soundfont", aliases = { "tsf", "sf2",
+        "sf" }, mixinStandardHelpOptions = true, description = "Built-in SoundFont synthesizer (SF2/SF3), no install needed.", footer = {
+                "",
                 "The SoundFont path is optional. If omitted, the bundled FluidR3 GM SF3 is used.",
                 "  midra soundfont song.mid",
-                "  midra soundfont ~/soundfonts/FluidR3_GM.sf2 song.mid"})
+                "  midra soundfont ~/soundfonts/FluidR3_GM.sf2 song.mid" })
 public class TsfCommand implements Callable<Integer>
 {
     @Spec
@@ -50,13 +51,11 @@ public class TsfCommand implements Callable<Integer>
     @Nullable
     private MidirajaCommand parent;
 
-    @Parameters(index = "0", arity = "0..1",
-            description = "Optional: path to a SoundFont (.sf2 or .sf3) file. If a MIDI file is given here, the bundled SF3 is used.")
+    @Parameters(index = "0", arity = "0..1", description = "Optional: path to a SoundFont (.sf2 or .sf3) file. If a MIDI file is given here, the bundled SF3 is used.")
     @Nullable
     private File firstArg = null;
 
-    @Parameters(index = "1..*", arity = "0..*",
-            description = "MIDI files, directories, or .m3u playlists to play.")
+    @Parameters(index = "1..*", arity = "0..*", description = "MIDI files, directories, or .m3u playlists to play.")
     private List<File> moreFiles = new ArrayList<>();
 
     @Mixin
@@ -64,7 +63,6 @@ public class TsfCommand implements Callable<Integer>
 
     @Mixin
     private final CommonOptions common = new CommonOptions();
-
 
     private static boolean isSoundFontFile(File f)
     {
@@ -101,7 +99,8 @@ public class TsfCommand implements Callable<Integer>
         List<String> baseDirs = new ArrayList<>();
 
         String midraData = System.getenv("MIDRA_DATA");
-        if (midraData != null) baseDirs.add(midraData);
+        if (midraData != null)
+            baseDirs.add(midraData);
 
         baseDirs.addAll(Arrays.asList(
                 homeDir + "/.local/share/midra",
@@ -146,10 +145,10 @@ public class TsfCommand implements Callable<Integer>
 
         var bridge = new FFMTsfNativeBridge();
         var provider = new TsfSynthProvider(bridge, pipeline, common.retroMode.orElse(null));
-        if (fxOptions.masterGain != null) provider.setMasterGain(fxOptions.masterGain);
+        if (fxOptions.masterGain != null)
+            provider.setMasterGain(fxOptions.masterGain);
 
-        var runner =
-                new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
         runner.setFxOptions(fxOptions);
         return runner.run(provider, true, Optional.empty(), Optional.of(sfPath), files(), common, originalArgs());
     }
@@ -157,12 +156,17 @@ public class TsfCommand implements Callable<Integer>
     private List<String> originalArgs()
     {
         var rawArgs = java.util.Objects.requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(token -> {
-            if (!token.startsWith("-")) {
-                var f = new java.io.File(token);
-                if (f.exists()) return f.getAbsolutePath();
-            }
-            return token;
-        }).collect(java.util.stream.Collectors.toList());
+        return rawArgs.stream().map(this::absoluteIfExists).collect(Collectors.toList());
+    }
+
+    private String absoluteIfExists(String token)
+    {
+        if (!token.startsWith("-"))
+        {
+            var f = new java.io.File(token);
+            if (f.exists())
+                return f.getAbsolutePath();
+        }
+        return token;
     }
 }

@@ -17,20 +17,23 @@ import com.fupfin.midiraja.engine.PlaylistContext;
 
 class MediaKeyIntegrationTest
 {
-    @Test void nowPlayingInfo_equality()
+    @Test
+    void nowPlayingInfo_equality()
     {
         var a = new NowPlayingInfo("Song", "Artist", 60_000_000L, 5_000_000L, true);
         var b = new NowPlayingInfo("Song", "Artist", 60_000_000L, 5_000_000L, true);
         assertEquals(a, b);
     }
 
-    @Test void nowPlayingInfo_emptyArtist()
+    @Test
+    void nowPlayingInfo_emptyArtist()
     {
         var info = new NowPlayingInfo("Song", "", 0L, 0L, false);
         assertEquals("", info.artist());
     }
 
-    @Test void noOp_allMethodsAreNoOp()
+    @Test
+    void noOp_allMethodsAreNoOp()
     {
         var noOp = NoOpMediaIntegration.INSTANCE;
         assertDoesNotThrow(() -> noOp.start(noopCommands()));
@@ -41,29 +44,75 @@ class MediaKeyIntegrationTest
 
     private static PlaybackCommands noopCommands()
     {
-        return new PlaybackCommands() {
-            @Override public boolean isPlaying() { return false; }
-            @Override public void requestStop(PlaybackStatus s) {}
-            @Override public void adjustVolume(double d) {}
-            @Override public void adjustSpeed(double d) {}
-            @Override public void adjustTranspose(int d) {}
-            @Override public void seekRelative(long d) {}
-            @Override public void togglePause() {}
-            @Override public void toggleLoop() {}
-            @Override public void toggleShuffle() {}
-            @Override public void fireBookmark() {}
-            @Override public void firePlayOrderChanged(PlaylistContext c) {}
+        return new PlaybackCommands()
+        {
+            @Override
+            public boolean isPlaying()
+            {
+                return false;
+            }
+
+            @Override
+            public void requestStop(PlaybackStatus s)
+            {
+            }
+
+            @Override
+            public void adjustVolume(double d)
+            {
+            }
+
+            @Override
+            public void adjustSpeed(double d)
+            {
+            }
+
+            @Override
+            public void adjustTranspose(int d)
+            {
+            }
+
+            @Override
+            public void seekRelative(long d)
+            {
+            }
+
+            @Override
+            public void togglePause()
+            {
+            }
+
+            @Override
+            public void toggleLoop()
+            {
+            }
+
+            @Override
+            public void toggleShuffle()
+            {
+            }
+
+            @Override
+            public void fireBookmark()
+            {
+            }
+
+            @Override
+            public void firePlayOrderChanged(PlaylistContext c)
+            {
+            }
         };
     }
 
-    @Test void noOp_drainAndUpdate_beforeStart_isNoOp()
+    @Test
+    void noOp_drainAndUpdate_beforeStart_isNoOp()
     {
-        assertDoesNotThrow(() ->
-            NoOpMediaIntegration.INSTANCE.drainAndUpdate(
-                new NowPlayingInfo("T", "", 1_000_000L, 0L, true)));
+        var info = new NowPlayingInfo("T", "", 1_000_000L, 0L, true);
+        assertDoesNotThrow(() -> NoOpMediaIntegration.INSTANCE.drainAndUpdate(info));
     }
 
-    @Test void create_returnsNonNull()
+    @Test
+    void create_returnsNonNull()
     {
         assertNotNull(MediaKeyIntegration.create());
     }

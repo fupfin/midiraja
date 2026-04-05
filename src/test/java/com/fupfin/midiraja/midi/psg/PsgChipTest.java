@@ -5,31 +5,36 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class PsgChipTest {
+class PsgChipTest
+{
 
     private PsgChip chip;
     private final int sampleRate = 44100;
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         chip = new PsgChip(sampleRate, 5.0, 25.0);
     }
 
     @Test
-    void testRenderSilence() {
+    void testRenderSilence()
+    {
         double output = chip.render();
         assertEquals(0.0, output);
     }
 
     @Test
-    void testNoteOnAndRender() {
+    void testNoteOnAndRender()
+    {
         chip.tryAllocateFree(0, 60, 100);
         double output = chip.render();
         assertNotEquals(0.0, output);
     }
 
     @Test
-    void testNoiseChannel() {
+    void testNoiseChannel()
+    {
         // Channel 9 is drums, should use noise
         chip.tryAllocateFree(9, 36, 100);
         double output = chip.render();
@@ -37,9 +42,11 @@ class PsgChipTest {
     }
 
     @Test
-    void testVoiceStealing() {
+    void testVoiceStealing()
+    {
         // Fill all 3 channels
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 3; i++)
+        {
             chip.tryAllocateFree(i, 60 + i, 100);
         }
 
@@ -49,7 +56,8 @@ class PsgChipTest {
     }
 
     @Test
-    void testReset() {
+    void testReset()
+    {
         chip.tryAllocateFree(0, 60, 100);
         chip.reset();
         assertEquals(0.0, chip.render());

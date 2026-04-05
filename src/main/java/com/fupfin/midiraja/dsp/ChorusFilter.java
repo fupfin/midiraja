@@ -56,7 +56,8 @@ public final class ChorusFilter extends AudioFilter
     {
         if (!enabled)
         {
-            if (next != null) next.process(left, right, frames);
+            if (next != null)
+                next.process(left, right, frames);
             return;
         }
 
@@ -83,7 +84,8 @@ public final class ChorusFilter extends AudioFilter
 
             // Advance LFO phase
             lfoPhase += lfoStep;
-            if (lfoPhase > 2.0 * Math.PI) lfoPhase -= (float) (2.0 * Math.PI);
+            if (lfoPhase > 2.0 * Math.PI)
+                lfoPhase -= (float) (2.0 * Math.PI);
 
             // 3. Calculate dynamic read positions
             float delaySamplesL = baseDelaySamples + (lfoValL * depthSamples);
@@ -99,7 +101,8 @@ public final class ChorusFilter extends AudioFilter
 
             // Advance write index and wrap around
             writeIndex++;
-            if (writeIndex >= bufLen) writeIndex = 0;
+            if (writeIndex >= bufLen)
+                writeIndex = 0;
         }
 
         if (next != null)
@@ -119,7 +122,8 @@ public final class ChorusFilter extends AudioFilter
 
         int index1 = (int) readPos;
         int index2 = index1 + 1;
-        if (index2 >= len) index2 -= len;
+        if (index2 >= len)
+            index2 -= len;
 
         float frac = readPos - index1;
 

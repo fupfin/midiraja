@@ -29,12 +29,20 @@ public interface PlaybackEngine extends PlaybackState, PlaybackCommands
 
     // Pre-start configuration
     void setHoldAtEnd(boolean hold);
+
     void setIgnoreSysex(boolean ignoreSysex);
+
     void setInitialResetType(Optional<String> resetType);
+
     void setInitiallyPaused();
+
     void setFilterDescription(String desc);
+
     void setPortSuffix(String suffix);
+
     void setBookmarked(boolean bookmarked);
+
     void setBookmarkCallback(Consumer<Boolean> callback);
+
     void setShuffleCallback(Consumer<Boolean> callback);
 }

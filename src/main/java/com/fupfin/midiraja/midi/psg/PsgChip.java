@@ -110,7 +110,8 @@ class PsgChip extends AbstractTrackerChip
     @Override
     protected void onChannelDeactivated(int index)
     {
-        if (index == 2) hwEnvActive = false;
+        if (index == 2)
+            hwEnvActive = false;
     }
 
     // --- TrackerSynthChip implementations ---
@@ -152,7 +153,8 @@ class PsgChip extends AbstractTrackerChip
         for (int ch = 0; ch < NUM_CHANNELS; ch++)
         {
             PsgChannel c = channels[ch];
-            if (!c.active) continue;
+            if (!c.active)
+                continue;
 
             if (c.activeFrames % 882 == 0)
             {
@@ -214,7 +216,8 @@ class PsgChip extends AbstractTrackerChip
                     // SLOW MELODY DECAY: Decrement every 4 ticks (12.5Hz)
                     if (c.activeFrames % (882 * 4) == 0)
                     {
-                        if (c.volume15 > 0) c.volume15--;
+                        if (c.volume15 > 0)
+                            c.volume15--;
                     }
                 }
 
@@ -268,7 +271,8 @@ class PsgChip extends AbstractTrackerChip
             }
         }
 
-        if (targetCh == -1) return false;
+        if (targetCh == -1)
+            return false;
 
         if (ch == 9)
         {

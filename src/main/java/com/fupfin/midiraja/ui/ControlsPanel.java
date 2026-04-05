@@ -22,24 +22,29 @@ public class ControlsPanel implements Panel
 
     @Override
     public void onPlaybackStateChanged()
-    {}
+    {
+    }
 
     @Override
     public void onTick(long currentMicroseconds)
-    {}
+    {
+    }
 
     @Override
     public void onTempoChanged(float bpm)
-    {}
+    {
+    }
 
     @Override
     public void onChannelActivity(int channel, int velocity)
-    {}
+    {
+    }
 
     @Override
     public void render(ScreenBuffer buffer)
     {
-        if (constraints.height() <= 0) return;
+        if (constraints.height() <= 0)
+            return;
 
         String minLine = "[Spc]Pause [▲▼]Skip [◀▶]Seek [+-]Vol [<>]Tempo [/']Trans [L]Loop [S]Shuf [*]Save [Q]Quit";
 
@@ -50,7 +55,8 @@ public class ControlsPanel implements Panel
         }
         else if (constraints.height() == 2)
         {
-            buffer.append("[Spc]Pause [◀▶]Seek [▲▼]Skip [+-]Vol [<>]Tempo [/']Trans [L]Loop [S]Shuf [*]Bkm [R]Resume [Q]Quit\n");
+            buffer.append(
+                    "[Spc]Pause [◀▶]Seek [▲▼]Skip [+-]Vol [<>]Tempo [/']Trans [L]Loop [S]Shuf [*]Bkm [R]Resume [Q]Quit\n");
         }
         else
         {

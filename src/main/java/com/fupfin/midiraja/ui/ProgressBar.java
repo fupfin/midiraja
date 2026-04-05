@@ -33,10 +33,14 @@ public class ProgressBar
     /**
      * Renders a progress bar string.
      *
-     * @param filledLength The number of active/filled blocks.
-     * @param totalLength The total width of the bar (excluding brackets).
-     * @param style The style preset for the background.
-     * @param showBrackets Whether to wrap the output in '[' and ']'.
+     * @param filledLength
+     *            The number of active/filled blocks.
+     * @param totalLength
+     *            The total width of the bar (excluding brackets).
+     * @param style
+     *            The style preset for the background.
+     * @param showBrackets
+     *            Whether to wrap the output in '[' and ']'.
      * @return An ANSI-colored string representing the bar.
      */
     public static String render(int filledLength, int totalLength, Style style,

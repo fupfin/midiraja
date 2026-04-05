@@ -48,7 +48,6 @@ public final class EqFilter extends AudioFilter
         trebleFilterR.setHighShelf(sampleRate, 4000.0f, 1.0f, pctToDb(treblePct));
     }
 
-
     public void setLpf(float cutoffHz)
     {
         if (cutoffHz >= 20000.0f)
@@ -79,7 +78,8 @@ public final class EqFilter extends AudioFilter
 
     private float pctToDb(float pct)
     {
-        if (pct <= 0) return -60.0f; // Mute
+        if (pct <= 0)
+            return -60.0f; // Mute
         // 100% -> 0dB, 200% -> +12dB, 50% -> -6dB
         return (float) (20.0 * Math.log10(pct / 50.0));
     }
@@ -96,19 +96,24 @@ public final class EqFilter extends AudioFilter
             l = bassFilterL.process(l);
             l = midFilterL.process(l);
             l = trebleFilterL.process(l);
-            if (useLpf) l = lpfL.process(l);
-            if (useHpf) l = hpfL.process(l);
+            if (useLpf)
+                l = lpfL.process(l);
+            if (useHpf)
+                l = hpfL.process(l);
 
             r = bassFilterR.process(r);
             r = midFilterR.process(r);
             r = trebleFilterR.process(r);
-            if (useLpf) r = lpfR.process(r);
-            if (useHpf) r = hpfR.process(r);
+            if (useLpf)
+                r = lpfR.process(r);
+            if (useHpf)
+                r = hpfR.process(r);
 
             left[i] = l;
             right[i] = r;
         }
-        if (next != null) next.process(left, right, frames);
+        if (next != null)
+            next.process(left, right, frames);
     }
 
     /**
@@ -156,10 +161,9 @@ public final class EqFilter extends AudioFilter
             float w0 = (float) (2.0 * Math.PI * f0 / fs);
             float cosW0 = (float) Math.cos(w0);
             float sinW0 = (float) Math.sin(w0);
-            float alpha =
-                    sinW0 / 2.0f * (float) Math.sqrt((a + 1.0f / a) * (1.0f / q - 1.0f) + 2.0f);
+            float alpha = sinW0 / 2.0f * (float) Math.sqrt((a + 1.0f / a) * (1.0f / q - 1.0f) + 2.0f);
             float sqrtA2 = 2.0f * (float) Math.sqrt(a) * alpha;
-            return new float[] {a, cosW0, sqrtA2};
+            return new float[] { a, cosW0, sqrtA2 };
         }
 
         void setPeaking(float fs, float f0, float q, float dbGain)
@@ -178,7 +182,6 @@ public final class EqFilter extends AudioFilter
 
             normalize(a0);
         }
-
 
         void setLowPass(float fs, float f0, float q)
         {

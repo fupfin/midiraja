@@ -1,6 +1,5 @@
 package com.fupfin.midiraja.midi;
 
-
 /**
  * Filters out hardware-specific System Exclusive (SysEx) messages.
  */

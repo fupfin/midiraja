@@ -61,8 +61,15 @@ class ProgressBarTest
         {
             // Theme.CHAR_BLOCK_FULL is a single Unicode code point represented as one char "█"
             String ch = String.valueOf(inner.charAt(i));
-            if (ch.equals(Theme.CHAR_BLOCK_FULL)) { filled++; i++; }
-            else break;
+            if (ch.equals(Theme.CHAR_BLOCK_FULL))
+            {
+                filled++;
+                i++;
+            }
+            else
+            {
+                break;
+            }
         }
         assertEquals(5, filled);
     }
@@ -71,7 +78,7 @@ class ProgressBarTest
     void render_negativeFilledLength_clampedToZero()
     {
         String clamped = stripAnsi(ProgressBar.render(-1, 10, SOLID_BACKGROUND, true));
-        String zero    = stripAnsi(ProgressBar.render(0,  10, SOLID_BACKGROUND, true));
+        String zero = stripAnsi(ProgressBar.render(0, 10, SOLID_BACKGROUND, true));
         assertEquals(zero, clamped);
     }
 
@@ -79,7 +86,7 @@ class ProgressBarTest
     void render_filledExceedsTotalLength_clampedToTotal()
     {
         String clamped = stripAnsi(ProgressBar.render(11, 10, SOLID_BACKGROUND, true));
-        String full    = stripAnsi(ProgressBar.render(10, 10, SOLID_BACKGROUND, true));
+        String full = stripAnsi(ProgressBar.render(10, 10, SOLID_BACKGROUND, true));
         assertEquals(full, clamped);
     }
 
@@ -95,7 +102,7 @@ class ProgressBarTest
     void render_dottedBackground_usesGridDotCharacterInBackground()
     {
         String dottedResult = stripAnsi(ProgressBar.render(5, 10, DOTTED_BACKGROUND, true));
-        String solidResult  = stripAnsi(ProgressBar.render(5, 10, SOLID_BACKGROUND,  true));
+        String solidResult = stripAnsi(ProgressBar.render(5, 10, SOLID_BACKGROUND, true));
         // The background characters differ between the two styles
         assertNotEquals(solidResult, dottedResult,
                 "DOTTED_BACKGROUND result should differ from SOLID_BACKGROUND result");

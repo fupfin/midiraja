@@ -9,5 +9,7 @@ public final class DspConstants
     /** Inverse of INTERNAL_LEVEL; used by MasterGainFilter to restore full scale. */
     public static final float INTERNAL_LEVEL_INV = 1.0f / INTERNAL_LEVEL; // 4.0f
 
-    private DspConstants() {}
+    private DspConstants()
+    {
+    }
 }

@@ -54,7 +54,8 @@ public class GusEngine
         }
 
         GusPatch.Instrument inst = patch.instruments().getFirst();
-        if (inst.samples().isEmpty()) return;
+        if (inst.samples().isEmpty())
+            return;
 
         // Calculate frequency of the requested MIDI note
         // MIDI note 69 is A4 (440 Hz). We multiply by 1000 for millihertz to match GUS specs
@@ -87,7 +88,8 @@ public class GusEngine
             }
         }
 
-        if (bestSample == null) return;
+        if (bestSample == null)
+            return;
 
         double ratio;
         if (channel == 9)

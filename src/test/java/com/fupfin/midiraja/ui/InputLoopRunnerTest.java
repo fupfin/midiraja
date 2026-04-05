@@ -22,16 +22,24 @@ class InputLoopRunnerTest
     /** MockTerminalIO that throws IOException on readKey(). */
     static class ThrowingTerminalIO extends MockTerminalIO
     {
-        @Override public TerminalKey readKey() throws IOException
+        @Override
+        public TerminalKey readKey() throws IOException
         {
             throw new IOException("simulated error");
         }
     }
 
+    private static void runWith(TerminalIO io, RecordingCommands engine)
+    {
+        ScopedValue.where(TerminalIO.CONTEXT, io)
+                .run(() -> InputLoopRunner.run(engine, InputHandler::handleCommonInput));
+    }
+
     // -----------------------------------------------------------------------
     // C1. run_callsHandlerForEachKey_untilNotPlaying
     // -----------------------------------------------------------------------
-    @Test void run_callsHandlerForEachKey_untilNotPlaying() throws Exception
+    @Test
+    void run_callsHandlerForEachKey_untilNotPlaying() throws Exception
     {
         // isPlaying() returns true for the first 3 checks, then false
         RecordingCommands engine = new RecordingCommands();
@@ -42,20 +50,18 @@ class InputLoopRunnerTest
         mockIO.injectKey(TerminalKey.PAUSE);
         mockIO.injectKey(TerminalKey.QUIT);
 
-        ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> {
-            InputLoopRunner.run(engine, InputHandler::handleCommonInput);
-            return null;
-        });
+        runWith(mockIO, engine);
 
         assertTrue(engine.calls.contains("adjustVolume:0.05"), "VOLUME_UP should have been processed");
-        assertTrue(engine.calls.contains("togglePause"),        "PAUSE should have been processed");
+        assertTrue(engine.calls.contains("togglePause"), "PAUSE should have been processed");
         assertTrue(engine.calls.contains("requestStop:QUIT_ALL"), "QUIT should have been processed");
     }
 
     // -----------------------------------------------------------------------
     // C2. run_stopsWhenNotPlaying_withoutProcessingMoreKeys
     // -----------------------------------------------------------------------
-    @Test void run_stopsWhenNotPlaying_withoutProcessingMoreKeys() throws Exception
+    @Test
+    void run_stopsWhenNotPlaying_withoutProcessingMoreKeys() throws Exception
     {
         // isPlaying() returns false on the very first call
         RecordingCommands engine = new RecordingCommands();
@@ -68,10 +74,7 @@ class InputLoopRunnerTest
         mockIO.injectKey(TerminalKey.NEXT_TRACK);
         mockIO.injectKey(TerminalKey.PREV_TRACK);
 
-        ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> {
-            InputLoopRunner.run(engine, InputHandler::handleCommonInput);
-            return null;
-        });
+        runWith(mockIO, engine);
 
         assertTrue(engine.calls.isEmpty(), "No keys should be processed when isPlaying() is false from the start");
     }
@@ -79,17 +82,15 @@ class InputLoopRunnerTest
     // -----------------------------------------------------------------------
     // C3. run_onIOException_callsRequestStopQuitAll
     // -----------------------------------------------------------------------
-    @Test void run_onIOException_callsRequestStopQuitAll() throws Exception
+    @Test
+    void run_onIOException_callsRequestStopQuitAll() throws Exception
     {
         // Engine always reports playing so the loop doesn't exit on its own
         RecordingCommands engine = new RecordingCommands(); // default: Integer.MAX_VALUE
 
         ThrowingTerminalIO throwingIO = new ThrowingTerminalIO();
 
-        ScopedValue.where(TerminalIO.CONTEXT, throwingIO).call(() -> {
-            InputLoopRunner.run(engine, InputHandler::handleCommonInput);
-            return null;
-        });
+        runWith(throwingIO, engine);
 
         assertTrue(engine.calls.contains("requestStop:QUIT_ALL"),
                 "IOException should trigger requestStop(QUIT_ALL)");

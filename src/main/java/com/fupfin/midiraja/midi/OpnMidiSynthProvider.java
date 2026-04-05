@@ -37,10 +37,10 @@ public class OpnMidiSynthProvider extends AbstractSoftSynthProvider<OpnMidiNativ
         return 4096L * 1_000_000_000L / SAMPLE_RATE;
     }
 
-    private static final String[] CHIP_NAMES     = {"YM2612", "YM3438", "YM2612",
-            "OPN2", "OPNA", "YM2608", "OPNA"};
-    private static final String[] EMULATOR_NAMES = {"MAME YM2612", "Nuked YM3438", "GENS",
-            "YMFM OPN2", "NP2 OPNA", "MAME YM2608", "YMFM OPNA"};
+    private static final String[] CHIP_NAMES = { "YM2612", "YM3438", "YM2612",
+            "OPN2", "OPNA", "YM2608", "OPNA" };
+    private static final String[] EMULATOR_NAMES = { "MAME YM2612", "Nuked YM3438", "GENS",
+            "YMFM OPN2", "NP2 OPNA", "MAME YM2608", "YMFM OPNA" };
 
     @Override
     public List<MidiPort> getOutputPorts()

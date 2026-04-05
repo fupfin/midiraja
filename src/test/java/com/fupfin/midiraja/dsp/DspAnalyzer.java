@@ -8,13 +8,17 @@ import java.nio.file.Path;
 /**
  * Generates raw PCM files for DSP pipeline spectral analysis.
  *
- * <p>Outputs stereo 16-bit LE PCM files to {@code dsp_analysis/} (or a custom directory),
+ * <p>
+ * Outputs stereo 16-bit LE PCM files to {@code dsp_analysis/} (or a custom directory),
  * then analyze them with:
+ *
  * <pre>
  *   python3 scripts/analyze_audio.py dsp_analysis/
  * </pre>
  *
- * <p>To run from the project root:
+ * <p>
+ * To run from the project root:
+ *
  * <pre>
  *   ./gradlew testClasses &amp;&amp; java -cp build/classes/java/test:build/classes/java/main \
  *       com.fupfin.midiraja.dsp.DspAnalyzer [output-dir]
@@ -29,7 +33,7 @@ public class DspAnalyzer
 
     static class CaptureSink implements AudioProcessor
     {
-        final float[] left  = new float[FRAMES];
+        final float[] left = new float[FRAMES];
         final float[] right = new float[FRAMES];
         int written = 0;
 
@@ -37,7 +41,7 @@ public class DspAnalyzer
         public void process(float[] l, float[] r, int frames)
         {
             int n = Math.min(frames, FRAMES - written);
-            System.arraycopy(l, 0, left,  written, n);
+            System.arraycopy(l, 0, left, written, n);
             System.arraycopy(r, 0, right, written, n);
             written += n;
         }
@@ -98,7 +102,7 @@ public class DspAnalyzer
     /** NEW order: AmigaPaula first, then Reverb. */
     static CaptureSink runAmigaThenReverb(float[] signal, ReverbFilter.Preset preset, float level)
     {
-        var sink   = new CaptureSink();
+        var sink = new CaptureSink();
         var reverb = new ReverbFilter(sink, preset, level);
         new AmigaPaulaFilter(true, AmigaPaulaFilter.Profile.A500, reverb)
                 .process(signal.clone(), signal.clone(), FRAMES);
@@ -108,7 +112,7 @@ public class DspAnalyzer
     /** OLD order: Reverb first, then AmigaPaula. */
     static CaptureSink runReverbThenAmiga(float[] signal, ReverbFilter.Preset preset, float level)
     {
-        var sink  = new CaptureSink();
+        var sink = new CaptureSink();
         var amiga = new AmigaPaulaFilter(true, AmigaPaulaFilter.Profile.A500, sink);
         new ReverbFilter(amiga, preset, level)
                 .process(signal.clone(), signal.clone(), FRAMES);
@@ -124,10 +128,12 @@ public class DspAnalyzer
         {
             for (int i = 0; i < sink.written; i++)
             {
-                int l = (int) (Math.max(-1f, Math.min(1f, sink.left[i]))  * 32767);
+                int l = (int) (Math.max(-1f, Math.min(1f, sink.left[i])) * 32767);
                 int r = (int) (Math.max(-1f, Math.min(1f, sink.right[i])) * 32767);
-                fos.write(l & 0xff); fos.write((l >> 8) & 0xff);
-                fos.write(r & 0xff); fos.write((r >> 8) & 0xff);
+                fos.write(l & 0xff);
+                fos.write((l >> 8) & 0xff);
+                fos.write(r & 0xff);
+                fos.write((r >> 8) & 0xff);
             }
         }
         System.out.println("  wrote: " + path);
@@ -149,39 +155,39 @@ public class DspAnalyzer
 
     public static void main(String[] args) throws Exception
     {
-        String dir    = args.length > 0 ? args[0] : "dsp_analysis";
-        var    preset = ReverbFilter.Preset.ROOM;
-        float  level  = 0.5f;
+        String dir = args.length > 0 ? args[0] : "dsp_analysis";
+        var preset = ReverbFilter.Preset.ROOM;
+        float level = 0.5f;
 
         System.out.println("Generating DSP pipeline comparison files → " + dir + "/");
 
-        float[] sine440  = sine(440);
-        float[] noise    = whiteNoise(42);
+        float[] sine440 = sine(440);
+        float[] noise = whiteNoise(42);
         // Three harmonics simulating a typical synth note (fundamental + 2nd + 3rd harmonic)
-        float[] chord    = multiTone(440, 880, 1320);
+        float[] chord = multiTone(440, 880, 1320);
 
         System.out.println("  [sine 440 Hz]");
-        save(runDry(sine440),                            dir + "/sine_dry.raw");
-        save(runAmigaOnly(sine440),                      dir + "/sine_amiga.raw");
-        save(runReverbOnly(sine440, preset, level),      dir + "/sine_reverb.raw");
+        save(runDry(sine440), dir + "/sine_dry.raw");
+        save(runAmigaOnly(sine440), dir + "/sine_amiga.raw");
+        save(runReverbOnly(sine440, preset, level), dir + "/sine_reverb.raw");
         save(runAmigaThenReverb(sine440, preset, level), dir + "/sine_new.raw");
         save(runReverbThenAmiga(sine440, preset, level), dir + "/sine_old.raw");
 
         System.out.println("  [white noise]");
-        save(runDry(noise),                              dir + "/noise_dry.raw");
-        save(runAmigaOnly(noise),                        dir + "/noise_amiga.raw");
-        save(runAmigaThenReverb(noise, preset, level),   dir + "/noise_new.raw");
-        save(runReverbThenAmiga(noise, preset, level),   dir + "/noise_old.raw");
+        save(runDry(noise), dir + "/noise_dry.raw");
+        save(runAmigaOnly(noise), dir + "/noise_amiga.raw");
+        save(runAmigaThenReverb(noise, preset, level), dir + "/noise_new.raw");
+        save(runReverbThenAmiga(noise, preset, level), dir + "/noise_old.raw");
 
         System.out.println("  [chord: 440+880+1320 Hz — simulates synth harmonic content]");
-        save(runDry(chord),                              dir + "/chord_dry.raw");
-        save(runAmigaOnly(chord),                        dir + "/chord_amiga.raw");
-        save(runAmigaThenReverb(chord, preset, level),   dir + "/chord_new.raw");
+        save(runDry(chord), dir + "/chord_dry.raw");
+        save(runAmigaOnly(chord), dir + "/chord_amiga.raw");
+        save(runAmigaThenReverb(chord, preset, level), dir + "/chord_new.raw");
 
         System.out.println("  [frequency sweep: amiga only, individual notes]");
-        for (int freq : new int[]{100, 200, 500, 1000, 1500, 2000, 3000})
+        for (int freq : new int[] { 100, 200, 500, 1000, 1500, 2000, 3000 })
         {
-            save(runDry(sine(freq)),       dir + "/sweep_dry_"   + freq + ".raw");
+            save(runDry(sine(freq)), dir + "/sweep_dry_" + freq + ".raw");
             save(runAmigaOnly(sine(freq)), dir + "/sweep_amiga_" + freq + ".raw");
         }
 
@@ -189,10 +195,10 @@ public class DspAnalyzer
         save(runCompactMac(sine440), dir + "/sine_compactmac.raw");
 
         System.out.println("  [CompactMac: frequency sweep]");
-        for (int freq : new int[]{100, 200, 500, 1000, 2000, 3000, 5000, 8000, 10000})
+        for (int freq : new int[] { 100, 200, 500, 1000, 2000, 3000, 5000, 8000, 10000 })
         {
-            save(runDry(sine(freq)),          dir + "/sweep_dry_"        + freq + ".raw");
-            save(runCompactMac(sine(freq)),   dir + "/sweep_compactmac_" + freq + ".raw");
+            save(runDry(sine(freq)), dir + "/sweep_dry_" + freq + ".raw");
+            save(runCompactMac(sine(freq)), dir + "/sweep_compactmac_" + freq + ".raw");
         }
 
         System.out.printf("%nAnalyze with:%n  python3 scripts/analyze_audio.py %s%n", dir);

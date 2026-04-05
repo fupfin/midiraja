@@ -17,12 +17,14 @@ import org.junit.jupiter.api.Test;
 
 import com.fupfin.midiraja.cli.MidiMetaExtractor.MidiMeta;
 
-class MidiMetaExtractorTest {
+class MidiMetaExtractorTest
+{
 
     private final MidiMetaExtractor extractor = new MidiMetaExtractor();
 
     /** Helper: builds a MetaMessage of given type and UTF-8 text. */
-    private static MetaMessage meta(int type, String text) throws InvalidMidiDataException {
+    private static MetaMessage meta(int type, String text) throws InvalidMidiDataException
+    {
         byte[] data = text.getBytes(StandardCharsets.UTF_8);
         var m = new MetaMessage();
         m.setMessage(type, data, data.length);
@@ -30,30 +32,37 @@ class MidiMetaExtractorTest {
     }
 
     /** Returns a minimal single-track sequence with a pad event at endTick (PPQ=480, 120 BPM). */
-    private static Sequence seq(long endTick) throws InvalidMidiDataException {
+    private static Sequence seq(long endTick) throws InvalidMidiDataException
+    {
         var seq = new Sequence(Sequence.PPQ, 480);
         Track t = seq.createTrack();
         var pad = new MetaMessage();
-        pad.setMessage(0x01, new byte[]{}, 0);
+        pad.setMessage(0x01, new byte[] {}, 0);
         t.add(new MidiEvent(pad, endTick));
         return seq;
     }
 
-    @Test void durationMatchesGetMicrosecondLength() throws Exception {
+    @Test
+    void durationMatchesGetMicrosecondLength() throws Exception
+    {
         Sequence s = seq(960);
         MidiMeta meta = extractor.extractFromSequence(s);
         assertEquals(s.getMicrosecondLength(), meta.durationMicroseconds());
         assertTrue(meta.durationMicroseconds() > 0, "Duration should be positive");
     }
 
-    @Test void copyrightExtracted() throws Exception {
+    @Test
+    void copyrightExtracted() throws Exception
+    {
         Sequence s = seq(480);
         s.getTracks()[0].add(new MidiEvent(meta(0x02, "© 1991 LucasArts"), 0L));
         MidiMeta m = extractor.extractFromSequence(s);
         assertEquals("© 1991 LucasArts", m.copyright());
     }
 
-    @Test void titleUsesAllTracksNotJustTrackZero() throws Exception {
+    @Test
+    void titleUsesAllTracksNotJustTrackZero() throws Exception
+    {
         Sequence s = new Sequence(Sequence.PPQ, 480);
         s.createTrack(); // track 0 — no title
         Track t1 = s.createTrack();
@@ -62,12 +71,16 @@ class MidiMetaExtractorTest {
         assertEquals("My Song", m.title());
     }
 
-    @Test void titleEmptyStringWhenAbsent() throws Exception {
+    @Test
+    void titleEmptyStringWhenAbsent() throws Exception
+    {
         MidiMeta m = extractor.extractFromSequence(seq(480));
         assertEquals("", m.title());
     }
 
-    @Test void lyricsJoinedWithNewline() throws Exception {
+    @Test
+    void lyricsJoinedWithNewline() throws Exception
+    {
         Sequence s = seq(960);
         Track t = s.getTracks()[0];
         t.add(new MidiEvent(meta(0x05, "Hel-"), 0L));
@@ -77,7 +90,9 @@ class MidiMetaExtractorTest {
         assertEquals("Hel-\nlo\nWorld", m.lyrics());
     }
 
-    @Test void lyricsTickOrderWithTrackIndexTiebreak() throws Exception {
+    @Test
+    void lyricsTickOrderWithTrackIndexTiebreak() throws Exception
+    {
         Sequence s = new Sequence(Sequence.PPQ, 480);
         Track t0 = s.createTrack();
         Track t1 = s.createTrack();
@@ -87,12 +102,16 @@ class MidiMetaExtractorTest {
         assertEquals("A\nB", m.lyrics());
     }
 
-    @Test void lyricsEmptyWhenAbsent() throws Exception {
+    @Test
+    void lyricsEmptyWhenAbsent() throws Exception
+    {
         MidiMeta m = extractor.extractFromSequence(seq(480));
         assertEquals("", m.lyrics());
     }
 
-    @Test void instrumentNamesDedupedCaseInsensitive() throws Exception {
+    @Test
+    void instrumentNamesDedupedCaseInsensitive() throws Exception
+    {
         Sequence s = seq(480);
         Track t = s.getTracks()[0];
         t.add(new MidiEvent(meta(0x07, "Piano"), 0L));
@@ -102,7 +121,9 @@ class MidiMetaExtractorTest {
         assertEquals(List.of("Piano", "Bass"), m.instrumentNames());
     }
 
-    @Test void instrumentNamesEmptyWhenAbsent() throws Exception {
+    @Test
+    void instrumentNamesEmptyWhenAbsent() throws Exception
+    {
         MidiMeta m = extractor.extractFromSequence(seq(480));
         assertTrue(m.instrumentNames().isEmpty());
     }

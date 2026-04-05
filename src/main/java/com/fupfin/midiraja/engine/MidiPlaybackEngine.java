@@ -7,7 +7,6 @@
 
 package com.fupfin.midiraja.engine;
 
-
 import static java.lang.Math.*;
 import static java.util.Locale.ROOT;
 
@@ -38,12 +37,11 @@ public class MidiPlaybackEngine implements PlaybackEngine
     private final AtomicReference<Float> currentBpm = new AtomicReference<>(120.0f);
     private final AtomicReference<Double> currentSpeed = new AtomicReference<>(1.0);
 
-
-    private static final int STARTUP_DELAY_MS   = 500; // Skip quickly through tracks without noisy init
-    private static final int STARTUP_POLL_MS    =  10; // Poll interval during startup delay
-    private static final int PLAYBACK_POLL_MS   =  50; // Main playback loop sleep interval
-    private static final int END_OF_TRACK_MS    =  20; // Hold after last event so UI renders final frame
-    private static final int RESET_SETTLE_MS    =  50; // Give hardware synth time to process reset SysEx
+    private static final int STARTUP_DELAY_MS = 500; // Skip quickly through tracks without noisy init
+    private static final int STARTUP_POLL_MS = 10; // Poll interval during startup delay
+    private static final int PLAYBACK_POLL_MS = 50; // Main playback loop sleep interval
+    private static final int END_OF_TRACK_MS = 20; // Hold after last event so UI renders final frame
+    private static final int RESET_SETTLE_MS = 50; // Give hardware synth time to process reset SysEx
 
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
@@ -61,8 +59,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
     private volatile java.util.function.Consumer<Boolean> shuffleCallback = null;
 
     private final AtomicBoolean holdAtEnd = new AtomicBoolean(false);
-    private final AtomicReference<PlaybackEngine.PlaybackStatus> endStatus =
-            new AtomicReference<>(PlaybackEngine.PlaybackStatus.FINISHED);
+    private final AtomicReference<PlaybackEngine.PlaybackStatus> endStatus = new AtomicReference<>(
+            PlaybackEngine.PlaybackStatus.FINISHED);
     private final AtomicBoolean playbackActuallyStarted = new AtomicBoolean(false);
     private Optional<String> initialResetType = Optional.empty();
     private final MidiClock clock;
@@ -87,26 +85,58 @@ public class MidiPlaybackEngine implements PlaybackEngine
         this.holdAtEnd.set(hold);
     }
 
-    public void toggleLoop() { loopEnabled = !loopEnabled; }
-    public boolean isLoopEnabled() { return loopEnabled; }
+    public void toggleLoop()
+    {
+        loopEnabled = !loopEnabled;
+    }
+
+    public boolean isLoopEnabled()
+    {
+        return loopEnabled;
+    }
 
     public void toggleShuffle()
     {
         shuffleEnabled = !shuffleEnabled;
         var cb = shuffleCallback;
-        if (cb != null) cb.accept(shuffleEnabled);
+        if (cb != null)
+            cb.accept(shuffleEnabled);
     }
-    public boolean isShuffleEnabled() { return shuffleEnabled; }
-    public void setShuffleCallback(java.util.function.Consumer<Boolean> cb) { shuffleCallback = cb; }
 
-    public void setFilterDescription(String desc) { this.filterDescription = desc; }
-    public String getFilterDescription() { return filterDescription; }
-    public void setPortSuffix(String suffix) { this.portSuffix = suffix; }
-    public String getPortSuffix() { return portSuffix; }
+    public boolean isShuffleEnabled()
+    {
+        return shuffleEnabled;
+    }
+
+    public void setShuffleCallback(java.util.function.Consumer<Boolean> cb)
+    {
+        shuffleCallback = cb;
+    }
+
+    public void setFilterDescription(String desc)
+    {
+        this.filterDescription = desc;
+    }
+
+    public String getFilterDescription()
+    {
+        return filterDescription;
+    }
+
+    public void setPortSuffix(String suffix)
+    {
+        this.portSuffix = suffix;
+    }
+
+    public String getPortSuffix()
+    {
+        return portSuffix;
+    }
 
     public void firePlayOrderChanged(PlaylistContext ctx)
     {
-        for (var listener : listeners) listener.onPlayOrderChanged(ctx);
+        for (var listener : listeners)
+            listener.onPlayOrderChanged(ctx);
     }
 
     private final List<MidiEvent> sortedEvents;
@@ -114,14 +144,16 @@ public class MidiPlaybackEngine implements PlaybackEngine
     private final PlaylistContext context;
     private final int[] channelPrograms = new int[16];
 
-    private final List<PlaybackEventListener> listeners =
-            new CopyOnWriteArrayList<>();
-    private final ScheduledExecutorService notificationScheduler =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "midi-notify");
-                t.setDaemon(true);
-                return t;
-            });
+    private final List<PlaybackEventListener> listeners = new CopyOnWriteArrayList<>();
+    private final ScheduledExecutorService notificationScheduler = Executors
+            .newSingleThreadScheduledExecutor(this::newNotifyThread);
+
+    private Thread newNotifyThread(Runnable r)
+    {
+        Thread t = new Thread(r, "midi-notify");
+        t.setDaemon(true);
+        return t;
+    }
 
     public MidiPlaybackEngine(Sequence sequence, MidiOutProvider provider, PlaylistContext context,
             PlaybackPipeline pipeline, BooleanSupplier isShuttingDown,
@@ -147,7 +179,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
         this.shuffleEnabled = context.shuffle();
         this.sortedEvents = Arrays.stream(sequence.getTracks())
                 .flatMap(track -> IntStream.range(0, track.size()).mapToObj(track::get))
-                .sorted(Comparator.comparingLong(MidiEvent::getTick)).toList();
+                .sorted(Comparator.comparingLong(MidiEvent::getTick))
+                .toList();
         startTimeMicroseconds.ifPresent(us -> this.seekTarget.set(getTickForTime(us)));
     }
 
@@ -162,7 +195,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
      *
      * @return the terminal state indicating what the user requested next (e.g., NEXT, QUIT_ALL)
      */
-    @SuppressWarnings({"ThreadPriorityCheck", "NonAtomicVolatileUpdate"})
+    @SuppressWarnings({ "ThreadPriorityCheck", "NonAtomicVolatileUpdate" })
     public PlaybackEngine.PlaybackStatus start(PlaybackUI ui) throws Exception
     {
         isPlaying.set(true);
@@ -171,14 +204,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
         try (var scope = StructuredTaskScope.open())
         {
-            scope.fork(() -> {
-                ui.runRenderLoop(this);
-                return Boolean.TRUE;
-            });
-            scope.fork(() -> {
-                ui.runInputLoop(this);
-                return Boolean.TRUE;
-            });
+            scope.fork(() -> runRenderLoopTask(ui));
+            scope.fork(() -> runInputLoopTask(ui));
 
             try
             {
@@ -201,21 +228,34 @@ public class MidiPlaybackEngine implements PlaybackEngine
         return status != null ? status : PlaybackEngine.PlaybackStatus.FINISHED;
     }
 
+    private Boolean runRenderLoopTask(PlaybackUI ui)
+    {
+        ui.runRenderLoop(this);
+        return Boolean.TRUE;
+    }
+
+    private Boolean runInputLoopTask(PlaybackUI ui)
+    {
+        ui.runInputLoop(this);
+        return Boolean.TRUE;
+    }
+
     @SuppressWarnings("EmptyCatch")
     private void sendInitialReset()
     {
-        if (initialResetType.isEmpty()) return;
+        if (initialResetType.isEmpty())
+            return;
         String type = initialResetType.get().trim().toLowerCase(ROOT);
         byte[] payload = switch (type)
         {
-            case "gm"         -> new byte[] {(byte) 0xF0, 0x7E, 0x7F, 0x09, 0x01, (byte) 0xF7};
-            case "gm2"        -> new byte[] {(byte) 0xF0, 0x7E, 0x7F, 0x09, 0x03, (byte) 0xF7};
-            case "gs"         -> new byte[] {(byte) 0xF0, 0x41, 0x10, 0x42, 0x12, 0x40, 0x00,
-                                             0x7F, 0x00, 0x41, (byte) 0xF7};
-            case "xg"         -> new byte[] {(byte) 0xF0, 0x43, 0x10, 0x4C, 0x00, 0x00, 0x7E,
-                                             0x00, (byte) 0xF7};
-            case "mt32", "mt-32" -> new byte[] {(byte) 0xF0, 0x41, 0x10, 0x16, 0x12, 0x7F, 0x00,
-                                                0x00, 0x00, 0x01, (byte) 0xF7}; // 11-byte Roland SysEx reset
+            case "gm" -> new byte[] { (byte) 0xF0, 0x7E, 0x7F, 0x09, 0x01, (byte) 0xF7 };
+            case "gm2" -> new byte[] { (byte) 0xF0, 0x7E, 0x7F, 0x09, 0x03, (byte) 0xF7 };
+            case "gs" -> new byte[] { (byte) 0xF0, 0x41, 0x10, 0x42, 0x12, 0x40, 0x00,
+                    0x7F, 0x00, 0x41, (byte) 0xF7 };
+            case "xg" -> new byte[] { (byte) 0xF0, 0x43, 0x10, 0x4C, 0x00, 0x00, 0x7E,
+                    0x00, (byte) 0xF7 };
+            case "mt32", "mt-32" -> new byte[] { (byte) 0xF0, 0x41, 0x10, 0x16, 0x12, 0x7F, 0x00,
+                    0x00, 0x00, 0x01, (byte) 0xF7 }; // 11-byte Roland SysEx reset
             default ->
             {
                 if (type.matches("^[0-9a-fA-F]+$") && type.length() % 2 == 0)
@@ -235,11 +275,10 @@ public class MidiPlaybackEngine implements PlaybackEngine
             {
                 pipeline.sendMessage(payload);
                 clock.sleepMillis(RESET_SETTLE_MS); // Give the hardware synthesizer time to
-                                                   // process the reset before slamming it with notes
+                                                    // process the reset before slamming it with notes
             }
             catch (Exception e)
-            {
-            }
+            {}
         }
     }
 
@@ -299,20 +338,19 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 int newIndex = 0;
                 long chaseNanos = 0;
                 long chaseLastTick = 0;
-                double chaseTicksToNanos =
-                        tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
+                double chaseTicksToNanos = tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
 
                 for (MidiEvent ev : sortedEvents)
                 {
-                    if (ev.getTick() >= target) break;
+                    if (ev.getTick() >= target)
+                        break;
                     long t = ev.getTick();
                     chaseNanos += (long) ((t - chaseLastTick) * chaseTicksToNanos);
                     chaseLastTick = t;
 
                     processChaseEvent(ev);
 
-                    chaseTicksToNanos =
-                            tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
+                    chaseTicksToNanos = tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
                     newIndex++;
                 }
 
@@ -326,8 +364,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 currentMicroseconds.set(elapsedNanos / 1000);
 
                 // Reset timing reference after seek
-                ticksToNanos =
-                        tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
+                ticksToNanos = tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
                 startTimeNanos = clock.nanoTime() - elapsedNanos;
                 try
                 {
@@ -335,7 +372,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 }
                 catch (Exception e)
                 {
-                    /* Safe to ignore: optional listener */ }
+                    /* Safe to ignore: optional listener */
+                }
                 continue;
             }
 
@@ -375,7 +413,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
             {
                 clock.sleepMillis(PLAYBACK_POLL_MS); // Hold the playback thread
                 // If user seeks while paused, break out to let the seek logic run
-                if (seekTarget.get() != -1) break;
+                if (seekTarget.get() != -1)
+                    break;
                 // Keep pushing the startTime forward so we don't instantly "catch up"
                 // when unpaused!
                 startTimeNanos += 50_000_000;
@@ -396,7 +435,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 long currentNanos = clock.nanoTime();
                 while (currentNanos < targetNanos)
                 {
-                    if (seekTarget.get() != -1 || !isPlaying.get()) break;
+                    if (seekTarget.get() != -1 || !isPlaying.get())
+                        break;
                     long nowMicros = (currentNanos - startTimeNanos) / 1000;
                     currentMicroseconds.set(nowMicros);
                     listeners.forEach(l -> l.onTick(nowMicros));
@@ -416,7 +456,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
             // If seek or stop was triggered mid-wait, skip this event and re-check at
             // loop top.
-            if (seekTarget.get() != -1 || !isPlaying.get()) continue;
+            if (seekTarget.get() != -1 || !isPlaying.get())
+                continue;
 
             processEvent(event);
             lastTick = tick;
@@ -449,7 +490,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     private void processChaseEvent(MidiEvent event)
     {
-        if (isShuttingDown.getAsBoolean()) return;
+        if (isShuttingDown.getAsBoolean())
+            return;
         var msg = event.getMessage();
         var raw = msg.getMessage();
 
@@ -506,7 +548,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     private void processEvent(MidiEvent event)
     {
-        if (isShuttingDown.getAsBoolean()) return;
+        if (isShuttingDown.getAsBoolean())
+            return;
         var msg = event.getMessage();
         var raw = msg.getMessage();
 
@@ -554,9 +597,9 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 final long latencyNanos = provider.getAudioLatencyNanos();
                 if (latencyNanos > 0)
                 {
-                    var unused = notificationScheduler.schedule(() -> {
-                        listeners.forEach(l -> l.onChannelActivity(channel, velocity));
-                    }, latencyNanos, TimeUnit.NANOSECONDS);
+                    var unused = notificationScheduler.schedule(
+                            () -> listeners.forEach(l -> l.onChannelActivity(channel, velocity)),
+                            latencyNanos, TimeUnit.NANOSECONDS);
                 }
                 else
                 {
@@ -667,7 +710,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
     {
         bookmarked = !bookmarked;
         var cb = bookmarkCallback;
-        if (cb != null) cb.accept(bookmarked);
+        if (cb != null)
+            cb.accept(bookmarked);
         listeners.forEach(l -> l.onBookmarkChanged(bookmarked));
     }
 
@@ -676,7 +720,11 @@ public class MidiPlaybackEngine implements PlaybackEngine
         // Atomically flip isPaused and capture the new state in a single CAS loop,
         // so rapid key presses from different threads cannot observe a stale value.
         boolean prev;
-        do { prev = isPaused.get(); } while (!isPaused.compareAndSet(prev, !prev));
+        do
+        {
+            prev = isPaused.get();
+        }
+        while (!isPaused.compareAndSet(prev, !prev));
         boolean nowPaused = !prev;
         if (nowPaused)
         {
@@ -685,7 +733,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 provider.softPause();
             }
             catch (Exception e)
-            { /* Ignore */
+            {
+                /* Ignore */
             }
         }
         else
@@ -697,7 +746,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
             }
             catch (Exception e)
             {
-                /* Safe to ignore: optional listener */ }
+                /* Safe to ignore: optional listener */
+            }
         }
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
@@ -726,18 +776,22 @@ public class MidiPlaybackEngine implements PlaybackEngine
         return 60_000_000_000.0 / (bpm * speed * resolution);
     }
 
-    /** Returns the microseconds-per-quarter-note value from a MIDI Set Tempo meta-event,
-     *  or -1 if {@code msg} is not a tempo event or has mspqn == 0. */
+    /**
+     * Returns the microseconds-per-quarter-note value from a MIDI Set Tempo meta-event,
+     * or -1 if {@code msg} is not a tempo event or has mspqn == 0.
+     */
     private static int extractTempoMspqn(byte[] msg)
     {
-        if (msg[0] != (byte) 0xFF || msg.length < 6 || (msg[1] & 0xFF) != 0x51) return -1;
+        if (msg[0] != (byte) 0xFF || msg.length < 6 || (msg[1] & 0xFF) != 0x51)
+            return -1;
         int mspqn = ((msg[3] & 0xFF) << 16) | ((msg[4] & 0xFF) << 8) | (msg[5] & 0xFF);
         return mspqn > 0 ? mspqn : -1;
     }
 
     private long getTickForTime(long targetMicroseconds)
     {
-        if (targetMicroseconds <= 0) return 0;
+        if (targetMicroseconds <= 0)
+            return 0;
         long targetNanos = targetMicroseconds * 1000;
         long currentNanos = 0;
         long lastTick = 0;

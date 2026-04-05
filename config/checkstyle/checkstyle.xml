@@ -5,7 +5,12 @@
 
 <module name="Checker">
     <property name="charset" value="UTF-8"/>
-    <property name="severity" value="warning"/>
+    <property name="severity" value="error"/>
+
+    <module name="SuppressionFilter">
+        <property name="file" value="${config_loc}/suppressions.xml"/>
+        <property name="optional" value="false"/>
+    </module>
 
     <!-- 1. No Tabs (Exactly 4 spaces) -->
     <module name="FileTabCharacter">
@@ -13,13 +18,18 @@
     </module>
 
     <module name="TreeWalker">
-        <!-- 2. Brace Style: Allman (New Line) -->
+        <!-- 2. Brace Style: Allman (New Line); empty blocks may collapse to {} -->
         <module name="LeftCurly">
             <property name="option" value="nl"/>
-            <property name="tokens" value="ANNOTATION_DEF, CLASS_DEF, CTOR_DEF, ENUM_CONSTANT_DEF, ENUM_DEF, INTERFACE_DEF, LAMBDA, LITERAL_CATCH, LITERAL_DO, LITERAL_ELSE, LITERAL_FINALLY, LITERAL_FOR, LITERAL_IF, LITERAL_SWITCH, LITERAL_SYNCHRONIZED, LITERAL_TRY, LITERAL_WHILE, METHOD_DEF, OBJBLOCK, STATIC_INIT, RECORD_DEF, COMPACT_CTOR_DEF"/>
+            <property name="tokens" value="ANNOTATION_DEF, CLASS_DEF, CTOR_DEF, ENUM_CONSTANT_DEF, ENUM_DEF, INTERFACE_DEF, LITERAL_CATCH, LITERAL_DO, LITERAL_ELSE, LITERAL_FINALLY, LITERAL_FOR, LITERAL_IF, LITERAL_SWITCH, LITERAL_SYNCHRONIZED, LITERAL_TRY, LITERAL_WHILE, METHOD_DEF, OBJBLOCK, STATIC_INIT, RECORD_DEF, COMPACT_CTOR_DEF"/>
+        </module>
+        <!-- Lambda bodies: { may be on same line as -> (allows buf -> {}) -->
+        <module name="LeftCurly">
+            <property name="option" value="eol"/>
+            <property name="tokens" value="LAMBDA"/>
         </module>
         <module name="RightCurly">
-            <property name="option" value="alone"/>
+            <property name="option" value="alone_or_singleline"/>
             <property name="tokens" value="CLASS_DEF, METHOD_DEF, CTOR_DEF, LITERAL_FOR, LITERAL_WHILE, STATIC_INIT, INSTANCE_INIT, ANNOTATION_DEF, ENUM_DEF, INTERFACE_DEF, RECORD_DEF, COMPACT_CTOR_DEF, LITERAL_SWITCH, LITERAL_CASE, LITERAL_FINALLY, LITERAL_CATCH, LITERAL_TRY, LITERAL_IF, LITERAL_ELSE, LITERAL_DO"/>
         </module>
 

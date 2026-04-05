@@ -34,18 +34,17 @@ import com.fupfin.midiraja.midi.OpnMidiSynthProvider;
 /**
  * Plays MIDI files using FM synthesis (OPL or OPN chip emulation).
  *
- * <p>Engine selection priority:
+ * <p>
+ * Engine selection priority:
  * <ol>
- *   <li>Explicit chip name as first positional argument (e.g. {@code midra fm opl file.mid})
- *   <li>Alias used to invoke the command (e.g. {@code midra adlib file.mid})
- *   <li>Default: OPN
+ * <li>Explicit chip name as first positional argument (e.g. {@code midra fm opl file.mid})
+ * <li>Alias used to invoke the command (e.g. {@code midra adlib file.mid})
+ * <li>Default: OPN
  * </ol>
  */
-@Command(name = "fm",
-        aliases = {"opl", "opn", "adlib", "genesis", "pc98"},
-        mixinStandardHelpOptions = true,
-        description = "FM synthesis (OPL2/OPL3 and OPN2 chip emulation).",
-        footer = {"",
+@Command(name = "fm", aliases = { "opl", "opn", "adlib", "genesis",
+        "pc98" }, mixinStandardHelpOptions = true, description = "FM synthesis (OPL2/OPL3 and OPN2 chip emulation).", footer = {
+                "",
                 "Engine can be specified as the first argument:",
                 "  midra fm opl <files...>     OPL2/OPL3 (AdLib / Sound Blaster)",
                 "  midra fm adlib <files...>   same as above",
@@ -54,7 +53,7 @@ import com.fupfin.midiraja.midi.OpnMidiSynthProvider;
                 "OPL names: opl, opl2, opl3, adlib",
                 "OPN names: opn, opn2, opna, genesis, pc98  (default when using 'fm')", "",
                 "OPL Emulator IDs: 0=Nuked OPL3 v1.8, 1=Nuked v1.7.4, 5=ESFMu, 6=MAME OPL2, 7=YMFM OPL2, 8=YMFM OPL3",
-                "OPN Emulator IDs: 0=MAME YM2612, 1=Nuked YM3438, 2=GENS, 3=YMFM OPN2, 4=NP2 OPNA, 5=MAME YM2608, 6=YMFM OPNA"})
+                "OPN Emulator IDs: 0=MAME YM2612, 1=Nuked YM3438, 2=GENS, 3=YMFM OPN2, 4=NP2 OPNA, 5=MAME YM2608, 6=YMFM OPNA" })
 public class FmCommand implements Callable<Integer>
 {
     private static final Set<String> OPL_NAMES = Set.of("opl", "opl2", "opl3", "adlib");
@@ -76,12 +75,11 @@ public class FmCommand implements Callable<Integer>
     @Nullable
     private MidirajaCommand parent;
 
-    @Parameters(arity = "1..*",
-            description = "[engine] <files...>  Optional engine name (opl, adlib, opn, genesis, ...) followed by MIDI files.")
+    @Parameters(arity = "1..*", description = "[engine] <files...>  Optional engine name (opl, adlib, opn, genesis, ...) followed by MIDI files.")
     private List<String> rawArgs = new java.util.ArrayList<>();
 
-    @Option(names = {"-b", "--bank"}, arity = "0..1", fallbackValue = "",
-            description = "OPL: embedded bank number (0-75) or .wopl path. OPN: .wopn file path.")
+    @Option(names = { "-b",
+            "--bank" }, arity = "0..1", fallbackValue = "", description = "OPL: embedded bank number (0-75) or .wopl path. OPN: .wopn file path.")
     private Optional<String> bank = Optional.empty();
 
     @Mixin
@@ -172,11 +170,11 @@ public class FmCommand implements Callable<Integer>
         var bridge = new FFMAdlMidiNativeBridge();
         var provider = new AdlMidiSynthProvider(bridge, pipeline,
                 fmOptions.emulator, fmOptions.chips, common.retroMode.orElse(null));
-        if (fxOptions.masterGain != null) provider.setMasterGain(fxOptions.masterGain);
+        if (fxOptions.masterGain != null)
+            provider.setMasterGain(fxOptions.masterGain);
 
-        String soundbankArg =
-                bank.map(v -> v.isEmpty() ? "bank:0" : (v.matches("\\d+") ? "bank:" + v : v))
-                        .orElse("bank:0");
+        String soundbankArg = bank.map(v -> v.isEmpty() ? "bank:0" : (v.matches("\\d+") ? "bank:" + v : v))
+                .orElse("bank:0");
 
         return runner.run(provider, true, Optional.empty(), Optional.of(soundbankArg), files,
                 common, originalArgs());
@@ -188,7 +186,8 @@ public class FmCommand implements Callable<Integer>
         var bridge = new FFMOpnMidiNativeBridge();
         var provider = new OpnMidiSynthProvider(bridge, pipeline,
                 fmOptions.emulator, fmOptions.chips, common.retroMode.orElse(null));
-        if (fxOptions.masterGain != null) provider.setMasterGain(fxOptions.masterGain);
+        if (fxOptions.masterGain != null)
+            provider.setMasterGain(fxOptions.masterGain);
 
         String soundbankArg = bank.orElse("");
 
@@ -199,12 +198,17 @@ public class FmCommand implements Callable<Integer>
     private List<String> originalArgs()
     {
         var rawArgs = requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(token -> {
-            if (!token.startsWith("-")) {
-                var f = new java.io.File(token);
-                if (f.exists()) return f.getAbsolutePath();
-            }
-            return token;
-        }).collect(java.util.stream.Collectors.toList());
+        return rawArgs.stream().map(this::absoluteIfExists).collect(java.util.stream.Collectors.toList());
+    }
+
+    private String absoluteIfExists(String token)
+    {
+        if (!token.startsWith("-"))
+        {
+            var f = new java.io.File(token);
+            if (f.exists())
+                return f.getAbsolutePath();
+        }
+        return token;
     }
 }

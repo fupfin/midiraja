@@ -69,14 +69,17 @@ class EngineSelectorBuildItemsTest
     @Test
     void builtinItem_engineNameIsStripped()
     {
-        // Labels have padding spaces ("soundfont   "), but Choice.Builtin.engineName() must be stripped
+        // Labels have padding spaces ("soundfont "), but Choice.Builtin.engineName() must be stripped
         var items = EngineSelector.buildItems(List.of());
-        items.forEach(item -> {
-            var builtin = (EngineSelector.Choice.Builtin) item.value();
-            assertFalse(builtin.engineName().isBlank(), "engineName should not be blank");
-            assertEquals(builtin.engineName().strip(), builtin.engineName(),
-                    "engineName should be stripped: '" + builtin.engineName() + "'");
-        });
+        items.forEach(item -> assertBuiltinEngineNameStripped(item));
+    }
+
+    private static void assertBuiltinEngineNameStripped(TerminalSelector.Item item)
+    {
+        var builtin = (EngineSelector.Choice.Builtin) item.value();
+        assertFalse(builtin.engineName().isBlank(), "engineName should not be blank");
+        assertEquals(builtin.engineName().strip(), builtin.engineName(),
+                "engineName should be stripped: '" + builtin.engineName() + "'");
     }
 
     @Test

@@ -7,18 +7,17 @@
 
 package com.fupfin.midiraja.midi;
 
-
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
-@SuppressWarnings({"EmptyCatch", "UnusedVariable"})
+@SuppressWarnings({ "EmptyCatch", "UnusedVariable" })
 public class FluidSynthProvider implements SoftSynthProvider
 {
-    private static final java.util.logging.Logger log =
-            java.util.logging.Logger.getLogger(FluidSynthProvider.class.getName());
+    private static final java.util.logging.Logger log = java.util.logging.Logger
+            .getLogger(FluidSynthProvider.class.getName());
     private final Arena arena;
     private final @Nullable String explicitDriver;
 
@@ -197,7 +196,6 @@ public class FluidSynthProvider implements SoftSynthProvider
                 FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
     }
 
-
     @Override
     public List<MidiPort> getOutputPorts()
     {
@@ -205,10 +203,11 @@ public class FluidSynthProvider implements SoftSynthProvider
     }
 
     @Override
-    @SuppressWarnings({"EmptyCatch", "UnusedVariable"})
+    @SuppressWarnings({ "EmptyCatch", "UnusedVariable" })
     public void openPort(int portIndex) throws Exception
     {
-        if ("MOCK_LIBRARY".equals(explicitDriver)) return;
+        if ("MOCK_LIBRARY".equals(explicitDriver))
+            return;
 
         try
         {
@@ -259,7 +258,8 @@ public class FluidSynthProvider implements SoftSynthProvider
     @Override
     public void loadSoundbank(String path) throws Exception
     {
-        if ("MOCK_LIBRARY".equals(explicitDriver)) return;
+        if ("MOCK_LIBRARY".equals(explicitDriver))
+            return;
         if (synth == null || synth.equals(MemorySegment.NULL))
         {
             throw new Exception("FluidSynth is not open yet.");
@@ -288,7 +288,8 @@ public class FluidSynthProvider implements SoftSynthProvider
     @Override
     public void sendMessage(byte[] data) throws Exception
     {
-        if (data == null || data.length == 0) return;
+        if (data == null || data.length == 0)
+            return;
 
         int status = data[0] & 0xFF;
 
@@ -308,19 +309,19 @@ public class FluidSynthProvider implements SoftSynthProvider
 
             switch (command)
             {
-                case 0x90: // Note On
+                case 0x90 : // Note On
                     fluid_synth_noteon(channel, data1, data2);
                     break;
-                case 0x80: // Note Off
+                case 0x80 : // Note Off
                     fluid_synth_noteoff(channel, data1);
                     break;
-                case 0xB0: // Control Change
+                case 0xB0 : // Control Change
                     fluid_synth_cc(channel, data1, data2);
                     break;
-                case 0xC0: // Program Change
+                case 0xC0 : // Program Change
                     fluid_synth_program_change(channel, data1);
                     break;
-                case 0xE0: // Pitch Bend
+                case 0xE0 : // Pitch Bend
                     int bend = (data2 << 7) | data1;
                     fluid_synth_pitch_bend(channel, bend);
                     break;
@@ -328,11 +329,12 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
     }
 
-    @SuppressWarnings({"EmptyCatch", "UnusedVariable"})
+    @SuppressWarnings({ "EmptyCatch", "UnusedVariable" })
 
     protected void fluid_synth_noteon(int channel, int key, int velocity)
     {
-        if (synth == null || fluid_synth_noteon_mh == null) return;
+        if (synth == null || fluid_synth_noteon_mh == null)
+            return;
         try
         {
             int _dummy = (int) fluid_synth_noteon_mh.invokeExact(synth, channel, key, velocity);
@@ -345,7 +347,8 @@ public class FluidSynthProvider implements SoftSynthProvider
 
     protected void fluid_synth_noteoff(int channel, int key)
     {
-        if (synth == null || fluid_synth_noteoff_mh == null) return;
+        if (synth == null || fluid_synth_noteoff_mh == null)
+            return;
         try
         {
             int _dummy = (int) fluid_synth_noteoff_mh.invokeExact(synth, channel, key);
@@ -358,7 +361,8 @@ public class FluidSynthProvider implements SoftSynthProvider
 
     protected void fluid_synth_cc(int channel, int num, int val)
     {
-        if (synth == null || fluid_synth_cc_mh == null) return;
+        if (synth == null || fluid_synth_cc_mh == null)
+            return;
         try
         {
             int _dummy = (int) fluid_synth_cc_mh.invokeExact(synth, channel, num, val);
@@ -371,7 +375,8 @@ public class FluidSynthProvider implements SoftSynthProvider
 
     protected void fluid_synth_program_change(int channel, int program)
     {
-        if (synth == null || fluid_synth_program_change_mh == null) return;
+        if (synth == null || fluid_synth_program_change_mh == null)
+            return;
         try
         {
             int _dummy = (int) fluid_synth_program_change_mh.invokeExact(synth, channel, program);
@@ -384,7 +389,8 @@ public class FluidSynthProvider implements SoftSynthProvider
 
     protected void fluid_synth_pitch_bend(int channel, int val)
     {
-        if (synth == null || fluid_synth_pitch_bend_mh == null) return;
+        if (synth == null || fluid_synth_pitch_bend_mh == null)
+            return;
         try
         {
             int _dummy = (int) fluid_synth_pitch_bend_mh.invokeExact(synth, channel, val);
@@ -397,7 +403,8 @@ public class FluidSynthProvider implements SoftSynthProvider
 
     protected void fluid_synth_sysex(byte[] data)
     {
-        if (synth == null || fluid_synth_sysex_mh == null) return;
+        if (synth == null || fluid_synth_sysex_mh == null)
+            return;
         try
         {
             MemorySegment dataSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, data);
@@ -423,7 +430,8 @@ public class FluidSynthProvider implements SoftSynthProvider
     @Override
     public void closePort()
     {
-        if ("MOCK_LIBRARY".equals(explicitDriver)) return;
+        if ("MOCK_LIBRARY".equals(explicitDriver))
+            return;
 
         try
         {

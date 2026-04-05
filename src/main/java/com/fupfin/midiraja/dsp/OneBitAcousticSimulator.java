@@ -92,7 +92,8 @@ public class OneBitAcousticSimulator implements AudioProcessor
                 {
                     // PWM (Default Retro)
                     carrierPhase += carrierStep / oversampleFactor;
-                    if (carrierPhase > 1.0) carrierPhase -= 2.0;
+                    if (carrierPhase > 1.0)
+                        carrierPhase -= 2.0;
                     outBitL = l > carrierPhase ? 1.0 : -1.0;
                     outBitR = r > carrierPhase ? 1.0 : -1.0;
                 }
@@ -103,8 +104,6 @@ public class OneBitAcousticSimulator implements AudioProcessor
 
             double bitL = sumL / oversampleFactor;
             double bitR = sumR / oversampleFactor;
-
-
 
             // Virtual Speaker Filters
             lp1L += lpAlpha * (bitL - lp1L);

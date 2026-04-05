@@ -17,17 +17,19 @@ import org.junit.jupiter.api.condition.EnabledIf;
  * Verifies that a NoteOn dispatched via the render-thread path produces
  * non-silent PCM output from adl_generate().
  *
- * <p>Automatically skipped if libADLMIDI is absent from the search paths
+ * <p>
+ * Automatically skipped if libADLMIDI is absent from the search paths
  * checked by {@link FFMAdlMidiNativeBridge}'s library loader.
  */
-@EnabledIf("adlMidiLibPresent") class FFMAdlMidiNativeBridgeIntegrationTest
+@EnabledIf("adlMidiLibPresent")
+class FFMAdlMidiNativeBridgeIntegrationTest
 {
     static boolean adlMidiLibPresent()
     {
         String projectRoot = new java.io.File("").getAbsolutePath();
         String[] candidates = {
-            projectRoot + "/src/main/c/adlmidi/libADLMIDI.dylib",
-            projectRoot + "/src/main/c/adlmidi/libADLMIDI.so",
+                projectRoot + "/src/main/c/adlmidi/libADLMIDI.dylib",
+                projectRoot + "/src/main/c/adlmidi/libADLMIDI.so",
         };
         for (String path : candidates)
         {
@@ -58,7 +60,8 @@ import org.junit.jupiter.api.condition.EnabledIf;
         return false;
     }
 
-    @Test void testNoteOnProducesAudio() throws Exception
+    @Test
+    void testNoteOnProducesAudio() throws Exception
     {
         FFMAdlMidiNativeBridge bridge = new FFMAdlMidiNativeBridge();
         bridge.init(44100);

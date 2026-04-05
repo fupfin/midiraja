@@ -9,9 +9,8 @@ package com.fupfin.midiraja.s3m;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -19,7 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 class S3mFileDetectorTest
 {
     @TempDir
-    java.nio.file.Path tmp;
+    Path tmp;
 
     @Test
     void isS3mFile_byExtension() throws Exception
@@ -34,7 +33,10 @@ class S3mFileDetectorTest
     {
         var f = tmp.resolve("song.dat").toFile();
         byte[] data = new byte[48];
-        data[44] = 'S'; data[45] = 'C'; data[46] = 'R'; data[47] = 'M';
+        data[44] = 'S';
+        data[45] = 'C';
+        data[46] = 'R';
+        data[47] = 'M';
         Files.write(f.toPath(), data);
         assertTrue(S3mFileDetector.isS3mFile(f));
     }

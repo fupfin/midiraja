@@ -25,62 +25,74 @@ class MuntSynthProviderTest
         String loadedRomsDir = null;
         List<String> eventLog = new ArrayList<>();
 
-        @Override public void createSynth()
+        @Override
+        public void createSynth()
         {
             created = true;
         }
 
-        @Override public void loadRoms(String romDirectory)
+        @Override
+        public void loadRoms(String romDirectory)
         {
             loadedRomsDir = romDirectory;
         }
 
-        @Override public void openSynth()
+        @Override
+        public void openSynth()
         {
             opened = true;
         }
 
-        @Override public void playNoteOn(int channel, int key, int velocity)
+        @Override
+        public void playNoteOn(int channel, int key, int velocity)
         {
             eventLog.add(String.format("NOTE_ON ch:%d key:%d vel:%d", channel, key, velocity));
         }
 
-        @Override public void playNoteOff(int channel, int key)
+        @Override
+        public void playNoteOff(int channel, int key)
         {
             eventLog.add(String.format("NOTE_OFF ch:%d key:%d", channel, key));
         }
 
-        @Override public void playControlChange(int channel, int number, int value)
+        @Override
+        public void playControlChange(int channel, int number, int value)
         {
             eventLog.add(String.format("CC ch:%d num:%d val:%d", channel, number, value));
         }
 
-        @Override public void playProgramChange(int channel, int program)
+        @Override
+        public void playProgramChange(int channel, int program)
         {
             eventLog.add(String.format("PC ch:%d prog:%d", channel, program));
         }
 
-        @Override public void playPitchBend(int channel, int value)
+        @Override
+        public void playPitchBend(int channel, int value)
         {
             eventLog.add(String.format("PB ch:%d val:%d", channel, value));
         }
 
-        @Override public void playSysex(byte[] sysexData)
+        @Override
+        public void playSysex(byte[] sysexData)
         {
             eventLog.add(String.format("SYSEX len:%d", sysexData.length));
         }
 
-        @Override public void renderAudio(short[] buffer, int frames)
+        @Override
+        public void renderAudio(short[] buffer, int frames)
         {
         }
 
-        @Override public void close()
+        @Override
+        public void close()
         {
             closed = true;
         }
     }
 
-    @Test void testLifecycleAndMidiRouting() throws Exception
+    @Test
+    void testLifecycleAndMidiRouting() throws Exception
     {
         MockMuntBridge mockBridge = new MockMuntBridge();
 
@@ -92,27 +104,27 @@ class MuntSynthProviderTest
         provider.loadSoundbank("/path/to/roms");
         assertTrue(mockBridge.opened, "Synth should be opened after loadSoundbank");
         assertEquals(
-            "/path/to/roms", mockBridge.loadedRomsDir, "ROM directory should be passed to bridge");
+                "/path/to/roms", mockBridge.loadedRomsDir, "ROM directory should be passed to bridge");
 
         provider.openPort(0);
         assertTrue(mockBridge.created, "Context should be created after openPort");
 
         // 2. Test MIDI Message Routing
         // Note On
-        provider.sendMessage(new byte[] {(byte) 0x90, 60, 100});
+        provider.sendMessage(new byte[] { (byte) 0x90, 60, 100 });
         // Note Off
-        provider.sendMessage(new byte[] {(byte) 0x81, 64, 0});
+        provider.sendMessage(new byte[] { (byte) 0x81, 64, 0 });
         // Note On with vel 0 -> Note On (Munt bridge will handle it internally)
-        provider.sendMessage(new byte[] {(byte) 0x92, 65, 0});
+        provider.sendMessage(new byte[] { (byte) 0x92, 65, 0 });
         // CC
-        provider.sendMessage(new byte[] {(byte) 0xB3, 7, 120});
+        provider.sendMessage(new byte[] { (byte) 0xB3, 7, 120 });
         // Program Change
-        provider.sendMessage(new byte[] {(byte) 0xC4, 5});
+        provider.sendMessage(new byte[] { (byte) 0xC4, 5 });
         // Pitch Bend (Center)
-        provider.sendMessage(new byte[] {(byte) 0xE5, 0, 64});
+        provider.sendMessage(new byte[] { (byte) 0xE5, 0, 64 });
         // SysEx
         provider.sendMessage(new byte[] {
-            (byte) 0xF0, 0x41, 0x10, 0x16, 0x12, 0x40, 0x00, 0x7F, 0x00, 0x41, (byte) 0xF7});
+                (byte) 0xF0, 0x41, 0x10, 0x16, 0x12, 0x40, 0x00, 0x7F, 0x00, 0x41, (byte) 0xF7 });
 
         assertEquals(7, mockBridge.eventLog.size());
         assertEquals("NOTE_ON ch:0 key:60 vel:100", mockBridge.eventLog.get(0));
@@ -127,14 +139,15 @@ class MuntSynthProviderTest
         assertDoesNotThrow(() -> provider.sendMessage(null));
         assertDoesNotThrow(() -> provider.sendMessage(new byte[0]));
         assertDoesNotThrow(
-            () -> provider.sendMessage(new byte[] {(byte) 0x90})); // Malformed short message
+                () -> provider.sendMessage(new byte[] { (byte) 0x90 })); // Malformed short message
 
         // 4. Test Closure
         provider.closePort();
         assertTrue(mockBridge.closed, "Bridge should be closed");
     }
 
-    @Test void testPanic() throws Exception
+    @Test
+    void testPanic() throws Exception
     {
         MockMuntBridge mockBridge = new MockMuntBridge();
         MuntSynthProvider provider = new MuntSynthProvider(mockBridge, null);
@@ -144,7 +157,7 @@ class MuntSynthProviderTest
         // 16 channels × (4 CCs + 128 note-offs) = 2112 messages total
         int expectedCount = 16 * (4 + 128);
         assertEquals(expectedCount, mockBridge.eventLog.size(),
-            "panic() must deliver 2112 MIDI messages (4 CCs + 128 note-offs per channel)");
+                "panic() must deliver 2112 MIDI messages (4 CCs + 128 note-offs per channel)");
 
         // Spot-check first channel (sustain-off, all-notes-off, all-sound-off, reset-controllers)
         assertEquals("CC ch:0 num:64 val:0", mockBridge.eventLog.get(0));

@@ -7,7 +7,6 @@
 
 package com.fupfin.midiraja.midi.os;
 
-
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -24,40 +23,39 @@ import com.fupfin.midiraja.midi.MidiPort;
  */
 public class WinMmProvider implements MidiOutProvider
 {
-    private static final java.util.logging.Logger log =
-            java.util.logging.Logger.getLogger(WinMmProvider.class.getName());
+    private static final java.util.logging.Logger log = java.util.logging.Logger
+            .getLogger(WinMmProvider.class.getName());
     private static final Linker LINKER = Linker.nativeLinker();
     // In Windows, WinMM is usually globally available or found via standard
     // lookup.
-    private static final SymbolLookup WINMM_LOOKUP =
-            SymbolLookup.libraryLookup("winmm", Arena.global());
+    private static final SymbolLookup WINMM_LOOKUP = SymbolLookup.libraryLookup("winmm", Arena.global());
 
-    private static final MethodHandle midiOutGetNumDevs =
-            LINKER.downcallHandle(WINMM_LOOKUP.find("midiOutGetNumDevs").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT));
+    private static final MethodHandle midiOutGetNumDevs = LINKER.downcallHandle(
+            WINMM_LOOKUP.find("midiOutGetNumDevs").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT));
 
-    private static final MethodHandle midiOutGetDevCapsA =
-            LINKER.downcallHandle(WINMM_LOOKUP.find("midiOutGetDevCapsA").orElseThrow(),
-                    // uDeviceID (UINT_PTR), lpMidiOutCaps (ADDRESS), cbMidiOutCaps (UINT)
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG,
-                            ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+    private static final MethodHandle midiOutGetDevCapsA = LINKER.downcallHandle(
+            WINMM_LOOKUP.find("midiOutGetDevCapsA").orElseThrow(),
+            // uDeviceID (UINT_PTR), lpMidiOutCaps (ADDRESS), cbMidiOutCaps (UINT)
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG,
+                    ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
-    private static final MethodHandle midiOutOpen =
-            LINKER.downcallHandle(WINMM_LOOKUP.find("midiOutOpen").orElseThrow(),
-                    // lphmo (ADDRESS), uDeviceID (UINT), dwCallback (ADDRESS), dwInstance
-                    // (ADDRESS), fdwOpen (DWORD)
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
-                            ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
-                            ValueLayout.JAVA_INT));
+    private static final MethodHandle midiOutOpen = LINKER.downcallHandle(
+            WINMM_LOOKUP.find("midiOutOpen").orElseThrow(),
+            // lphmo (ADDRESS), uDeviceID (UINT), dwCallback (ADDRESS), dwInstance
+            // (ADDRESS), fdwOpen (DWORD)
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+                    ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                    ValueLayout.JAVA_INT));
 
     private static final MethodHandle midiOutShortMsg = LINKER.downcallHandle(
             WINMM_LOOKUP.find("midiOutShortMsg").orElseThrow(),
             // hmo (HANDLE), dwMsg (DWORD)
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
-    private static final MethodHandle midiOutClose =
-            LINKER.downcallHandle(WINMM_LOOKUP.find("midiOutClose").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+    private static final MethodHandle midiOutClose = LINKER.downcallHandle(
+            WINMM_LOOKUP.find("midiOutClose").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
 
     // MIDIOUTCAPS structure layout (Total 52 bytes)
     private static final StructLayout MIDIOUTCAPS_LAYOUT = MemoryLayout.structLayout(
@@ -122,7 +120,8 @@ public class WinMmProvider implements MidiOutProvider
         catch (Throwable t)
         {
             log.warning("NativeBridge error: " + t.getMessage());
-            if (sessionArena != null) sessionArena.close();
+            if (sessionArena != null)
+                sessionArena.close();
             throw new Exception("Failed to open Windows MIDI port via FFM", t);
         }
     }
@@ -132,7 +131,8 @@ public class WinMmProvider implements MidiOutProvider
     public void sendMessage(byte[] data) throws Exception
     {
         var localHandle = handle;
-        if (localHandle == null || data == null || data.length == 0) return;
+        if (localHandle == null || data == null || data.length == 0)
+            return;
 
         if (data.length <= 3)
         {

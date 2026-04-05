@@ -26,12 +26,13 @@ import com.fupfin.midiraja.midi.MidiUtils;
 public class MidiMetaExtractor
 {
     public record MidiMeta(
-        long durationMicroseconds,
-        String title,
-        String copyright,
-        String lyrics,
-        List<String> instrumentNames
-    ) {}
+            long durationMicroseconds,
+            String title,
+            String copyright,
+            String lyrics,
+            List<String> instrumentNames)
+    {
+    }
 
     /** Loads the sequence from {@code file} and extracts metadata. */
     public MidiMeta extract(File file) throws IOException, InvalidMidiDataException
@@ -62,7 +63,8 @@ public class MidiMetaExtractor
                     if (data != null && data.length > 0)
                     {
                         String text = new String(data, StandardCharsets.UTF_8).trim();
-                        if (!text.isEmpty()) return text;
+                        if (!text.isEmpty())
+                            return text;
                     }
                 }
             }
@@ -72,7 +74,9 @@ public class MidiMetaExtractor
 
     private String extractLyrics(Sequence seq)
     {
-        record LyricEvent(long tick, int trackIdx, String text) {}
+        record LyricEvent(long tick, int trackIdx, String text)
+        {
+        }
 
         var events = new ArrayList<LyricEvent>();
         Track[] tracks = seq.getTracks();
@@ -90,13 +94,15 @@ public class MidiMetaExtractor
                 }
             }
         }
-        if (events.isEmpty()) return "";
+        if (events.isEmpty())
+            return "";
         events.sort(Comparator.comparingLong(LyricEvent::tick)
                 .thenComparingInt(LyricEvent::trackIdx));
         var sb = new StringBuilder();
         for (int i = 0; i < events.size(); i++)
         {
-            if (i > 0) sb.append('\n');
+            if (i > 0)
+                sb.append('\n');
             sb.append(events.get(i).text());
         }
         return sb.toString();

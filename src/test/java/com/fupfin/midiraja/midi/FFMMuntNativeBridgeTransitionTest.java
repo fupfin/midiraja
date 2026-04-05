@@ -17,41 +17,80 @@ import org.junit.jupiter.api.condition.EnabledIf;
 /**
  * Diagnostic integration test for the song-transition pipeline.
  *
- * <p>Simulates the full sequence that occurs between two songs in a playlist:
+ * <p>
+ * Simulates the full sequence that occurs between two songs in a playlist:
  * <ol>
- *   <li>Play a note, render audio — verify Munt receives and voices it.
- *   <li>Run {@code panic()} — all 2112 note-offs across 16 channels.
- *   <li>Reset render timing ({@code prepareForNewTrack + onPlaybackStarted} simulation).
- *   <li>Play a new note, render audio — verify Munt still voices it after the transition.
+ * <li>Play a note, render audio — verify Munt receives and voices it.
+ * <li>Run {@code panic()} — all 2112 note-offs across 16 channels.
+ * <li>Reset render timing ({@code prepareForNewTrack + onPlaybackStarted} simulation).
+ * <li>Play a new note, render audio — verify Munt still voices it after the transition.
  * </ol>
  *
- * <p>Diagnostic interpretation:
+ * <p>
+ * Diagnostic interpretation:
  * <table>
- *   <tr><th>Step</th><th>hasActivePartials</th><th>getPlayingNotes</th><th>hasAudio</th><th>Diagnosis</th></tr>
- *   <tr><td>1 (initial)</td><td>false</td><td>0</td><td>any</td><td>NoteOn not delivered —
- * channel/queue bug</td></tr> <tr><td>4 (after
- * transition)</td><td>false</td><td>0</td><td>false</td><td>Note-offs left stuck voices; transition
- * broke delivery</td></tr> <tr><td>4 (after
- * transition)</td><td>true</td><td>&gt;0</td><td>false</td><td>Munt voiced the note but PCM render
- * is broken</td></tr> <tr><td>4 (after
- * transition)</td><td>true</td><td>&gt;0</td><td>true</td><td>Pipeline OK — silence is in the audio
- * path above Munt</td></tr>
+ * <tr>
+ * <th>Step</th>
+ * <th>hasActivePartials</th>
+ * <th>getPlayingNotes</th>
+ * <th>hasAudio</th>
+ * <th>Diagnosis</th>
+ * </tr>
+ * <tr>
+ * <td>1 (initial)</td>
+ * <td>false</td>
+ * <td>0</td>
+ * <td>any</td>
+ * <td>NoteOn not delivered —
+ * channel/queue bug</td>
+ * </tr>
+ * <tr>
+ * <td>4 (after
+ * transition)</td>
+ * <td>false</td>
+ * <td>0</td>
+ * <td>false</td>
+ * <td>Note-offs left stuck voices; transition
+ * broke delivery</td>
+ * </tr>
+ * <tr>
+ * <td>4 (after
+ * transition)</td>
+ * <td>true</td>
+ * <td>&gt;0</td>
+ * <td>false</td>
+ * <td>Munt voiced the note but PCM render
+ * is broken</td>
+ * </tr>
+ * <tr>
+ * <td>4 (after
+ * transition)</td>
+ * <td>true</td>
+ * <td>&gt;0</td>
+ * <td>true</td>
+ * <td>Pipeline OK — silence is in the audio
+ * path above Munt</td>
+ * </tr>
  * </table>
  *
- * <p>Requires ROM files in {@code munt_roms/}. Automatically skipped if absent.
+ * <p>
+ * Requires ROM files in {@code munt_roms/}. Automatically skipped if absent.
  */
-@EnabledIf("muntRomsPresent") class FFMMuntNativeBridgeTransitionTest
+@EnabledIf("muntRomsPresent")
+class FFMMuntNativeBridgeTransitionTest
 {
     static boolean muntRomsPresent()
     {
         boolean hasControl = new File("munt_roms/MT32_CONTROL.ROM").exists()
-            || new File("munt_roms/mt32_control.rom").exists();
+                || new File("munt_roms/mt32_control.rom").exists();
         boolean hasPcm = new File("munt_roms/MT32_PCM.ROM").exists()
-            || new File("munt_roms/mt32_pcm.rom").exists();
+                || new File("munt_roms/mt32_pcm.rom").exists();
         return hasControl && hasPcm;
     }
 
-    @Test @SuppressWarnings("SystemOut") void testSongTransition() throws Exception
+    @Test
+    @SuppressWarnings("SystemOut")
+    void testSongTransition() throws Exception
     {
         FFMMuntNativeBridge bridge = new FFMMuntNativeBridge();
         bridge.createSynth();
@@ -72,8 +111,8 @@ import org.junit.jupiter.api.condition.EnabledIf;
         int noteCount = bridge.getPlayingNotes(0, keys, vels); // Part 0
 
         System.out.printf(
-            "[Step 1] hasActivePartials=%b  partStates=0x%02X  playingNotes(part0)=%d",
-            activeAfterNote, partStatesAfterNote, noteCount);
+                "[Step 1] hasActivePartials=%b  partStates=0x%02X  playingNotes(part0)=%d",
+                activeAfterNote, partStatesAfterNote, noteCount);
         if (noteCount > 0)
             System.out.printf("  key=%d vel=%d", keys[0] & 0xFF, vels[0] & 0xFF);
         System.out.println();
@@ -90,17 +129,19 @@ import org.junit.jupiter.api.condition.EnabledIf;
             bridge.playControlChange(ch, 123, 0); // All Notes Off
             bridge.playControlChange(ch, 120, 0); // All Sound Off
             bridge.playControlChange(ch, 121, 0); // Reset All Controllers
-            for (int n = 0; n < 128; n++) bridge.playNoteOff(ch, n);
+            for (int n = 0; n < 128; n++)
+                bridge.playNoteOff(ch, n);
         }
 
         // Render 5 cycles (80 ms) to let Munt process all note-offs and reverb tail
-        for (int i = 0; i < 5; i++) bridge.renderAudio(buf, 512);
+        for (int i = 0; i < 5; i++)
+            bridge.renderAudio(buf, 512);
 
         boolean activeAfterPanic = bridge.hasActivePartials();
         int partStatesAfterPanic = bridge.getPartStates();
         System.out.printf(
-            "[Step 2] hasActivePartials=%b  partStates=0x%02X  (after panic + 5 renders)%n",
-            activeAfterPanic, partStatesAfterPanic);
+                "[Step 2] hasActivePartials=%b  partStates=0x%02X  (after panic + 5 renders)%n",
+                activeAfterPanic, partStatesAfterPanic);
 
         // Note: partials may still be in RELEASE state (reverb tail) — that is expected.
         // The key question is whether the transition restores correct note delivery.
@@ -119,8 +160,8 @@ import org.junit.jupiter.api.condition.EnabledIf;
         int noteCountAfterTransition = bridge.getPlayingNotes(0, keys2, vels2);
 
         System.out.printf(
-            "[Step 4] hasActivePartials=%b  partStates=0x%02X  playingNotes(part0)=%d",
-            activeAfterTransition, partStatesAfterTransition, noteCountAfterTransition);
+                "[Step 4] hasActivePartials=%b  partStates=0x%02X  playingNotes(part0)=%d",
+                activeAfterTransition, partStatesAfterTransition, noteCountAfterTransition);
         if (noteCountAfterTransition > 0)
             System.out.printf("  key=%d vel=%d", keys2[0] & 0xFF, vels2[0] & 0xFF);
         System.out.println();
@@ -142,9 +183,9 @@ import org.junit.jupiter.api.condition.EnabledIf;
         System.out.printf("[Step 4] hasAudio=%b%n", hasAudio);
 
         assertTrue(
-            activeAfterTransition, "Step 4: NoteOn after transition should activate partials");
+                activeAfterTransition, "Step 4: NoteOn after transition should activate partials");
         assertTrue(noteCountAfterTransition > 0,
-            "Step 4: NoteOn after transition should register as a playing note on Part 0");
+                "Step 4: NoteOn after transition should register as a playing note on Part 0");
         assertTrue(hasAudio, "Step 4: NoteOn after transition should produce non-silent PCM");
 
         bridge.close();

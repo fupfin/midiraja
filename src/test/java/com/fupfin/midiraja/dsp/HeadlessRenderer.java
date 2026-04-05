@@ -5,9 +5,12 @@ import java.io.FileOutputStream;
 import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.beep.BeepSynthProvider;
 
-public class HeadlessRenderer {
-    public static void main(String[] args) throws Exception {
-        if (args.length < 5) {
+public class HeadlessRenderer
+{
+    public static void main(String[] args) throws Exception
+    {
+        if (args.length < 5)
+        {
             System.out.println("Usage: HeadlessRenderer <mux> <synth> <voices> <ditherLevel> <lpfCutoff>");
             System.exit(1);
         }
@@ -25,34 +28,55 @@ public class HeadlessRenderer {
 
         java.io.File dummyLib = java.io.File.createTempFile("dummy", ".dylib");
 
-        NativeAudioEngine engine = new NativeAudioEngine(dummyLib.getAbsolutePath()) {
+        NativeAudioEngine engine = new NativeAudioEngine(dummyLib.getAbsolutePath())
+        {
             FileOutputStream fos = new FileOutputStream("render_dump.raw");
             int framesWritten = 0;
-            @Override public void init(int rate, int ch, int buf) {}
-            @Override public int push(short[] pcm) { return push(pcm, 0, pcm.length); }
-            @Override public int push(short[] pcm, int offset, int length) {
-                try {
+            @Override
+            public void init(int rate, int ch, int buf)
+            {
+            }
+
+            @Override
+            public int push(short[] pcm)
+            {
+                return push(pcm, 0, pcm.length);
+            }
+
+            @Override
+            public int push(short[] pcm, int offset, int length)
+            {
+                try
+                {
                     byte[] buf = new byte[length * 2];
-                    for (int i = 0; i < length; i++) {
+                    for (int i = 0; i < length; i++)
+                    {
                         short s = pcm[offset + i];
-                        buf[i*2] = (byte)(s & 0xFF);
-                        buf[i*2+1] = (byte)((s >> 8) & 0xFF);
+                        buf[i * 2] = (byte) (s & 0xFF);
+                        buf[i * 2 + 1] = (byte) ((s >> 8) & 0xFF);
                     }
                     fos.write(buf);
                     framesWritten += length;
                     return length;
-                } catch(Exception e) {
+                }
+                catch (Exception e)
+                {
                     return -1;
                 }
             }
-            @Override public void close() {}
+
+            @Override
+            public void close()
+            {
+            }
         };
 
-        BeepSynthProvider provider = new BeepSynthProvider(new FloatToShortSink(engine, 1), voices, 1.0, 1.1, 32, mux, synth);
+        BeepSynthProvider provider = new BeepSynthProvider(new FloatToShortSink(engine, 1), voices, 1.0, 1.1, 32, mux,
+                synth);
         provider.openPort(0);
 
         // Play a solid C4 note
-        byte[] noteOn = new byte[] { (byte)0x90, 60, 100 };
+        byte[] noteOn = new byte[] { (byte) 0x90, 60, 100 };
         provider.sendMessage(noteOn);
 
         // Sleep until the audio thread finishes rendering 1 second

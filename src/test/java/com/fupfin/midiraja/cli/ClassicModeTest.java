@@ -50,7 +50,10 @@ class ClassicModeTest
             var result = ClassicMode.select(list, config(), errStream(new ByteArrayOutputStream()));
             assertEquals("alpha", result);
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
     }
 
     @Test
@@ -64,7 +67,10 @@ class ClassicModeTest
             var result = ClassicMode.select(list, config(), errStream(new ByteArrayOutputStream()));
             assertEquals("second", result);
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
     }
 
     @Test
@@ -78,7 +84,10 @@ class ClassicModeTest
             var result = ClassicMode.select(list, config(), errStream(new ByteArrayOutputStream()));
             assertNull(result);
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
     }
 
     @Test
@@ -92,7 +101,10 @@ class ClassicModeTest
             var result = ClassicMode.select(list, config(), errStream(new ByteArrayOutputStream()));
             assertNull(result);
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
     }
 
     @Test
@@ -106,7 +118,10 @@ class ClassicModeTest
             var result = ClassicMode.select(list, config(), errStream(new ByteArrayOutputStream()));
             assertNull(result);
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
     }
 
     @Test
@@ -124,7 +139,10 @@ class ClassicModeTest
             var result = ClassicMode.select(list, config(), errStream(new ByteArrayOutputStream()));
             assertEquals("item2", result);
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
     }
 
     @Test
@@ -138,7 +156,10 @@ class ClassicModeTest
             System.setIn(inputStream("1\n"));
             ClassicMode.select(list, config(), errStream(baos));
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
         String output = baos.toString(StandardCharsets.UTF_8);
         String firstLine = output.lines().findFirst().orElse("");
         assertTrue(firstLine.endsWith(":"), "title line should end with ':'");
@@ -155,7 +176,10 @@ class ClassicModeTest
             System.setIn(inputStream("1\n"));
             ClassicMode.select(list, config(), errStream(baos));
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
         String output = baos.toString(StandardCharsets.UTF_8);
         assertTrue(output.contains("[1]"), "output should contain '[1]'");
         assertTrue(output.contains("MyLabel"), "output should contain label");
@@ -174,7 +198,10 @@ class ClassicModeTest
             System.setIn(inputStream("1\n"));
             ClassicMode.select(list, config(), errStream(baos));
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
         String output = baos.toString(StandardCharsets.UTF_8);
         assertTrue(output.contains("Enter number:"), "output should contain 'Enter number:'");
     }
@@ -194,7 +221,10 @@ class ClassicModeTest
             assertInstanceOf(TerminalSelector.SelectResult.Chosen.class, result);
             assertEquals("alpha", ((TerminalSelector.SelectResult.Chosen<?>) result).value());
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
     }
 
     @Test
@@ -209,7 +239,10 @@ class ClassicModeTest
                     errStream(new ByteArrayOutputStream()));
             assertInstanceOf(TerminalSelector.SelectResult.Cancelled.class, result);
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
     }
 
     @Test
@@ -224,7 +257,10 @@ class ClassicModeTest
                     errStream(new ByteArrayOutputStream()));
             assertInstanceOf(TerminalSelector.SelectResult.Cancelled.class, result);
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
     }
 
     @Test
@@ -239,7 +275,10 @@ class ClassicModeTest
                     errStream(new ByteArrayOutputStream()));
             assertInstanceOf(TerminalSelector.SelectResult.Cancelled.class, result);
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
     }
 
     @Test
@@ -253,7 +292,10 @@ class ClassicModeTest
             System.setIn(inputStream("1\n"));
             ClassicMode.selectWithActions(list, config(), errStream(baos));
         }
-        finally { System.setIn(prev); }
+        finally
+        {
+            System.setIn(prev);
+        }
         String output = baos.toString(StandardCharsets.UTF_8);
         assertTrue(output.contains("Enter number (0 to cancel):"),
                 "output should contain 'Enter number (0 to cancel):'");

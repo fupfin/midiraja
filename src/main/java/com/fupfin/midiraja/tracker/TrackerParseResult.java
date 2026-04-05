@@ -12,10 +12,16 @@ import java.util.List;
 /**
  * The result of parsing any tracker module (S3M, XM, IT).
  *
- * @param title        module title (may be blank)
- * @param channelCount number of active channels
- * @param instruments  0-based list; index 0 corresponds to instrument slot 1
- * @param events       linearized note events in chronological order
+ * @param title
+ *            module title (may be blank)
+ * @param channelCount
+ *            number of active channels
+ * @param instruments
+ *            0-based list; index 0 corresponds to instrument slot 1
+ * @param events
+ *            linearized note events in chronological order
  */
 public record TrackerParseResult(String title, int channelCount,
-                                 List<TrackerInstrument> instruments, List<TrackerEvent> events) {}
+        List<TrackerInstrument> instruments, List<TrackerEvent> events)
+{
+}

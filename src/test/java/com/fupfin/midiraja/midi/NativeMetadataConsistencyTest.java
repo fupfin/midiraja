@@ -35,55 +35,58 @@ import com.fupfin.midiraja.media.WindowsMediaSession;
  * {@link FFMMuntNativeBridge} has a matching entry in
  * {@code reachability-metadata.json}.
  *
- * <p>GraalVM native image requires all FFM downcall descriptor types to be
+ * <p>
+ * GraalVM native image requires all FFM downcall descriptor types to be
  * pre-registered in the metadata file before {@code nativeCompile}. Without
  * registration, the binary throws {@code MissingForeignRegistrationError} at
  * startup — a silent failure that only surfaces after the slow (~30s) native
  * compile cycle.
  *
- * <p>This test runs in JVM mode (no native library or ROM files needed) and
+ * <p>
+ * This test runs in JVM mode (no native library or ROM files needed) and
  * fails immediately with a clear message when a new downcall handle is added
  * to {@link FFMMuntNativeBridge} but its descriptor is not registered in the
  * metadata.
  *
  * <h3>Type mapping: FunctionDescriptor → metadata</h3>
  * <ul>
- *   <li>{@code ADDRESS}     → {@code "void*"}
- *   <li>{@code JAVA_INT}    → {@code "jint"}
- *   <li>{@code JAVA_BYTE}   → {@code "jint"} — C ABI widens byte to int in registers
- *   <li>{@code JAVA_SHORT}  → {@code "jint"} — same widening rule
- *   <li>{@code JAVA_LONG}   → {@code "jlong"}
- *   <li>{@code JAVA_DOUBLE} → {@code "jdouble"}
- *   <li>void return         → {@code "void"}
+ * <li>{@code ADDRESS} → {@code "void*"}
+ * <li>{@code JAVA_INT} → {@code "jint"}
+ * <li>{@code JAVA_BYTE} → {@code "jint"} — C ABI widens byte to int in registers
+ * <li>{@code JAVA_SHORT} → {@code "jint"} — same widening rule
+ * <li>{@code JAVA_LONG} → {@code "jlong"}
+ * <li>{@code JAVA_DOUBLE} → {@code "jdouble"}
+ * <li>void return → {@code "void"}
  * </ul>
  *
  * <h3>GraalVM scalarisation note</h3>
  * GraalVM can expand a {@code MemorySegment} context <em>field</em> into two
  * {@code void*} leaf params (base + offset), turning a 4-param descriptor into
- * a 5-param leaf type.  This test only checks the "standard" 4-param form;
+ * a 5-param leaf type. This test only checks the "standard" 4-param form;
  * the 5-param expanded form must be added manually (see the comment block above
  * the expanded entries in the JSON file).
  *
  * <h3>Workflow</h3>
  * <ol>
- *   <li>Add a new {@code linker.downcallHandle()} call to
- *       {@link FFMMuntNativeBridge}.
- *   <li>Add the same {@link FunctionDescriptor} to
- *       {@link FFMMuntNativeBridge#allDowncallDescriptors()}.
- *   <li>Run {@code ./gradlew test} — <em>this test will fail</em> with the
- *       exact JSON snippet to add.
- *   <li>Add the snippet to {@code reachability-metadata.json}.
- *   <li>If needed, also add the GraalVM-expanded 5-param form.
- *   <li>Run {@code ./gradlew nativeCompile} — the binary will start cleanly.
+ * <li>Add a new {@code linker.downcallHandle()} call to
+ * {@link FFMMuntNativeBridge}.
+ * <li>Add the same {@link FunctionDescriptor} to
+ * {@link FFMMuntNativeBridge#allDowncallDescriptors()}.
+ * <li>Run {@code ./gradlew test} — <em>this test will fail</em> with the
+ * exact JSON snippet to add.
+ * <li>Add the snippet to {@code reachability-metadata.json}.
+ * <li>If needed, also add the GraalVM-expanded 5-param form.
+ * <li>Run {@code ./gradlew nativeCompile} — the binary will start cleanly.
  * </ol>
  */
 class NativeMetadataConsistencyTest
 {
-    private static final Path METADATA_FILE =
-        Path.of("src/main/resources/META-INF/native-image/com.fupfin.midiraja/midiraja/"
-                + "reachability-metadata.json");
+    private static final Path METADATA_FILE = Path
+            .of("src/main/resources/META-INF/native-image/com.fupfin.midiraja/midiraja/"
+                    + "reachability-metadata.json");
 
-    @Test void testAllFFMDescriptorsRegisteredInMetadata() throws IOException
+    @Test
+    void testAllFFMDescriptorsRegisteredInMetadata() throws IOException
     {
         String json = Files.readString(METADATA_FILE);
         Set<String> registeredKeys = parseDowncallKeys(json);
@@ -95,31 +98,32 @@ class NativeMetadataConsistencyTest
             if (!registeredKeys.contains(key))
             {
                 missing.add("  parameterTypes: " + paramTypesJson(fd) + ", returnType: \""
-                    + returnType(fd) + "\""
-                    + "\n    (from FunctionDescriptor: " + fd + ")");
+                        + returnType(fd) + "\""
+                        + "\n    (from FunctionDescriptor: " + fd + ")");
             }
         }
 
         if (!missing.isEmpty())
         {
             fail("""
-                The following FFM downcall descriptors are used in FFMMuntNativeBridge \
-                but are NOT registered in reachability-metadata.json.
-                GraalVM native image will throw MissingForeignRegistrationError at runtime.
+                    The following FFM downcall descriptors are used in FFMMuntNativeBridge \
+                    but are NOT registered in reachability-metadata.json.
+                    GraalVM native image will throw MissingForeignRegistrationError at runtime.
 
-                Add each missing entry to the 'foreign.downcalls' array in:
-                  %s
+                    Add each missing entry to the 'foreign.downcalls' array in:
+                      %s
 
-                Missing entries:
-                %s
+                    Missing entries:
+                    %s
 
-                Also check whether GraalVM needs a 5-param 'expanded' form — see class-level
-                Javadoc in NativeMetadataConsistencyTest for details.
-                """.formatted(METADATA_FILE, String.join("\n", missing)));
+                    Also check whether GraalVM needs a 5-param 'expanded' form — see class-level
+                    Javadoc in NativeMetadataConsistencyTest for details.
+                    """.formatted(METADATA_FILE, String.join("\n", missing)));
         }
     }
 
-    @Test void testAllAdlMidiFFMDescriptorsRegisteredInMetadata() throws IOException
+    @Test
+    void testAllAdlMidiFFMDescriptorsRegisteredInMetadata() throws IOException
     {
         String json = Files.readString(METADATA_FILE);
         Set<String> registeredKeys = parseDowncallKeys(json);
@@ -131,31 +135,32 @@ class NativeMetadataConsistencyTest
             if (!registeredKeys.contains(key))
             {
                 missing.add("  parameterTypes: " + paramTypesJson(fd) + ", returnType: \""
-                    + returnType(fd) + "\""
-                    + "\n    (from FunctionDescriptor: " + fd + ")");
+                        + returnType(fd) + "\""
+                        + "\n    (from FunctionDescriptor: " + fd + ")");
             }
         }
 
         if (!missing.isEmpty())
         {
             fail("""
-                The following FFM downcall descriptors are used in FFMAdlMidiNativeBridge \
-                but are NOT registered in reachability-metadata.json.
-                GraalVM native image will throw MissingForeignRegistrationError at runtime.
+                    The following FFM downcall descriptors are used in FFMAdlMidiNativeBridge \
+                    but are NOT registered in reachability-metadata.json.
+                    GraalVM native image will throw MissingForeignRegistrationError at runtime.
 
-                Add each missing entry to the 'foreign.downcalls' array in:
-                  %s
+                    Add each missing entry to the 'foreign.downcalls' array in:
+                      %s
 
-                Missing entries:
-                %s
+                    Missing entries:
+                    %s
 
-                Also check whether GraalVM needs a 5-param 'expanded' form — see class-level
-                Javadoc in NativeMetadataConsistencyTest for details.
-                """.formatted(METADATA_FILE, String.join("\n", missing)));
+                    Also check whether GraalVM needs a 5-param 'expanded' form — see class-level
+                    Javadoc in NativeMetadataConsistencyTest for details.
+                    """.formatted(METADATA_FILE, String.join("\n", missing)));
         }
     }
 
-    @Test void testAllNativeAudioEngineFFMDescriptorsRegisteredInMetadata() throws IOException
+    @Test
+    void testAllNativeAudioEngineFFMDescriptorsRegisteredInMetadata() throws IOException
     {
         String json = Files.readString(METADATA_FILE);
         Set<String> registeredKeys = parseDowncallKeys(json);
@@ -167,28 +172,29 @@ class NativeMetadataConsistencyTest
             if (!registeredKeys.contains(key))
             {
                 missing.add("  parameterTypes: " + paramTypesJson(fd) + ", returnType: \""
-                    + returnType(fd) + "\""
-                    + "\n    (from FunctionDescriptor: " + fd + ")");
+                        + returnType(fd) + "\""
+                        + "\n    (from FunctionDescriptor: " + fd + ")");
             }
         }
 
         if (!missing.isEmpty())
         {
             fail("""
-                The following FFM downcall descriptors are used in NativeAudioEngine \
-                but are NOT registered in reachability-metadata.json.
-                GraalVM native image will throw MissingForeignRegistrationError at runtime.
+                    The following FFM downcall descriptors are used in NativeAudioEngine \
+                    but are NOT registered in reachability-metadata.json.
+                    GraalVM native image will throw MissingForeignRegistrationError at runtime.
 
-                Add each missing entry to the 'foreign.downcalls' array in:
-                  %s
+                    Add each missing entry to the 'foreign.downcalls' array in:
+                      %s
 
-                Missing entries:
-                %s
-                """.formatted(METADATA_FILE, String.join("\n", missing)));
+                    Missing entries:
+                    %s
+                    """.formatted(METADATA_FILE, String.join("\n", missing)));
         }
     }
 
-    @Test void testAllOpnMidiFFMDescriptorsRegisteredInMetadata() throws IOException
+    @Test
+    void testAllOpnMidiFFMDescriptorsRegisteredInMetadata() throws IOException
     {
         String json = Files.readString(METADATA_FILE);
         Set<String> registeredKeys = parseDowncallKeys(json);
@@ -200,31 +206,32 @@ class NativeMetadataConsistencyTest
             if (!registeredKeys.contains(key))
             {
                 missing.add("  parameterTypes: " + paramTypesJson(fd) + ", returnType: \""
-                    + returnType(fd) + "\""
-                    + "\n    (from FunctionDescriptor: " + fd + ")");
+                        + returnType(fd) + "\""
+                        + "\n    (from FunctionDescriptor: " + fd + ")");
             }
         }
 
         if (!missing.isEmpty())
         {
             fail("""
-                The following FFM downcall descriptors are used in FFMOpnMidiNativeBridge \
-                but are NOT registered in reachability-metadata.json.
-                GraalVM native image will throw MissingForeignRegistrationError at runtime.
+                    The following FFM downcall descriptors are used in FFMOpnMidiNativeBridge \
+                    but are NOT registered in reachability-metadata.json.
+                    GraalVM native image will throw MissingForeignRegistrationError at runtime.
 
-                Add each missing entry to the 'foreign.downcalls' array in:
-                  %s
+                    Add each missing entry to the 'foreign.downcalls' array in:
+                      %s
 
-                Missing entries:
-                %s
+                    Missing entries:
+                    %s
 
-                Also check whether GraalVM needs a 5-param 'expanded' form — see class-level
-                Javadoc in NativeMetadataConsistencyTest for details.
-                """.formatted(METADATA_FILE, String.join("\n", missing)));
+                    Also check whether GraalVM needs a 5-param 'expanded' form — see class-level
+                    Javadoc in NativeMetadataConsistencyTest for details.
+                    """.formatted(METADATA_FILE, String.join("\n", missing)));
         }
     }
 
-    @Test void testAllTsfFFMDescriptorsRegisteredInMetadata() throws IOException
+    @Test
+    void testAllTsfFFMDescriptorsRegisteredInMetadata() throws IOException
     {
         String json = Files.readString(METADATA_FILE);
         Set<String> registeredKeys = parseDowncallKeys(json);
@@ -236,31 +243,32 @@ class NativeMetadataConsistencyTest
             if (!registeredKeys.contains(key))
             {
                 missing.add("  parameterTypes: " + paramTypesJson(fd) + ", returnType: \""
-                    + returnType(fd) + "\""
-                    + "\n    (from FunctionDescriptor: " + fd + ")");
+                        + returnType(fd) + "\""
+                        + "\n    (from FunctionDescriptor: " + fd + ")");
             }
         }
 
         if (!missing.isEmpty())
         {
             fail("""
-                The following FFM downcall descriptors are used in FFMTsfNativeBridge \
-                but are NOT registered in reachability-metadata.json.
-                GraalVM native image will throw MissingForeignRegistrationError at runtime.
+                    The following FFM downcall descriptors are used in FFMTsfNativeBridge \
+                    but are NOT registered in reachability-metadata.json.
+                    GraalVM native image will throw MissingForeignRegistrationError at runtime.
 
-                Add each missing entry to the 'foreign.downcalls' array in:
-                  %s
+                    Add each missing entry to the 'foreign.downcalls' array in:
+                      %s
 
-                Missing entries:
-                %s
+                    Missing entries:
+                    %s
 
-                Also check whether GraalVM needs a 5-param 'expanded' form — see class-level
-                Javadoc in NativeMetadataConsistencyTest for details.
-                """.formatted(METADATA_FILE, String.join("\n", missing)));
+                    Also check whether GraalVM needs a 5-param 'expanded' form — see class-level
+                    Javadoc in NativeMetadataConsistencyTest for details.
+                    """.formatted(METADATA_FILE, String.join("\n", missing)));
         }
     }
 
-    @Test void testLinuxMediaSessionFFMDescriptorsRegistered() throws IOException
+    @Test
+    void testLinuxMediaSessionFFMDescriptorsRegistered() throws IOException
     {
         String json = Files.readString(METADATA_FILE);
         Set<String> registeredKeys = parseDowncallKeys(json);
@@ -272,28 +280,29 @@ class NativeMetadataConsistencyTest
             if (!registeredKeys.contains(key))
             {
                 missing.add("  parameterTypes: " + paramTypesJson(fd) + ", returnType: \""
-                    + returnType(fd) + "\""
-                    + "\n    (from FunctionDescriptor: " + fd + ")");
+                        + returnType(fd) + "\""
+                        + "\n    (from FunctionDescriptor: " + fd + ")");
             }
         }
 
         if (!missing.isEmpty())
         {
             fail("""
-                The following FFM downcall descriptors are used in LinuxMediaSession \
-                but are NOT registered in reachability-metadata.json.
-                GraalVM native image will throw MissingForeignRegistrationError at runtime.
+                    The following FFM downcall descriptors are used in LinuxMediaSession \
+                    but are NOT registered in reachability-metadata.json.
+                    GraalVM native image will throw MissingForeignRegistrationError at runtime.
 
-                Add each missing entry to the 'foreign.downcalls' array in:
-                  %s
+                    Add each missing entry to the 'foreign.downcalls' array in:
+                      %s
 
-                Missing entries:
-                %s
-                """.formatted(METADATA_FILE, String.join("\n", missing)));
+                    Missing entries:
+                    %s
+                    """.formatted(METADATA_FILE, String.join("\n", missing)));
         }
     }
 
-    @Test void testMacOSMediaSessionFFMDescriptorsRegistered() throws IOException
+    @Test
+    void testMacOSMediaSessionFFMDescriptorsRegistered() throws IOException
     {
         String json = Files.readString(METADATA_FILE);
         Set<String> registeredKeys = parseDowncallKeys(json);
@@ -305,28 +314,29 @@ class NativeMetadataConsistencyTest
             if (!registeredKeys.contains(key))
             {
                 missing.add("  parameterTypes: " + paramTypesJson(fd) + ", returnType: \""
-                    + returnType(fd) + "\""
-                    + "\n    (from FunctionDescriptor: " + fd + ")");
+                        + returnType(fd) + "\""
+                        + "\n    (from FunctionDescriptor: " + fd + ")");
             }
         }
 
         if (!missing.isEmpty())
         {
             fail("""
-                The following FFM downcall descriptors are used in MacOSMediaSession \
-                but are NOT registered in reachability-metadata.json.
-                GraalVM native image will throw MissingForeignRegistrationError at runtime.
+                    The following FFM downcall descriptors are used in MacOSMediaSession \
+                    but are NOT registered in reachability-metadata.json.
+                    GraalVM native image will throw MissingForeignRegistrationError at runtime.
 
-                Add each missing entry to the 'foreign.downcalls' array in:
-                  %s
+                    Add each missing entry to the 'foreign.downcalls' array in:
+                      %s
 
-                Missing entries:
-                %s
-                """.formatted(METADATA_FILE, String.join("\n", missing)));
+                    Missing entries:
+                    %s
+                    """.formatted(METADATA_FILE, String.join("\n", missing)));
         }
     }
 
-    @Test void testWindowsMediaSessionFFMDescriptorsRegistered() throws IOException
+    @Test
+    void testWindowsMediaSessionFFMDescriptorsRegistered() throws IOException
     {
         String json = Files.readString(METADATA_FILE);
         Set<String> registeredKeys = parseDowncallKeys(json);
@@ -338,24 +348,24 @@ class NativeMetadataConsistencyTest
             if (!registeredKeys.contains(key))
             {
                 missing.add("  parameterTypes: " + paramTypesJson(fd) + ", returnType: \""
-                    + returnType(fd) + "\""
-                    + "\n    (from FunctionDescriptor: " + fd + ")");
+                        + returnType(fd) + "\""
+                        + "\n    (from FunctionDescriptor: " + fd + ")");
             }
         }
 
         if (!missing.isEmpty())
         {
             fail("""
-                The following FFM downcall descriptors are used in WindowsMediaSession \
-                but are NOT registered in reachability-metadata.json.
-                GraalVM native image will throw MissingForeignRegistrationError at runtime.
+                    The following FFM downcall descriptors are used in WindowsMediaSession \
+                    but are NOT registered in reachability-metadata.json.
+                    GraalVM native image will throw MissingForeignRegistrationError at runtime.
 
-                Add each missing entry to the 'foreign.downcalls' array in:
-                  %s
+                    Add each missing entry to the 'foreign.downcalls' array in:
+                      %s
 
-                Missing entries:
-                %s
-                """.formatted(METADATA_FILE, String.join("\n", missing)));
+                    Missing entries:
+                    %s
+                    """.formatted(METADATA_FILE, String.join("\n", missing)));
         }
     }
 
@@ -365,28 +375,30 @@ class NativeMetadataConsistencyTest
      * Converts a {@link FunctionDescriptor} to the lookup key used for
      * matching against metadata entries.
      *
-     * <p>Format: {@code "void*,jint,void*,void*->jint"}
+     * <p>
+     * Format: {@code "void*,jint,void*,void*->jint"}
      */
     static String toMetadataKey(FunctionDescriptor fd)
     {
         String params = fd.argumentLayouts()
-                            .stream()
-                            .map(NativeMetadataConsistencyTest::layoutToMetadataType)
-                            .collect(Collectors.joining(","));
+                .stream()
+                .map(NativeMetadataConsistencyTest::layoutToMetadataType)
+                .collect(Collectors.joining(","));
         return params + "->" + returnType(fd);
     }
 
     private static String returnType(FunctionDescriptor fd)
     {
         return fd.returnLayout()
-            .map(NativeMetadataConsistencyTest::layoutToMetadataType)
-            .orElse("void");
+                .map(NativeMetadataConsistencyTest::layoutToMetadataType)
+                .orElse("void");
     }
 
     /**
      * Maps a {@link MemoryLayout} to its GraalVM metadata type string.
      *
-     * <p>Sub-int value types (byte, short, boolean, char) are widened to
+     * <p>
+     * Sub-int value types (byte, short, boolean, char) are widened to
      * {@code "jint"} because C ABI default argument promotion places them in
      * an int-sized register. GraalVM's leaf-type representation reflects this.
      */
@@ -396,7 +408,7 @@ class NativeMetadataConsistencyTest
             return "void*";
         Class<?> carrier = ((ValueLayout) layout).carrier();
         if (carrier == byte.class || carrier == boolean.class || carrier == short.class
-            || carrier == char.class || carrier == int.class)
+                || carrier == char.class || carrier == int.class)
             return "jint";
         if (carrier == long.class)
             return "jlong";
@@ -411,9 +423,9 @@ class NativeMetadataConsistencyTest
     private static String paramTypesJson(FunctionDescriptor fd)
     {
         String inner = fd.argumentLayouts()
-                           .stream()
-                           .map(l -> "\"" + layoutToMetadataType(l) + "\"")
-                           .collect(Collectors.joining(", "));
+                .stream()
+                .map(l -> "\"" + layoutToMetadataType(l) + "\"")
+                .collect(Collectors.joining(", "));
         return "[" + inner + "]";
     }
 
@@ -421,7 +433,8 @@ class NativeMetadataConsistencyTest
      * Parses the {@code foreign.downcalls} array from the metadata JSON and
      * returns a set of lookup keys in the format {@code "t1,t2->ret"}.
      *
-     * <p>Uses a two-phase regex approach: first locates the {@code downcalls}
+     * <p>
+     * Uses a two-phase regex approach: first locates the {@code downcalls}
      * section, then matches each {@code {"parameterTypes":[...],"returnType":"..."}}
      * entry regardless of field ordering or whitespace.
      */
@@ -444,7 +457,7 @@ class NativeMetadataConsistencyTest
                 + "\\{[^{}]*"
                 + "\"returnType\"\\s*:\\s*\"([^\"]+)\"[^{}]*"
                 + "\"parameterTypes\"\\s*:\\s*\\[([^\\]]*)\\][^{}]*\\}",
-            Pattern.DOTALL);
+                Pattern.DOTALL);
         // Matches individual quoted string values inside an array
         Pattern stringPattern = Pattern.compile("\"([^\"]+)\"");
 
@@ -466,7 +479,8 @@ class NativeMetadataConsistencyTest
 
             List<String> params = new ArrayList<>();
             Matcher pm = stringPattern.matcher(rawParams);
-            while (pm.find()) params.add(pm.group(1));
+            while (pm.find())
+                params.add(pm.group(1));
 
             keys.add(String.join(",", params) + "->" + returnType);
         }

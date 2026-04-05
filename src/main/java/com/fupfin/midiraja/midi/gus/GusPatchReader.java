@@ -18,11 +18,11 @@ import java.util.List;
 
 public class GusPatchReader
 {
-    private static final byte[] MAGIC_GF1 =
-            "GF1PATCH110\0ID#000002\0".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] MAGIC_GF1 = "GF1PATCH110\0ID#000002\0".getBytes(StandardCharsets.US_ASCII);
 
     private GusPatchReader()
-    {}
+    {
+    }
 
     public static GusPatch read(InputStream in) throws IOException
     {

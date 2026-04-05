@@ -11,15 +11,16 @@ package com.fupfin.midiraja.engine;
  * Abstraction over wall-clock timing primitives used by {@link PlaybackEngine}.
  * Replace with a test double to drive timing-sensitive logic without real sleeps.
  */
-interface MidiClock {
-
+interface MidiClock
+{
     /** Returns the current value of the JVM's high-resolution timer, in nanoseconds. */
     long nanoTime();
 
     /**
      * Causes the calling thread to sleep for at least {@code ms} milliseconds.
      *
-     * @throws InterruptedException if the thread is interrupted while sleeping
+     * @throws InterruptedException
+     *             if the thread is interrupted while sleeping
      */
     void sleepMillis(long ms) throws InterruptedException;
 
@@ -27,9 +28,24 @@ interface MidiClock {
     void onSpinWait();
 
     /** Production implementation backed by {@link System#nanoTime()} and {@link Thread#sleep}. */
-    MidiClock SYSTEM = new MidiClock() {
-        @Override public long nanoTime() { return System.nanoTime(); }
-        @Override public void sleepMillis(long ms) throws InterruptedException { Thread.sleep(ms); }
-        @Override public void onSpinWait() { Thread.onSpinWait(); }
+    MidiClock SYSTEM = new MidiClock()
+    {
+        @Override
+        public long nanoTime()
+        {
+            return System.nanoTime();
+        }
+
+        @Override
+        public void sleepMillis(long ms) throws InterruptedException
+        {
+            Thread.sleep(ms);
+        }
+
+        @Override
+        public void onSpinWait()
+        {
+            Thread.onSpinWait();
+        }
     };
 }

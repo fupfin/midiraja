@@ -15,7 +15,8 @@ import java.util.OptionalInt;
  * Only fields explicitly named in a directive are non-empty / true;
  * unset fields have empty Optionals or {@code false} booleans.
  *
- * <p>When multiple M3U files are parsed in one call, directives accumulate:
+ * <p>
+ * When multiple M3U files are parsed in one call, directives accumulate:
  * volume/speed use last-wins; boolean flags use OR (once {@code true}, stay {@code true}).
  */
 record PlaylistDirectives(
@@ -26,26 +27,28 @@ record PlaylistDirectives(
         boolean recursive)
 {
     /** Sentinel: no M3U directives were found in this parse call. */
-    static final PlaylistDirectives NONE =
-            new PlaylistDirectives(OptionalInt.empty(), OptionalDouble.empty(),
-                    false, false, false);
+    static final PlaylistDirectives NONE = new PlaylistDirectives(OptionalInt.empty(), OptionalDouble.empty(),
+            false, false, false);
 
     /**
      * Applies directive overrides to {@code common}.
      *
      * <ul>
-     *   <li>volume and speed: applied only when present; when present, the M3U value
-     *       overrides whatever the CLI supplied.</li>
-     *   <li>boolean flags: can only assert {@code true}; a CLI-supplied {@code true}
-     *       is never cleared by an absent directive.</li>
+     * <li>volume and speed: applied only when present; when present, the M3U value
+     * overrides whatever the CLI supplied.</li>
+     * <li>boolean flags: can only assert {@code true}; a CLI-supplied {@code true}
+     * is never cleared by an absent directive.</li>
      * </ul>
      */
     void applyTo(CommonOptions common)
     {
         volume.ifPresent(v -> common.volume = v);
         speed.ifPresent(s -> common.speed = s);
-        if (shuffle)   common.shuffle   = true;
-        if (loop)      common.loop      = true;
-        if (recursive) common.recursive = true;
+        if (shuffle)
+            common.shuffle = true;
+        if (loop)
+            common.loop = true;
+        if (recursive)
+            common.recursive = true;
     }
 }

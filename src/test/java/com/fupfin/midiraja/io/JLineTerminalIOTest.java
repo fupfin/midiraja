@@ -32,7 +32,8 @@ class JLineTerminalIOTest
      *
      * If this test fails, Ctrl+C will leave the terminal in a broken state.
      */
-    @Test void ctrlC_isBoundToQuit() throws IOException
+    @Test
+    void ctrlC_isBoundToQuit() throws IOException
     {
         // Use a dumb terminal so this test runs without a real TTY (including in CI).
         var dumb = TerminalBuilder.builder().dumb(true).build();
@@ -49,14 +50,16 @@ class JLineTerminalIOTest
         }
     }
 
-    @Test void testDefaultDimensionsWhenUninitialized()
+    @Test
+    void testDefaultDimensionsWhenUninitialized()
     {
         JLineTerminalIO io = new JLineTerminalIO();
         assertEquals(80, io.getWidth(), "Uninitialized width should default to 80");
         assertEquals(24, io.getHeight(), "Uninitialized height should default to 24");
     }
 
-    @Test void testDimensionsAfterInit() throws IOException
+    @Test
+    void testDimensionsAfterInit() throws IOException
     {
         // Skip terminal initialization if running in a headless CI environment
         if (System.getenv("CI") != null)

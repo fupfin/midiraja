@@ -21,8 +21,10 @@ public interface TsfNativeBridge extends MidiNativeBridge
      * Loads a SoundFont from {@code path} and initializes the synthesizer at the given sample rate.
      * Must be called before any other method.
      *
-     * @param path Path to an {@code .sf2} or {@code .sf3} SoundFont file.
-     * @param sampleRate Audio output sample rate (e.g. 44100).
+     * @param path
+     *            Path to an {@code .sf2} or {@code .sf3} SoundFont file.
+     * @param sampleRate
+     *            Audio output sample rate (e.g. 44100).
      */
     void loadSoundfontFile(String path, int sampleRate) throws Exception;
 }

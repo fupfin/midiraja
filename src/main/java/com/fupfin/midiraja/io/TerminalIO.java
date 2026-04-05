@@ -27,8 +27,7 @@ public interface TerminalIO
      */
     enum TerminalKey
     {
-        NONE, SEEK_FORWARD, SEEK_BACKWARD, VOLUME_UP, VOLUME_DOWN, SPEED_UP, SPEED_DOWN, TRANSPOSE_UP, TRANSPOSE_DOWN, NEXT_TRACK, PREV_TRACK, QUIT, PAUSE, BOOKMARK,
-        RESUME_SESSION, TOGGLE_LOOP, TOGGLE_SHUFFLE
+        NONE, SEEK_FORWARD, SEEK_BACKWARD, VOLUME_UP, VOLUME_DOWN, SPEED_UP, SPEED_DOWN, TRANSPOSE_UP, TRANSPOSE_DOWN, NEXT_TRACK, PREV_TRACK, QUIT, PAUSE, BOOKMARK, RESUME_SESSION, TOGGLE_LOOP, TOGGLE_SHUFFLE
     }
 
     /**
@@ -80,5 +79,7 @@ public interface TerminalIO
      * (so the UI can restore the terminal); {@code onResume} is called after SIGCONT is received
      * (so the UI can re-enter its display mode). Default no-op for non-interactive implementations.
      */
-    default void installSuspendHandlers(Runnable onSuspend, Runnable onResume) {}
+    default void installSuspendHandlers(Runnable onSuspend, Runnable onResume)
+    {
+    }
 }

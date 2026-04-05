@@ -47,38 +47,41 @@ public class PlaylistPanel implements Panel
             {
                 if (!titleCache.containsKey(file))
                 {
-                    var unused = executor.submit(() -> {
-                        try
-                        {
-                            String title;
-                            if (VgmFileDetector.isVgmFile(file))
-                            {
-                                var parsed = new VgmParser().parse(file);
-                                title = parsed.gd3Title() != null ? parsed.gd3Title().trim() : "";
-                            }
-                            else
-                            {
-                                Sequence seq = MidiSystem.getSequence(file);
-                                String t = MidiUtils.extractSequenceTitle(seq);
-                                title = (t != null) ? t.trim() : "";
-                            }
-                            titleCache.put(file, title);
-                        }
-                        catch (Exception e)
-                        {
-                            err.println("[Error in " + getClass().getSimpleName() + "] "
-                                    + e.getMessage());
-                            titleCache.put(file, "");
-                        }
-                    });
+                    var unused = executor.submit(() -> fetchTitle(file));
                 }
             }
         }
     }
 
+    private void fetchTitle(java.io.File file)
+    {
+        try
+        {
+            String title;
+            if (VgmFileDetector.isVgmFile(file))
+            {
+                var parsed = new VgmParser().parse(file);
+                title = parsed.gd3Title() != null ? parsed.gd3Title().trim() : "";
+            }
+            else
+            {
+                Sequence seq = MidiSystem.getSequence(file);
+                String t = MidiUtils.extractSequenceTitle(seq);
+                title = (t != null) ? t.trim() : "";
+            }
+            titleCache.put(file, title);
+        }
+        catch (Exception e)
+        {
+            err.println("[Error in " + getClass().getSimpleName() + "] " + e.getMessage());
+            titleCache.put(file, "");
+        }
+    }
+
     @Override
     public void onPlaybackStateChanged()
-    {}
+    {
+    }
 
     @Override
     public void onPlayOrderChanged(com.fupfin.midiraja.engine.PlaylistContext ctx)
@@ -88,20 +91,24 @@ public class PlaylistPanel implements Panel
 
     @Override
     public void onTick(long currentMicroseconds)
-    {}
+    {
+    }
 
     @Override
     public void onTempoChanged(float bpm)
-    {}
+    {
+    }
 
     @Override
     public void onChannelActivity(int channel, int velocity)
-    {}
+    {
+    }
 
     @Override
     public void render(ScreenBuffer buffer)
     {
-        if (constraints.height() <= 0 || context == null) return;
+        if (constraints.height() <= 0 || context == null)
+            return;
 
         int listSize = context.files().size();
         int idx = context.currentIndex();

@@ -21,7 +21,7 @@ import com.fupfin.midiraja.tracker.TrackerInstrument;
 import com.fupfin.midiraja.tracker.TrackerParseResult;
 import com.fupfin.midiraja.tracker.TrackerToMidiConverter;
 
-class TrackerToMidiConverterTest
+class XmToMidiConverterTest
 {
     private static TrackerParseResult emptyResult()
     {
@@ -31,7 +31,8 @@ class TrackerToMidiConverterTest
     private static List<TrackerInstrument> instruments(String... names)
     {
         var list = new java.util.ArrayList<TrackerInstrument>();
-        for (String n : names) list.add(new TrackerInstrument(n, 64));
+        for (String n : names)
+            list.add(new TrackerInstrument(n, 64));
         return List.copyOf(list);
     }
 
@@ -123,7 +124,7 @@ class TrackerToMidiConverterTest
     {
         // First event: note on, second: key-off
         var events = List.of(
-                new TrackerEvent(0,       0, 60, 1, -1, 0, 0),
+                new TrackerEvent(0, 0, 60, 1, -1, 0, 0),
                 new TrackerEvent(480_000, 0, -2, 0, -1, 0, 0));
         var result = new TrackerParseResult("", 4, instruments("lead"), events);
         var seq = new TrackerToMidiConverter().convert(result);
@@ -153,6 +154,7 @@ class TrackerToMidiConverterTest
     void buildMidiChannelMap_skipsDrumChannel()
     {
         int[] map = TrackerToMidiConverter.buildMidiChannelMap(10);
-        for (int ch : map) assertNotEquals(9, ch);
+        for (int ch : map)
+            assertNotEquals(9, ch);
     }
 }

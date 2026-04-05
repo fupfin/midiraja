@@ -27,28 +27,31 @@ import org.jspecify.annotations.Nullable;
  * Configures application-wide file logging via {@code java.util.logging}.
  *
  * <ul>
- *   <li>Default (no flags): WARNING and above → log file only
- *   <li>{@code --verbose}: INFO and above → log file only
- *   <li>{@code --debug}: FINE and above → log file + stderr echo
+ * <li>Default (no flags): WARNING and above → log file only
+ * <li>{@code --verbose}: INFO and above → log file only
+ * <li>{@code --debug}: FINE and above → log file + stderr echo
  * </ul>
  *
- * <p>Log file location:
+ * <p>
+ * Log file location:
  * <ul>
- *   <li>macOS: {@code ~/Library/Logs/midiraja/midiraja.log}
- *   <li>Linux: {@code ~/.local/share/midiraja/midiraja.log}
- *   <li>Windows: {@code %LOCALAPPDATA%\midiraja\midiraja.log}
+ * <li>macOS: {@code ~/Library/Logs/midiraja/midiraja.log}
+ * <li>Linux: {@code ~/.local/share/midiraja/midiraja.log}
+ * <li>Windows: {@code %LOCALAPPDATA%\midiraja\midiraja.log}
  * </ul>
  */
 public final class AppLogger
 {
     private AppLogger()
-    {}
+    {
+    }
 
     /**
      * Configure logging. Call once at the start of each command's {@code call()} method.
      *
-     * @param levelStr log level string from {@code --log}: {@code error}, {@code warn},
-     *                 {@code info}, {@code debug}, or {@code null} for warnings only
+     * @param levelStr
+     *            log level string from {@code --log}: {@code error}, {@code warn},
+     *            {@code info}, {@code debug}, or {@code null} for warnings only
      */
     public static void configure(@Nullable String levelStr)
     {
@@ -56,10 +59,10 @@ public final class AppLogger
         Level level = switch (levelStr == null ? "" : levelStr.toLowerCase(java.util.Locale.ROOT))
         {
             case "error" -> Level.SEVERE;
-            case "warn"  -> Level.WARNING;
-            case "info"  -> Level.INFO;
+            case "warn" -> Level.WARNING;
+            case "info" -> Level.INFO;
             case "debug" -> Level.FINE;
-            default      -> Level.WARNING;
+            default -> Level.WARNING;
         };
 
         Logger root = Logger.getLogger("");
@@ -87,15 +90,7 @@ public final class AppLogger
 
         if (debug)
         {
-            var sh = new StreamHandler(System.err, new LogFormatter())
-            {
-                @Override
-                public void publish(LogRecord r)
-                {
-                    super.publish(r);
-                    flush();
-                }
-            };
+            var sh = new FlushingStreamHandler(System.err, new LogFormatter());
             sh.setLevel(Level.FINE);
             root.addHandler(sh);
         }
@@ -120,6 +115,21 @@ public final class AppLogger
         }
     }
 
+    private static final class FlushingStreamHandler extends StreamHandler
+    {
+        FlushingStreamHandler(java.io.OutputStream out, Formatter fmt)
+        {
+            super(out, fmt);
+        }
+
+        @Override
+        public void publish(LogRecord r)
+        {
+            super.publish(r);
+            flush();
+        }
+    }
+
     private static final class LogFormatter extends Formatter
     {
         @Override
@@ -134,7 +144,8 @@ public final class AppLogger
             };
             String shortName = r.getLoggerName();
             int dot = shortName.lastIndexOf('.');
-            if (dot >= 0) shortName = shortName.substring(dot + 1);
+            if (dot >= 0)
+                shortName = shortName.substring(dot + 1);
 
             String thrown = "";
             if (r.getThrown() != null)

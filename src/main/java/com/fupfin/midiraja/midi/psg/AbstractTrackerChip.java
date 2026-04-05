@@ -106,7 +106,8 @@ abstract class AbstractTrackerChip implements TrackerSynthChip
 
         for (int i = 0; i < getNumChannels(); i++)
         {
-            if (skipChannelForStealing(i)) continue;
+            if (skipChannelForStealing(i))
+                continue;
             Channel c = getChannel(i);
             if (c.active && c.midiChannel != 9)
             {
@@ -228,7 +229,8 @@ abstract class AbstractTrackerChip implements TrackerSynthChip
         boolean exists = false;
         for (int i = 0; i < c.arpSize; i++)
         {
-            if (c.arpNotes[i] == note) exists = true;
+            if (c.arpNotes[i] == note)
+                exists = true;
         }
 
         if (!exists)
@@ -246,7 +248,8 @@ abstract class AbstractTrackerChip implements TrackerSynthChip
     {
         for (int i = 0; i < getNumChannels(); i++)
         {
-            if (skipChannelForArpeggio(i)) continue;
+            if (skipChannelForArpeggio(i))
+                continue;
             Channel c = getChannel(i);
             if (c.active && c.midiChannel == ch && c.arpSize < 4)
             {

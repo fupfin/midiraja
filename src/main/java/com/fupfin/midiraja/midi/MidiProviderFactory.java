@@ -24,11 +24,13 @@ public class MidiProviderFactory
     {
         String osName = System.getProperty("os.name").toLowerCase(ROOT);
 
-        OS os = osName.contains("mac") ? OS.MAC
-            : osName.contains("win")   ? OS.WINDOWS
-            : osName.contains("nix") || osName.contains("nux") || osName.contains("aix")
-            ? OS.LINUX
-            : OS.UNKNOWN;
+        OS os = osName.contains("mac")
+                ? OS.MAC
+                : osName.contains("win")
+                        ? OS.WINDOWS
+                        : osName.contains("nix") || osName.contains("nux") || osName.contains("aix")
+                                ? OS.LINUX
+                                : OS.UNKNOWN;
 
         return switch (os)
         {
@@ -37,7 +39,7 @@ public class MidiProviderFactory
             case LINUX -> new AlsaProvider();
             case UNKNOWN ->
                 throw new UnsupportedOperationException(
-                    "Unsupported OS for native MIDI: " + osName);
+                        "Unsupported OS for native MIDI: " + osName);
         };
     }
 }

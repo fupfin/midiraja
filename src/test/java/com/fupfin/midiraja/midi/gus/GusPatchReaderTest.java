@@ -26,7 +26,7 @@ class GusPatchReaderTest
         try (var in = new ByteArrayInputStream(badData))
         {
             assertThrows(IOException.class, () -> GusPatchReader.read(in),
-                "Should throw exception for invalid magic header");
+                    "Should throw exception for invalid magic header");
         }
         catch (IOException e)
         {
@@ -67,7 +67,7 @@ class GusPatchReaderTest
         buf.position(239 + 96);
 
         // 3. PCM Data (10 bytes)
-        buf.put(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+        buf.put(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
 
         try (var in = new ByteArrayInputStream(buf.array(), 0, buf.position()))
         {
@@ -87,4 +87,5 @@ class GusPatchReaderTest
             assertEquals(10, sample.pcmData().byteSize());
             assertFalse(sample.is16Bit());
         }
-    }}
+    }
+}

@@ -9,18 +9,24 @@ public interface AudioProcessor
     /**
      * Processes or consumes a block of audio frames.
      *
-     * @param left Array of left channel samples (-1.0 to 1.0)
-     * @param right Array of right channel samples (-1.0 to 1.0)
-     * @param frames The number of valid frames in the arrays to process
+     * @param left
+     *            Array of left channel samples (-1.0 to 1.0)
+     * @param right
+     *            Array of right channel samples (-1.0 to 1.0)
+     * @param frames
+     *            The number of valid frames in the arrays to process
      */
     void process(float[] left, float[] right, int frames);
 
     /**
      * Entry point for raw interleaved PCM from native synthesizers.
      *
-     * @param interleavedPcm Array of short PCM samples.
-     * @param frames The number of valid frames.
-     * @param channels Number of channels in the interleaved input (1 for mono, 2 for stereo).
+     * @param interleavedPcm
+     *            Array of short PCM samples.
+     * @param frames
+     *            The number of valid frames.
+     * @param channels
+     *            Number of channels in the interleaved input (1 for mono, 2 for stereo).
      */
     default void processInterleaved(short[] interleavedPcm, int frames, int channels)
     {
@@ -31,5 +37,6 @@ public interface AudioProcessor
      * Resets the internal state (e.g. clearing delay buffers).
      */
     default void reset()
-    {}
+    {
+    }
 }

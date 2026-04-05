@@ -7,7 +7,6 @@
 
 package com.fupfin.midiraja.midi.os;
 
-
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
@@ -25,8 +24,8 @@ import com.fupfin.midiraja.midi.MidiPort;
  */
 public class CoreMidiProvider implements MidiOutProvider
 {
-    private static final java.util.logging.Logger log =
-            java.util.logging.Logger.getLogger(CoreMidiProvider.class.getName());
+    private static final java.util.logging.Logger log = java.util.logging.Logger
+            .getLogger(CoreMidiProvider.class.getName());
     private static final Linker LINKER = Linker.nativeLinker();
     private static final SymbolLookup CF_LOOKUP = SymbolLookup.libraryLookup(
             "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", Arena.global());
@@ -34,56 +33,55 @@ public class CoreMidiProvider implements MidiOutProvider
             "/System/Library/Frameworks/CoreMIDI.framework/CoreMIDI", Arena.global());
 
     // --- CoreFoundation MethodHandles ---
-    private static final MethodHandle CFStringCreateWithCString =
-            LINKER.downcallHandle(CF_LOOKUP.find("CFStringCreateWithCString").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS,
-                            ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
-    private static final MethodHandle CFStringGetCString =
-            LINKER.downcallHandle(CF_LOOKUP.find("CFStringGetCString").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
-                            ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
-    private static final MethodHandle CFRelease =
-            LINKER.downcallHandle(CF_LOOKUP.find("CFRelease").orElseThrow(),
-                    FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+    private static final MethodHandle CFStringCreateWithCString = LINKER.downcallHandle(
+            CF_LOOKUP.find("CFStringCreateWithCString").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                    ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+    private static final MethodHandle CFStringGetCString = LINKER.downcallHandle(
+            CF_LOOKUP.find("CFStringGetCString").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+                    ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
+    private static final MethodHandle CFRelease = LINKER.downcallHandle(CF_LOOKUP.find("CFRelease").orElseThrow(),
+            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
 
     // --- CoreMIDI MethodHandles ---
-    private static final MethodHandle MIDIGetNumberOfDestinations =
-            LINKER.downcallHandle(MIDI_LOOKUP.find("MIDIGetNumberOfDestinations").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT) // ItemCount
-            );
-    private static final MethodHandle MIDIGetDestination =
-            LINKER.downcallHandle(MIDI_LOOKUP.find("MIDIGetDestination").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG) // ItemCount
-                                                                                      // passed as
-                                                                                      // long to be
-                                                                                      // safe
-                                                                                      // (uint32/unsigned
-                                                                                      // long)
-            );
-    private static final MethodHandle MIDIObjectGetStringProperty =
-            LINKER.downcallHandle(MIDI_LOOKUP.find("MIDIObjectGetStringProperty").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
-                            ValueLayout.ADDRESS, ValueLayout.ADDRESS));
-    private static final MethodHandle MIDIClientCreate =
-            LINKER.downcallHandle(MIDI_LOOKUP.find("MIDIClientCreate").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
-                            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
-    private static final MethodHandle MIDIOutputPortCreate =
-            LINKER.downcallHandle(MIDI_LOOKUP.find("MIDIOutputPortCreate").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
-                            ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+    private static final MethodHandle MIDIGetNumberOfDestinations = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIGetNumberOfDestinations").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT) // ItemCount
+    );
+    private static final MethodHandle MIDIGetDestination = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIGetDestination").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG) // ItemCount
+                                                                              // passed as
+                                                                              // long to be
+                                                                              // safe
+                                                                              // (uint32/unsigned
+                                                                              // long)
+    );
+    private static final MethodHandle MIDIObjectGetStringProperty = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIObjectGetStringProperty").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+                    ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+    private static final MethodHandle MIDIClientCreate = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIClientCreate").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+                    ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+    private static final MethodHandle MIDIOutputPortCreate = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIOutputPortCreate").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+                    ValueLayout.ADDRESS, ValueLayout.ADDRESS));
     private static final MethodHandle MIDISend = LINKER.downcallHandle(
             MIDI_LOOKUP.find("MIDISend").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT,
                     ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
-    private static final MethodHandle MIDIPacketListInit =
-            LINKER.downcallHandle(MIDI_LOOKUP.find("MIDIPacketListInit").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
-    private static final MethodHandle MIDIPacketListAdd =
-            LINKER.downcallHandle(MIDI_LOOKUP.find("MIDIPacketListAdd").orElseThrow(),
-                    // pktlist, listSize, curPacket, time (UInt64), nData, data
-                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS,
-                            ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG,
-                            ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
+    private static final MethodHandle MIDIPacketListInit = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIPacketListInit").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+    private static final MethodHandle MIDIPacketListAdd = LINKER.downcallHandle(
+            MIDI_LOOKUP.find("MIDIPacketListAdd").orElseThrow(),
+            // pktlist, listSize, curPacket, time (UInt64), nData, data
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                    ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG,
+                    ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
 
     private static final int kCFStringEncodingUTF8 = 0x08000100;
 
@@ -135,8 +133,7 @@ public class CoreMidiProvider implements MidiOutProvider
                             kCFStringEncodingUTF8);
                     if (getResult != 0)
                     {
-                        String name =
-                                buffer.getString(0, StandardCharsets.UTF_8).trim();
+                        String name = buffer.getString(0, StandardCharsets.UTF_8).trim();
                         ports.add(new MidiPort(i, name));
                     }
                     CFRelease.invokeExact(cfString);
@@ -203,7 +200,8 @@ public class CoreMidiProvider implements MidiOutProvider
         var localDest = destination;
         var localPktListMem = pktListMem;
 
-        if (localOutPort == null || localDest == null || localPktListMem == null) return;
+        if (localOutPort == null || localDest == null || localPktListMem == null)
+            return;
 
         try (Arena tempArena = Arena.ofConfined())
         {
@@ -234,8 +232,10 @@ public class CoreMidiProvider implements MidiOutProvider
     {
         try
         {
-            if (clientName != null) CFRelease.invokeExact(clientName);
-            if (portName != null) CFRelease.invokeExact(portName);
+            if (clientName != null)
+                CFRelease.invokeExact(clientName);
+            if (portName != null)
+                CFRelease.invokeExact(portName);
         }
         catch (Throwable e)
         {

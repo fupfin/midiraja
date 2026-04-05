@@ -15,31 +15,39 @@ import javax.sound.midi.Track;
 
 import org.junit.jupiter.api.Test;
 
-class Ym2413MidiConverterTest {
+class Ym2413MidiConverterTest
+{
 
     private static final long CLOCK = 3_579_545L;
 
-    private static VgmEvent opll(int reg, int data) {
-        return new VgmEvent(0, 13, new byte[]{(byte) reg, (byte) data});
+    private static VgmEvent opll(int reg, int data)
+    {
+        return new VgmEvent(0, 13, new byte[] { (byte) reg, (byte) data });
     }
 
-    private static Track[] makeTracks() throws Exception {
+    private static Track[] makeTracks() throws Exception
+    {
         var seq = new Sequence(Sequence.PPQ, 480);
         var tracks = new Track[15];
-        for (int i = 0; i < 15; i++) tracks[i] = seq.createTrack();
+        for (int i = 0; i < 15; i++)
+            tracks[i] = seq.createTrack();
         return tracks;
     }
 
-    private static ShortMessage findFirst(Track track, int command) {
-        for (int i = 0; i < track.size(); i++) {
+    private static ShortMessage findFirst(Track track, int command)
+    {
+        for (int i = 0; i < track.size(); i++)
+        {
             var msg = track.get(i).getMessage();
-            if (msg instanceof ShortMessage sm && sm.getCommand() == command) return sm;
+            if (msg instanceof ShortMessage sm && sm.getCommand() == command)
+                return sm;
         }
         return null;
     }
 
     @Test
-    void opllNote_a4() {
+    void opllNote_a4()
+    {
         // f = fnum * clock / (72 * 2^(20-block))
         // A4 (440 Hz), block=4: fnum = 440 * 72 * 65536 / 3579545 ≈ 580
         int note = Ym2413MidiConverter.opllNote(CLOCK, 580, 4);
@@ -47,12 +55,14 @@ class Ym2413MidiConverterTest {
     }
 
     @Test
-    void opllNote_fnumZero_returnsMinusOne() {
+    void opllNote_fnumZero_returnsMinusOne()
+    {
         assertEquals(-1, Ym2413MidiConverter.opllNote(CLOCK, 0, 3));
     }
 
     @Test
-    void keyOn_producesNoteOn_withPresetProgram() throws Exception {
+    void keyOn_producesNoteOn_withPresetProgram() throws Exception
+    {
         var converter = new Ym2413MidiConverter();
         var tracks = makeTracks();
 
@@ -73,7 +83,8 @@ class Ym2413MidiConverterTest {
     }
 
     @Test
-    void keyOff_producesNoteOff() throws Exception {
+    void keyOff_producesNoteOff() throws Exception
+    {
         var converter = new Ym2413MidiConverter();
         var tracks = makeTracks();
 
@@ -87,7 +98,8 @@ class Ym2413MidiConverterTest {
     }
 
     @Test
-    void channel5_routesToMidiCh8() throws Exception {
+    void channel5_routesToMidiCh8() throws Exception
+    {
         var converter = new Ym2413MidiConverter();
         var tracks = makeTracks();
 
@@ -102,7 +114,8 @@ class Ym2413MidiConverterTest {
     }
 
     @Test
-    void channel7_routesToMidiCh11() throws Exception {
+    void channel7_routesToMidiCh11() throws Exception
+    {
         var converter = new Ym2413MidiConverter();
         var tracks = makeTracks();
 
@@ -116,7 +129,8 @@ class Ym2413MidiConverterTest {
     }
 
     @Test
-    void rhythmMode_bassDrum_routesToDrumChannel() throws Exception {
+    void rhythmMode_bassDrum_routesToDrumChannel() throws Exception
+    {
         var converter = new Ym2413MidiConverter();
         var tracks = makeTracks();
 
@@ -129,7 +143,8 @@ class Ym2413MidiConverterTest {
     }
 
     @Test
-    void rhythmMode_snareDrum() throws Exception {
+    void rhythmMode_snareDrum() throws Exception
+    {
         var converter = new Ym2413MidiConverter();
         var tracks = makeTracks();
 
@@ -141,7 +156,8 @@ class Ym2413MidiConverterTest {
     }
 
     @Test
-    void volume_affectsVelocity() throws Exception {
+    void volume_affectsVelocity() throws Exception
+    {
         var converter = new Ym2413MidiConverter();
         var tracks = makeTracks();
 

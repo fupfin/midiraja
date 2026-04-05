@@ -5,14 +5,16 @@ import static com.fupfin.midiraja.dsp.DspConstants.INTERNAL_LEVEL_INV;
 /**
  * A DSP filter that applies output gain to the audio stream.
  *
- * <p>In the DSP pipeline, gain is composed of two independent factors:
+ * <p>
+ * In the DSP pipeline, gain is composed of two independent factors:
  * <ul>
- *   <li><b>calibration</b> — set once by the synth provider to normalize its raw output level.
- *   <li><b>volumeScale</b> — adjusted by the user at runtime (0.0–1.5).
+ * <li><b>calibration</b> — set once by the synth provider to normalize its raw output level.
+ * <li><b>volumeScale</b> — adjusted by the user at runtime (0.0–1.5).
  * </ul>
  * Effective gain = {@code INTERNAL_LEVEL_INV × calibration × volumeScale}.
  *
- * <p>The legacy {@link #setGain}/{@link #getGain} API bypasses the volume/calibration model and
+ * <p>
+ * The legacy {@link #setGain}/{@link #getGain} API bypasses the volume/calibration model and
  * sets the raw multiplier directly (used by tests and non-pipeline contexts).
  */
 public class MasterGainFilter extends AudioFilter

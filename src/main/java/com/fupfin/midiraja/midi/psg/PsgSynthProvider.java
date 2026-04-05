@@ -21,7 +21,7 @@ import com.fupfin.midiraja.midi.MidiPort;
  * chips running in parallel (e.g., Apple II Mockingboard). Implements a "Tracker-Driven
  * Interception Layer" that applies 1980s demoscene software hacks.
  */
-@SuppressWarnings({"ThreadPriorityCheck", "EmptyCatch"})
+@SuppressWarnings({ "ThreadPriorityCheck", "EmptyCatch" })
 public class PsgSynthProvider extends AbstractOneBitSynthProvider
 {
     private final int sampleRate = 44100;
@@ -31,7 +31,8 @@ public class PsgSynthProvider extends AbstractOneBitSynthProvider
     private final int totalPhysicalChips;
     private final int[] channelPrograms = new int[16];
     private final boolean useScc;
-    @Nullable private final String retroMode;
+    @Nullable
+    private final String retroMode;
 
     public PsgSynthProvider(@Nullable AudioProcessor audioOut, int systems, double vibratoDepth,
             double dutySweep, boolean useScc, boolean smoothScc)
@@ -73,7 +74,8 @@ public class PsgSynthProvider extends AbstractOneBitSynthProvider
     public List<MidiPort> getOutputPorts()
     {
         String chipConfig = useScc ? "AY-3-8910 (Konami SCC)" : "AY-3-8910";
-        String desc = systems == 1 ? chipConfig
+        String desc = systems == 1
+                ? chipConfig
                 : String.format("[%s] x%d", chipConfig, systems);
         return List.of(new MidiPort(0, desc + AbstractSoftSynthProvider.retroTag(retroMode)));
     }
@@ -116,7 +118,8 @@ public class PsgSynthProvider extends AbstractOneBitSynthProvider
     @Override
     public void sendMessage(byte[] data) throws Exception
     {
-        if (data.length < 1) return;
+        if (data.length < 1)
+            return;
         int cmd = data[0] & 0xF0;
         int ch = data[0] & 0x0F;
 
@@ -130,7 +133,8 @@ public class PsgSynthProvider extends AbstractOneBitSynthProvider
                 // 1. Update existing note if it's already playing on any chip
                 for (int c = 0; c < totalPhysicalChips; c++)
                 {
-                    if (chips[c].updateNote(ch, note, velocity)) return;
+                    if (chips[c].updateNote(ch, note, velocity))
+                        return;
                 }
 
                 // 2. Try to find a FREE channel across all chips
@@ -169,7 +173,8 @@ public class PsgSynthProvider extends AbstractOneBitSynthProvider
                 for (int i = 0; i < totalPhysicalChips; i++)
                 {
                     int c = searchOrder[i];
-                    if (c == -1) continue; // Isolation barrier
+                    if (c == -1)
+                        continue; // Isolation barrier
 
                     if (chips[c].tryAllocateFree(ch, note, velocity))
                     {
@@ -248,6 +253,7 @@ public class PsgSynthProvider extends AbstractOneBitSynthProvider
     {
         for (int c = 0; c < totalPhysicalChips; c++)
             chips[c].reset();
-        if (audioOut != null) audioOut.reset();
+        if (audioOut != null)
+            audioOut.reset();
     }
 }

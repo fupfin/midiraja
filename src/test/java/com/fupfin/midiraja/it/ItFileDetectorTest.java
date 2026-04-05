@@ -31,7 +31,7 @@ class ItFileDetectorTest
     void isItFile_byMagic() throws Exception
     {
         var f = tmp.resolve("song.dat").toFile();
-        Files.write(f.toPath(), new byte[]{'I', 'M', 'P', 'M', 0, 0, 0, 0});
+        Files.write(f.toPath(), new byte[] { 'I', 'M', 'P', 'M', 0, 0, 0, 0 });
         assertTrue(ItFileDetector.isItFile(f));
     }
 
@@ -39,7 +39,7 @@ class ItFileDetectorTest
     void isItFile_wrongMagic() throws Exception
     {
         var f = tmp.resolve("song.dat").toFile();
-        Files.write(f.toPath(), new byte[]{0, 0, 0, 0});
+        Files.write(f.toPath(), new byte[] { 0, 0, 0, 0 });
         assertFalse(ItFileDetector.isItFile(f));
     }
 }

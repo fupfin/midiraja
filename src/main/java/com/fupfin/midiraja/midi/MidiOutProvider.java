@@ -19,8 +19,7 @@ import com.fupfin.midiraja.dsp.MasterGainFilter;
  */
 public interface MidiOutProvider extends MidiSink
 {
-    java.util.logging.Logger log =
-            java.util.logging.Logger.getLogger(MidiOutProvider.class.getName());
+    java.util.logging.Logger log = java.util.logging.Logger.getLogger(MidiOutProvider.class.getName());
     /**
      * Returns an immutable list of available MIDI output devices on the host OS.
      */
@@ -51,7 +50,8 @@ public interface MidiOutProvider extends MidiSink
      * provided so that software synthesizers can pre-load necessary assets.
      */
     default void prepareForNewTrack(Sequence sequence)
-    {}
+    {
+    }
 
     /**
      * Called by {@code PlaybackEngine.playLoop()} at the very start of playback, just before the
@@ -61,7 +61,8 @@ public interface MidiOutProvider extends MidiSink
      * is a no-op for hardware MIDI ports.
      */
     default void onPlaybackStarted()
-    {}
+    {
+    }
 
     /**
      * Returns the estimated audio output latency in nanoseconds. Used to synchronize visual
@@ -88,12 +89,13 @@ public interface MidiOutProvider extends MidiSink
      */
     default void setVolume(int volume)
     {
-        if (volume < 0 || volume > 127) return;
+        if (volume < 0 || volume > 127)
+            return;
         for (int ch = 0; ch < 16; ch++)
         {
             try
             {
-                sendMessage(new byte[] {(byte) (0xB0 | ch), 7, (byte) volume});
+                sendMessage(new byte[] { (byte) (0xB0 | ch), 7, (byte) volume });
             }
             catch (Exception e)
             {
@@ -114,16 +116,16 @@ public interface MidiOutProvider extends MidiSink
             try
             {
                 // 1. Send standard panic controllers
-                sendMessage(new byte[] {(byte) (0xB0 | ch), 64, 0}); // Sustain Off
-                sendMessage(new byte[] {(byte) (0xB0 | ch), 123, 0}); // All Notes Off
-                sendMessage(new byte[] {(byte) (0xB0 | ch), 120, 0}); // All Sound Off
-                sendMessage(new byte[] {(byte) (0xB0 | ch), 121, 0}); // Reset All Controllers
+                sendMessage(new byte[] { (byte) (0xB0 | ch), 64, 0 }); // Sustain Off
+                sendMessage(new byte[] { (byte) (0xB0 | ch), 123, 0 }); // All Notes Off
+                sendMessage(new byte[] { (byte) (0xB0 | ch), 120, 0 }); // All Sound Off
+                sendMessage(new byte[] { (byte) (0xB0 | ch), 121, 0 }); // Reset All Controllers
 
                 // 2. Machine Gun Panic: Explicitly send Note Off for every single key
                 // Some synthesizers ignore CC 123, so this is the ultimate fallback.
                 for (int note = 0; note < 128; note++)
                 {
-                    sendMessage(new byte[] {(byte) (0x80 | ch), (byte) note, 0});
+                    sendMessage(new byte[] { (byte) (0x80 | ch), (byte) note, 0 });
                 }
             }
             catch (Exception e)
@@ -138,7 +140,8 @@ public interface MidiOutProvider extends MidiSink
      * to complete their release envelopes instead of cutting abruptly. This avoids the click
      * artifact that hard-cutoff (All Sound Off) produces when followed by DSP effects like reverb.
      *
-     * <p>Default implementation falls back to {@link #panic()} for external MIDI ports where
+     * <p>
+     * Default implementation falls back to {@link #panic()} for external MIDI ports where
      * note-off timing is less predictable.
      */
     default void softPause()

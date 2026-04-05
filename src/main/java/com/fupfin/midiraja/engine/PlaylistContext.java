@@ -21,4 +21,6 @@ import com.fupfin.midiraja.midi.MidiPort;
 public record PlaylistContext(
         List<File> files, int currentIndex, MidiPort targetPort,
         @Nullable String sequenceTitle,
-        boolean loop, boolean shuffle) {}
+        boolean loop, boolean shuffle)
+{
+}

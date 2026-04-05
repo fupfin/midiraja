@@ -7,7 +7,6 @@
 
 package com.fupfin.midiraja.midi.beep;
 
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,7 @@ import com.fupfin.midiraja.midi.MidiPort;
  * <li>AI-tuned DSP parameters via the 'God Table' lookup matrix.</li>
  * </ul>
  */
-@SuppressWarnings({"ThreadPriorityCheck", "EmptyCatch"})
+@SuppressWarnings({ "ThreadPriorityCheck", "EmptyCatch" })
 public class BeepSynthProvider extends AbstractOneBitSynthProvider
 {
     /**
@@ -81,7 +80,6 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
             Map.entry("square_xor_1", new DspParams(0.230, 0.000, 0.000)),
             Map.entry("square_xor_2", new DspParams(0.032, 0.000, 0.000)),
             Map.entry("square_xor_4", new DspParams(0.029, 0.000, 0.000)));
-
 
     private final int voicesPerCore;
     private final double fmRatio;
@@ -164,7 +162,8 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
     /**
      * Per-sample 16-bit fixed-point Sine lookup.
      *
-     * @param phase16 The 16-bit phase accumulator (0-65535).
+     * @param phase16
+     *            The 16-bit phase accumulator (0-65535).
      * @return The 8-bit signed amplitude (-127 to +127).
      */
     @SuppressWarnings("unused")
@@ -178,8 +177,10 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
     private static double fastSin(double phase)
     {
         int index = (int) (phase * 256);
-        if (index < 0) index = 0;
-        if (index > 255) index = 255;
+        if (index < 0)
+            index = 0;
+        if (index > 255)
+            index = 255;
         return SINE_LUT_8BIT[index] / 127.0;
     }
 
@@ -195,7 +196,6 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
 
     private double lpfState = 0.0;
     private double lpfState2 = 0.0;
-
 
     private final int numUnits;
 
@@ -215,8 +215,6 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
         private double dcBlockerX = 0.0;
         private double dcBlockerY = 0.0;
 
-
-
         double internalPwmCarrier = -1.0;
 
         DigitalUnit(int sampleRate)
@@ -228,10 +226,10 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
         /**
          * Renders 1-bit audio for the notes assigned to this specific unit.
          *
-         * @param assignedNotes The list of active notes assigned to this unit.
+         * @param assignedNotes
+         *            The list of active notes assigned to this unit.
          * @return The resulting 1-bit signal normalized to [-1.0, 1.0].
          */
-
 
         private double renderDrumOut(ActiveNote note, double time, double trueSampleRate)
         {
@@ -330,7 +328,8 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
 
         double render(List<ActiveNote> assignedNotes)
         {
-            if (assignedNotes.isEmpty()) return 0.0;
+            if (assignedNotes.isEmpty())
+                return 0.0;
 
             double sumPwm = 0.0;
             int numNotes = assignedNotes.size();
@@ -339,12 +338,14 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
             for (int o = 0; o < oversample; o++)
             {
                 pwmCarrierPhase += pwmCarrierStep / oversample;
-                if (pwmCarrierPhase > 1.0) pwmCarrierPhase -= 2.0;
+                if (pwmCarrierPhase > 1.0)
+                    pwmCarrierPhase -= 2.0;
 
                 // Advanced an internal fast carrier just for quantizing PM waves BEFORE
                 // multiplexing
                 internalPwmCarrier += (22050.0 / sampleRate) * 2.0 / oversample;
-                if (internalPwmCarrier > 1.0) internalPwmCarrier -= 2.0;
+                if (internalPwmCarrier > 1.0)
+                    internalPwmCarrier -= 2.0;
 
                 boolean mixedXor = false;
                 boolean hasActiveNotes = false;
@@ -363,7 +364,8 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                         double out = renderDrumOut(note, time, trueSampleRate);
                         // Quantize drums using PWM
                         synthBit = out > internalPwmCarrier;
-                        if (Math.abs(out) > 0.05) hasActiveNotes = true;
+                        if (Math.abs(out) > 0.05)
+                            hasActiveNotes = true;
 
                     }
                     else
@@ -372,7 +374,8 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                         {
                             synthBit = renderXorSynth(note);
                             double decay = Math.max(0.0, 1.0 - (time / 0.5));
-                            if (decay > 0.01) hasActiveNotes = true;
+                            if (decay > 0.01)
+                                hasActiveNotes = true;
                             else
                                 synthBit = false;
 
@@ -381,7 +384,8 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                         {
                             double decay = Math.max(0.0, 1.0 - (time / 1.5));
                             synthBit = renderSquareSynth(note, trueSampleRate);
-                            if (decay > 0.01) hasActiveNotes = true;
+                            if (decay > 0.01)
+                                hasActiveNotes = true;
                             else
                                 synthBit = false;
 
@@ -390,31 +394,36 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                         {
                             double out = renderFMSynth(note, time, trueSampleRate);
                             synthBit = out > internalPwmCarrier;
-                            if (Math.abs(out) > 0.05) hasActiveNotes = true;
+                            if (Math.abs(out) > 0.05)
+                                hasActiveNotes = true;
                             else
                                 synthBit = false;
                         }
                     }
 
                     // --- LAYER 3: THE MULTIPLEXER (Boolean Domain Only) ---
-                    if (i == 0) mixedXor = synthBit;
+                    if (i == 0)
+                        mixedXor = synthBit;
                     else
                         mixedXor ^= synthBit;
 
-                    if (i == (o % numNotes)) tdmBit = synthBit;
+                    if (i == (o % numNotes))
+                        tdmBit = synthBit;
                 }
 
                 // Final Pin Output
                 if ("tdm".equals(muxMode))
                 {
-                    if (!hasActiveNotes) sumPwm += 0.0;
+                    if (!hasActiveNotes)
+                        sumPwm += 0.0;
                     else
                         sumPwm += (tdmBit ? 1.0 : -1.0);
                 }
                 else
                 {
                     // Default to XOR mux
-                    if (!hasActiveNotes) sumPwm += 0.0;
+                    if (!hasActiveNotes)
+                        sumPwm += 0.0;
                     else
                         sumPwm += (mixedXor ? 1.0 : -1.0);
                 }
@@ -444,13 +453,20 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
     /**
      * Constructs a new 1-Bit Digital Cluster provider.
      *
-     * @param audio The audio engine interface for output.
-     * @param voices Number of voices per core/unit (1-4).
-     * @param fmRatio Modulator frequency ratio for FM synthesis.
-     * @param fmIndex Modulation intensity for FM synthesis.
-     * @param oversample Oversampling factor (e.g., 32x).
-     * @param muxMode Multiplexing algorithm ("xor" or "tdm").
-     * @param synthMode Synthesis algorithm ("fm", "xor", or "square").
+     * @param audio
+     *            The audio engine interface for output.
+     * @param voices
+     *            Number of voices per core/unit (1-4).
+     * @param fmRatio
+     *            Modulator frequency ratio for FM synthesis.
+     * @param fmIndex
+     *            Modulation intensity for FM synthesis.
+     * @param oversample
+     *            Oversampling factor (e.g., 32x).
+     * @param muxMode
+     *            Multiplexing algorithm ("xor" or "tdm").
+     * @param synthMode
+     *            Synthesis algorithm ("fm", "xor", or "square").
      */
     public BeepSynthProvider(@Nullable AudioProcessor audioOut, int voices, double fmRatio,
             double fmIndex, int oversample, String muxMode, String synthMode)
@@ -558,9 +574,12 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
      * Performs frequency-weighted note routing and triggers parallel unit rendering. Implements
      * "Bass Isolation" to prevent muddy intermodulation in the lower spectrum.
      *
-     * @param notes Snapshot of currently active MIDI notes.
-     * @param buffer The output PCM buffer to fill.
-     * @param frames Number of frames to render.
+     * @param notes
+     *            Snapshot of currently active MIDI notes.
+     * @param buffer
+     *            The output PCM buffer to fill.
+     * @param frames
+     *            Number of frames to render.
      */
     private void renderCluster(List<ActiveNote> notes, short[] buffer, int frames)
     {
@@ -608,20 +627,23 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                     List<ActiveNote> currentOccupants = unitAssignments.get(i);
 
                     // Skip if unit is already full
-                    if (currentOccupants.size() >= voicesPerCore) continue;
+                    if (currentOccupants.size() >= voicesPerCore)
+                        continue;
 
                     // Analyze current occupants
                     boolean hasBass = false;
                     for (ActiveNote occupant : currentOccupants)
                     {
-                        if (occupant.frequency < 150.0) hasBass = true;
+                        if (occupant.frequency < 150.0)
+                            hasBass = true;
                     }
 
                     // Score this unit (Higher is better)
                     double score = 10.0; // Base score
 
                     // 1. Prioritize empty units to maximize spread
-                    if (currentOccupants.isEmpty()) score += 5.0;
+                    if (currentOccupants.isEmpty())
+                        score += 5.0;
 
                     // 2. The Bass Isolation Rule!
                     if (isBassNote && hasBass)
@@ -637,7 +659,8 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                     }
 
                     // 3. Round-robin tie-breaker (to keep spread moving)
-                    if (i == melodyIdx) score += 1.0;
+                    if (i == melodyIdx)
+                        score += 1.0;
 
                     if (score > bestScore)
                     {
@@ -729,7 +752,8 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                     for (int i = 0; i < MAX_POLYPHONY; i++)
                     {
                         ActiveNote n = activeNotes[i];
-                        if (n.active && n.channel == ch && n.note == note) n.active = false;
+                        if (n.active && n.channel == ch && n.note == note)
+                            n.active = false;
                     }
                     for (int i = 0; i < MAX_POLYPHONY; i++)
                     {
@@ -740,16 +764,13 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                             n.channel = ch;
                             n.note = note;
                             double bendSemitones = (pitchBends[ch] / 8192.0) * 2.0;
-                            n.frequency =
-                                    440.0 * Math.pow(2.0, (n.note - 69 + bendSemitones) / 12.0);
+                            n.frequency = 440.0 * Math.pow(2.0, (n.note - 69 + bendSemitones) / 12.0);
                             double oversampledRate = 44100.0 * oversample;
                             n.phaseStep16 = (int) ((n.frequency * 65536.0) / oversampledRate);
-                            n.modPhaseStep16 =
-                                    (int) ((n.frequency * fmRatio * 65536.0) / oversampledRate);
+                            n.modPhaseStep16 = (int) ((n.frequency * fmRatio * 65536.0) / oversampledRate);
                             if ("xor".equals(synthMode) && fmRatio == 1.0)
                             {
-                                n.modPhaseStep16 =
-                                        (int) ((n.frequency * 1.005 * 65536.0) / oversampledRate);
+                                n.modPhaseStep16 = (int) ((n.frequency * 1.005 * 65536.0) / oversampledRate);
                             }
                             n.isDrum = (ch == 9);
                             n.active = true;
@@ -762,7 +783,8 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                     for (int i = 0; i < MAX_POLYPHONY; i++)
                     {
                         ActiveNote n = activeNotes[i];
-                        if (n.active && n.channel == ch && n.note == note) n.active = false;
+                        if (n.active && n.channel == ch && n.note == note)
+                            n.active = false;
                     }
                 }
             }
@@ -772,7 +794,8 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                 for (int i = 0; i < MAX_POLYPHONY; i++)
                 {
                     ActiveNote n = activeNotes[i];
-                    if (n.active && n.channel == ch && n.note == note) n.active = false;
+                    if (n.active && n.channel == ch && n.note == note)
+                        n.active = false;
                 }
             }
             else if (cmd == 0xB0 && data.length >= 3)
@@ -795,12 +818,10 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                             n.frequency = 440.0 * Math.pow(2.0, (n.note - 69) / 12.0);
                             double oversampledRate = 44100.0 * oversample;
                             n.phaseStep16 = (int) ((n.frequency * 65536.0) / oversampledRate);
-                            n.modPhaseStep16 =
-                                    (int) ((n.frequency * fmRatio * 65536.0) / oversampledRate);
+                            n.modPhaseStep16 = (int) ((n.frequency * fmRatio * 65536.0) / oversampledRate);
                             if ("xor".equals(synthMode) && fmRatio == 1.0)
                             {
-                                n.modPhaseStep16 =
-                                        (int) ((n.frequency * 1.005 * 65536.0) / oversampledRate);
+                                n.modPhaseStep16 = (int) ((n.frequency * 1.005 * 65536.0) / oversampledRate);
                             }
                         }
                     }

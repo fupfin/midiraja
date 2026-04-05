@@ -27,7 +27,8 @@ final class StandardPlaybackPipeline implements PlaybackPipeline
             int initialTranspose)
     {
         this.provider = provider;
-        double initVol = provider.outputGain().isPresent() ? 1.0
+        double initVol = provider.outputGain().isPresent()
+                ? 1.0
                 : max(0, min(100, initialVolumePercent)) / 100.0;
         this.sysexFilter = new SysexFilter(provider, false);
         this.volumeFilter = new VolumeFilter(this.sysexFilter, initVol);
@@ -55,8 +56,15 @@ final class StandardPlaybackPipeline implements PlaybackPipeline
             // Re-send CC7 on all channels so the hardware synth tracks the new volume
             for (int ch = 0; ch < 16; ch++)
             {
-                byte[] msg = new byte[] {(byte) (0xB0 | ch), 7, (byte) 100};
-                try { transposeFilter.sendMessage(msg); } catch (Exception _) { /* best-effort */ }
+                byte[] msg = new byte[] { (byte) (0xB0 | ch), 7, (byte) 100 };
+                try
+                {
+                    transposeFilter.sendMessage(msg);
+                }
+                catch (Exception _)
+                {
+                    /* best-effort */
+                }
             }
         }
     }
@@ -73,7 +81,14 @@ final class StandardPlaybackPipeline implements PlaybackPipeline
     public void adjustTranspose(int semitones)
     {
         transposeFilter.adjust(semitones);
-        try { provider.panic(); } catch (Exception _) { /* best-effort: silence notes at old pitch */ }
+        try
+        {
+            provider.panic();
+        }
+        catch (Exception _)
+        {
+            /* best-effort: silence notes at old pitch */
+        }
     }
 
     @Override

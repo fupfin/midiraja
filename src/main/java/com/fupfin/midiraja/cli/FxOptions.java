@@ -17,46 +17,45 @@ import com.fupfin.midiraja.dsp.*;
  */
 public class FxOptions
 {
-    @Spec @SuppressWarnings("NullAway") CommandSpec spec;
+    @Spec
+    @SuppressWarnings("NullAway")
+    CommandSpec spec;
 
-    private static final java.util.logging.Logger log =
-            java.util.logging.Logger.getLogger(FxOptions.class.getName());
-    @Option(names = {"--bass"}, defaultValue = "50",
-            description = "Adjust bass gain (0-100%%). Default: 50 (neutral).")
+    private static final java.util.logging.Logger log = java.util.logging.Logger.getLogger(FxOptions.class.getName());
+    @Option(names = {
+            "--bass" }, defaultValue = "50", description = "Adjust bass gain (0-100%%). Default: 50 (neutral).")
     public float eqBass = 100; // Actually wait, in OplCommand it was initialized to 100? Let's
                                // check. Default is 50 in string, but 100 in code? That's a bug in
                                // original code probably. Wait, let's use what they had.
 
-    @Option(names = {"--mid"}, defaultValue = "50",
-            description = "Adjust mid gain (0-100%%). Default: 50 (neutral).")
+    @Option(names = { "--mid" }, defaultValue = "50", description = "Adjust mid gain (0-100%%). Default: 50 (neutral).")
     public float eqMid = 100;
 
-    @Option(names = {"--treble"}, defaultValue = "50",
-            description = "Adjust treble gain (0-100%%). Default: 50 (neutral).")
+    @Option(names = {
+            "--treble" }, defaultValue = "50", description = "Adjust treble gain (0-100%%). Default: 50 (neutral).")
     public float eqTreble = 100;
 
-    @Option(names = {"--lpf"},
-            description = "Low-Pass Filter cutoff frequency in Hz (e.g. 2000). Cuts off high frequencies.")
+    @Option(names = {
+            "--lpf" }, description = "Low-Pass Filter cutoff frequency in Hz (e.g. 2000). Cuts off high frequencies.")
     public Optional<Float> lpfFreq = Optional.empty();
 
-    @Option(names = {"--hpf"},
-            description = "High-Pass Filter cutoff frequency in Hz (e.g. 500). Cuts off low frequencies.")
+    @Option(names = {
+            "--hpf" }, description = "High-Pass Filter cutoff frequency in Hz (e.g. 500). Cuts off low frequencies.")
     public Optional<Float> hpfFreq = Optional.empty();
 
-    @Option(names = {"--chorus"},
-            description = "Apply classic stereo chorus effect. (Intensity: 0-100%%, Recommended: 30-70).")
+    @Option(names = {
+            "--chorus" }, description = "Apply classic stereo chorus effect. (Intensity: 0-100%%, Recommended: 30-70).")
     public Optional<Float> chorus = Optional.empty();
 
-    @Option(names = {"--reverb"},
-            description = "Apply algorithmic reverb preset. (Options: room, chamber, hall, plate, spring, cave).")
+    @Option(names = {
+            "--reverb" }, description = "Apply algorithmic reverb preset. (Options: room, chamber, hall, plate, spring, cave).")
     public Optional<String> reverb = Optional.empty();
 
-    @Option(names = {"--reverb-level"}, defaultValue = "50",
-            description = "Reverb wet level intensity (0-100%%). Default: 50 (neutral).")
+    @Option(names = {
+            "--reverb-level" }, defaultValue = "50", description = "Reverb wet level intensity (0-100%%). Default: 50 (neutral).")
     public float reverbLevel = 50;
 
-    @Option(names = {"--tube"},
-            description = "Apply analog vacuum tube saturation. (Range: 0-100%%).")
+    @Option(names = { "--tube" }, description = "Apply analog vacuum tube saturation. (Range: 0-100%%).")
     public Optional<Float> tubeDrive = Optional.empty();
 
     /** The MasterGainFilter inserted by {@link #wrapWithFloatConversion}; null if DSP is inactive. */
@@ -69,8 +68,10 @@ public class FxOptions
         {
             var eq = new EqFilter(pipeline);
             eq.setParams(eqBass, eqMid, eqTreble);
-            if (lpfFreq.isPresent()) eq.setLpf(lpfFreq.get());
-            if (hpfFreq.isPresent()) eq.setHpf(hpfFreq.get());
+            if (lpfFreq.isPresent())
+                eq.setLpf(lpfFreq.get());
+            if (hpfFreq.isPresent())
+                eq.setHpf(hpfFreq.get());
             pipeline = eq;
         }
         if (tubeDrive.isPresent())
@@ -92,7 +93,7 @@ public class FxOptions
                         .collect(Collectors.joining(", "));
                 throw new CommandLine.ParameterException(spec.commandLine(),
                         "Invalid value for --reverb: '" + reverb.get()
-                        + "'. Valid values: " + valid);
+                                + "'. Valid values: " + valid);
             }
         }
         return pipeline;

@@ -11,15 +11,12 @@ import picocli.CommandLine.Option;
 
 public class UiModeOptions
 {
-    @Option(names = {"-1", "--classic"},
-            description = "Classic CLI mode (static line logging, best for pipes).")
+    @Option(names = { "-1", "--classic" }, description = "Classic CLI mode (static line logging, best for pipes).")
     public boolean classicMode;
 
-    @Option(names = {"-2", "--mini"},
-            description = "Mini TUI mode (single-line interactive status).")
+    @Option(names = { "-2", "--mini" }, description = "Mini TUI mode (single-line interactive status).")
     public boolean miniMode;
 
-    @Option(names = {"-3", "--full"},
-            description = "Full TUI dashboard (default if terminal is large enough).")
+    @Option(names = { "-3", "--full" }, description = "Full TUI dashboard (default if terminal is large enough).")
     public boolean fullMode;
 }

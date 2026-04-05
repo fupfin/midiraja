@@ -15,38 +15,47 @@ import javax.sound.midi.Track;
 
 import org.junit.jupiter.api.Test;
 
-class Nes2A03MidiConverterTest {
+class Nes2A03MidiConverterTest
+{
 
     private static final long CLOCK = 1_789_773L; // NTSC NES CPU clock
 
-    private static VgmEvent nes(int reg, int data) {
-        return new VgmEvent(0, 17, new byte[]{(byte) reg, (byte) data});
+    private static VgmEvent nes(int reg, int data)
+    {
+        return new VgmEvent(0, 17, new byte[] { (byte) reg, (byte) data });
     }
 
-    private static Track[] makeTracks() throws Exception {
+    private static Track[] makeTracks() throws Exception
+    {
         var seq = new Sequence(Sequence.PPQ, 480);
         var tracks = new Track[15];
-        for (int i = 0; i < 15; i++) tracks[i] = seq.createTrack();
+        for (int i = 0; i < 15; i++)
+            tracks[i] = seq.createTrack();
         return tracks;
     }
 
-    private static ShortMessage findFirst(Track track, int command) {
-        for (int i = 0; i < track.size(); i++) {
+    private static ShortMessage findFirst(Track track, int command)
+    {
+        for (int i = 0; i < track.size(); i++)
+        {
             var msg = track.get(i).getMessage();
-            if (msg instanceof ShortMessage sm && sm.getCommand() == command) return sm;
+            if (msg instanceof ShortMessage sm && sm.getCommand() == command)
+                return sm;
         }
         return null;
     }
 
     @Test
-    void pulseNote_a4() {
+    void pulseNote_a4()
+    {
         // f = clock / (16 * (period + 1)). For A4 (440 Hz): period = 1789773/(16*440) - 1 ≈ 253
         int note = Nes2A03MidiConverter.pulseNote(CLOCK, 253);
         assertEquals(69, note, "Pulse period 253 ≈ A4 (MIDI 69)");
     }
 
     @Test
-    void triangleNote_a3() {
+    void triangleNote_a3()
+    {
         // Triangle is one octave lower: f = clock / (32 * (period + 1))
         // For A3 (220 Hz): period = 1789773/(32*220) - 1 ≈ 253
         int note = Nes2A03MidiConverter.triangleNote(CLOCK, 253);
@@ -54,14 +63,16 @@ class Nes2A03MidiConverterTest {
     }
 
     @Test
-    void pulseNote_period_zero() {
+    void pulseNote_period_zero()
+    {
         // period 0 is valid: f = clock / (16 * 1) — very high frequency
         int note = Nes2A03MidiConverter.pulseNote(CLOCK, 0);
         assertTrue(note >= 0, "Period 0 should produce a valid (clamped) note");
     }
 
     @Test
-    void pulse1_trigger_producesNoteOn() throws Exception {
+    void pulse1_trigger_producesNoteOn() throws Exception
+    {
         var converter = new Nes2A03MidiConverter();
         var tracks = makeTracks();
 
@@ -78,7 +89,8 @@ class Nes2A03MidiConverterTest {
     }
 
     @Test
-    void pulse2_trigger_routesToMidiCh1() throws Exception {
+    void pulse2_trigger_routesToMidiCh1() throws Exception
+    {
         var converter = new Nes2A03MidiConverter();
         var tracks = makeTracks();
 
@@ -91,7 +103,8 @@ class Nes2A03MidiConverterTest {
     }
 
     @Test
-    void triangle_trigger_routesToMidiCh2() throws Exception {
+    void triangle_trigger_routesToMidiCh2() throws Exception
+    {
         var converter = new Nes2A03MidiConverter();
         var tracks = makeTracks();
 
@@ -104,7 +117,8 @@ class Nes2A03MidiConverterTest {
     }
 
     @Test
-    void noise_trigger_routesToDrumChannel() throws Exception {
+    void noise_trigger_routesToDrumChannel() throws Exception
+    {
         var converter = new Nes2A03MidiConverter();
         var tracks = makeTracks();
 
@@ -117,7 +131,8 @@ class Nes2A03MidiConverterTest {
     }
 
     @Test
-    void noise_shortMode_closedHiHat() throws Exception {
+    void noise_shortMode_closedHiHat() throws Exception
+    {
         var converter = new Nes2A03MidiConverter();
         var tracks = makeTracks();
 
@@ -131,7 +146,8 @@ class Nes2A03MidiConverterTest {
     }
 
     @Test
-    void dpcm_trigger_routesToDrumChannel() throws Exception {
+    void dpcm_trigger_routesToDrumChannel() throws Exception
+    {
         var converter = new Nes2A03MidiConverter();
         var tracks = makeTracks();
 
@@ -149,7 +165,8 @@ class Nes2A03MidiConverterTest {
     }
 
     @Test
-    void zeroVolume_trigger_producesNoNote() throws Exception {
+    void zeroVolume_trigger_producesNoNote() throws Exception
+    {
         var converter = new Nes2A03MidiConverter();
         var tracks = makeTracks();
 

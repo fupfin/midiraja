@@ -37,8 +37,7 @@ public class GusBank
         this.rootDir = rootDir;
         this.resourceLoader = null;
         this.resourceBase = "";
-        this.patchSetName =
-                rootDir.getFileName() != null ? rootDir.getFileName().toString() : "custom";
+        this.patchSetName = rootDir.getFileName() != null ? rootDir.getFileName().toString() : "custom";
     }
 
     /**
@@ -67,8 +66,7 @@ public class GusBank
 
     public void loadConfig(InputStream in) throws IOException
     {
-        try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(in, StandardCharsets.US_ASCII)))
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.US_ASCII)))
         {
             parseReader(reader);
         }
@@ -152,7 +150,8 @@ public class GusBank
     public Optional<InputStream> openPatchStream(String patchPath) throws IOException
     {
         // TiMidity allows dropping the .pat extension
-        String filename = patchPath.toLowerCase(ROOT).endsWith(".pat") ? patchPath
+        String filename = patchPath.toLowerCase(ROOT).endsWith(".pat")
+                ? patchPath
                 : patchPath + ".pat";
 
         if (rootDir != null)

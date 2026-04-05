@@ -14,16 +14,24 @@ import com.fupfin.midiraja.ui.Theme;
 /**
  * Manages the alt-screen and cursor-visibility lifecycle for a full-screen TUI.
  *
- * <p>Sends {@code TERM_ALT_SCREEN_ENABLE + TERM_HIDE_CURSOR} on {@link #enter} and
+ * <p>
+ * Sends {@code TERM_ALT_SCREEN_ENABLE + TERM_HIDE_CURSOR} on {@link #enter} and
  * {@code TERM_ALT_SCREEN_DISABLE + TERM_SHOW_CURSOR} on {@link #close}. Designed for
  * try-with-resources use.
  *
- * <p>Usage:
+ * <p>
+ * Usage:
+ *
  * <pre>{@code
- * try (var alt = AltScreenScope.enter(terminal.writer())) {
+ * try (var alt = AltScreenScope.enter(terminal.writer()))
+ * {
  *     // render full-screen UI
- *     if (quit) { alt.exit(); return; }
- * }  // alt screen is exited here even on exception
+ *     if (quit)
+ *     {
+ *         alt.exit();
+ *         return;
+ *     }
+ * } // alt screen is exited here even on exception
  * }</pre>
  */
 public final class AltScreenScope implements AutoCloseable

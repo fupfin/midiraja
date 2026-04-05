@@ -8,7 +8,7 @@ package com.fupfin.midiraja.dsp;
  * amplitude levels (~7.6-bit), using cycle-counted Z80 loops.
  *
  * Signal path:
- *   Input (L+R) → Mono mixdown → Z80 quantization (128 levels) → HP (~510 Hz) → 2× LP (~4.5 kHz) → Output (mono)
+ * Input (L+R) → Mono mixdown → Z80 quantization (128 levels) → HP (~510 Hz) → 2× LP (~4.5 kHz) → Output (mono)
  *
  * Physical modeling rationale:
  * - LEVELS=128: Z80 3.5 MHz / ~27 cycles per step ≈ 128 discrete amplitude steps (~7-bit)
@@ -33,8 +33,8 @@ public class SpectrumBeeperFilter implements AudioProcessor
     public SpectrumBeeperFilter(boolean enabled, boolean auxOut, AudioProcessor next)
     {
         this.enabled = enabled;
-        this.auxOut  = auxOut;
-        this.next    = next;
+        this.auxOut = auxOut;
+        this.next = next;
     }
 
     @Override
@@ -84,11 +84,12 @@ public class SpectrumBeeperFilter implements AudioProcessor
     private float processSample(float monoIn)
     {
         // Z80 direct-toggle quantization: 128 discrete levels
-        float clamped   = Math.max(-1.0f, Math.min(1.0f, monoIn));
-        int level       = Math.round((clamped * 0.5f + 0.5f) * (LEVELS - 1));
+        float clamped = Math.max(-1.0f, Math.min(1.0f, monoIn));
+        int level = Math.round((clamped * 0.5f + 0.5f) * (LEVELS - 1));
         float quantized = (level / (float) (LEVELS - 1)) * 2.0f - 1.0f;
 
-        if (auxOut) return quantized;
+        if (auxOut)
+            return quantized;
 
         // High-pass filter (~510 Hz): removes DC and sub-bass (physical beeper limitation)
         hpOut = HP_ALPHA * (hpOut + quantized - hpPrev);
@@ -96,7 +97,7 @@ public class SpectrumBeeperFilter implements AudioProcessor
 
         // Two-stage low-pass (~4.5 kHz): models small diaphragm inertia
         lp1 += LP_ALPHA * (hpOut - lp1);
-        lp2 += LP_ALPHA * (lp1  - lp2);
+        lp2 += LP_ALPHA * (lp1 - lp2);
 
         return lp2;
     }

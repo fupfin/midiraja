@@ -11,13 +11,15 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
-class FmMidiUtilTest {
+class FmMidiUtilTest
+{
 
     @Test
-    void computeVelocity_tlZero_maxVelocity() {
-        int[][] tl = {{0, 0, 0, 0}};
-        int[] algorithm = {7}; // all 4 carriers
-        int[] feedback = {0};
+    void computeVelocity_tlZero_maxVelocity()
+    {
+        int[][] tl = { { 0, 0, 0, 0 } };
+        int[] algorithm = { 7 }; // all 4 carriers
+        int[] feedback = { 0 };
 
         int velocity = FmMidiUtil.computeVelocity(tl, algorithm, feedback, 0);
 
@@ -25,10 +27,11 @@ class FmMidiUtilTest {
     }
 
     @Test
-    void computeVelocity_tl127_minVelocity() {
-        int[][] tl = {{127, 127, 127, 127}};
-        int[] algorithm = {7}; // all 4 carriers
-        int[] feedback = {0};
+    void computeVelocity_tl127_minVelocity()
+    {
+        int[][] tl = { { 127, 127, 127, 127 } };
+        int[] algorithm = { 7 }; // all 4 carriers
+        int[] feedback = { 0 };
 
         int velocity = FmMidiUtil.computeVelocity(tl, algorithm, feedback, 0);
 
@@ -36,9 +39,11 @@ class FmMidiUtilTest {
     }
 
     @Test
-    void carrierOps_allAlgorithms() {
+    void carrierOps_allAlgorithms()
+    {
         // alg 0-3: 1 carrier (op 3)
-        for (int alg = 0; alg <= 3; alg++) {
+        for (int alg = 0; alg <= 3; alg++)
+        {
             assertEquals(1, FmMidiUtil.carrierOps(alg).length, "alg " + alg + " → 1 carrier");
         }
         // alg 4: 2 carriers
@@ -51,7 +56,8 @@ class FmMidiUtilTest {
     }
 
     @Test
-    void selectProgram_merge_cases2and3() {
+    void selectProgram_merge_cases2and3()
+    {
         int programAlg2 = FmMidiUtil.selectProgram(2, 0, 50, false);
         int programAlg3 = FmMidiUtil.selectProgram(3, 0, 50, false);
 

@@ -13,6 +13,15 @@ import java.util.List;
 /**
  * Represents a parsed Gravis Ultrasound (.pat) file.
  */
-public record GusPatch(String description,List<Instrument>instruments){public record Instrument(int id,String name,List<Sample>samples){}
+public record GusPatch(String description, List<Instrument> instruments)
+{
+    public record Instrument(int id, String name, List<Sample> samples)
+    {
+    }
 
-public record Sample(int length,int loopStart,int loopEnd,int sampleRate,int lowFrequency,int highFrequency,int rootFrequency,short pan,boolean is16Bit,boolean isUnsigned,MemorySegment pcmData){}}
+    public record Sample(int length, int loopStart, int loopEnd, int sampleRate,
+            int lowFrequency, int highFrequency, int rootFrequency, short pan,
+            boolean is16Bit, boolean isUnsigned, MemorySegment pcmData)
+    {
+    }
+}

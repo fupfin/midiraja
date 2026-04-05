@@ -28,23 +28,106 @@ class DumbUITest
                 new MidiPort(0, "TestPort"), null, false, false);
         return new PlaybackState()
         {
-            @Override public PlaylistContext getContext() { return ctx; }
-            @Override public javax.sound.midi.Sequence getSequence() { return null; }
-            @Override public long getCurrentMicroseconds() { return 0; }
-            @Override public long getTotalMicroseconds() { return 60_000_000L; }
-            @Override public int[] getChannelPrograms() { return new int[16]; }
-            @Override public float getCurrentBpm() { return 120f; }
-            @Override public double getCurrentSpeed() { return 1.0; }
-            @Override public int getCurrentTranspose() { return 0; }
-            @Override public double getVolumeScale() { return 1.0; }
-            @Override public boolean isPlaying() { return false; }
-            @Override public boolean isPaused() { return false; }
-            @Override public boolean isLoopEnabled() { return false; }
-            @Override public boolean isShuffleEnabled() { return false; }
-            @Override public boolean isBookmarked() { return false; }
-            @Override public String getFilterDescription() { return ""; }
-            @Override public String getPortSuffix() { return ""; }
-            @Override public void addPlaybackEventListener(PlaybackEventListener l) {}
+            @Override
+            public PlaylistContext getContext()
+            {
+                return ctx;
+            }
+
+            @Override
+            public javax.sound.midi.Sequence getSequence()
+            {
+                return null;
+            }
+
+            @Override
+            public long getCurrentMicroseconds()
+            {
+                return 0;
+            }
+
+            @Override
+            public long getTotalMicroseconds()
+            {
+                return 60_000_000L;
+            }
+
+            @Override
+            public int[] getChannelPrograms()
+            {
+                return new int[16];
+            }
+
+            @Override
+            public float getCurrentBpm()
+            {
+                return 120f;
+            }
+
+            @Override
+            public double getCurrentSpeed()
+            {
+                return 1.0;
+            }
+
+            @Override
+            public int getCurrentTranspose()
+            {
+                return 0;
+            }
+
+            @Override
+            public double getVolumeScale()
+            {
+                return 1.0;
+            }
+
+            @Override
+            public boolean isPlaying()
+            {
+                return false;
+            }
+
+            @Override
+            public boolean isPaused()
+            {
+                return false;
+            }
+
+            @Override
+            public boolean isLoopEnabled()
+            {
+                return false;
+            }
+
+            @Override
+            public boolean isShuffleEnabled()
+            {
+                return false;
+            }
+
+            @Override
+            public boolean isBookmarked()
+            {
+                return false;
+            }
+
+            @Override
+            public String getFilterDescription()
+            {
+                return "";
+            }
+
+            @Override
+            public String getPortSuffix()
+            {
+                return "";
+            }
+
+            @Override
+            public void addPlaybackEventListener(PlaybackEventListener l)
+            {
+            }
         };
     }
 
@@ -52,10 +135,7 @@ class DumbUITest
     void runRenderLoop_default_printsOutput() throws Exception
     {
         var mockIO = new MockTerminalIO();
-        ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> {
-            new DumbUI().runRenderLoop(stopped());
-            return null;
-        });
+        ScopedValue.where(TerminalIO.CONTEXT, mockIO).run(() -> new DumbUI().runRenderLoop(stopped()));
         assertFalse(mockIO.getOutput().isEmpty(), "Default DumbUI should produce output");
     }
 
@@ -63,10 +143,7 @@ class DumbUITest
     void runRenderLoop_quiet_producesNoOutput() throws Exception
     {
         var mockIO = new MockTerminalIO();
-        ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> {
-            new DumbUI(true).runRenderLoop(stopped());
-            return null;
-        });
+        ScopedValue.where(TerminalIO.CONTEXT, mockIO).run(() -> new DumbUI(true).runRenderLoop(stopped()));
         assertEquals("", mockIO.getOutput(), "Quiet DumbUI should produce no output");
     }
 
@@ -76,10 +153,7 @@ class DumbUITest
         var cmds = new RecordingCommands();
         cmds.stopAfter(0);
         var mockIO = new MockTerminalIO();
-        ScopedValue.where(TerminalIO.CONTEXT, mockIO).call(() -> {
-            new DumbUI(true).runInputLoop(cmds);
-            return null;
-        });
+        ScopedValue.where(TerminalIO.CONTEXT, mockIO).run(() -> new DumbUI(true).runInputLoop(cmds));
         assertEquals("", mockIO.getOutput());
     }
 }

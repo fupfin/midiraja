@@ -143,7 +143,7 @@ class ScreenBufferTest
     {
         var buf = new ScreenBuffer();
         buf.append("only line");
-        assertArrayEquals(new String[]{"only line"}, buf.toLines());
+        assertArrayEquals(new String[] { "only line" }, buf.toLines());
     }
 
     @Test
@@ -151,7 +151,7 @@ class ScreenBufferTest
     {
         var buf = new ScreenBuffer();
         buf.append("line1\nline2\nline3");
-        assertArrayEquals(new String[]{"line1", "line2", "line3"}, buf.toLines());
+        assertArrayEquals(new String[] { "line1", "line2", "line3" }, buf.toLines());
     }
 
     @Test

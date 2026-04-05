@@ -31,8 +31,8 @@ import com.fupfin.midiraja.midi.FluidSynthProvider;
 /**
  * Plays MIDI files through the built-in FluidSynth SoundFont synthesizer.
  */
-@Command(name = "fluid", aliases = {"fluidsynth"}, mixinStandardHelpOptions = true,
-        description = "FluidSynth SoundFont playback.")
+@Command(name = "fluid", aliases = {
+        "fluidsynth" }, mixinStandardHelpOptions = true, description = "FluidSynth SoundFont playback.")
 public class FluidCommand implements Callable<Integer>
 {
     @Spec
@@ -46,12 +46,10 @@ public class FluidCommand implements Callable<Integer>
     @Parameters(index = "0", description = "Path to the SoundFont (.sf2) file.")
     private final File soundfont = new File("");
 
-    @Parameters(index = "1..*", arity = "1..*",
-            description = "MIDI files, directories, or .m3u playlists to play.")
+    @Parameters(index = "1..*", arity = "1..*", description = "MIDI files, directories, or .m3u playlists to play.")
     private List<File> files = new ArrayList<>();
 
-    @Option(names = {"--driver"},
-            description = "Override the audio driver (e.g. coreaudio, dsound, alsa).")
+    @Option(names = { "--driver" }, description = "Override the audio driver (e.g. coreaudio, dsound, alsa).")
     private Optional<String> driver = Optional.empty();
 
     @Mixin
@@ -65,8 +63,7 @@ public class FluidCommand implements Callable<Integer>
 
         var provider = new FluidSynthProvider(driver.orElse(null));
 
-        var runner =
-                new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
         return runner.run(provider, true, Optional.empty(), Optional.of(soundfont.getPath()), files,
                 common, originalArgs());
     }
@@ -74,12 +71,17 @@ public class FluidCommand implements Callable<Integer>
     private List<String> originalArgs()
     {
         var rawArgs = requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(token -> {
-            if (!token.startsWith("-")) {
-                var f = new java.io.File(token);
-                if (f.exists()) return f.getAbsolutePath();
-            }
-            return token;
-        }).collect(java.util.stream.Collectors.toList());
+        return rawArgs.stream().map(this::resolveToken).collect(java.util.stream.Collectors.toList());
+    }
+
+    private String resolveToken(String token)
+    {
+        if (!token.startsWith("-"))
+        {
+            var f = new java.io.File(token);
+            if (f.exists())
+                return f.getAbsolutePath();
+        }
+        return token;
     }
 }

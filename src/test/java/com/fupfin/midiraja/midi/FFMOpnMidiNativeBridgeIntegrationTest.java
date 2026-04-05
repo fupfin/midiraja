@@ -17,17 +17,19 @@ import org.junit.jupiter.api.condition.EnabledIf;
  * Verifies that a NoteOn dispatched via the render-thread path produces
  * non-silent PCM output from opn2_generate().
  *
- * <p>Automatically skipped if libOPNMIDI is absent from the search paths
+ * <p>
+ * Automatically skipped if libOPNMIDI is absent from the search paths
  * checked by {@link FFMOpnMidiNativeBridge}'s library loader.
  */
-@EnabledIf("opnMidiLibPresent") class FFMOpnMidiNativeBridgeIntegrationTest
+@EnabledIf("opnMidiLibPresent")
+class FFMOpnMidiNativeBridgeIntegrationTest
 {
     static boolean opnMidiLibPresent()
     {
         String projectRoot = new java.io.File("").getAbsolutePath();
         String[] candidates = {
-            projectRoot + "/src/main/c/opnmidi/libOPNMIDI.dylib",
-            projectRoot + "/src/main/c/opnmidi/libOPNMIDI.so",
+                projectRoot + "/src/main/c/opnmidi/libOPNMIDI.dylib",
+                projectRoot + "/src/main/c/opnmidi/libOPNMIDI.so",
         };
         for (String path : candidates)
         {
@@ -58,7 +60,8 @@ import org.junit.jupiter.api.condition.EnabledIf;
         return false;
     }
 
-    @Test void testNoteOnProducesAudio() throws Exception
+    @Test
+    void testNoteOnProducesAudio() throws Exception
     {
         FFMOpnMidiNativeBridge bridge = new FFMOpnMidiNativeBridge();
         bridge.init(44100);
@@ -66,7 +69,7 @@ import org.junit.jupiter.api.condition.EnabledIf;
 
         // libOPNMIDI has no built-in bank; load the bundled default GM bank
         try (var stream = FFMOpnMidiNativeBridgeIntegrationTest.class.getResourceAsStream(
-                 "/com/midiraja/midi/opn-gm.wopn"))
+                "/com/midiraja/midi/opn-gm.wopn"))
         {
             if (stream != null)
                 bridge.loadBankData(stream.readAllBytes());

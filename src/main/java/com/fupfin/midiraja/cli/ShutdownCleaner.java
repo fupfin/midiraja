@@ -52,7 +52,8 @@ class ShutdownCleaner implements Runnable
 
     private void restoreTerminal()
     {
-        if (!isInteractive) return;
+        if (!isInteractive)
+            return;
         String safeRestore = (useAltScreen ? Theme.TERM_ALT_SCREEN_DISABLE : "")
                 + Theme.TERM_MOUSE_DISABLE + Theme.COLOR_RESET + Theme.TERM_AUTOWRAP_ON
                 + Theme.TERM_SHOW_CURSOR + "\r\033[K\n";
@@ -61,13 +62,15 @@ class ShutdownCleaner implements Runnable
             System.out.print(safeRestore);
             System.out.flush();
         }
-        catch (Exception _) {}
+        catch (Exception _)
+        {}
         try (var tty = new java.io.FileOutputStream("/dev/tty"))
         {
             tty.write(safeRestore.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             tty.flush();
         }
-        catch (Exception _) {}
+        catch (Exception _)
+        {}
     }
 
     private void closeIO()
@@ -84,7 +87,8 @@ class ShutdownCleaner implements Runnable
 
     private void closePort()
     {
-        if (!portClosed.compareAndSet(false, true)) return;
+        if (!portClosed.compareAndSet(false, true))
+            return;
         try
         {
             provider.panic();

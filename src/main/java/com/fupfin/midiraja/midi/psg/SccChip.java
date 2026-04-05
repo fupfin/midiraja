@@ -54,15 +54,15 @@ public class SccChip extends AbstractTrackerChip
     static
     {
         // Pre-baked optimized SCC waveforms
-        byte[] p = {127, 48, 15, -9, -29, -47, -62, -75, -86, -96, -104, -111, -117, -121, -124,
-                -126, -127, 112, 96, 80, 64, 48, 32, 16, 0, -15, -31, -47, -63, -79, -95, -111};
-        byte[] s = {0, 35, 65, 85, 95, 95, 88, 78, 69, 64, 61, 60, 57, 50, 38, 20, 0, -20, -38, -50,
-                -57, -60, -61, -64, -69, -78, -88, -95, -95, -85, -65, -35};
-        byte[] b = {-128, -116, -104, -92, -80, -68, -56, -44, -32, -20, -8, 3, 15, 27, 39, 51, 63,
-                75, 87, 99, 111, 123, -120, -108, -96, -84, -72, -60, -48, -36, -24, -12};
-        byte[] bs = {127, 127, 127, 127, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
+        byte[] p = { 127, 48, 15, -9, -29, -47, -62, -75, -86, -96, -104, -111, -117, -121, -124,
+                -126, -127, 112, 96, 80, 64, 48, 32, 16, 0, -15, -31, -47, -63, -79, -95, -111 };
+        byte[] s = { 0, 35, 65, 85, 95, 95, 88, 78, 69, 64, 61, 60, 57, 50, 38, 20, 0, -20, -38, -50,
+                -57, -60, -61, -64, -69, -78, -88, -95, -95, -85, -65, -35 };
+        byte[] b = { -128, -116, -104, -92, -80, -68, -56, -44, -32, -20, -8, 3, 15, 27, 39, 51, 63,
+                75, 87, 99, 111, 123, -120, -108, -96, -84, -72, -60, -48, -36, -24, -12 };
+        byte[] bs = { 127, 127, 127, 127, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
                 -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128,
-                -128, -128, -128, -128};
+                -128, -128, -128, -128 };
 
         System.arraycopy(p, 0, WAVE_PIANO, 0, 32);
         System.arraycopy(s, 0, WAVE_STRINGS, 0, 32);
@@ -152,11 +152,11 @@ public class SccChip extends AbstractTrackerChip
         int family = program / 8;
         byte[] targetWave = switch (family)
         {
-            case 0, 1, 3 -> WAVE_PIANO;   // Piano, Chrom Perc, Guitar
-            case 4       -> WAVE_BASS;    // Bass
+            case 0, 1, 3 -> WAVE_PIANO; // Piano, Chrom Perc, Guitar
+            case 4 -> WAVE_BASS; // Bass
             case 5, 11, 12 -> WAVE_STRINGS; // Strings, Synth Pad, Synth FX
-            case 7, 10   -> WAVE_BRASS;   // Brass, Synth Lead
-            default      -> WAVE_SQUARE;
+            case 7, 10 -> WAVE_BRASS; // Brass, Synth Lead
+            default -> WAVE_SQUARE;
         };
 
         for (int i = 0; i < NUM_CHANNELS; i++)
@@ -176,7 +176,8 @@ public class SccChip extends AbstractTrackerChip
         for (int ch = 0; ch < NUM_CHANNELS; ch++)
         {
             SccChannel c = channels[ch];
-            if (!c.active) continue;
+            if (!c.active)
+                continue;
 
             if (c.activeFrames % 882 == 0)
             {
@@ -270,7 +271,8 @@ public class SccChip extends AbstractTrackerChip
             }
         }
 
-        if (targetCh == -1) return false;
+        if (targetCh == -1)
+            return false;
 
         SccChannel c = channels[targetCh];
         c.resetCommon();

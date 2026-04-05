@@ -37,9 +37,10 @@ import com.fupfin.midiraja.midi.beep.BeepSynthProvider;
 /**
  * Plays MIDI files using a 1-bit PC Speaker / Apple II style synthesizer.
  */
-@Command(name = "beep", aliases = {"1bit"}, mixinStandardHelpOptions = true,
-        description = "1-bit digital logic synthesizer (Apple II / PC Speaker style).", footer = {"",
-                "Experience the extreme limitations of 1980s computer audio via 1-bit logic gates."})
+@Command(name = "beep", aliases = {
+        "1bit" }, mixinStandardHelpOptions = true, description = "1-bit digital logic synthesizer (Apple II / PC Speaker style).", footer = {
+                "",
+                "Experience the extreme limitations of 1980s computer audio via 1-bit logic gates." })
 public class BeepCommand implements Callable<Integer>
 {
     @Spec
@@ -55,35 +56,31 @@ public class BeepCommand implements Callable<Integer>
     @Mixin
     private FxOptions fxOptions = new FxOptions();
 
-    @Option(names = {"--synth"}, defaultValue = "square",
-            description = "Synthesis generation algorithm:\n"
-                    + "  'fm'     (Yamaha-like Phase/Frequency Modulation using smooth sine waves)\n"
-                    + "  'xor'    (Historical Tim Follin-style Ring Modulation using intersecting square waves)\n"
-                    + "  'square' (Classic 8-bit Square Wave with LFO Vibrato and Duty Sweep)")
+    @Option(names = { "--synth" }, defaultValue = "square", description = "Synthesis generation algorithm:\n"
+            + "  'fm'     (Yamaha-like Phase/Frequency Modulation using smooth sine waves)\n"
+            + "  'xor'    (Historical Tim Follin-style Ring Modulation using intersecting square waves)\n"
+            + "  'square' (Classic 8-bit Square Wave with LFO Vibrato and Duty Sweep)")
     private String synth = "square";
 
-    @Option(names = {"--mux"}, defaultValue = "xor",
-            description = "Multiplexing algorithm:\n"
-                    + "  'dsd' (Default, Delta-Sigma Modulation, highest modern fidelity)\n"
-                    + "  'pwm' (Analog Summing -> PWM, clean with 22kHz retro carrier whine)\n"
-                    + "  'tdm' (Time-Division Multiplexing, micro-ticking)\n"
-                    + "  'xor' (Historical 1981 Apple II logic, gritty Ring Modulation)")
+    @Option(names = { "--mux" }, defaultValue = "xor", description = "Multiplexing algorithm:\n"
+            + "  'dsd' (Default, Delta-Sigma Modulation, highest modern fidelity)\n"
+            + "  'pwm' (Analog Summing -> PWM, clean with 22kHz retro carrier whine)\n"
+            + "  'tdm' (Time-Division Multiplexing, micro-ticking)\n"
+            + "  'xor' (Historical 1981 Apple II logic, gritty Ring Modulation)")
     private String mux = "dsd";
 
-    @Option(names = {"--voices"}, defaultValue = "2",
-            description = "Polyphony per virtual unit (1-4). Default: 2")
+    @Option(names = { "--voices" }, defaultValue = "2", description = "Polyphony per virtual unit (1-4). Default: 2")
     private int voices = 2;
 
-    @Option(names = {"--fm-ratio"}, defaultValue = "1.0",
-            description = "Modulator frequency ratio (e.g., 1.0 for clean, 3.5 for metallic). Default: 1.0")
+    @Option(names = {
+            "--fm-ratio" }, defaultValue = "1.0", description = "Modulator frequency ratio (e.g., 1.0 for clean, 3.5 for metallic). Default: 1.0")
     private double fmRatio = 2.0;
 
-    @Option(names = {"--fm-index"}, defaultValue = "1.1",
-            description = "Modulation intensity peak. Default: 1.1")
+    @Option(names = { "--fm-index" }, defaultValue = "1.1", description = "Modulation intensity peak. Default: 1.1")
     private double fmIndex = 2.0;
 
-    @Option(names = {"-q", "--quality"}, defaultValue = "1",
-            description = "Audio quality level from 1 to 6. (1 = Authentic hardware noise, 6 = Modern studio pristine).")
+    @Option(names = { "-q",
+            "--quality" }, defaultValue = "1", description = "Audio quality level from 1 to 6. (1 = Authentic hardware noise, 6 = Modern studio pristine).")
     private int qualityLevel = 1;
 
     @Parameters(paramLabel = "FILE", description = "One or more MIDI files to play")
@@ -119,8 +116,7 @@ public class BeepCommand implements Callable<Integer>
                 fmRatio, fmIndex, actualOversample, mux.toLowerCase(ROOT),
                 synth.toLowerCase(ROOT));
 
-        var runner =
-                new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
         runner.setFxOptions(fxOptions);
         int result = runner.run(provider, true, Optional.empty(), Optional.empty(), files,
                 requireNonNull(common), originalArgs());
@@ -132,12 +128,17 @@ public class BeepCommand implements Callable<Integer>
     private List<String> originalArgs()
     {
         var rawArgs = requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(token -> {
-            if (!token.startsWith("-")) {
-                var f = new java.io.File(token);
-                if (f.exists()) return f.getAbsolutePath();
-            }
-            return token;
-        }).collect(java.util.stream.Collectors.toList());
+        return rawArgs.stream().map(this::resolveToken).collect(java.util.stream.Collectors.toList());
+    }
+
+    private String resolveToken(String token)
+    {
+        if (!token.startsWith("-"))
+        {
+            var f = new java.io.File(token);
+            if (f.exists())
+                return f.getAbsolutePath();
+        }
+        return token;
     }
 }

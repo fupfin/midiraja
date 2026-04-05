@@ -15,31 +15,39 @@ import javax.sound.midi.Track;
 
 import org.junit.jupiter.api.Test;
 
-class GameBoyDmgMidiConverterTest {
+class GameBoyDmgMidiConverterTest
+{
 
     private static final long CLOCK = 4_194_304L;
 
-    private static VgmEvent gb(int reg, int data) {
-        return new VgmEvent(0, 11, new byte[]{(byte) reg, (byte) data});
+    private static VgmEvent gb(int reg, int data)
+    {
+        return new VgmEvent(0, 11, new byte[] { (byte) reg, (byte) data });
     }
 
-    private static Track[] makeTracks() throws Exception {
+    private static Track[] makeTracks() throws Exception
+    {
         var seq = new Sequence(Sequence.PPQ, 480);
         var tracks = new Track[15];
-        for (int i = 0; i < 15; i++) tracks[i] = seq.createTrack();
+        for (int i = 0; i < 15; i++)
+            tracks[i] = seq.createTrack();
         return tracks;
     }
 
-    private static ShortMessage findFirst(Track track, int command) {
-        for (int i = 0; i < track.size(); i++) {
+    private static ShortMessage findFirst(Track track, int command)
+    {
+        for (int i = 0; i < track.size(); i++)
+        {
             var msg = track.get(i).getMessage();
-            if (msg instanceof ShortMessage sm && sm.getCommand() == command) return sm;
+            if (msg instanceof ShortMessage sm && sm.getCommand() == command)
+                return sm;
         }
         return null;
     }
 
     @Test
-    void dmgNote_a4() {
+    void dmgNote_a4()
+    {
         // f = 4194304 / (32 * (2048 - freq)). For A4 (440 Hz): 2048 - freq = 4194304/(32*440) ≈ 298
         // freq = 2048 - 298 = 1750
         int note = GameBoyDmgMidiConverter.dmgNote(CLOCK, 1750);
@@ -47,13 +55,15 @@ class GameBoyDmgMidiConverterTest {
     }
 
     @Test
-    void dmgNote_period_zero_returnsMinusOne() {
+    void dmgNote_period_zero_returnsMinusOne()
+    {
         // freq = 2048 → period = 0 → invalid
         assertEquals(-1, GameBoyDmgMidiConverter.dmgNote(CLOCK, 2048));
     }
 
     @Test
-    void ch1_trigger_producesNoteOn() throws Exception {
+    void ch1_trigger_producesNoteOn() throws Exception
+    {
         var converter = new GameBoyDmgMidiConverter();
         var tracks = makeTracks();
 
@@ -70,7 +80,8 @@ class GameBoyDmgMidiConverterTest {
     }
 
     @Test
-    void ch2_trigger_routesToMidiCh1() throws Exception {
+    void ch2_trigger_routesToMidiCh1() throws Exception
+    {
         var converter = new GameBoyDmgMidiConverter();
         var tracks = makeTracks();
 
@@ -83,7 +94,8 @@ class GameBoyDmgMidiConverterTest {
     }
 
     @Test
-    void ch3_wave_routesToMidiCh2() throws Exception {
+    void ch3_wave_routesToMidiCh2() throws Exception
+    {
         var converter = new GameBoyDmgMidiConverter();
         var tracks = makeTracks();
 
@@ -96,7 +108,8 @@ class GameBoyDmgMidiConverterTest {
     }
 
     @Test
-    void ch4_noise_routesToDrumChannel() throws Exception {
+    void ch4_noise_routesToDrumChannel() throws Exception
+    {
         var converter = new GameBoyDmgMidiConverter();
         var tracks = makeTracks();
 
@@ -110,7 +123,8 @@ class GameBoyDmgMidiConverterTest {
     }
 
     @Test
-    void zeroVolume_trigger_producesNoNote() throws Exception {
+    void zeroVolume_trigger_producesNoNote() throws Exception
+    {
         var converter = new GameBoyDmgMidiConverter();
         var tracks = makeTracks();
 
@@ -123,7 +137,8 @@ class GameBoyDmgMidiConverterTest {
     }
 
     @Test
-    void panRegister_emitsCC10() throws Exception {
+    void panRegister_emitsCC10() throws Exception
+    {
         var converter = new GameBoyDmgMidiConverter();
         var tracks = makeTracks();
 
@@ -134,11 +149,13 @@ class GameBoyDmgMidiConverterTest {
         converter.convert(gb(0x04, 0x86), tracks, CLOCK, 1);
 
         ShortMessage cc = null;
-        for (int i = 0; i < tracks[0].size(); i++) {
+        for (int i = 0; i < tracks[0].size(); i++)
+        {
             var msg = tracks[0].get(i).getMessage();
             if (msg instanceof ShortMessage sm
                     && sm.getCommand() == ShortMessage.CONTROL_CHANGE
-                    && sm.getData1() == 10) {
+                    && sm.getData1() == 10)
+            {
                 cc = sm;
                 break;
             }

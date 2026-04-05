@@ -15,18 +15,22 @@ import java.util.Locale;
 /**
  * Detects Impulse Tracker (.it) files by extension or magic bytes.
  *
- * <p>The IT magic {@code "IMPM"} appears at byte offset 0.
+ * <p>
+ * The IT magic {@code "IMPM"} appears at byte offset 0.
  */
 public final class ItFileDetector
 {
-    private static final byte[] MAGIC = {'I', 'M', 'P', 'M'};
+    private static final byte[] MAGIC = { 'I', 'M', 'P', 'M' };
 
-    private ItFileDetector() {}
+    private ItFileDetector()
+    {
+    }
 
     public static boolean isItFile(File file)
     {
         String name = file.getName().toLowerCase(Locale.ROOT);
-        if (name.endsWith(".it")) return true;
+        if (name.endsWith(".it"))
+            return true;
         return hasMagic(file);
     }
 
@@ -35,9 +39,11 @@ public final class ItFileDetector
         try (var in = new FileInputStream(file))
         {
             byte[] buf = in.readNBytes(MAGIC.length);
-            if (buf.length < MAGIC.length) return false;
+            if (buf.length < MAGIC.length)
+                return false;
             for (int i = 0; i < MAGIC.length; i++)
-                if (buf[i] != MAGIC[i]) return false;
+                if (buf[i] != MAGIC[i])
+                    return false;
             return true;
         }
         catch (IOException e)

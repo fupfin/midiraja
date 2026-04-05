@@ -6,15 +6,18 @@ import java.util.Arrays;
 
 import org.junit.jupiter.api.Test;
 
-class DspPipelineTest {
+class DspPipelineTest
+{
 
-    static class CaptureSink implements AudioProcessor {
+    static class CaptureSink implements AudioProcessor
+    {
         float[] capturedLeft;
         float[] capturedRight;
         int capturedFrames = 0;
 
         @Override
-        public void process(float[] left, float[] right, int frames) {
+        public void process(float[] left, float[] right, int frames)
+        {
             capturedLeft = left.clone();
             capturedRight = right.clone();
             capturedFrames = frames;
@@ -22,29 +25,70 @@ class DspPipelineTest {
     }
 
     @Test
-    void testFormatConversionAndHardClipping() {
+    void testFormatConversionAndHardClipping()
+    {
         short[] outPcm = new short[4];
-        AudioProcessor dummyNext = new AudioProcessor() {
-            @Override public void process(float[] l, float[] r, int f) {}
-            @Override public void processInterleaved(short[] pcm, int f, int c) {
+        AudioProcessor dummyNext = new AudioProcessor()
+        {
+            @Override
+            public void process(float[] l, float[] r, int f)
+            {
+            }
+
+            @Override
+            public void processInterleaved(short[] pcm, int f, int c)
+            {
                 System.arraycopy(pcm, 0, outPcm, 0, f * c);
             }
         };
 
-        FloatToShortSink f2s = new FloatToShortSink(new com.fupfin.midiraja.midi.AudioEngine() {
-            public void init(int sr, int ch, int buf) {}
-            public int push(short[] pcm) { return push(pcm, 0, pcm.length); }
-            @Override public int push(short[] pcm, int offset, int length) {
+        FloatToShortSink f2s = new FloatToShortSink(new com.fupfin.midiraja.midi.AudioEngine()
+        {
+            public void init(int sr, int ch, int buf)
+            {
+            }
+
+            public int push(short[] pcm)
+            {
+                return push(pcm, 0, pcm.length);
+            }
+
+            @Override
+            public int push(short[] pcm, int offset, int length)
+            {
                 short[] slice = java.util.Arrays.copyOfRange(pcm, offset, offset + length);
-                dummyNext.processInterleaved(slice, length/2, 2);
+                dummyNext.processInterleaved(slice, length / 2, 2);
                 return length;
             }
-            public int getQueuedFrames() { return 0; }
-        @Override public int getBufferCapacityFrames() { return 4096; }
-            public int getDeviceLatencyFrames() { return 0; }
-            public void flush() {}
-        @Override public void enableDump(String path) {}
-            public void close() {}
+
+            public int getQueuedFrames()
+            {
+                return 0;
+            }
+
+            @Override
+            public int getBufferCapacityFrames()
+            {
+                return 4096;
+            }
+
+            public int getDeviceLatencyFrames()
+            {
+                return 0;
+            }
+
+            public void flush()
+            {
+            }
+
+            @Override
+            public void enableDump(String path)
+            {
+            }
+
+            public void close()
+            {
+            }
         }, 2);
 
         float[] left = { 2.0f, -1.5f };
@@ -58,7 +102,8 @@ class DspPipelineTest {
     }
 
     @Test
-    void testTubeSaturationBoundaryAndBypass() {
+    void testTubeSaturationBoundaryAndBypass()
+    {
         CaptureSink sink = new CaptureSink();
         TubeSaturationFilter tube = new TubeSaturationFilter(sink, 50f);
 
@@ -83,7 +128,8 @@ class DspPipelineTest {
     }
 
     @Test
-    void testEqFilterNeutralAndMute() {
+    void testEqFilterNeutralAndMute()
+    {
         CaptureSink sink = new CaptureSink();
         EqFilter eq = new EqFilter(sink);
 
@@ -93,18 +139,21 @@ class DspPipelineTest {
         float[] right = { 1.0f, 1.0f, 1.0f, 1.0f };
         eq.process(left.clone(), right.clone(), 4);
 
-        assertTrue(sink.capturedLeft[3] > 0.9f && sink.capturedLeft[3] < 1.1f, "Neutral EQ should not drastically alter amplitude");
+        assertTrue(sink.capturedLeft[3] > 0.9f && sink.capturedLeft[3] < 1.1f,
+                "Neutral EQ should not drastically alter amplitude");
 
         eq.setParams(0f, 50f, 50f);
         float[] dcLeft = new float[100];
         Arrays.fill(dcLeft, 1.0f);
         eq.process(dcLeft, dcLeft.clone(), 100);
 
-        assertTrue(Math.abs(sink.capturedLeft[99]) < 0.1f, "0% Bass should heavily attenuate low frequency (DC) signals");
+        assertTrue(Math.abs(sink.capturedLeft[99]) < 0.1f,
+                "0% Bass should heavily attenuate low frequency (DC) signals");
     }
 
     @Test
-    void testEqFilterExtremeCutoffs() {
+    void testEqFilterExtremeCutoffs()
+    {
         CaptureSink sink = new CaptureSink();
         EqFilter eq = new EqFilter(sink);
 
@@ -112,15 +161,15 @@ class DspPipelineTest {
         eq.setHpf(-100f);
 
         float[] left = { 0.5f, -0.5f };
-        assertDoesNotThrow(() -> {
-            eq.process(left.clone(), left.clone(), 2);
-        }, "Extreme cutoffs should not throw exceptions or generate NaNs");
+        assertDoesNotThrow(() -> eq.process(left.clone(), left.clone(), 2),
+                "Extreme cutoffs should not throw exceptions or generate NaNs");
 
         assertFalse(Float.isNaN(sink.capturedLeft[0]), "Output should not be NaN");
     }
 
     @Test
-    void testReverbImpulseResponse() {
+    void testReverbImpulseResponse()
+    {
         CaptureSink sink = new CaptureSink();
         ReverbFilter reverb = new ReverbFilter(sink, ReverbFilter.Preset.ROOM);
 
@@ -133,25 +182,27 @@ class DspPipelineTest {
         reverb.process(silence, silence.clone(), 2000);
 
         double energy = 0;
-        for (float v : sink.capturedLeft) energy += Math.abs(v);
+        for (float v : sink.capturedLeft)
+            energy += Math.abs(v);
 
         assertTrue(energy > 0.0f, "Reverb should produce a tail after the input stops");
 
         reverb.setPreset(ReverbFilter.Preset.ROOM, 0f);
         silence = new float[10];
         reverb.process(silence, silence.clone(), 10);
-        assertEquals(0.0f, sink.capturedLeft[9], 0.0001f, "0% Reverb level should yield pure silence if input is silent");
+        assertEquals(0.0f, sink.capturedLeft[9], 0.0001f,
+                "0% Reverb level should yield pure silence if input is silent");
     }
 
     @Test
-    void testEmptyBufferGracefulHandling() {
+    void testEmptyBufferGracefulHandling()
+    {
         CaptureSink sink = new CaptureSink();
         ChorusFilter chorus = new ChorusFilter(sink, 50f);
 
         float[] empty = new float[0];
-        assertDoesNotThrow(() -> {
-            chorus.process(empty, empty, 0);
-        }, "Filters must gracefully handle 0-length frame requests");
+        assertDoesNotThrow(() -> chorus.process(empty, empty, 0),
+                "Filters must gracefully handle 0-length frame requests");
 
         assertEquals(0, sink.capturedFrames, "Sink should receive 0 frames");
     }

@@ -31,7 +31,8 @@ public class CompositePanel implements Panel
         int currentY = 0;
         for (int i = 0; i < panels.size(); i++)
         {
-            int h = (i == panels.size() - 1) ? Math.max(0, bounds.height() - currentY)
+            int h = (i == panels.size() - 1)
+                    ? Math.max(0, bounds.height() - currentY)
                     : fixedHeights[i];
             panels.get(i).onLayoutUpdated(new LayoutConstraints(bounds.width(), h,
                     bounds.showHeaders(), bounds.isHorizontal()));
@@ -66,7 +67,8 @@ public class CompositePanel implements Panel
     @Override
     public void render(ScreenBuffer buffer)
     {
-        if (constraints.height() <= 0) return;
+        if (constraints.height() <= 0)
+            return;
         panels.forEach(p -> p.render(buffer));
     }
 }

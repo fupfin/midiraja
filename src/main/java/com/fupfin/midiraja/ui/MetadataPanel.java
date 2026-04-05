@@ -28,30 +28,36 @@ public class MetadataPanel implements Panel
 
     @Override
     public void onPlaybackStateChanged()
-    {}
+    {
+    }
 
     @Override
     public void onTick(long currentMicroseconds)
-    {}
+    {
+    }
 
     @Override
     public void onTempoChanged(float bpm)
-    {}
+    {
+    }
 
     @Override
     public void onChannelActivity(int channel, int velocity)
-    {}
+    {
+    }
 
     public void updateContext(PlaylistContext context)
     {
-        this.title = context.sequenceTitle() != null ? context.sequenceTitle()
+        this.title = context.sequenceTitle() != null
+                ? context.sequenceTitle()
                 : context.files().get(context.currentIndex()).getName();
     }
 
     @Override
     public void render(ScreenBuffer buffer)
     {
-        if (constraints.height() <= 0) return;
+        if (constraints.height() <= 0)
+            return;
         String rawTitle = title != null ? title : "Unknown";
 
         if (constraints.height() == 1)

@@ -94,7 +94,6 @@ class CommonOptionsTest
         assertInstanceOf(com.fupfin.midiraja.dsp.CompactMacSimulatorFilter.class, result);
     }
 
-
     @Test
     void wrapRetroFilter_retroModePc_wrapsWithOneBitFilter()
     {
@@ -117,7 +116,6 @@ class CommonOptionsTest
         assertInstanceOf(com.fupfin.midiraja.dsp.CovoxDacFilter.class, result);
     }
 
-
     @Test
     void wrapRetroFilter_retroModeApple2_wrapsWithOneBitFilter()
     {
@@ -139,7 +137,6 @@ class CommonOptionsTest
         assertNotSame(sink, result);
         assertInstanceOf(com.fupfin.midiraja.dsp.SpectrumBeeperFilter.class, result);
     }
-
 
     @Test
     void wrapRetroFilter_retroModeDisneysound_wrapsWithCovoxFilter()

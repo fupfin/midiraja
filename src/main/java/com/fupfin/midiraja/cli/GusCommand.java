@@ -28,12 +28,12 @@ import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.gus.GusSynthProvider;
 
-@Command(name = "patch", aliases = {"gus", "pat", "guspatch"}, mixinStandardHelpOptions = true,
-        description = "GUS wavetable patches (.pat), FreePats bundled.",
-        footer = {"",
+@Command(name = "patch", aliases = { "gus", "pat",
+        "guspatch" }, mixinStandardHelpOptions = true, description = "GUS wavetable patches (.pat), FreePats bundled.", footer = {
+                "",
                 "The patch directory is optional. If omitted, FreePats is downloaded automatically.",
                 "  midra patch song.mid",
-                "  midra patch ~/patches/eawpats song.mid"})
+                "  midra patch ~/patches/eawpats song.mid" })
 public class GusCommand implements Callable<Integer>
 {
     @Spec
@@ -50,25 +50,25 @@ public class GusCommand implements Callable<Integer>
     @Mixin
     private CommonOptions common = new CommonOptions();
 
-    @Parameters(index = "0", arity = "0..1",
-            description = "Optional: directory containing GUS .pat files. If a MIDI file is given here, FreePats is used.")
+    @Parameters(index = "0", arity = "0..1", description = "Optional: directory containing GUS .pat files. If a MIDI file is given here, FreePats is used.")
     @Nullable
     private File firstArg = null;
 
-    @Parameters(index = "1..*", arity = "0..*",
-            description = "MIDI files, directories, or .m3u playlists to play.")
+    @Parameters(index = "1..*", arity = "0..*", description = "MIDI files, directories, or .m3u playlists to play.")
     private List<File> moreFiles = new ArrayList<>();
 
     private @Nullable File patchDir()
     {
-        if (firstArg == null || moreFiles.isEmpty()) return null;
+        if (firstArg == null || moreFiles.isEmpty())
+            return null;
         File f = PlaylistParser.normalize(firstArg);
         return java.nio.file.Files.isDirectory(f.toPath()) ? f : null;
     }
 
     private List<File> files()
     {
-        if (firstArg == null) return moreFiles;
+        if (firstArg == null)
+            return moreFiles;
         File f = PlaylistParser.normalize(firstArg);
         // Directory-only arg: MIDI source, not patch dir.
         if (java.nio.file.Files.isDirectory(f.toPath()) && moreFiles.isEmpty())
@@ -107,7 +107,8 @@ public class GusCommand implements Callable<Integer>
         var provider = new GusSynthProvider(pipeline,
                 patchDir != null ? patchDir.getAbsolutePath() : null);
         var masterGain = Objects.requireNonNull(fxOptions).masterGain;
-        if (masterGain != null) provider.setMasterGain(masterGain);
+        if (masterGain != null)
+            provider.setMasterGain(masterGain);
 
         var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
         runner.setFxOptions(fxOptions);
@@ -120,12 +121,17 @@ public class GusCommand implements Callable<Integer>
     private List<String> originalArgs()
     {
         var rawArgs = Objects.requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(token -> {
-            if (!token.startsWith("-")) {
-                var f = new java.io.File(token);
-                if (f.exists()) return f.getAbsolutePath();
-            }
-            return token;
-        }).collect(java.util.stream.Collectors.toList());
+        return rawArgs.stream().map(this::resolveToken).collect(java.util.stream.Collectors.toList());
+    }
+
+    private String resolveToken(String token)
+    {
+        if (!token.startsWith("-"))
+        {
+            var f = new java.io.File(token);
+            if (f.exists())
+                return f.getAbsolutePath();
+        }
+        return token;
     }
 }

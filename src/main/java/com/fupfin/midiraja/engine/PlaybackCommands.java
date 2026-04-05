@@ -11,14 +11,24 @@ package com.fupfin.midiraja.engine;
 public interface PlaybackCommands
 {
     boolean isPlaying();
+
     void requestStop(PlaybackEngine.PlaybackStatus status);
+
     void adjustVolume(double delta);
+
     void adjustSpeed(double delta);
+
     void adjustTranspose(int delta);
+
     void seekRelative(long microsecondsDelta);
+
     void togglePause();
+
     void toggleLoop();
+
     void toggleShuffle();
+
     void fireBookmark();
+
     void firePlayOrderChanged(PlaylistContext ctx);
 }

@@ -71,7 +71,8 @@ public class FloatToShortSink implements AudioSink
     @Override
     public void process(float[] left, float[] right, int frames)
     {
-        if (engine == null) return;
+        if (engine == null)
+            return;
 
         int needed = frames * outputChannels;
         if (pcmBuffer == null || pcmBuffer.length < needed)

@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import javax.sound.midi.MetaMessage;
-import javax.sound.midi.MidiEvent;
 import javax.sound.midi.Sequence;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
@@ -28,15 +27,18 @@ class ModToMidiConverterTest
     private static List<ModInstrument> emptyInstruments()
     {
         var list = new java.util.ArrayList<ModInstrument>();
-        for (int i = 0; i < 31; i++) list.add(new ModInstrument("", 0, 0, 64, 0, 0));
+        for (int i = 0; i < 31; i++)
+            list.add(new ModInstrument("", 0, 0, 64, 0, 0));
         return List.copyOf(list);
     }
 
     private static List<ModInstrument> instrumentList(String... names)
     {
         var list = new java.util.ArrayList<ModInstrument>();
-        for (String name : names) list.add(new ModInstrument(name, 0, 0, 64, 0, 0));
-        while (list.size() < 31) list.add(new ModInstrument("", 0, 0, 64, 0, 0));
+        for (String name : names)
+            list.add(new ModInstrument(name, 0, 0, 64, 0, 0));
+        while (list.size() < 31)
+            list.add(new ModInstrument("", 0, 0, 64, 0, 0));
         return List.copyOf(list);
     }
 
@@ -45,7 +47,8 @@ class ModToMidiConverterTest
         for (int i = 0; i < track.size(); i++)
         {
             var msg = track.get(i).getMessage();
-            if (msg instanceof ShortMessage sm && sm.getCommand() == command) return sm;
+            if (msg instanceof ShortMessage sm && sm.getCommand() == command)
+                return sm;
         }
         return null;
     }
@@ -184,13 +187,14 @@ class ModToMidiConverterTest
     void buildMidiChannelMap_skipsDrumChannel()
     {
         int[] map = ModToMidiConverter.buildMidiChannelMap(8);
-        for (int ch : map) assertNotEquals(9, ch, "MIDI channel 9 must not be assigned to MOD channels");
+        for (int ch : map)
+            assertNotEquals(9, ch, "MIDI channel 9 must not be assigned to MOD channels");
     }
 
     @Test
     void buildMidiChannelMap_firstFour()
     {
         int[] map = ModToMidiConverter.buildMidiChannelMap(4);
-        assertArrayEquals(new int[]{0, 1, 2, 3}, map);
+        assertArrayEquals(new int[] { 0, 1, 2, 3 }, map);
     }
 }

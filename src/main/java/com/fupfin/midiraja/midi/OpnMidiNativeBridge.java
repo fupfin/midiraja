@@ -28,9 +28,9 @@ public interface OpnMidiNativeBridge extends MidiNativeBridge
      * Initializes the OPN2 synthesizer device at the given sample rate. Must be called before any
      * other method.
      *
-     * @param sampleRate Audio output sample rate (e.g. 44100).
+     * @param sampleRate
+     *            Audio output sample rate (e.g. 44100).
      */
-
 
     /**
      * Loads an external .wopn bank file. Call after {@link #init}.
@@ -59,25 +59,21 @@ public interface OpnMidiNativeBridge extends MidiNativeBridge
      * the render thread (not thread-safe).
      */
 
-
     // --- MIDI Event Routing (dispatched by render thread from event queue) ---
-
-
 
     /**
      * Sends a pitch-bend event on the given channel.
      *
-     * @param channel MIDI channel (0–15).
-     * @param pitch 14-bit unsigned pitch bend (0–16383).
+     * @param channel
+     *            MIDI channel (0–15).
+     * @param pitch
+     *            14-bit unsigned pitch bend (0–16383).
      */
-
-
 
     /**
      * Immediately cuts all active notes. Must be called from the render thread while it is paused
      * (i.e., not in {@link #generate}).
      */
-
 
     /**
      * Renders PCM audio into {@code buffer}.
@@ -87,10 +83,11 @@ public interface OpnMidiNativeBridge extends MidiNativeBridge
      * {@code stereoFrames * 2} elements. Internally, libOPNMIDI's {@code opn2_generate} receives
      * {@code buffer.length} (total shorts = frames × 2).
      *
-     * @param buffer Output buffer (interleaved stereo 16-bit PCM).
-     * @param stereoFrames Number of stereo frames to render.
+     * @param buffer
+     *            Output buffer (interleaved stereo 16-bit PCM).
+     * @param stereoFrames
+     *            Number of stereo frames to render.
      */
-
 
     /** Closes and frees all native resources. */
 

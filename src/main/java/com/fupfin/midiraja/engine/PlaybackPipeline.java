@@ -12,8 +12,8 @@ package com.fupfin.midiraja.engine;
  * send events and adjust audio parameters. Decouples the engine from concrete filter
  * classes (VolumeFilter, TransposeFilter, SysexFilter).
  */
-public interface PlaybackPipeline {
-
+public interface PlaybackPipeline
+{
     /** Send a raw MIDI message through the pipeline. */
     void sendMessage(byte[] data) throws Exception;
 

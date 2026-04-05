@@ -27,10 +27,12 @@ import com.fupfin.midiraja.midi.AbstractFFMBridge;
  * macOS media key integration via MPRemoteCommandCenter + MPNowPlayingInfoCenter.
  * Requires macOS 10.12.2+ and libmidiraja_mediakeys.dylib.
  *
- * <p>Call sequence: {@code start()} → any number of {@code drainAndUpdate()} → {@code close()}.
+ * <p>
+ * Call sequence: {@code start()} → any number of {@code drainAndUpdate()} → {@code close()}.
  * All methods are safe to call out of order or multiple times.
  *
- * <p>Native commands are dispatched directly from the macOS RunLoop thread; all
+ * <p>
+ * Native commands are dispatched directly from the macOS RunLoop thread; all
  * {@link com.fupfin.midiraja.engine.PlaybackCommands} methods are thread-safe so no queue is needed.
  */
 public final class MacOSMediaSession implements MediaKeyIntegration
@@ -39,14 +41,11 @@ public final class MacOSMediaSession implements MediaKeyIntegration
 
     // ── FunctionDescriptors for NativeMetadataConsistencyTest ────────────────
 
-    static final FunctionDescriptor DESC_REGISTER =
-            FunctionDescriptor.ofVoid(ADDRESS);
-    static final FunctionDescriptor DESC_UPDATE =
-            FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, JAVA_DOUBLE, JAVA_DOUBLE, JAVA_INT);
-    static final FunctionDescriptor DESC_UNREGISTER =
-            FunctionDescriptor.ofVoid();
-    static final FunctionDescriptor DESC_UPCALL =
-            FunctionDescriptor.ofVoid(JAVA_INT);
+    static final FunctionDescriptor DESC_REGISTER = FunctionDescriptor.ofVoid(ADDRESS);
+    static final FunctionDescriptor DESC_UPDATE = FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, JAVA_DOUBLE, JAVA_DOUBLE,
+            JAVA_INT);
+    static final FunctionDescriptor DESC_UNREGISTER = FunctionDescriptor.ofVoid();
+    static final FunctionDescriptor DESC_UPCALL = FunctionDescriptor.ofVoid(JAVA_INT);
 
     /** Returns all downcall descriptors for {@code NativeMetadataConsistencyTest}. */
     public static List<FunctionDescriptor> allDowncallDescriptors()
@@ -92,7 +91,8 @@ public final class MacOSMediaSession implements MediaKeyIntegration
     @Override
     public void start(PlaybackCommands commands)
     {
-        if (!started.compareAndSet(false, true)) return;
+        if (!started.compareAndSet(false, true))
+            return;
         this.commands = commands;
         try
         {
@@ -112,10 +112,11 @@ public final class MacOSMediaSession implements MediaKeyIntegration
     @Override
     public void drainAndUpdate(NowPlayingInfo info)
     {
-        if (!started.get()) return;
+        if (!started.get())
+            return;
         try
         {
-            var titleSeg  = arena.allocateFrom(info.title());
+            var titleSeg = arena.allocateFrom(info.title());
             var artistSeg = info.artist().isEmpty()
                     ? MemorySegment.NULL
                     : arena.allocateFrom(info.artist());
@@ -162,7 +163,8 @@ public final class MacOSMediaSession implements MediaKeyIntegration
     private static void onNativeCommand(MacOSMediaSession self, int command)
     {
         var cmds = self.commands;
-        if (cmds == null) return;
+        if (cmds == null)
+            return;
         switch (command)
         {
             case 0 -> cmds.togglePause();

@@ -30,7 +30,8 @@ public interface MuntNativeBridge extends AutoCloseable
      * implementations that do not use wall-clock timestamps.
      */
     default void resetRenderTiming()
-    {}
+    {
+    }
 
     /**
      * Stops all MT-32 voices immediately by cycling the synth context (close + reopen), then resets
@@ -43,7 +44,8 @@ public interface MuntNativeBridge extends AutoCloseable
      * non-MT-32 bridge implementations.
      */
     default void reopenSynth() throws Exception
-    {}
+    {
+    }
 
     // --- MIDI Event Routing ---
     void playNoteOn(int channel, int key, int velocity);
@@ -61,8 +63,10 @@ public interface MuntNativeBridge extends AutoCloseable
     /**
      * Renders PCM data into the provided short array (interleaved stereo).
      *
-     * @param buffer The array to fill with 16-bit PCM samples.
-     * @param frames The number of sample frames (1 frame = 2 shorts for stereo).
+     * @param buffer
+     *            The array to fill with 16-bit PCM samples.
+     * @param frames
+     *            The number of sample frames (1 frame = 2 shorts for stereo).
      */
     void renderAudio(short[] buffer, int frames);
 

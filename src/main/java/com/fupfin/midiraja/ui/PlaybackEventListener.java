@@ -22,34 +22,43 @@ public interface PlaybackEventListener
     /**
      * Called periodically during playback to update the current position.
      *
-     * @param currentMicroseconds The current playback position in microseconds.
+     * @param currentMicroseconds
+     *            The current playback position in microseconds.
      */
     void onTick(long currentMicroseconds);
 
     /**
      * Called when the tempo of the MIDI sequence changes.
      *
-     * @param bpm The new tempo in beats per minute.
+     * @param bpm
+     *            The new tempo in beats per minute.
      */
     void onTempoChanged(float bpm);
 
     /**
      * Called when a MIDI Note On event occurs on a specific channel.
      *
-     * @param channel The MIDI channel (0-15).
-     * @param velocity The velocity of the note (0-127).
+     * @param channel
+     *            The MIDI channel (0-15).
+     * @param velocity
+     *            The velocity of the note (0-127).
      */
     void onChannelActivity(int channel, int velocity);
 
     /**
      * Called when the bookmark state of the current session changes.
      *
-     * @param bookmarked {@code true} if the session was just bookmarked, {@code false} if removed.
+     * @param bookmarked
+     *            {@code true} if the session was just bookmarked, {@code false} if removed.
      */
-    default void onBookmarkChanged(boolean bookmarked) {}
+    default void onBookmarkChanged(boolean bookmarked)
+    {
+    }
 
     /**
      * Called when the playlist play order changes (e.g. shuffle toggled mid-song).
      */
-    default void onPlayOrderChanged(PlaylistContext ctx) {}
+    default void onPlayOrderChanged(PlaylistContext ctx)
+    {
+    }
 }

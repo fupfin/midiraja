@@ -7,4 +7,11 @@
 
 package com.fupfin.midiraja.midi;
 
-public record MidiPort(int index,String name){@Override public String toString(){return String.format("[%d] %s",index,name);}}
+public record MidiPort(int index, String name)
+{
+    @Override
+    public String toString()
+    {
+        return String.format("[%d] %s", index, name);
+    }
+}

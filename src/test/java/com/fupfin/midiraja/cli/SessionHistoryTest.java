@@ -8,24 +8,28 @@ import java.util.List;
 
 import org.junit.jupiter.api.*;
 
-class SessionHistoryTest {
+class SessionHistoryTest
+{
     private Path tmpDir;
     private SessionHistory history;
 
     @BeforeEach
-    void setUp() throws IOException {
+    void setUp() throws IOException
+    {
         tmpDir = Files.createTempDirectory("session-history-test");
         history = new SessionHistory(tmpDir.resolve("history.json"));
     }
 
     @AfterEach
-    void tearDown() throws IOException {
+    void tearDown() throws IOException
+    {
         Files.walk(tmpDir).sorted(java.util.Comparator.reverseOrder())
-            .map(Path::toFile).forEach(File::delete);
+                .map(Path::toFile).forEach(File::delete);
     }
 
     @Test
-    void recordAuto_savesEntry() {
+    void recordAuto_savesEntry()
+    {
         history.recordAuto(List.of("opl", "--retro", "amiga", "/midi/"));
         var all = history.getAll();
         assertEquals(1, all.size());
@@ -33,7 +37,8 @@ class SessionHistoryTest {
     }
 
     @Test
-    void recordAuto_capsAt10() {
+    void recordAuto_capsAt10()
+    {
         for (int i = 0; i < 12; i++)
             history.recordAuto(List.of("opl", "/midi/" + i));
         assertEquals(10, history.getAll().size());
@@ -42,7 +47,8 @@ class SessionHistoryTest {
     }
 
     @Test
-    void recordAuto_deduplicatesMovingToTop() {
+    void recordAuto_deduplicatesMovingToTop()
+    {
         history.recordAuto(List.of("opl", "/a.mid"));
         history.recordAuto(List.of("opl", "/b.mid"));
         history.recordAuto(List.of("opl", "/a.mid")); // duplicate
@@ -52,7 +58,8 @@ class SessionHistoryTest {
     }
 
     @Test
-    void recordAuto_skipsIfAlreadyBookmarked() {
+    void recordAuto_skipsIfAlreadyBookmarked()
+    {
         history.saveBookmark(List.of("opl", "/a.mid"));
         history.recordAuto(List.of("opl", "/a.mid")); // same args
         // Only 1 entry total (in bookmarks), not duplicated in auto
@@ -61,7 +68,8 @@ class SessionHistoryTest {
     }
 
     @Test
-    void saveBookmark_savesEntry() {
+    void saveBookmark_savesEntry()
+    {
         history.saveBookmark(List.of("soundfont", "/song.mid"));
         var all = history.getAll();
         assertEquals(1, all.size());
@@ -69,7 +77,8 @@ class SessionHistoryTest {
     }
 
     @Test
-    void saveBookmark_capsAt50() {
+    void saveBookmark_capsAt50()
+    {
         for (int i = 0; i < 52; i++)
             history.saveBookmark(List.of("opl", "/midi/" + i));
         // getAll returns auto first (0 here), then bookmarks
@@ -77,7 +86,8 @@ class SessionHistoryTest {
     }
 
     @Test
-    void getAll_returnsAutoBeforeBookmarks() {
+    void getAll_returnsAutoBeforeBookmarks()
+    {
         history.recordAuto(List.of("opl", "/a.mid"));
         history.saveBookmark(List.of("soundfont", "/b.mid"));
         var all = history.getAll();
@@ -87,7 +97,8 @@ class SessionHistoryTest {
     }
 
     @Test
-    void deleteAuto_removesEntry() {
+    void deleteAuto_removesEntry()
+    {
         history.recordAuto(List.of("opl", "/a.mid"));
         history.recordAuto(List.of("opl", "/b.mid"));
         history.deleteAuto(0); // delete newest
@@ -97,14 +108,16 @@ class SessionHistoryTest {
     }
 
     @Test
-    void deleteBookmark_removesEntry() {
+    void deleteBookmark_removesEntry()
+    {
         history.saveBookmark(List.of("opl", "/a.mid"));
         history.deleteBookmark(0);
         assertTrue(history.getAll().isEmpty());
     }
 
     @Test
-    void promoteToBookmark_movesFromAutoToBookmarks() {
+    void promoteToBookmark_movesFromAutoToBookmarks()
+    {
         history.recordAuto(List.of("opl", "/a.mid"));
         history.promoteToBookmark(0);
         var all = history.getAll();
@@ -114,14 +127,16 @@ class SessionHistoryTest {
     }
 
     @Test
-    void persistsAcrossInstances() {
+    void persistsAcrossInstances()
+    {
         history.recordAuto(List.of("opl", "/a.mid"));
         var history2 = new SessionHistory(tmpDir.resolve("history.json"));
         assertEquals(1, history2.getAll().size());
     }
 
     @Test
-    void corruptedFile_treatedAsEmpty() throws IOException {
+    void corruptedFile_treatedAsEmpty() throws IOException
+    {
         Files.writeString(tmpDir.resolve("history.json"), "not valid json {{{");
         var history2 = new SessionHistory(tmpDir.resolve("history.json"));
         assertTrue(history2.getAll().isEmpty());

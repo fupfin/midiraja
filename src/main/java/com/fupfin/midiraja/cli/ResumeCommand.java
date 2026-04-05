@@ -26,13 +26,11 @@ import picocli.CommandLine.Spec;
 
 import com.fupfin.midiraja.MidirajaCommand;
 
-@Command(name = "resume",
-        mixinStandardHelpOptions = true,
-        description = "Select and re-launch a previous playback session.")
+@Command(name = "resume", mixinStandardHelpOptions = true, description = "Select and re-launch a previous playback session.")
 public class ResumeCommand implements Callable<Integer>
 {
-    private static final DateTimeFormatter FMT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+            .withZone(ZoneId.systemDefault());
 
     @ParentCommand
     @Nullable
@@ -42,8 +40,7 @@ public class ResumeCommand implements Callable<Integer>
     @Nullable
     private CommandSpec spec;
 
-    @Option(names = {"--non-interactive"}, hidden = true,
-            description = "Skip interactive selector (for testing).")
+    @Option(names = { "--non-interactive" }, hidden = true, description = "Skip interactive selector (for testing).")
     boolean nonInteractive;
 
     @Override
@@ -55,13 +52,15 @@ public class ResumeCommand implements Callable<Integer>
                 : new SessionHistory();
 
         var all = history.getAll();
-        if (all.isEmpty()) {
+        if (all.isEmpty())
+        {
             err().println("No session history.");
             err().flush();
             return 0;
         }
 
-        if (nonInteractive) {
+        if (nonInteractive)
+        {
             printList(all, history.getAutoCount());
             return 0;
         }
@@ -82,16 +81,20 @@ public class ResumeCommand implements Callable<Integer>
     private void printList(List<SessionEntry> all, int autoCount)
     {
         var out = out();
-        if (autoCount > 0) {
+        if (autoCount > 0)
+        {
             out.println("--- Recent ---");
-            for (int i = 0; i < autoCount; i++) {
+            for (int i = 0; i < autoCount; i++)
+            {
                 var e = all.get(i);
                 out.printf("[%d] [%s] %s%n", i + 1, FMT.format(e.savedAt()), String.join(" ", e.args()));
             }
         }
-        if (all.size() > autoCount) {
+        if (all.size() > autoCount)
+        {
             out.println("--- Saved ---");
-            for (int i = autoCount; i < all.size(); i++) {
+            for (int i = autoCount; i < all.size(); i++)
+            {
                 var e = all.get(i);
                 out.printf("[%d] [%s] \u2605 %s%n", i + 1, FMT.format(e.savedAt()), String.join(" ", e.args()));
             }
@@ -114,12 +117,16 @@ public class ResumeCommand implements Callable<Integer>
 
         PrintStream errStream = parent != null ? parent.getErr() : System.err;
 
-        while (true) {
+        while (true)
+        {
             TerminalSelector.SelectResult<Integer> result;
-            try {
+            try
+            {
                 result = TerminalSelector.selectWithActions(items, config, fullMode, miniMode,
                         classicMode, errStream);
-            } catch (Exception e) {
+            }
+            catch (Exception e)
+            {
                 err().println("Error: " + e.getMessage());
                 err().flush();
                 return 1;
@@ -127,7 +134,10 @@ public class ResumeCommand implements Callable<Integer>
 
             switch (result)
             {
-                case TerminalSelector.SelectResult.Cancelled<Integer> _ -> { return 0; }
+                case TerminalSelector.SelectResult.Cancelled<Integer> _ ->
+                {
+                    return 0;
+                }
                 case TerminalSelector.SelectResult.Chosen<Integer> chosen ->
                 {
                     var entry = all.get(chosen.value());
@@ -140,35 +150,53 @@ public class ResumeCommand implements Callable<Integer>
                 {
                     int idx = del.value();
                     int deletedItemsIdx = nearestItemsIdx(items, idx);
-                    if (idx < autoCount) history.deleteAuto(idx);
-                    else history.deleteBookmark(idx - autoCount);
+                    if (idx < autoCount)
+                    {
+                        history.deleteAuto(idx);
+                    }
+                    else
+                    {
+                        history.deleteBookmark(idx - autoCount);
+                    }
                     all = history.getAll();
                     autoCount = history.getAutoCount();
-                    if (all.isEmpty()) {
+                    if (all.isEmpty())
+                    {
                         err().println("No session history.");
                         err().flush();
                         return 0;
                     }
                     items = buildItems(all, autoCount);
                     int nextIdx = Math.min(deletedItemsIdx, items.size() - 1);
-                    while (nextIdx > 0 && items.get(nextIdx).isSeparator()) nextIdx--;
+                    while (nextIdx > 0 && items.get(nextIdx).isSeparator())
+                    {
+                        nextIdx--;
+                    }
                     config = config.withInitialIndex(nextIdx);
                     continue;
                 }
-                case TerminalSelector.SelectResult.Promote<Integer> _ -> { /* no-op */ }
+                case TerminalSelector.SelectResult.Promote<Integer> _ ->
+                {
+                    /* no-op */
+                }
             }
         }
     }
 
-    /** Returns the items-list index of the first selectable item with value >= targetAllIdx,
-     *  or the last selectable index if none found. */
+    /**
+     * Returns the items-list index of the first selectable item with value >= targetAllIdx,
+     * or the last selectable index if none found.
+     */
     private static int nearestItemsIdx(List<TerminalSelector.Item<Integer>> items, int targetAllIdx)
     {
         int lastSelectable = TerminalSelector.firstSelectable(items);
-        for (int i = 0; i < items.size(); i++) {
+        for (int i = 0; i < items.size(); i++)
+        {
             var item = items.get(i);
-            if (!item.isSeparator()) {
-                if (item.requireValue() >= targetAllIdx) return i;
+            if (!item.isSeparator())
+            {
+                if (item.requireValue() >= targetAllIdx)
+                    return i;
                 lastSelectable = i;
             }
         }
@@ -180,19 +208,24 @@ public class ResumeCommand implements Callable<Integer>
         var items = new ArrayList<TerminalSelector.Item<Integer>>();
         int bookmarkCount = all.size() - autoCount;
 
-        if (autoCount > 0) {
+        if (autoCount > 0)
+        {
             items.add(TerminalSelector.Item.separator("Recent"));
-            for (int i = 0; i < autoCount; i++) {
+            for (int i = 0; i < autoCount; i++)
+            {
                 var e = all.get(i);
                 items.add(TerminalSelector.Item.of(i, "[" + FMT.format(e.savedAt()) + "] " + formatArgs(e.args()), ""));
             }
         }
 
-        if (bookmarkCount > 0) {
+        if (bookmarkCount > 0)
+        {
             items.add(TerminalSelector.Item.separator("Saved"));
-            for (int i = autoCount; i < all.size(); i++) {
+            for (int i = autoCount; i < all.size(); i++)
+            {
                 var e = all.get(i);
-                items.add(TerminalSelector.Item.of(i, "[" + FMT.format(e.savedAt()) + "] \u2605 " + formatArgs(e.args()), ""));
+                items.add(TerminalSelector.Item.of(i,
+                        "[" + FMT.format(e.savedAt()) + "] \u2605 " + formatArgs(e.args()), ""));
             }
         }
 
@@ -206,8 +239,10 @@ public class ResumeCommand implements Callable<Integer>
     private static String formatArgs(List<String> args)
     {
         var sb = new StringBuilder();
-        for (int i = 0; i < args.size(); i++) {
-            if (i > 0) sb.append(' ');
+        for (int i = 0; i < args.size(); i++)
+        {
+            if (i > 0)
+                sb.append(' ');
             String token = args.get(i);
             sb.append(token.startsWith("-") ? token : truncateMidPath(token, 35));
         }
@@ -220,7 +255,8 @@ public class ResumeCommand implements Callable<Integer>
      */
     static String truncateMidPath(String s, int max)
     {
-        if (s.length() <= max) return s;
+        if (s.length() <= max)
+            return s;
         int keepEnd = (max - 1) * 3 / 5;
         int keepStart = max - 1 - keepEnd;
         return s.substring(0, keepStart) + "\u2026" + s.substring(s.length() - keepEnd);

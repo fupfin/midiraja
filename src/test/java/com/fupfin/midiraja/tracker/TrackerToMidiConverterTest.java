@@ -23,7 +23,8 @@ class TrackerToMidiConverterTest
     private static List<TrackerInstrument> instruments(String... names)
     {
         var list = new java.util.ArrayList<TrackerInstrument>();
-        for (String n : names) list.add(new TrackerInstrument(n, 64));
+        for (String n : names)
+            list.add(new TrackerInstrument(n, 64));
         return List.copyOf(list);
     }
 
@@ -45,7 +46,7 @@ class TrackerToMidiConverterTest
     {
         // Effect 4, param 0x30 → up=3, down=0
         var events = List.of(
-                new TrackerEvent(0,       0, 60, 1, -1, 0, 0),   // note on
+                new TrackerEvent(0, 0, 60, 1, -1, 0, 0), // note on
                 new TrackerEvent(480_000, 0, -1, 0, -1, 4, 0x30) // D30 = slide up 3
         );
         var result = new TrackerParseResult("", 4, instruments("lead"), events);
@@ -58,9 +59,8 @@ class TrackerToMidiConverterTest
     {
         // Effect 4, param 0x03 → up=0, down=3
         var events = List.of(
-                new TrackerEvent(0,       0, 60, 1, -1, 0, 0),
-                new TrackerEvent(480_000, 0, -1, 0, -1, 4, 0x03)
-        );
+                new TrackerEvent(0, 0, 60, 1, -1, 0, 0),
+                new TrackerEvent(480_000, 0, -1, 0, -1, 4, 0x03));
         var result = new TrackerParseResult("", 4, instruments("lead"), events);
         assertTrue(hasCC7(new TrackerToMidiConverter().convert(result)),
                 "D-effect slide down should emit CC7");
@@ -73,9 +73,8 @@ class TrackerToMidiConverterTest
         // fine-up means "use down nibble=3 as fine-down" — but our converter skips effectiveUp when ==0xF
         // effectiveUp=0, effectiveDown=3 → should still emit CC7
         var events = List.of(
-                new TrackerEvent(0,       0, 60, 1, -1, 0, 0),
-                new TrackerEvent(480_000, 0, -1, 0, -1, 4, 0xF3)
-        );
+                new TrackerEvent(0, 0, 60, 1, -1, 0, 0),
+                new TrackerEvent(480_000, 0, -1, 0, -1, 4, 0xF3));
         var result = new TrackerParseResult("", 4, instruments("lead"), events);
         assertTrue(hasCC7(new TrackerToMidiConverter().convert(result)),
                 "Fine-slide with down nibble should still emit CC7");
@@ -99,9 +98,8 @@ class TrackerToMidiConverterTest
     {
         // Effect 10 (0x0A), param 0x50 → up=5, down=0
         var events = List.of(
-                new TrackerEvent(0,       0, 60, 1, -1, 0,  0),
-                new TrackerEvent(480_000, 0, -1, 0, -1, 10, 0x50)
-        );
+                new TrackerEvent(0, 0, 60, 1, -1, 0, 0),
+                new TrackerEvent(480_000, 0, -1, 0, -1, 10, 0x50));
         var result = new TrackerParseResult("", 4, instruments("lead"), events);
         assertTrue(hasCC7(new TrackerToMidiConverter().convert(result)),
                 "A-effect (XM) slide up should emit CC7");
@@ -112,9 +110,8 @@ class TrackerToMidiConverterTest
     {
         // Effect 10, param 0x05 → up=0, down=5
         var events = List.of(
-                new TrackerEvent(0,       0, 60, 1, -1, 0,  0),
-                new TrackerEvent(480_000, 0, -1, 0, -1, 10, 0x05)
-        );
+                new TrackerEvent(0, 0, 60, 1, -1, 0, 0),
+                new TrackerEvent(480_000, 0, -1, 0, -1, 10, 0x05));
         var result = new TrackerParseResult("", 4, instruments("lead"), events);
         assertTrue(hasCC7(new TrackerToMidiConverter().convert(result)),
                 "A-effect (XM) slide down should emit CC7");

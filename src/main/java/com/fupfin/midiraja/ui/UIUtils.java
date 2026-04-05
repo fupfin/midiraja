@@ -12,7 +12,8 @@ import org.jline.utils.WCWidth;
 public class UIUtils
 {
     private UIUtils()
-    {}
+    {
+    }
 
     public static String formatTime(long microseconds, boolean includeHours)
     {
@@ -20,7 +21,8 @@ public class UIUtils
         long hours = totalSeconds / 3600;
         long minutes = (totalSeconds % 3600) / 60;
         long seconds = totalSeconds % 60;
-        if (includeHours) return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+        if (includeHours)
+            return String.format("%02d:%02d:%02d", hours, minutes, seconds);
         return String.format("%02d:%02d", minutes, seconds);
     }
 
@@ -33,7 +35,7 @@ public class UIUtils
     {
         int width = 0;
         boolean inAnsi = false;
-        for (int i = 0; i < str.length(); )
+        for (int i = 0; i < str.length();)
         {
             int cp = str.codePointAt(i);
             i += Character.charCount(cp);
@@ -50,7 +52,8 @@ public class UIUtils
             else if (cp != '\r' && cp != '\n')
             {
                 int w = WCWidth.wcwidth(cp);
-                if (w > 0) width += w;
+                if (w > 0)
+                    width += w;
             }
         }
         return width;

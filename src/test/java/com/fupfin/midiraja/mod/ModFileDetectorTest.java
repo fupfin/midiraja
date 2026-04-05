@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.nio.file.Files;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -84,7 +83,10 @@ class ModFileDetectorTest
         byte[] data = new byte[1084];
         byte[] tagBytes = tag.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
         System.arraycopy(tagBytes, 0, data, 1080, 4);
-        try (var fos = new FileOutputStream(f)) { fos.write(data); }
+        try (var fos = new FileOutputStream(f))
+        {
+            fos.write(data);
+        }
         return f;
     }
 }

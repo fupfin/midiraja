@@ -18,12 +18,12 @@ import com.fupfin.midiraja.midi.NativeAudioEngine;
  */
 public class FmSynthOptions
 {
-    @Option(names = {"-e", "--emulator"}, defaultValue = "0",
-            description = "Emulator backend ID (default: 0). Available IDs are listed in the command footer.")
+    @Option(names = { "-e",
+            "--emulator" }, defaultValue = "0", description = "Emulator backend ID (default: 0). Available IDs are listed in the command footer.")
     public int emulator = 0;
 
-    @Option(names = {"-c", "--chips"}, defaultValue = "4",
-            description = "Number of chips to emulate (default: 4). More chips = more polyphony.")
+    @Option(names = { "-c",
+            "--chips" }, defaultValue = "4", description = "Number of chips to emulate (default: 4). More chips = more polyphony.")
     public int chips = 4;
 
     /** Builds the stereo FM synth audio pipeline (audio engine + DSP chain). */

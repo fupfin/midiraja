@@ -24,28 +24,52 @@ class MusicFormatLoaderTest
     // ── isSupportedFile ───────────────────────────────────────────────────────
 
     @Test
-    void isSupportedFile_mid() { assertTrue(MusicFormatLoader.isSupportedFile("song.mid")); }
+    void isSupportedFile_mid()
+    {
+        assertTrue(MusicFormatLoader.isSupportedFile("song.mid"));
+    }
 
     @Test
-    void isSupportedFile_midi() { assertTrue(MusicFormatLoader.isSupportedFile("song.midi")); }
+    void isSupportedFile_midi()
+    {
+        assertTrue(MusicFormatLoader.isSupportedFile("song.midi"));
+    }
 
     @Test
-    void isSupportedFile_vgm() { assertTrue(MusicFormatLoader.isSupportedFile("song.vgm")); }
+    void isSupportedFile_vgm()
+    {
+        assertTrue(MusicFormatLoader.isSupportedFile("song.vgm"));
+    }
 
     @Test
-    void isSupportedFile_vgz() { assertTrue(MusicFormatLoader.isSupportedFile("song.vgz")); }
+    void isSupportedFile_vgz()
+    {
+        assertTrue(MusicFormatLoader.isSupportedFile("song.vgz"));
+    }
 
     @Test
-    void isSupportedFile_mod() { assertTrue(MusicFormatLoader.isSupportedFile("song.mod")); }
+    void isSupportedFile_mod()
+    {
+        assertTrue(MusicFormatLoader.isSupportedFile("song.mod"));
+    }
 
     @Test
-    void isSupportedFile_s3m() { assertTrue(MusicFormatLoader.isSupportedFile("song.s3m")); }
+    void isSupportedFile_s3m()
+    {
+        assertTrue(MusicFormatLoader.isSupportedFile("song.s3m"));
+    }
 
     @Test
-    void isSupportedFile_xm() { assertTrue(MusicFormatLoader.isSupportedFile("song.xm")); }
+    void isSupportedFile_xm()
+    {
+        assertTrue(MusicFormatLoader.isSupportedFile("song.xm"));
+    }
 
     @Test
-    void isSupportedFile_it() { assertTrue(MusicFormatLoader.isSupportedFile("song.it")); }
+    void isSupportedFile_it()
+    {
+        assertTrue(MusicFormatLoader.isSupportedFile("song.it"));
+    }
 
     @Test
     void isSupportedFile_mp3_returnsFalse()
@@ -97,23 +121,26 @@ class MusicFormatLoaderTest
         int ordNum = 1;
         int patNum = 1;
 
-        int orderOffset   = 96;
+        int orderOffset = 96;
         int patParaOffset = orderOffset + ordNum; // no instrument paras
         int patDataOffset = patParaOffset + patNum * 2;
-        int paraOffset    = (patDataOffset + 15) & ~15; // align to 16-byte paragraph
-        int patLen        = 2 + 64; // 2B packed length + 64 end-of-row bytes
-        int totalLen      = paraOffset + patLen;
+        int paraOffset = (patDataOffset + 15) & ~15; // align to 16-byte paragraph
+        int patLen = 2 + 64; // 2B packed length + 64 end-of-row bytes
+        int totalLen = paraOffset + patLen;
 
         var buf = ByteBuffer.allocate(totalLen).order(ByteOrder.LITTLE_ENDIAN);
 
         // Magic SCRM at offset 44
-        buf.put(44, (byte) 'S'); buf.put(45, (byte) 'C');
-        buf.put(46, (byte) 'R'); buf.put(47, (byte) 'M');
-        buf.put(28, (byte) 0x1A); buf.put(29, (byte) 0x10); // type
+        buf.put(44, (byte) 'S');
+        buf.put(45, (byte) 'C');
+        buf.put(46, (byte) 'R');
+        buf.put(47, (byte) 'M');
+        buf.put(28, (byte) 0x1A);
+        buf.put(29, (byte) 0x10); // type
         buf.putShort(32, (short) ordNum);
-        buf.putShort(34, (short) 0);    // insNum
+        buf.putShort(34, (short) 0); // insNum
         buf.putShort(36, (short) patNum);
-        buf.put(49, (byte) 6);   // speed
+        buf.put(49, (byte) 6); // speed
         buf.put(50, (byte) 125); // tempo
 
         // Channel settings: 4 channels enabled (0-3), rest disabled
@@ -127,7 +154,8 @@ class MusicFormatLoaderTest
 
         // Pattern data: packed length + 64 end-of-row markers
         buf.putShort(paraOffset, (short) 64);
-        for (int r = 0; r < 64; r++) buf.put(paraOffset + 2 + r, (byte) 0);
+        for (int r = 0; r < 64; r++)
+            buf.put(paraOffset + 2 + r, (byte) 0);
 
         return buf.array();
     }

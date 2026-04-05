@@ -35,14 +35,83 @@ class PlaybackCommandsProxy implements PlaybackCommands
         return t != null && t.isPlaying();
     }
 
-    @Override public void requestStop(PlaybackStatus status)  { var t = target.get(); if (t != null) t.requestStop(status); }
-    @Override public void adjustVolume(double delta)          { var t = target.get(); if (t != null) t.adjustVolume(delta); }
-    @Override public void adjustSpeed(double delta)           { var t = target.get(); if (t != null) t.adjustSpeed(delta); }
-    @Override public void adjustTranspose(int delta)          { var t = target.get(); if (t != null) t.adjustTranspose(delta); }
-    @Override public void seekRelative(long microsecondsDelta){ var t = target.get(); if (t != null) t.seekRelative(microsecondsDelta); }
-    @Override public void togglePause()                       { var t = target.get(); if (t != null) t.togglePause(); }
-    @Override public void toggleLoop()                        { var t = target.get(); if (t != null) t.toggleLoop(); }
-    @Override public void toggleShuffle()                     { var t = target.get(); if (t != null) t.toggleShuffle(); }
-    @Override public void fireBookmark()                      { var t = target.get(); if (t != null) t.fireBookmark(); }
-    @Override public void firePlayOrderChanged(PlaylistContext ctx) { var t = target.get(); if (t != null) t.firePlayOrderChanged(ctx); }
+    @Override
+    public void requestStop(PlaybackStatus status)
+    {
+        var t = target.get();
+        if (t != null)
+            t.requestStop(status);
+    }
+
+    @Override
+    public void adjustVolume(double delta)
+    {
+        var t = target.get();
+        if (t != null)
+            t.adjustVolume(delta);
+    }
+
+    @Override
+    public void adjustSpeed(double delta)
+    {
+        var t = target.get();
+        if (t != null)
+            t.adjustSpeed(delta);
+    }
+
+    @Override
+    public void adjustTranspose(int delta)
+    {
+        var t = target.get();
+        if (t != null)
+            t.adjustTranspose(delta);
+    }
+
+    @Override
+    public void seekRelative(long microsecondsDelta)
+    {
+        var t = target.get();
+        if (t != null)
+            t.seekRelative(microsecondsDelta);
+    }
+
+    @Override
+    public void togglePause()
+    {
+        var t = target.get();
+        if (t != null)
+            t.togglePause();
+    }
+
+    @Override
+    public void toggleLoop()
+    {
+        var t = target.get();
+        if (t != null)
+            t.toggleLoop();
+    }
+
+    @Override
+    public void toggleShuffle()
+    {
+        var t = target.get();
+        if (t != null)
+            t.toggleShuffle();
+    }
+
+    @Override
+    public void fireBookmark()
+    {
+        var t = target.get();
+        if (t != null)
+            t.fireBookmark();
+    }
+
+    @Override
+    public void firePlayOrderChanged(PlaylistContext ctx)
+    {
+        var t = target.get();
+        if (t != null)
+            t.firePlayOrderChanged(ctx);
+    }
 }

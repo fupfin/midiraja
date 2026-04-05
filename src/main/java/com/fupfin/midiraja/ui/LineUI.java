@@ -23,11 +23,26 @@ public class LineUI implements PlaybackUI
     public void runRenderLoop(PlaybackState engine)
     {
         double[] channelLevels = new double[16];
-        engine.addPlaybackEventListener(new PlaybackEventListener() {
-            @Override public void onPlaybackStateChanged() {}
-            @Override public void onTick(long currentMicroseconds) {}
-            @Override public void onTempoChanged(float bpm) {}
-            @Override public void onChannelActivity(int channel, int velocity) {
+        engine.addPlaybackEventListener(new PlaybackEventListener()
+        {
+            @Override
+            public void onPlaybackStateChanged()
+            {
+            }
+
+            @Override
+            public void onTick(long currentMicroseconds)
+            {
+            }
+
+            @Override
+            public void onTempoChanged(float bpm)
+            {
+            }
+
+            @Override
+            public void onChannelActivity(int channel, int velocity)
+            {
                 if (channel >= 0 && channel < 16)
                     channelLevels[channel] = Math.max(channelLevels[channel], velocity / 127.0);
             }
@@ -73,14 +88,15 @@ public class LineUI implements PlaybackUI
         term.println(""); // Blank line
         staticLinesPrinted++;
 
-        String[] blocks = {" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", Theme.CHAR_BLOCK_FULL};
+        String[] blocks = { " ", " ", "▂", "▃", "▄", "▅", "▆", "▇", Theme.CHAR_BLOCK_FULL };
 
         try
         {
             while (engine.isPlaying())
             {
                 // Apply classic decay
-                for (int i = 0; i < 16; i++) channelLevels[i] = Math.max(0, channelLevels[i] - 0.15);
+                for (int i = 0; i < 16; i++)
+                    channelLevels[i] = Math.max(0, channelLevels[i] - 0.15);
                 double[] levels = channelLevels;
 
                 ScreenBuffer buffer = new ScreenBuffer();
@@ -99,8 +115,7 @@ public class LineUI implements PlaybackUI
                 long currentMicros = engine.getCurrentMicroseconds();
                 boolean incHrs = (totalMicros / 1000000) >= 3600;
 
-                String timeStr =
-                        formatTime(currentMicros, incHrs) + "/" + formatTime(totalMicros, incHrs);
+                String timeStr = formatTime(currentMicros, incHrs) + "/" + formatTime(totalMicros, incHrs);
                 if (engine.isPaused())
                 {
                     timeStr = "\033[1;33m[PAUSED]\033[0m " + timeStr;
@@ -111,12 +126,12 @@ public class LineUI implements PlaybackUI
                         timeStr, engine.getCurrentSpeed(), effectiveBpm,
                         engine.getCurrentTranspose(), (int) (engine.getVolumeScale() * 100)));
 
-                String loopIcon    = engine.isLoopEnabled()
-                        ? Theme.COLOR_HIGHLIGHT + Theme.ICON_LOOP    + Theme.COLOR_RESET
-                        : Theme.COLOR_DIM_FG    + Theme.ICON_LOOP    + Theme.COLOR_RESET;
+                String loopIcon = engine.isLoopEnabled()
+                        ? Theme.COLOR_HIGHLIGHT + Theme.ICON_LOOP + Theme.COLOR_RESET
+                        : Theme.COLOR_DIM_FG + Theme.ICON_LOOP + Theme.COLOR_RESET;
                 String shuffleIcon = engine.isShuffleEnabled()
                         ? Theme.COLOR_HIGHLIGHT + Theme.ICON_SHUFFLE + Theme.COLOR_RESET
-                        : Theme.COLOR_DIM_FG    + Theme.ICON_SHUFFLE + Theme.COLOR_RESET;
+                        : Theme.COLOR_DIM_FG + Theme.ICON_SHUFFLE + Theme.COLOR_RESET;
                 buffer.append(" ").append(loopIcon).append(shuffleIcon);
 
                 String rawLine = buffer.toString();
@@ -153,7 +168,8 @@ public class LineUI implements PlaybackUI
         }
         catch (InterruptedException _)
         {
-            if (term.isInteractive()) term.print(Theme.TERM_SHOW_CURSOR + "\033[?7h");
+            if (term.isInteractive())
+                term.print(Theme.TERM_SHOW_CURSOR + "\033[?7h");
         }
     }
 
@@ -166,12 +182,14 @@ public class LineUI implements PlaybackUI
     @Override
     public void suspend(com.fupfin.midiraja.io.TerminalIO term, boolean altScreen)
     {
-        if (term.isInteractive()) term.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_AUTOWRAP_ON);
+        if (term.isInteractive())
+            term.print(Theme.TERM_SHOW_CURSOR + Theme.TERM_AUTOWRAP_ON);
     }
 
     @Override
     public void resume(com.fupfin.midiraja.io.TerminalIO term, boolean altScreen)
     {
-        if (term.isInteractive()) term.print(Theme.TERM_HIDE_CURSOR + Theme.TERM_AUTOWRAP_OFF);
+        if (term.isInteractive())
+            term.print(Theme.TERM_HIDE_CURSOR + Theme.TERM_AUTOWRAP_OFF);
     }
 }

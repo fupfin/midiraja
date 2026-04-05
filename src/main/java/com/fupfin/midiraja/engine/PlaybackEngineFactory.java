@@ -16,7 +16,8 @@ import com.fupfin.midiraja.midi.MidiOutProvider;
 /**
  * Factory for constructing a {@link PlaybackEngine} instance per track.
  *
- * <p>The default production implementation is the constructor reference
+ * <p>
+ * The default production implementation is the constructor reference
  * {@code MidiPlaybackEngine::new}. Tests inject a lambda that returns a mock engine whose
  * {@code start()} returns a predetermined {@link PlaybackEngine.PlaybackStatus} immediately,
  * allowing the playlist loop in {@code PlaybackRunner} to be exercised without real audio threads.
@@ -25,7 +26,8 @@ import com.fupfin.midiraja.midi.MidiOutProvider;
 public interface PlaybackEngineFactory
 {
     /**
-     * @throws Exception propagated from the engine constructor or provider
+     * @throws Exception
+     *             propagated from the engine constructor or provider
      */
     PlaybackEngine create(Sequence sequence, MidiOutProvider provider,
             PlaylistContext context,

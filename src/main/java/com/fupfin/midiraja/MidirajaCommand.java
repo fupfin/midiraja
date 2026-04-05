@@ -45,30 +45,28 @@ import com.fupfin.midiraja.midi.gus.GusSynthProvider;
 import com.fupfin.midiraja.midi.psg.PsgSynthProvider;
 import com.fupfin.midiraja.ui.Logo;
 
-@Command(name = "midra", mixinStandardHelpOptions = true,
-        version = {"MIDIraja " + Version.VERSION + " (" + Version.COMMIT + ")"},
-        description = "MIDIraja \u2014 " + Logo.TAGLINE,
-        customSynopsis = {"midra [command] [OPTIONS] [<files>...]"},
-        subcommands = {FmCommand.class, MuntCommand.class, FluidCommand.class,
-                TsfCommand.class, GusCommand.class, BeepCommand.class,
-                DeviceCommand.class, PsgCommand.class, DemoCommand.class,
-                InfoCommand.class, MidiInfoCommand.class, ResumeCommand.class, CommandLine.HelpCommand.class},
-        footer = {"",
-                "Run 'midra <command> --help' for command-specific options.", "",
-                "Playlist Features:",
-                "  Supports .m3u and .txt files containing paths to .mid files.",
-                "  You can embed CLI options inside M3U files using the " + "#MIDRA: prefix.",
-                "  Example: #MIDRA: --shuffle --loop"})
+@Command(name = "midra", mixinStandardHelpOptions = true, version = {
+        "MIDIraja " + Version.VERSION + " (" + Version.COMMIT + ")" }, description = "MIDIraja \u2014 "
+                + Logo.TAGLINE, customSynopsis = { "midra [command] [OPTIONS] [<files>...]" }, subcommands = {
+                        FmCommand.class, MuntCommand.class, FluidCommand.class,
+                        TsfCommand.class, GusCommand.class, BeepCommand.class,
+                        DeviceCommand.class, PsgCommand.class, DemoCommand.class,
+                        InfoCommand.class, MidiInfoCommand.class, ResumeCommand.class,
+                        CommandLine.HelpCommand.class }, footer = { "",
+                                "Run 'midra <command> --help' for command-specific options.", "",
+                                "Playlist Features:",
+                                "  Supports .m3u and .txt files containing paths to .mid files.",
+                                "  You can embed CLI options inside M3U files using the " + "#MIDRA: prefix.",
+                                "  Example: #MIDRA: --shuffle --loop" })
 public class MidirajaCommand implements Callable<Integer>
 {
     public static volatile boolean SHUTTING_DOWN = false;
     public static volatile boolean ALT_SCREEN_ACTIVE = false;
 
-    @Parameters(index = "0..*", description = "MIDI files, directories, or .m3u playlists to play.",
-            arity = "0..*")
+    @Parameters(index = "0..*", description = "MIDI files, directories, or .m3u playlists to play.", arity = "0..*")
     private List<File> files = new ArrayList<>();
 
-    @Option(names = {"-p", "--port"}, description = "MIDI output port index or partial name.")
+    @Option(names = { "-p", "--port" }, description = "MIDI output port index or partial name.")
     private Optional<String> port = Optional.empty();
 
     @Mixin
@@ -132,15 +130,21 @@ public class MidirajaCommand implements Callable<Integer>
 
     private java.util.List<String> originalArgs()
     {
-        if (spec == null) return java.util.List.of();
+        if (spec == null)
+            return java.util.List.of();
         var rawArgs = spec.commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(token -> {
-            if (!token.startsWith("-")) {
-                var f = new File(token);
-                if (f.exists()) return f.getAbsolutePath();
-            }
-            return token;
-        }).collect(java.util.stream.Collectors.toList());
+        return rawArgs.stream().map(this::absoluteIfExists).collect(java.util.stream.Collectors.toList());
+    }
+
+    private String absoluteIfExists(String token)
+    {
+        if (!token.startsWith("-"))
+        {
+            var f = new File(token);
+            if (f.exists())
+                return f.getAbsolutePath();
+        }
+        return token;
     }
 
     // ── Entry point ───────────────────────────────────────────────────────────
@@ -153,11 +157,14 @@ public class MidirajaCommand implements Callable<Integer>
      */
     private static void fixJLineTmpDirOnWindows()
     {
-        if (!System.getProperty("os.name", "").startsWith("Windows")) return;
+        if (!System.getProperty("os.name", "").startsWith("Windows"))
+            return;
         String tmp = System.getProperty("java.io.tmpdir", "");
-        if (tmp.chars().allMatch(c -> c < 128)) return;
+        if (tmp.chars().allMatch(c -> c < 128))
+            return;
         String pd = System.getenv("ProgramData");
-        if (pd == null) pd = "C:\\ProgramData";
+        if (pd == null)
+            pd = "C:\\ProgramData";
         File safeDir = new File(pd, "midiraja\\tmp");
         if (safeDir.mkdirs() || safeDir.exists())
             System.setProperty("jline.tmpdir", safeDir.getAbsolutePath());
@@ -185,18 +192,22 @@ public class MidirajaCommand implements Callable<Integer>
 
     private static String renderCommandList(CommandLine.Help help)
     {
-        if (help.subcommands().isEmpty()) return "";
+        if (help.subcommands().isEmpty())
+            return "";
         var sb = new StringBuilder();
         // Deduplicate by CommandSpec identity so aliases don't produce duplicate entries
         var seen = new java.util.IdentityHashMap<Object, Boolean>();
         for (var entry : help.subcommands().entrySet())
         {
             var sub = entry.getValue();
-            if (sub.commandSpec().usageMessage().hidden()) continue;
-            if (seen.put(sub.commandSpec(), Boolean.TRUE) != null) continue;
+            if (sub.commandSpec().usageMessage().hidden())
+                continue;
+            if (seen.put(sub.commandSpec(), Boolean.TRUE) != null)
+                continue;
 
             String name = sub.commandSpec().name();
-            if (name == null || name.isEmpty()) name = entry.getKey();
+            if (name == null || name.isEmpty())
+                name = entry.getKey();
             String[] aliases = sub.commandSpec().aliases();
             String[] descs = sub.commandSpec().usageMessage().description();
             // Strip picocli format sequences (e.g. %n) for single-line list display
@@ -289,12 +300,14 @@ public class MidirajaCommand implements Callable<Integer>
         {
             var nativePorts = MidiProviderFactory.createProvider().getOutputPorts();
             var choice = EngineSelector.select(nativePorts, common.uiOptions, stdErr);
-            if (choice == null) return 0;
+            if (choice == null)
+                return 0;
             return switch (choice)
             {
                 case EngineSelector.Choice.Builtin b -> runBuiltinEngine(b.engineName().strip(),
                         files, common);
-                case EngineSelector.Choice.Port p -> {
+                case EngineSelector.Choice.Port p ->
+                {
                     var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
                     yield runner.run(MidiProviderFactory.createProvider(), false,
                             Optional.of(String.valueOf(p.portIndex())), Optional.empty(), files,
@@ -322,12 +335,14 @@ public class MidirajaCommand implements Callable<Integer>
 
         switch (engine)
         {
-            case "patch" -> {
+            case "patch" ->
+            {
                 audio.init(44100, 2, 4096);
                 AudioProcessor pipeline = new FloatToShortSink(audio);
                 builtinProvider = new GusSynthProvider(pipeline, null);
             }
-            case "soundfont" -> {
+            case "soundfont" ->
+            {
                 audio.init(44100, 2, 4096);
                 String sfPath = TsfCommand.findBundledSf3();
                 if (sfPath == null)
@@ -340,31 +355,36 @@ public class MidirajaCommand implements Callable<Integer>
                 builtinProvider = new TsfSynthProvider(new FFMTsfNativeBridge(), pipeline, null);
                 soundbankArg = Optional.of(sfPath);
             }
-            case "opl" -> {
+            case "opl" ->
+            {
                 audio.init(44100, 2, 4096);
                 AudioProcessor pipeline = new FloatToShortSink(audio);
                 builtinProvider = new AdlMidiSynthProvider(new FFMAdlMidiNativeBridge(), pipeline,
                         0, 4, null);
                 soundbankArg = Optional.of("bank:0");
             }
-            case "opn" -> {
+            case "opn" ->
+            {
                 audio.init(44100, 2, 4096);
                 AudioProcessor pipeline = new FloatToShortSink(audio);
                 builtinProvider = new OpnMidiSynthProvider(new FFMOpnMidiNativeBridge(), pipeline,
                         0, 4, null);
                 soundbankArg = Optional.of("");
             }
-            case "1bit" -> {
+            case "1bit" ->
+            {
                 audio.init(44100, 1, 4096);
                 AudioProcessor pipeline = new FloatToShortSink(audio, 1);
                 builtinProvider = new BeepSynthProvider(pipeline, 2, 2.0, 2.0, 1, "dsd", "square");
             }
-            case "psg" -> {
+            case "psg" ->
+            {
                 audio.init(44100, 1, 4096);
                 AudioProcessor pipeline = new FloatToShortSink(audio, 1);
                 builtinProvider = new PsgSynthProvider(pipeline, 4, 5.0, 25.0, false, false);
             }
-            default -> {
+            default ->
+            {
                 stdErr.println("Error: Unknown built-in engine: " + engine);
                 return 1;
             }

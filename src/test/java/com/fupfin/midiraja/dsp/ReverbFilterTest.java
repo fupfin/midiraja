@@ -6,54 +6,77 @@ import java.util.Arrays;
 
 import org.junit.jupiter.api.Test;
 
-class ReverbFilterTest {
+class ReverbFilterTest
+{
 
     /** Sink that captures the last processed buffer. */
-    private static class CaptureSink implements AudioProcessor {
+    private static class CaptureSink implements AudioProcessor
+    {
         float[] left, right;
-        @Override public void process(float[] l, float[] r, int frames) {
-            left = l.clone(); right = r.clone();
+
+        @Override
+        public void process(float[] l, float[] r, int frames)
+        {
+            left = l.clone();
+            right = r.clone();
         }
-        @Override public void processInterleaved(short[] pcm, int frames, int ch) {}
-        @Override public void reset() {}
+
+        @Override
+        public void processInterleaved(short[] pcm, int frames, int ch)
+        {
+        }
+
+        @Override
+        public void reset()
+        {
+        }
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private static float[] fill(int n, float v) {
-        float[] a = new float[n]; Arrays.fill(a, v); return a;
+    private static float[] fill(int n, float v)
+    {
+        float[] a = new float[n];
+        Arrays.fill(a, v);
+        return a;
     }
 
-    private static double rms(float[] buf) {
+    private static double rms(float[] buf)
+    {
         double sum = 0;
-        for (float v : buf) sum += (double) v * v;
+        for (float v : buf)
+            sum += (double) v * v;
         return Math.sqrt(sum / buf.length);
     }
 
-    private static double maxAbs(float[] buf) {
+    private static double maxAbs(float[] buf)
+    {
         double m = 0;
-        for (float v : buf) m = Math.max(m, Math.abs(v));
+        for (float v : buf)
+            m = Math.max(m, Math.abs(v));
         return m;
     }
 
     // ── tests ─────────────────────────────────────────────────────────────────
 
     @Test
-    void disabled_passes_signal_unchanged() {
+    void disabled_passes_signal_unchanged()
+    {
         var sink = new CaptureSink();
         var filter = new ReverbFilter(sink, ReverbFilter.Preset.ROOM);
         filter.setEnabled(false);
 
-        float[] left  = fill(256, 0.5f);
+        float[] left = fill(256, 0.5f);
         float[] right = fill(256, -0.3f);
         filter.process(left, right, 256);
 
-        assertArrayEquals(fill(256, 0.5f),  sink.left,  0.0f);
+        assertArrayEquals(fill(256, 0.5f), sink.left, 0.0f);
         assertArrayEquals(fill(256, -0.3f), sink.right, 0.0f);
     }
 
     @Test
-    void enabled_produces_output() {
+    void enabled_produces_output()
+    {
         var sink = new CaptureSink();
         var filter = new ReverbFilter(sink, ReverbFilter.Preset.ROOM);
 
@@ -64,10 +87,11 @@ class ReverbFilterTest {
     }
 
     @Test
-    void reverb_adds_wet_component() {
+    void reverb_adds_wet_component()
+    {
         // Process through reverb and compare RMS to a plain passthrough
-        var reverbSink  = new CaptureSink();
-        var bypassSink  = new CaptureSink();
+        var reverbSink = new CaptureSink();
+        var bypassSink = new CaptureSink();
         var reverbFilter = new ReverbFilter(reverbSink, ReverbFilter.Preset.ROOM);
         var bypassFilter = new ReverbFilter(bypassSink, ReverbFilter.Preset.ROOM);
         bypassFilter.setEnabled(false);
@@ -82,7 +106,8 @@ class ReverbFilterTest {
     }
 
     @Test
-    void disabled_then_enabled_activates_reverb() {
+    void disabled_then_enabled_activates_reverb()
+    {
         var sink = new CaptureSink();
         var filter = new ReverbFilter(sink, ReverbFilter.Preset.HALL);
 
@@ -98,7 +123,8 @@ class ReverbFilterTest {
     }
 
     @Test
-    void reverb_tail_persists_after_silence() {
+    void reverb_tail_persists_after_silence()
+    {
         // Comb buffers hold up to ~1640 samples; feed a burst then silence over 4096 frames each.
         var sink = new CaptureSink();
         var filter = new ReverbFilter(sink, ReverbFilter.Preset.ROOM);
@@ -117,7 +143,8 @@ class ReverbFilterTest {
     }
 
     @Test
-    void stereo_spread_left_right_differ() {
+    void stereo_spread_left_right_differ()
+    {
         var sink = new CaptureSink();
         var filter = new ReverbFilter(sink, ReverbFilter.Preset.PLATE);
 
@@ -130,7 +157,8 @@ class ReverbFilterTest {
     }
 
     @Test
-    void full_wet_still_passes_dry() {
+    void full_wet_still_passes_dry()
+    {
         // scaleDry = max(0.1, 1.0 - scaleWet*0.6); even at max wet, dry >= 0.1
         // CAVE has preset.wet=0.45; with levelScale=1.0, scaleWet=min(1.0,0.45)=0.45 → scaleDry=0.73
         // Use a custom high-wet-looking preset: wet=1.0 with levelScale=1.0 → scaleWet=1.0, scaleDry=0.4
@@ -148,8 +176,10 @@ class ReverbFilterTest {
     }
 
     @Test
-    void all_presets_produce_output() {
-        for (var preset : ReverbFilter.Preset.values()) {
+    void all_presets_produce_output()
+    {
+        for (var preset : ReverbFilter.Preset.values())
+        {
             var sink = new CaptureSink();
             var filter = new ReverbFilter(sink, preset);
             assertDoesNotThrow(() -> filter.process(fill(256, 0.5f), fill(256, 0.5f), 256),
@@ -159,7 +189,8 @@ class ReverbFilterTest {
     }
 
     @Test
-    void setPreset_changes_reverb_character() {
+    void setPreset_changes_reverb_character()
+    {
         var sinkRoom = new CaptureSink();
         var sinkCave = new CaptureSink();
 
@@ -177,13 +208,14 @@ class ReverbFilterTest {
     }
 
     @Test
-    void levelScale_scales_wet_mix() {
-        var sinkLow  = new CaptureSink();
+    void levelScale_scales_wet_mix()
+    {
+        var sinkLow = new CaptureSink();
         var sinkHigh = new CaptureSink();
         float[] signal = fill(512, 0.5f);
 
         // levelScale=0.1: scaleWet = min(1.0, HALL.wet*0.1) = min(1.0, 0.35*0.1) = 0.035
-        var filterLow  = new ReverbFilter(sinkLow,  ReverbFilter.Preset.HALL, 0.1f);
+        var filterLow = new ReverbFilter(sinkLow, ReverbFilter.Preset.HALL, 0.1f);
         // levelScale=1.0: scaleWet = min(1.0, HALL.wet*1.0) = min(1.0, 0.35) = 0.35
         var filterHigh = new ReverbFilter(sinkHigh, ReverbFilter.Preset.HALL, 1.0f);
 
@@ -196,20 +228,22 @@ class ReverbFilterTest {
     }
 
     @Test
-    void null_next_does_not_throw() {
+    void null_next_does_not_throw()
+    {
         var filter = new ReverbFilter(null, ReverbFilter.Preset.ROOM);
         assertDoesNotThrow(() -> filter.process(fill(256, 0.5f), fill(256, 0.5f), 256));
     }
 
     @Test
-    void next_processor_is_called() {
+    void next_processor_is_called()
+    {
         var sink = new CaptureSink();
         var filter = new ReverbFilter(sink, ReverbFilter.Preset.SPRING);
 
         float[] signal = fill(128, 0.4f);
         filter.process(signal.clone(), signal.clone(), 128);
 
-        assertNotNull(sink.left,  "next processor should have been called with left channel");
+        assertNotNull(sink.left, "next processor should have been called with left channel");
         assertNotNull(sink.right, "next processor should have been called with right channel");
         assertEquals(128, sink.left.length);
     }

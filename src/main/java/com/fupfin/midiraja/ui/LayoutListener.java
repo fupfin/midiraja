@@ -15,11 +15,12 @@ public interface LayoutListener
     /**
      * Called when the layout manager recalculates the assigned bounds for this listener.
      *
-     * @param bounds The new layout constraints.
+     * @param bounds
+     *            The new layout constraints.
      */
     void onLayoutUpdated(LayoutConstraints bounds);
 
-    static record LayoutConstraints(int width, int height, boolean showHeaders,
-            boolean isHorizontal)
-    {}
+    record LayoutConstraints(int width, int height, boolean showHeaders, boolean isHorizontal)
+    {
+    }
 }

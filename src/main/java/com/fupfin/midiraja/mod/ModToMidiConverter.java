@@ -23,23 +23,25 @@ import com.fupfin.midiraja.vgm.TrackRoleAssigner;
 /**
  * Converts a {@link ModParseResult} into a {@link javax.sound.midi.Sequence}.
  *
- * <p>Channel mapping:
+ * <p>
+ * Channel mapping:
  * <ul>
- *   <li>MOD ch 0 → MIDI ch 0, ch 1 → MIDI ch 1, etc. up to 8 channels
- *   <li>MIDI ch 9 is reserved for GM drums; MOD channels whose instrument maps to percussion
- *       are routed there
- *   <li>MOD ch 4+ skip channel 9 (use 4→4, 5→5, 6→6, 7→7, then 8→10, etc.)
+ * <li>MOD ch 0 → MIDI ch 0, ch 1 → MIDI ch 1, etc. up to 8 channels
+ * <li>MIDI ch 9 is reserved for GM drums; MOD channels whose instrument maps to percussion
+ * are routed there
+ * <li>MOD ch 4+ skip channel 9 (use 4→4, 5→5, 6→6, 7→7, then 8→10, etc.)
  * </ul>
  *
- * <p>Tempo: fixed 120 BPM (PPQ=480). Each row's absolute microsecond timestamp is converted
+ * <p>
+ * Tempo: fixed 120 BPM (PPQ=480). Each row's absolute microsecond timestamp is converted
  * to MIDI ticks via {@code tick = round(microsecond × 960 / 1_000_000)}.
  */
 public class ModToMidiConverter
 {
-    private static final int PPQ          = 480;
+    private static final int PPQ = 480;
     private static final long TICKS_PER_SECOND = 960L; // PPQ * 2 (120 BPM)
-    private static final byte[] TEMPO_BYTES = {0x07, (byte) 0xA1, 0x20}; // 500000 µs = 120 BPM
-    private static final int DRUM_CH      = 9;
+    private static final byte[] TEMPO_BYTES = { 0x07, (byte) 0xA1, 0x20 }; // 500000 µs = 120 BPM
+    private static final int DRUM_CH = 9;
 
     private final Set<Integer> mutedChannels;
 
@@ -76,7 +78,8 @@ public class ModToMidiConverter
 
             // Tracks 1-15 for MIDI channels 0-14
             var tracks = new Track[15];
-            for (int i = 0; i < 15; i++) tracks[i] = sequence.createTrack();
+            for (int i = 0; i < 15; i++)
+                tracks[i] = sequence.createTrack();
 
             // GM drums always on ch 9
             tracks[DRUM_CH].add(new MidiEvent(
@@ -99,9 +102,9 @@ public class ModToMidiConverter
             // Per-channel state
             int maxCh = Math.min(parsed.channelCount(), 8);
             int[] midiChannel = buildMidiChannelMap(maxCh);
-            int[] activeNote  = new int[maxCh];
+            int[] activeNote = new int[maxCh];
             int[] activeInstr = new int[maxCh];
-            boolean[] isDrum  = new boolean[maxCh];
+            boolean[] isDrum = new boolean[maxCh];
             java.util.Arrays.fill(activeNote, -1);
 
             // Muted-channel sink
@@ -111,18 +114,20 @@ public class ModToMidiConverter
                 var sinkSeq = new Sequence(Sequence.PPQ, PPQ);
                 var sink = sinkSeq.createTrack();
                 for (int ch : mutedChannels)
-                    if (ch >= 0 && ch < routed.length) routed[ch] = sink;
+                    if (ch >= 0 && ch < routed.length)
+                        routed[ch] = sink;
             }
 
             for (var event : parsed.events())
             {
                 int modCh = event.channel();
-                if (modCh >= maxCh) continue;
+                if (modCh >= maxCh)
+                    continue;
 
                 long tick = toTick(event.microsecond());
                 int midiCh = midiChannel[modCh];
-                int effect  = event.effectCmd();
-                int param   = event.effectParam();
+                int effect = event.effectCmd();
+                int param = event.effectParam();
 
                 // Handle instrument change
                 if (event.instrument() > 0 && event.instrument() <= 31)
@@ -156,7 +161,8 @@ public class ModToMidiConverter
                         if (activeNote[modCh] >= 0)
                             addEvent(routed[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[modCh], 0, tick);
 
-                        int instrNum = event.instrument() > 0 ? event.instrument()
+                        int instrNum = event.instrument() > 0
+                                ? event.instrument()
                                 : (activeInstr[modCh] > 0 ? activeInstr[modCh] : 0);
                         int vol = instrNum > 0 && instrNum <= 31 ? instruments.get(instrNum - 1).volume() : 64;
                         int vel = Math.clamp(Math.round(vol / 64.0f * 127), 1, 127);
@@ -183,14 +189,14 @@ public class ModToMidiConverter
                 }
                 else if (effect == 0xA) // Axx: volume slide
                 {
-                    int up   = (param >> 4) & 0x0F;
+                    int up = (param >> 4) & 0x0F;
                     int down = param & 0x0F;
                     // Apply slide to current volume — simplified: emit delta as CC7
                     if (up > 0 || down > 0)
                     {
                         int instrNum = activeInstr[modCh] > 0 ? activeInstr[modCh] : 0;
                         int baseVol = instrNum > 0 && instrNum <= 31 ? instruments.get(instrNum - 1).volume() : 64;
-                        int newVol  = Math.clamp(baseVol + up - down, 0, 64);
+                        int newVol = Math.clamp(baseVol + up - down, 0, 64);
                         int cc7 = Math.clamp(Math.round(newVol / 64.0f * 127), 0, 127);
                         addEvent(routed[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, cc7, tick);
                     }
@@ -218,7 +224,8 @@ public class ModToMidiConverter
         int midiCh = 0;
         for (int i = 0; i < channelCount; i++)
         {
-            if (midiCh == DRUM_CH) midiCh++;
+            if (midiCh == DRUM_CH)
+                midiCh++;
             map[i] = midiCh++;
         }
         return map;

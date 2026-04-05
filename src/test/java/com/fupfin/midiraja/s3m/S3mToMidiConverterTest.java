@@ -31,7 +31,8 @@ class S3mToMidiConverterTest
     private static List<TrackerInstrument> instruments(String... names)
     {
         var list = new java.util.ArrayList<TrackerInstrument>();
-        for (String n : names) list.add(new TrackerInstrument(n, 64));
+        for (String n : names)
+            list.add(new TrackerInstrument(n, 64));
         return List.copyOf(list);
     }
 
@@ -133,6 +134,7 @@ class S3mToMidiConverterTest
     void buildMidiChannelMap_skipsDrumChannel()
     {
         int[] map = TrackerToMidiConverter.buildMidiChannelMap(8);
-        for (int ch : map) assertNotEquals(9, ch, "MIDI channel 9 must not be assigned");
+        for (int ch : map)
+            assertNotEquals(9, ch, "MIDI channel 9 must not be assigned");
     }
 }

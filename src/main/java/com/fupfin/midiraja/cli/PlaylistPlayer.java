@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.jspecify.annotations.Nullable;
@@ -22,6 +23,7 @@ import com.fupfin.midiraja.engine.PlaybackEngineFactory;
 import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.io.TerminalIO;
 import com.fupfin.midiraja.media.MediaKeyIntegration;
+import com.fupfin.midiraja.media.MusicFormatLoader;
 import com.fupfin.midiraja.media.NowPlayingInfo;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
@@ -29,16 +31,14 @@ import com.fupfin.midiraja.midi.MidiUtils;
 import com.fupfin.midiraja.ui.DashboardUI;
 import com.fupfin.midiraja.ui.PlaybackEventListener;
 import com.fupfin.midiraja.ui.PlaybackUI;
-import java.util.Set;
-
-import com.fupfin.midiraja.media.MusicFormatLoader;
 
 /**
  * Executes a playlist of MIDI files using a given provider and port.
  * Owns the playback loop, track navigation, and NowPlaying UI updates.
  * Terminal setup and port selection are handled by the caller ({@link PlaybackRunner}).
  */
-class PlaylistPlayer {
+class PlaylistPlayer
+{
 
     private final PlaybackEngineFactory engineFactory;
     private final @Nullable FxOptions fxOptions;
@@ -50,13 +50,13 @@ class PlaylistPlayer {
     private final Set<Integer> mutedChannels;
 
     PlaylistPlayer(PlaybackEngineFactory engineFactory,
-                   @Nullable FxOptions fxOptions,
-                   boolean includeRetroInSuffix,
-                   boolean suppressHoldAtEnd,
-                   boolean exitOnNavBoundary,
-                   PrintStream err,
-                   MediaKeyIntegration mediaKeys,
-                   Set<Integer> mutedChannels)
+            @Nullable FxOptions fxOptions,
+            boolean includeRetroInSuffix,
+            boolean suppressHoldAtEnd,
+            boolean exitOnNavBoundary,
+            PrintStream err,
+            MediaKeyIntegration mediaKeys,
+            Set<Integer> mutedChannels)
     {
         this.engineFactory = engineFactory;
         this.fxOptions = fxOptions;
@@ -74,14 +74,14 @@ class PlaylistPlayer {
      * @return the last raw {@link PlaybackStatus} produced by the final engine
      */
     PlaybackStatus play(List<File> playlist, MidiOutProvider provider, MidiPort port,
-                        CommonOptions common, PlaybackUI ui, TerminalIO io,
-                        Optional<Long> initialStartTime, List<String> originalArgs)
+            CommonOptions common, PlaybackUI ui, TerminalIO io,
+            Optional<Long> initialStartTime, List<String> originalArgs)
             throws Exception
     {
         // Use int[][] so the lambda can capture playOrderHolder (effectively final reference)
         // while playOrderHolder[0] can be reassigned on loop wrap-around.
         int[][] playOrderHolder = { buildPlayOrder(playlist.size(), common.shuffle) };
-        int[] currentIdxHolder = {0};
+        int[] currentIdxHolder = { 0 };
         Optional<Long> currentStartTime = initialStartTime;
         boolean wasPaused = false;
         PlaybackStatus lastRawStatus = PlaybackStatus.FINISHED;
@@ -104,8 +104,8 @@ class PlaylistPlayer {
                 var title = MidiUtils.extractSequenceTitle(sequence);
 
                 // Build ordered file view for display (snapshot at track-start time)
-                List<File> orderedFiles =
-                        java.util.stream.IntStream.of(playOrderHolder[0]).mapToObj(playlist::get).toList();
+                List<File> orderedFiles = java.util.stream.IntStream.of(playOrderHolder[0]).mapToObj(playlist::get)
+                        .toList();
                 var context = new PlaylistContext(orderedFiles, currentIdxHolder[0], port, title,
                         common.loop, common.shuffle);
 
@@ -125,10 +125,18 @@ class PlaylistPlayer {
 
                 engine.addPlaybackEventListener(new PlaybackEventListener()
                 {
-                    @Override public void onTempoChanged(float bpm) {}
-                    @Override public void onChannelActivity(int ch, int vel) {}
+                    @Override
+                    public void onTempoChanged(float bpm)
+                    {
+                    }
 
-                    @Override public void onTick(long currentMicroseconds)
+                    @Override
+                    public void onChannelActivity(int ch, int vel)
+                    {
+                    }
+
+                    @Override
+                    public void onTick(long currentMicroseconds)
                     {
                         mediaKeys.drainAndUpdate(new NowPlayingInfo(
                                 trackTitle, "", durationMicros, currentMicroseconds, !engine.isPaused()));
@@ -136,7 +144,8 @@ class PlaylistPlayer {
 
                     // isPaused() and getCurrentMicroseconds() are backed by AtomicBoolean/AtomicLong,
                     // so reads from this listener thread are safe without additional synchronization.
-                    @Override public void onPlaybackStateChanged()
+                    @Override
+                    public void onPlaybackStateChanged()
                     {
                         mediaKeys.drainAndUpdate(new NowPlayingInfo(
                                 trackTitle, "", durationMicros, engine.getCurrentMicroseconds(),
@@ -145,36 +154,24 @@ class PlaylistPlayer {
                 });
                 // ── End media key integration ─────────────────────────────────────────────
 
-                if (common.ignoreSysex) engine.setIgnoreSysex(true);
-                if (common.resetType.isPresent()) engine.setInitialResetType(common.resetType);
-                if (wasPaused) engine.setInitiallyPaused();
+                if (common.ignoreSysex)
+                    engine.setIgnoreSysex(true);
+                if (common.resetType.isPresent())
+                    engine.setInitialResetType(common.resetType);
+                if (wasPaused)
+                    engine.setInitiallyPaused();
                 engine.setFilterDescription(buildFxDescription(fxOptions));
                 engine.setPortSuffix(buildRetroSuffix(common, includeRetroInSuffix));
 
-                boolean initiallyBookmarked =
-                        !originalArgs.isEmpty() && new SessionHistory().isBookmarked(originalArgs);
+                boolean initiallyBookmarked = !originalArgs.isEmpty()
+                        && new SessionHistory().isBookmarked(originalArgs);
                 engine.setBookmarked(initiallyBookmarked);
-                engine.setBookmarkCallback(bookmarked -> {
-                    var h = new SessionHistory();
-                    if (bookmarked) {
-                        h.saveBookmark(originalArgs);
-                    } else {
-                        h.removeBookmarkByArgs(originalArgs);
-                    }
-                });
+                engine.setBookmarkCallback(bookmarked -> applyBookmark(bookmarked, originalArgs));
 
                 // Wire shuffle callback: mutates remaining slice of playOrderHolder[0] live
                 // and immediately updates the playlist panel display.
-                engine.setShuffleCallback(newState -> {
-                    reshuffleRemaining(playOrderHolder[0], currentIdxHolder[0], newState);
-                    var newOrdered = java.util.stream.IntStream.of(playOrderHolder[0])
-                            .mapToObj(playlist::get).toList();
-                    var newCtx = new PlaylistContext(
-                            newOrdered, currentIdxHolder[0], port,
-                            engine.getContext().sequenceTitle(),
-                            engine.isLoopEnabled(), newState);
-                    engine.firePlayOrderChanged(newCtx);
-                });
+                engine.setShuffleCallback(newState -> applyShuffleCallback(engine, playlist, playOrderHolder,
+                        currentIdxHolder, port, newState));
 
                 boolean isLastTrack = (currentIdxHolder[0] == playlist.size() - 1);
                 if (!suppressHoldAtEnd && isLastTrack && !common.loop && (ui instanceof DashboardUI))
@@ -184,7 +181,7 @@ class PlaylistPlayer {
 
                 var status = ScopedValue.where(TerminalIO.CONTEXT, io).call(() -> engine.start(ui));
                 lastRawStatus = status;
-                activeCommands.set(null);  // commands between tracks are silently dropped
+                activeCommands.set(null); // commands between tracks are silently dropped
 
                 currentStartTime = Optional.empty();
                 common.volume = (int) (engine.getVolumeScale() * 100);
@@ -215,6 +212,37 @@ class PlaylistPlayer {
         }
 
         return lastRawStatus;
+    }
+
+    private static void applyBookmark(boolean bookmarked, List<String> originalArgs)
+    {
+        var h = new SessionHistory();
+        if (bookmarked)
+        {
+            h.saveBookmark(originalArgs);
+        }
+        else
+        {
+            h.removeBookmarkByArgs(originalArgs);
+        }
+    }
+
+    private static void applyShuffleCallback(
+            com.fupfin.midiraja.engine.PlaybackEngine engine,
+            List<File> playlist,
+            int[][] playOrderHolder,
+            int[] currentIdxHolder,
+            MidiPort port,
+            boolean newState)
+    {
+        reshuffleRemaining(playOrderHolder[0], currentIdxHolder[0], newState);
+        var newOrdered = java.util.stream.IntStream.of(playOrderHolder[0])
+                .mapToObj(playlist::get).toList();
+        var newCtx = new PlaylistContext(
+                newOrdered, currentIdxHolder[0], port,
+                engine.getContext().sequenceTitle(),
+                engine.isLoopEnabled(), newState);
+        engine.firePlayOrderChanged(newCtx);
     }
 
     int handlePlaybackStatus(PlaybackStatus status, int currentTrackIdx,
@@ -257,7 +285,7 @@ class PlaylistPlayer {
     static String buildFxDescription(@Nullable FxOptions fx)
     {
         var parts = new java.util.ArrayList<String>();
-        String hi  = com.fupfin.midiraja.ui.Theme.COLOR_HIGHLIGHT;
+        String hi = com.fupfin.midiraja.ui.Theme.COLOR_HIGHLIGHT;
         String dim = com.fupfin.midiraja.ui.Theme.COLOR_DIM_FG;
         String rst = com.fupfin.midiraja.ui.Theme.COLOR_RESET;
 
@@ -281,9 +309,10 @@ class PlaylistPlayer {
     static String buildRetroSuffix(CommonOptions common, boolean includeRetro)
     {
         var parts = new java.util.ArrayList<String>();
-        String hi  = com.fupfin.midiraja.ui.Theme.COLOR_HIGHLIGHT;
+        String hi = com.fupfin.midiraja.ui.Theme.COLOR_HIGHLIGHT;
         String rst = com.fupfin.midiraja.ui.Theme.COLOR_RESET;
-        if (includeRetro) common.retroMode.ifPresent(r -> parts.add("retro: " + hi + r + rst));
+        if (includeRetro)
+            common.retroMode.ifPresent(r -> parts.add("retro: " + hi + r + rst));
         common.speakerProfile.ifPresent(s -> parts.add("speaker: " + hi + s + rst));
         return parts.isEmpty() ? "" : "  |  " + String.join("  |  ", parts);
     }
@@ -291,7 +320,8 @@ class PlaylistPlayer {
     static int[] buildPlayOrder(int size, boolean shuffle)
     {
         int[] order = new int[size];
-        for (int i = 0; i < size; i++) order[i] = i;
+        for (int i = 0; i < size; i++)
+            order[i] = i;
         if (shuffle)
         {
             var rng = new java.util.Random();
@@ -309,7 +339,8 @@ class PlaylistPlayer {
     static void reshuffleRemaining(int[] playOrder, int currentIdx, boolean shuffleOn)
     {
         int n = playOrder.length;
-        if (n <= 1) return;
+        if (n <= 1)
+            return;
         int currentSong = playOrder[currentIdx];
         if (shuffleOn)
         {
@@ -341,6 +372,7 @@ class PlaylistPlayer {
 
     private void logVerbose(boolean verbose, String message)
     {
-        if (verbose) err.println("[VERBOSE] " + message);
+        if (verbose)
+            err.println("[VERBOSE] " + message);
     }
 }

@@ -7,7 +7,6 @@
 
 package com.fupfin.midiraja.midi.os;
 
-
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -24,8 +23,8 @@ import com.fupfin.midiraja.midi.MidiPort;
  */
 public class AlsaProvider implements MidiOutProvider
 {
-    private static final java.util.logging.Logger log =
-            java.util.logging.Logger.getLogger(AlsaProvider.class.getName());
+    private static final java.util.logging.Logger log = java.util.logging.Logger
+            .getLogger(AlsaProvider.class.getName());
     private static final Linker LINKER = Linker.nativeLinker();
     @Nullable
     private static final SymbolLookup ALSA_LOOKUP;
@@ -58,24 +57,25 @@ public class AlsaProvider implements MidiOutProvider
     @Nullable
     private static MethodHandle getMH(String name, FunctionDescriptor desc)
     {
-        if (!ALSA_AVAILABLE) return null;
-        return ALSA_LOOKUP == null ? null
+        if (!ALSA_AVAILABLE)
+            return null;
+        return ALSA_LOOKUP == null
+                ? null
                 : ALSA_LOOKUP.find(name).map(seg -> LINKER.downcallHandle(seg, desc)).orElse(null);
     }
 
     // Method Handles
     @Nullable
-    private static final MethodHandle snd_seq_open =
-            getMH("snd_seq_open", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+    private static final MethodHandle snd_seq_open = getMH("snd_seq_open",
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                     ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
     @Nullable
     private static final MethodHandle snd_seq_close = getMH("snd_seq_close",
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
     @Nullable
-    private static final MethodHandle snd_seq_create_simple_port =
-            getMH("snd_seq_create_simple_port",
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
-                            ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
+    private static final MethodHandle snd_seq_create_simple_port = getMH("snd_seq_create_simple_port",
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+                    ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
     @Nullable
     private static final MethodHandle snd_seq_connect_to = getMH("snd_seq_connect_to",
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
@@ -83,9 +83,8 @@ public class AlsaProvider implements MidiOutProvider
 
     // Client Info
     @Nullable
-    private static final MethodHandle snd_seq_client_info_malloc =
-            getMH("snd_seq_client_info_malloc",
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+    private static final MethodHandle snd_seq_client_info_malloc = getMH("snd_seq_client_info_malloc",
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
     @Nullable
     private static final MethodHandle snd_seq_client_info_free = getMH("snd_seq_client_info_free",
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
@@ -93,13 +92,11 @@ public class AlsaProvider implements MidiOutProvider
     private static final MethodHandle snd_seq_query_next_client = getMH("snd_seq_query_next_client",
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
     @Nullable
-    private static final MethodHandle snd_seq_client_info_get_client =
-            getMH("snd_seq_client_info_get_client",
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+    private static final MethodHandle snd_seq_client_info_get_client = getMH("snd_seq_client_info_get_client",
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
     @Nullable
-    private static final MethodHandle snd_seq_client_info_get_name =
-            getMH("snd_seq_client_info_get_name",
-                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+    private static final MethodHandle snd_seq_client_info_get_name = getMH("snd_seq_client_info_get_name",
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 
     // Port Info
     @Nullable
@@ -120,17 +117,14 @@ public class AlsaProvider implements MidiOutProvider
             "snd_seq_port_info_set_port",
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
     @Nullable
-    private static final MethodHandle snd_seq_port_info_get_port =
-            getMH("snd_seq_port_info_get_port",
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+    private static final MethodHandle snd_seq_port_info_get_port = getMH("snd_seq_port_info_get_port",
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
     @Nullable
-    private static final MethodHandle snd_seq_port_info_get_capability =
-            getMH("snd_seq_port_info_get_capability",
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+    private static final MethodHandle snd_seq_port_info_get_capability = getMH("snd_seq_port_info_get_capability",
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
     @Nullable
-    private static final MethodHandle snd_seq_port_info_get_name =
-            getMH("snd_seq_port_info_get_name",
-                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+    private static final MethodHandle snd_seq_port_info_get_name = getMH("snd_seq_port_info_get_name",
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
 
     // MIDI Event Parser
     @Nullable
@@ -164,11 +158,12 @@ public class AlsaProvider implements MidiOutProvider
     private Arena sessionArena = null;
 
     @Override
-    @SuppressWarnings({"NullAway", "UnusedVariable"})
+    @SuppressWarnings({ "NullAway", "UnusedVariable" })
     public List<MidiPort> getOutputPorts()
     {
         var ports = new ArrayList<MidiPort>();
-        if (!ALSA_AVAILABLE) return ports;
+        if (!ALSA_AVAILABLE)
+            return ports;
 
         try (Arena arena = Arena.ofConfined())
         {
@@ -202,10 +197,10 @@ public class AlsaProvider implements MidiOutProvider
             while ((int) snd_seq_query_next_client.invokeExact(seq, cInfo) == 0)
             {
                 int client = (int) snd_seq_client_info_get_client.invokeExact(cInfo);
-                if (client == SND_SEQ_CLIENT_SYSTEM) continue;
+                if (client == SND_SEQ_CLIENT_SYSTEM)
+                    continue;
 
-                MemorySegment clientNamePtr =
-                        (MemorySegment) snd_seq_client_info_get_name.invokeExact(cInfo);
+                MemorySegment clientNamePtr = (MemorySegment) snd_seq_client_info_get_name.invokeExact(cInfo);
                 String clientName = clientNamePtr.reinterpret(Long.MAX_VALUE).getString(0);
 
                 if (snd_seq_port_info_set_client != null)
@@ -225,8 +220,7 @@ public class AlsaProvider implements MidiOutProvider
 
                     if ((caps & PORT_CAP_MASK) == PORT_CAP_MASK)
                     {
-                        MemorySegment portNamePtr =
-                                (MemorySegment) snd_seq_port_info_get_name.invokeExact(pInfo);
+                        MemorySegment portNamePtr = (MemorySegment) snd_seq_port_info_get_name.invokeExact(pInfo);
                         String portName = portNamePtr.reinterpret(Long.MAX_VALUE).getString(0);
                         int globalPortIndex = (client << 16) | port;
                         ports.add(new MidiPort(globalPortIndex, clientName + " - " + portName));
@@ -257,10 +251,11 @@ public class AlsaProvider implements MidiOutProvider
     }
 
     @Override
-    @SuppressWarnings({"NullAway", "UnusedVariable"})
+    @SuppressWarnings({ "NullAway", "UnusedVariable" })
     public void openPort(int portIndex) throws Exception
     {
-        if (!ALSA_AVAILABLE) throw new Exception("ALSA is not available on this system.");
+        if (!ALSA_AVAILABLE)
+            throw new Exception("ALSA is not available on this system.");
 
         try
         {
@@ -300,13 +295,14 @@ public class AlsaProvider implements MidiOutProvider
         catch (Throwable t)
         {
             log.warning("NativeBridge error: " + t.getMessage());
-            if (sessionArena != null) sessionArena.close();
+            if (sessionArena != null)
+                sessionArena.close();
             throw new Exception("Failed to open ALSA port via FFM", t);
         }
     }
 
     @Override
-    @SuppressWarnings({"NullAway", "UnusedVariable"})
+    @SuppressWarnings({ "NullAway", "UnusedVariable" })
     public void sendMessage(byte[] data) throws Exception
     {
         var handle = seqHandle;
@@ -314,8 +310,10 @@ public class AlsaProvider implements MidiOutProvider
         var ev = eventBuffer;
         var arena = sessionArena;
 
-        if (handle == null || parser == null || ev == null || arena == null) return;
-        if (data.length == 0) return;
+        if (handle == null || parser == null || ev == null || arena == null)
+            return;
+        if (data.length == 0)
+            return;
 
         try
         {
@@ -351,7 +349,7 @@ public class AlsaProvider implements MidiOutProvider
     }
 
     @Override
-    @SuppressWarnings({"NullAway", "UnusedVariable"})
+    @SuppressWarnings({ "NullAway", "UnusedVariable" })
     public void closePort()
     {
         try

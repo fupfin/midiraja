@@ -16,8 +16,10 @@ public interface SoftSynthProvider extends MidiOutProvider
     /**
      * Loads a soundbank file into the synthesizer engine.
      *
-     * @param path The absolute or relative path to the soundbank file.
-     * @throws Exception If the file cannot be loaded or is invalid.
+     * @param path
+     *            The absolute or relative path to the soundbank file.
+     * @throws Exception
+     *             If the file cannot be loaded or is invalid.
      */
     void loadSoundbank(String path) throws Exception;
 }

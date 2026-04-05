@@ -27,9 +27,7 @@ import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.cli.MidiMetaExtractor.MidiMeta;
 import com.fupfin.midiraja.io.AppLogger;
 
-@Command(name = "midi-info",
-        mixinStandardHelpOptions = true,
-        description = "Print MIDI file metadata (duration, title, copyright, lyrics) without playing.")
+@Command(name = "midi-info", mixinStandardHelpOptions = true, description = "Print MIDI file metadata (duration, title, copyright, lyrics) without playing.")
 public class MidiInfoCommand implements Callable<Integer>
 {
     @ParentCommand
@@ -40,21 +38,17 @@ public class MidiInfoCommand implements Callable<Integer>
     @Nullable
     private CommandSpec spec;
 
-    @Parameters(paramLabel = "FILE", arity = "1..*",
-            description = "MIDI files, directories, or .m3u playlists.")
+    @Parameters(paramLabel = "FILE", arity = "1..*", description = "MIDI files, directories, or .m3u playlists.")
     private List<File> rawFiles = new ArrayList<>();
 
-    @Option(names = {"-R", "--recursive"},
-            description = "Recurse into directories.")
+    @Option(names = { "-R", "--recursive" }, description = "Recurse into directories.")
     private boolean recursive;
 
-    @Option(names = {"--format"}, paramLabel = "FORMAT",
-            description = "Output format: text (default), csv, tsv.",
-            defaultValue = "text")
+    @Option(names = {
+            "--format" }, paramLabel = "FORMAT", description = "Output format: text (default), csv, tsv.", defaultValue = "text")
     private String format = "text";
 
-    @Option(names = {"--log"}, paramLabel = "LEVEL",
-            description = "Enable logging (error, warn, info, debug).")
+    @Option(names = { "--log" }, paramLabel = "LEVEL", description = "Enable logging (error, warn, info, debug).")
     private Optional<String> logLevel = Optional.empty();
 
     @Override
@@ -139,7 +133,8 @@ public class MidiInfoCommand implements Callable<Integer>
             }
             else
             {
-                if (!first) out.println();
+                if (!first)
+                    out.println();
                 first = false;
                 out.println("=== " + file.getName() + " ===");
                 out.println("Duration:    " + formatDuration(meta.durationMicroseconds()));
@@ -166,7 +161,8 @@ public class MidiInfoCommand implements Callable<Integer>
                         out.println("  " + line);
                     hasAny = true;
                 }
-                if (!hasAny) out.println("(no metadata)");
+                if (!hasAny)
+                    out.println("(no metadata)");
             }
         }
 
@@ -189,7 +185,8 @@ public class MidiInfoCommand implements Callable<Integer>
     /** RFC 4180 CSV field quoting. Works for both CSV (sep=',') and TSV (sep='\t'). */
     static String csvField(String value, char sep)
     {
-        if (value.isEmpty()) return "";
+        if (value.isEmpty())
+            return "";
         if (value.indexOf(sep) < 0 && value.indexOf('"') < 0
                 && value.indexOf('\n') < 0 && value.indexOf('\r') < 0)
             return value;

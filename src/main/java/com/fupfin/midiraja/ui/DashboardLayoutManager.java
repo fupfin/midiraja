@@ -49,8 +49,7 @@ public class DashboardLayoutManager
         int hPlaylist = showPlaylist ? wrapTitled(min(PLAYLIST_MIN_CONTENT, listSize)) : 0;
         int hControls = CONTROLS_MIN_CONTENT;
 
-        int absoluteMinHeight =
-                APP_STATIC_OVERHEAD + hNowPlaying + hChannels + hPlaylist + hControls;
+        int absoluteMinHeight = APP_STATIC_OVERHEAD + hNowPlaying + hChannels + hPlaylist + hControls;
 
         boolean isHorizontal = true; // Default to Stacked
 

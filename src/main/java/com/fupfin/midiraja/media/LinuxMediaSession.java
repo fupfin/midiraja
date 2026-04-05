@@ -28,10 +28,12 @@ import com.fupfin.midiraja.midi.AbstractFFMBridge;
  * Linux media key integration via MPRIS2 (D-Bus).
  * Requires a running D-Bus session and libmidiraja_mediakeys.so.
  *
- * <p>Call sequence: {@code start()} → any number of {@code drainAndUpdate()} → {@code close()}.
+ * <p>
+ * Call sequence: {@code start()} → any number of {@code drainAndUpdate()} → {@code close()}.
  * All methods are safe to call out of order or multiple times.
  *
- * <p>Native commands are enqueued from the native callback thread and drained on the caller's
+ * <p>
+ * Native commands are enqueued from the native callback thread and drained on the caller's
  * thread (the engine playback thread) in {@link #drainAndUpdate}.
  */
 public final class LinuxMediaSession implements MediaKeyIntegration
@@ -40,14 +42,11 @@ public final class LinuxMediaSession implements MediaKeyIntegration
 
     // ── FunctionDescriptors for NativeMetadataConsistencyTest ────────────────
 
-    static final FunctionDescriptor DESC_START =
-            FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS);
-    static final FunctionDescriptor DESC_UPDATE =
-            FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, JAVA_LONG, JAVA_LONG, JAVA_INT);
-    static final FunctionDescriptor DESC_STOP =
-            FunctionDescriptor.ofVoid();
-    static final FunctionDescriptor DESC_UPCALL =
-            FunctionDescriptor.ofVoid(JAVA_INT);
+    static final FunctionDescriptor DESC_START = FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS);
+    static final FunctionDescriptor DESC_UPDATE = FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, JAVA_LONG, JAVA_LONG,
+            JAVA_INT);
+    static final FunctionDescriptor DESC_STOP = FunctionDescriptor.ofVoid();
+    static final FunctionDescriptor DESC_UPCALL = FunctionDescriptor.ofVoid(JAVA_INT);
 
     /** Returns all downcall descriptors for {@code NativeMetadataConsistencyTest}. */
     public static List<FunctionDescriptor> allDowncallDescriptors()
@@ -94,7 +93,8 @@ public final class LinuxMediaSession implements MediaKeyIntegration
     @Override
     public void start(PlaybackCommands commands)
     {
-        if (!started.compareAndSet(false, true)) return;
+        if (!started.compareAndSet(false, true))
+            return;
         this.commands = commands;
         try
         {
@@ -122,11 +122,12 @@ public final class LinuxMediaSession implements MediaKeyIntegration
     @Override
     public void drainAndUpdate(NowPlayingInfo info)
     {
-        if (!started.get()) return;
+        if (!started.get())
+            return;
         drainQueue();
         try
         {
-            var titleSeg  = arena.allocateFrom(info.title());
+            var titleSeg = arena.allocateFrom(info.title());
             var artistSeg = info.artist().isEmpty()
                     ? MemorySegment.NULL
                     : arena.allocateFrom(info.artist());
@@ -174,7 +175,8 @@ public final class LinuxMediaSession implements MediaKeyIntegration
     private void drainQueue()
     {
         var cmds = commands;
-        if (cmds == null) return;
+        if (cmds == null)
+            return;
         Integer cmd;
         while ((cmd = pendingCommands.poll()) != null)
         {

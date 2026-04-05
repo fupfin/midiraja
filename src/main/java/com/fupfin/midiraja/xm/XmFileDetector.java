@@ -16,19 +16,22 @@ import java.util.Locale;
 /**
  * Detects FastTracker 2 XM files by extension or magic bytes.
  *
- * <p>The XM magic {@code "Extended Module: "} (17 bytes) appears at offset 0.
+ * <p>
+ * The XM magic {@code "Extended Module: "} (17 bytes) appears at offset 0.
  */
 public final class XmFileDetector
 {
-    private static final byte[] MAGIC =
-            "Extended Module: ".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] MAGIC = "Extended Module: ".getBytes(StandardCharsets.US_ASCII);
 
-    private XmFileDetector() {}
+    private XmFileDetector()
+    {
+    }
 
     public static boolean isXmFile(File file)
     {
         String name = file.getName().toLowerCase(Locale.ROOT);
-        if (name.endsWith(".xm")) return true;
+        if (name.endsWith(".xm"))
+            return true;
         return hasMagic(file);
     }
 
@@ -37,9 +40,11 @@ public final class XmFileDetector
         try (var in = new FileInputStream(file))
         {
             byte[] buf = in.readNBytes(MAGIC.length);
-            if (buf.length < MAGIC.length) return false;
+            if (buf.length < MAGIC.length)
+                return false;
             for (int i = 0; i < MAGIC.length; i++)
-                if (buf[i] != MAGIC[i]) return false;
+                if (buf[i] != MAGIC[i])
+                    return false;
             return true;
         }
         catch (IOException e)

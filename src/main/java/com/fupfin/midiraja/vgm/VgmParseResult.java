@@ -14,25 +14,42 @@ import org.jspecify.annotations.Nullable;
 /**
  * Result of parsing a VGM file.
  *
- * @param vgmVersion VGM format version (e.g. 0x150)
- * @param ym2413Clock YM2413 (OPLL) clock in Hz, 0 if chip absent
- * @param sn76489Clock SN76489 clock in Hz, 0 if chip absent
- * @param ym2612Clock YM2612 clock in Hz, 0 if chip absent
- * @param ym2151Clock YM2151 (OPM) clock in Hz, 0 if chip absent
- * @param ym2203Clock YM2203 (OPN) clock in Hz, 0 if chip absent
- * @param ym2608Clock YM2608 (OPNA) clock in Hz, 0 if chip absent
- * @param ym2610Clock YM2610 (OPNB) clock in Hz, 0 if chip absent
- * @param gameBoyDmgClock Game Boy DMG clock in Hz, 0 if chip absent
- * @param huC6280Clock HuC6280 (PC Engine) clock in Hz, 0 if chip absent
- * @param ym3812Clock YM3812 (OPL2) clock in Hz, 0 if chip absent
- * @param ymf262Clock YMF262 (OPL3) clock in Hz, 0 if chip absent
- * @param ay8910Clock AY-3-8910 / YM2149F clock in Hz, 0 if chip absent
- * @param sccClock K051649 (Konami SCC) clock in Hz; falls back to {@code ay8910Clock × 2} when
- *     the header field is zero. The K051649 runs at the full MSX cartridge bus clock (= CPU clock),
- *     while the AY8910 has an internal /2 prescaler — so SCC clock = 2 × AY8910 clock.
- * @param nes2A03Clock NES 2A03 (RP2A03) clock in Hz, 0 if chip absent
- * @param events chip events in chronological order
- * @param gd3Title track title from GD3 tag, null if absent
+ * @param vgmVersion
+ *            VGM format version (e.g. 0x150)
+ * @param ym2413Clock
+ *            YM2413 (OPLL) clock in Hz, 0 if chip absent
+ * @param sn76489Clock
+ *            SN76489 clock in Hz, 0 if chip absent
+ * @param ym2612Clock
+ *            YM2612 clock in Hz, 0 if chip absent
+ * @param ym2151Clock
+ *            YM2151 (OPM) clock in Hz, 0 if chip absent
+ * @param ym2203Clock
+ *            YM2203 (OPN) clock in Hz, 0 if chip absent
+ * @param ym2608Clock
+ *            YM2608 (OPNA) clock in Hz, 0 if chip absent
+ * @param ym2610Clock
+ *            YM2610 (OPNB) clock in Hz, 0 if chip absent
+ * @param gameBoyDmgClock
+ *            Game Boy DMG clock in Hz, 0 if chip absent
+ * @param huC6280Clock
+ *            HuC6280 (PC Engine) clock in Hz, 0 if chip absent
+ * @param ym3812Clock
+ *            YM3812 (OPL2) clock in Hz, 0 if chip absent
+ * @param ymf262Clock
+ *            YMF262 (OPL3) clock in Hz, 0 if chip absent
+ * @param ay8910Clock
+ *            AY-3-8910 / YM2149F clock in Hz, 0 if chip absent
+ * @param sccClock
+ *            K051649 (Konami SCC) clock in Hz; falls back to {@code ay8910Clock × 2} when
+ *            the header field is zero. The K051649 runs at the full MSX cartridge bus clock (= CPU clock),
+ *            while the AY8910 has an internal /2 prescaler — so SCC clock = 2 × AY8910 clock.
+ * @param nes2A03Clock
+ *            NES 2A03 (RP2A03) clock in Hz, 0 if chip absent
+ * @param events
+ *            chip events in chronological order
+ * @param gd3Title
+ *            track title from GD3 tag, null if absent
  */
 public record VgmParseResult(
         int vgmVersion,
@@ -51,4 +68,6 @@ public record VgmParseResult(
         long sccClock,
         long nes2A03Clock,
         List<VgmEvent> events,
-        @Nullable String gd3Title) {}
+        @Nullable String gd3Title)
+{
+}
