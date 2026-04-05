@@ -9,12 +9,10 @@ package com.fupfin.midiraja.cli;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
-
 import javax.sound.midi.MidiSystem;
 import javax.sound.midi.Sequence;
 
@@ -64,7 +62,7 @@ class PlaylistPlayerMediaKeysTest
                 (s, p, ctx, pipeline, shutdown, speed, start) -> new MinimalEngine(ctx, pipeline);
 
         var player = new PlaylistPlayer(factory, null, false, true, true,
-                System.err, testKeys);
+                System.err, testKeys, java.util.Set.of());
 
         var mockIO = new MockTerminalIO();
         player.play(List.of(midiFile), provider,

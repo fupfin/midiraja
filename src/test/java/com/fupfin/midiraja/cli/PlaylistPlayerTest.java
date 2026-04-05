@@ -123,7 +123,7 @@ class PlaylistPlayerTest {
 
     private PlaylistPlayer player(PlaybackEngineFactory factory) {
         return new PlaylistPlayer(factory, null, false, false, false, errStream,
-                NoOpMediaIntegration.INSTANCE);
+                NoOpMediaIntegration.INSTANCE, java.util.Set.of());
     }
 
     // ── static helpers ────────────────────────────────────────────────────────
@@ -222,7 +222,7 @@ class PlaylistPlayerTest {
             return new MockPlaybackEngine(seq, p, ctx, pipeline, isShuttingDown, speed, start, PlaybackStatus.NEXT);
         };
         var p = new PlaylistPlayer(factory, null, false, false, true, errStream,
-                NoOpMediaIntegration.INSTANCE);
+                NoOpMediaIntegration.INSTANCE, java.util.Set.of());
         p.play(List.of(f1, f2, f3), new MockMidiProvider(),
                 new MidiPort(0, "Mock"), common, new DumbUI(), mockIO,
                 Optional.empty(), List.of());

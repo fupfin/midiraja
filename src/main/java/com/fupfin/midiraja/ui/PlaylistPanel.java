@@ -20,6 +20,8 @@ import org.jspecify.annotations.Nullable;
 
 import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.midi.MidiUtils;
+import com.fupfin.midiraja.vgm.VgmFileDetector;
+import com.fupfin.midiraja.vgm.VgmParser;
 
 public class PlaylistPanel implements Panel
 {
@@ -48,17 +50,19 @@ public class PlaylistPanel implements Panel
                     var unused = executor.submit(() -> {
                         try
                         {
-                            Sequence seq = MidiSystem.getSequence(file);
-                            String title =
-                                    MidiUtils.extractSequenceTitle(seq);
-                            if (title != null && !title.isEmpty())
+                            String title;
+                            if (VgmFileDetector.isVgmFile(file))
                             {
-                                titleCache.put(file, title.trim());
+                                var parsed = new VgmParser().parse(file);
+                                title = parsed.gd3Title() != null ? parsed.gd3Title().trim() : "";
                             }
                             else
                             {
-                                titleCache.put(file, ""); // Empty string means no title
+                                Sequence seq = MidiSystem.getSequence(file);
+                                String t = MidiUtils.extractSequenceTitle(seq);
+                                title = (t != null) ? t.trim() : "";
                             }
+                            titleCache.put(file, title);
                         }
                         catch (Exception e)
                         {

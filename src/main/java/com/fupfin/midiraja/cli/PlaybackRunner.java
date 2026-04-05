@@ -19,13 +19,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jspecify.annotations.Nullable;
 
+import javax.sound.midi.MidiSystem;
+
 import com.fupfin.midiraja.MidirajaCommand;
+import com.fupfin.midiraja.media.MusicFormatLoader;
 import com.fupfin.midiraja.engine.MidiPlaybackEngine;
-import com.fupfin.midiraja.media.MediaKeyIntegration;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaybackEngineFactory;
 import com.fupfin.midiraja.io.JLineTerminalIO;
 import com.fupfin.midiraja.io.TerminalIO;
+import com.fupfin.midiraja.media.MediaKeyIntegration;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.midi.SoftSynthProvider;
@@ -58,6 +61,7 @@ public class PlaybackRunner
     @Nullable
     private FxOptions fxOptions = null;
     private boolean includeRetroInSuffix = false;
+    private java.util.Set<Integer> mutedChannels = java.util.Set.of();
     private final PlaybackEngineFactory engineFactory;
 
     public void setFxOptions(FxOptions fx) { this.fxOptions = fx; }
@@ -68,6 +72,9 @@ public class PlaybackRunner
      * Fluid, Munt, and OS ports don't process retro at all.
      */
     public void setIncludeRetroInSuffix(boolean include) { this.includeRetroInSuffix = include; }
+
+    /** MIDI channel indices (0-based) to silence during VGM conversion. */
+    public void setMutedChannels(java.util.Set<Integer> channels) { this.mutedChannels = channels; }
 
     public PlaybackStatus getLastRawStatus()
     {
@@ -130,6 +137,10 @@ public class PlaybackRunner
             List<String> originalArgs)
             throws Exception
     {
+        // Apply --mute from CommonOptions if not already set via setMutedChannels().
+        if (mutedChannels.isEmpty())
+            mutedChannels = common.parsedMutedChannels(err);
+
         // FAIL-FAST VALIDATION
         if (validateFiles(rawFiles) != 0)
         {
@@ -150,6 +161,16 @@ public class PlaybackRunner
             err.println("Error: No MIDI files specified. Use 'midra <file1.mid>' "
                     + "or 'midra -h' for help.");
             return 1;
+        }
+
+        // ── Export mode: convert and write to file, no playback ──────────────
+        if (common.exportMidi.isPresent())
+        {
+            var input = playlist.get(0);
+            var sequence = MusicFormatLoader.load(input, mutedChannels);
+            MidiSystem.write(sequence, 1, common.exportMidi.get());
+            out.println("Exported: " + common.exportMidi.get());
+            return 0;
         }
 
         // Auto-save session to history
@@ -216,7 +237,7 @@ public class PlaybackRunner
             try
             {
                 var player = new PlaylistPlayer(engineFactory, fxOptions, includeRetroInSuffix,
-                        suppressHoldAtEnd, exitOnNavBoundary, err, mediaKeys);
+                        suppressHoldAtEnd, exitOnNavBoundary, err, mediaKeys, mutedChannels);
                 lastRawStatus = player.play(playlist, provider, ports.get(portIndex), common,
                         ui, activeIO, currentStartTime, originalArgs);
             }

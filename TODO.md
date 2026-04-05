@@ -2,6 +2,49 @@
 
 ---
 
+## VGM Playback Improvements
+
+`midra vgm` converts SN76489/YM2612 → MIDI and plays back. The following items are
+unimplemented quality improvements.
+
+### YM2612 Volume (Total Level registers)
+**Current:** All YM2612 channels play at a fixed velocity of 100.
+**Goal:** Parse FM operator Total Level (TL) registers (0x40–0x4E per port) and map the
+carrier operator's TL to CC7 or NoteOn velocity.
+- TL range: 0 (loudest) to 127 (silent) — inverted relative to MIDI, so approximate as `127 - TL`.
+- Carrier operator identification depends on the algorithm byte; simplification: always use OP4
+  (TL at address 0x4C + ch) regardless of algorithm.
+
+### YM2612 DAC PCM → SoundFont
+**Current:** `0x80`-`0x8F` DAC writes are used only for timing accumulation. No PCM audio plays.
+**Goal:** Extract sample data from the `0x67` PCM block, package it as an SF2 SoundFont, and
+convert `0xE0` seek commands into NoteOn events on MIDI channel 9.
+
+**Analysis (Sonic 3 title screen):**
+- 1 PCM block: 8444 bytes, type=0x00 (8-bit unsigned), DAC sample rate ≈ 8567 Hz
+- 56 `0xE0` seek commands → 5 distinct sample regions identified
+
+| Sample | Byte offset | Size (bytes) | Duration (s) |
+|--------|-------------|-------------|--------------|
+| 0 | 0 | 3052 | ~0.36 |
+| 1 | 3052 | 1618 | ~0.19 |
+| 2 | 4670 | 2218 | ~0.26 |
+| 3 | 6888 | 1532 | ~0.18 |
+| 4 | 8420 | 24 | ~0.003 (negligible) |
+
+**Implementation sketch:**
+1. `VgmParser`: retain PCM byte array from `0x67`; emit a DAC event on each `0xE0` seek
+2. `VgmToMidiConverter`: convert DAC events to ch9 NoteOn (seek offset → sample index → MIDI note)
+3. `VgmSf2Builder`: extract PCM regions, write them as an SF2; `VgmCommand` creates a temp SF2 and loads it into TSF
+
+### SN76489 Periodic Noise Pitch
+**Current:** The noise channel always uses fixed note 38 (GM snare).
+**Goal:** Decode noise register bits 1-0 to distinguish periodic noise (bit1=0) from white
+noise (bit1=1). For periodic noise, reference the Tone 2 register frequency to derive a
+pitched percussion note.
+
+---
+
 ## Roadmap
 
 ### "Just Works" Default Playback

@@ -29,6 +29,9 @@ import com.fupfin.midiraja.midi.MidiUtils;
 import com.fupfin.midiraja.ui.DashboardUI;
 import com.fupfin.midiraja.ui.PlaybackEventListener;
 import com.fupfin.midiraja.ui.PlaybackUI;
+import java.util.Set;
+
+import com.fupfin.midiraja.media.MusicFormatLoader;
 
 /**
  * Executes a playlist of MIDI files using a given provider and port.
@@ -44,6 +47,7 @@ class PlaylistPlayer {
     private final boolean exitOnNavBoundary;
     private final PrintStream err;
     private final MediaKeyIntegration mediaKeys;
+    private final Set<Integer> mutedChannels;
 
     PlaylistPlayer(PlaybackEngineFactory engineFactory,
                    @Nullable FxOptions fxOptions,
@@ -51,7 +55,8 @@ class PlaylistPlayer {
                    boolean suppressHoldAtEnd,
                    boolean exitOnNavBoundary,
                    PrintStream err,
-                   MediaKeyIntegration mediaKeys)
+                   MediaKeyIntegration mediaKeys,
+                   Set<Integer> mutedChannels)
     {
         this.engineFactory = engineFactory;
         this.fxOptions = fxOptions;
@@ -60,6 +65,7 @@ class PlaylistPlayer {
         this.exitOnNavBoundary = exitOnNavBoundary;
         this.err = err;
         this.mediaKeys = mediaKeys;
+        this.mutedChannels = mutedChannels;
     }
 
     /**
@@ -89,7 +95,7 @@ class PlaylistPlayer {
             var file = playlist.get(playOrderHolder[0][currentIdxHolder[0]]);
             try
             {
-                var sequence = MidiUtils.loadSequence(file);
+                var sequence = MusicFormatLoader.load(file, mutedChannels);
                 logVerbose(common.isVerbose(),
                         String.format("Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d",
                                 file.getName(), sequence.getResolution(),

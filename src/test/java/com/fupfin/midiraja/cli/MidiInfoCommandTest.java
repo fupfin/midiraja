@@ -18,7 +18,6 @@ import javax.sound.midi.*;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-
 import picocli.CommandLine;
 
 import com.fupfin.midiraja.MidirajaCommand;
