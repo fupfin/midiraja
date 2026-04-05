@@ -60,3 +60,4 @@ docs/test-coverage-analysis.md
 docs/complexity-analysis.md
 docs/superpowers/
 .sdkmanrc
+.aider*
