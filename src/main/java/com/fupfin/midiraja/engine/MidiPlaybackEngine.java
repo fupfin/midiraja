@@ -780,7 +780,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
      * Returns the microseconds-per-quarter-note value from a MIDI Set Tempo meta-event,
      * or -1 if {@code msg} is not a tempo event or has mspqn == 0.
      */
-    private static int extractTempoMspqn(byte[] msg)
+    static int extractTempoMspqn(byte[] msg)
     {
         if (msg[0] != (byte) 0xFF || msg.length < 6 || (msg[1] & 0xFF) != 0x51)
             return -1;

@@ -16,10 +16,11 @@ import com.fupfin.midiraja.midi.AudioEngine;
 public class FloatToShortSink implements AudioSink
 {
     private static final Logger log = Logger.getLogger(FloatToShortSink.class.getName());
-    private static final int FLUSH_THRESHOLD = 500; // flush after ~500ms of failed pushes
+    static final int DEFAULT_flushThreshold = 500; // flush after ~500ms of failed pushes
 
     private final @Nullable AudioEngine engine;
     private final int outputChannels;
+    private final int flushThreshold;
     private short @Nullable [] pcmBuffer = null;
 
     public FloatToShortSink(@Nullable AudioEngine engine)
@@ -29,8 +30,14 @@ public class FloatToShortSink implements AudioSink
 
     public FloatToShortSink(@Nullable AudioEngine engine, int outputChannels)
     {
+        this(engine, outputChannels, DEFAULT_flushThreshold);
+    }
+
+    FloatToShortSink(@Nullable AudioEngine engine, int outputChannels, int flushThreshold)
+    {
         this.engine = engine;
         this.outputChannels = outputChannels;
+        this.flushThreshold = flushThreshold;
     }
 
     @Override
@@ -56,7 +63,7 @@ public class FloatToShortSink implements AudioSink
                 else
                 {
                     stuckCount++;
-                    if (stuckCount >= FLUSH_THRESHOLD)
+                    if (stuckCount >= flushThreshold)
                     {
                         log.warning("FloatToShortSink: ring buffer stuck, flushing to recover");
                         engine.flush();
@@ -117,7 +124,7 @@ public class FloatToShortSink implements AudioSink
             else
             {
                 stuckCount++;
-                if (stuckCount >= FLUSH_THRESHOLD)
+                if (stuckCount >= flushThreshold)
                 {
                     log.warning("FloatToShortSink: ring buffer stuck, flushing to recover");
                     engine.flush();

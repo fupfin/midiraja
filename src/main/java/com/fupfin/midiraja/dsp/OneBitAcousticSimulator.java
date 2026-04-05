@@ -16,7 +16,7 @@ public class OneBitAcousticSimulator implements AudioProcessor
     // DSD State
     private double dsdErrL = 0.0;
     private double dsdErrR = 0.0;
-    private final Random rand = new Random();
+    private final Random rand;
 
     // Acoustic Filters
     private double lp1L = 0, lp1R = 0, lp2L = 0, lp2R = 0;
@@ -28,6 +28,12 @@ public class OneBitAcousticSimulator implements AudioProcessor
 
     public OneBitAcousticSimulator(int sampleRate, String oneBitMode)
     {
+        this(sampleRate, oneBitMode, new Random());
+    }
+
+    OneBitAcousticSimulator(int sampleRate, String oneBitMode, Random rand)
+    {
+        this.rand = rand;
         this.oneBitMode = oneBitMode.toLowerCase(ROOT);
 
         // Characteristic filters. Oversampling is universally 32x (~1.4MHz)

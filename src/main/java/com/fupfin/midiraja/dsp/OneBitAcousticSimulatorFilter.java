@@ -11,11 +11,14 @@ public class OneBitAcousticSimulatorFilter implements AudioProcessor
 
     public OneBitAcousticSimulatorFilter(boolean enabled, String oneBitMode, AudioProcessor next)
     {
+        this(enabled, new OneBitAcousticSimulator(44100, oneBitMode != null ? oneBitMode : "pwm"), next);
+    }
+
+    OneBitAcousticSimulatorFilter(boolean enabled, OneBitAcousticSimulator simulator, AudioProcessor next)
+    {
         this.enabled = enabled;
+        this.simulator = simulator;
         this.next = next;
-        int sampleRate = 44100; // Assume global sample rate
-        this.simulator = new OneBitAcousticSimulator(sampleRate,
-                oneBitMode != null ? oneBitMode : "pwm");
     }
 
     @Override

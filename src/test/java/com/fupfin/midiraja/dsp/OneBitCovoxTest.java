@@ -168,7 +168,7 @@ public class OneBitCovoxTest
     public void testOneBitAcousticSimulatorFilterPWM()
     {
         DummyAudioProcessor next = new DummyAudioProcessor();
-        OneBitAcousticSimulatorFilter filter = new OneBitAcousticSimulatorFilter(true, null, next);
+        OneBitAcousticSimulatorFilter filter = new OneBitAcousticSimulatorFilter(true, (String) null, next);
 
         float[] l = new float[] { 0.0f, 0.5f, -0.5f, 1.2f, -1.2f };
         float[] r = new float[] { 0.0f, 0.5f, -0.5f, 1.2f, -1.2f };
