@@ -16,24 +16,29 @@ import javax.sound.midi.ShortMessage;
 
 import org.junit.jupiter.api.Test;
 
-class ItToMidiConverterTest
+import com.fupfin.midiraja.tracker.TrackerEvent;
+import com.fupfin.midiraja.tracker.TrackerInstrument;
+import com.fupfin.midiraja.tracker.TrackerParseResult;
+import com.fupfin.midiraja.tracker.TrackerToMidiConverter;
+
+class TrackerToMidiConverterTest
 {
-    private static ItParseResult emptyResult()
+    private static TrackerParseResult emptyResult()
     {
-        return new ItParseResult("", 4, List.of(), List.of());
+        return new TrackerParseResult("", 4, List.of(), List.of());
     }
 
-    private static List<ItInstrument> instruments(String... names)
+    private static List<TrackerInstrument> instruments(String... names)
     {
-        var list = new java.util.ArrayList<ItInstrument>();
-        for (String n : names) list.add(new ItInstrument(n, 64));
+        var list = new java.util.ArrayList<TrackerInstrument>();
+        for (String n : names) list.add(new TrackerInstrument(n, 64));
         return List.copyOf(list);
     }
 
     @Test
     void convert_empty_returnsValidSequence()
     {
-        var seq = new ItToMidiConverter().convert(emptyResult());
+        var seq = new TrackerToMidiConverter().convert(emptyResult());
         assertNotNull(seq);
         assertEquals(Sequence.PPQ, seq.getDivisionType());
         assertEquals(480, seq.getResolution());
@@ -42,7 +47,7 @@ class ItToMidiConverterTest
     @Test
     void convert_hasTempoTrack()
     {
-        var seq = new ItToMidiConverter().convert(emptyResult());
+        var seq = new TrackerToMidiConverter().convert(emptyResult());
         var t = seq.getTracks()[0];
         boolean found = false;
         for (int i = 0; i < t.size(); i++)
@@ -54,8 +59,8 @@ class ItToMidiConverterTest
     @Test
     void convert_titleInTempoTrack()
     {
-        var seq = new ItToMidiConverter().convert(
-                new ItParseResult("My IT Track", 4, List.of(), List.of()));
+        var seq = new TrackerToMidiConverter().convert(
+                new TrackerParseResult("My IT Track", 4, List.of(), List.of()));
         var t = seq.getTracks()[0];
         boolean found = false;
         for (int i = 0; i < t.size(); i++)
@@ -68,9 +73,9 @@ class ItToMidiConverterTest
     void convert_noteEvent_producesNoteOn()
     {
         // IT note 60 = MIDI 60 (middle C), instrument 1
-        var events = List.of(new ItEvent(0, 0, 60, 1, -1, 0, 0));
-        var result = new ItParseResult("", 4, instruments("lead"), events);
-        var seq = new ItToMidiConverter().convert(result);
+        var events = List.of(new TrackerEvent(0, 0, 60, 1, -1, 0, 0));
+        var result = new TrackerParseResult("", 4, instruments("lead"), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -84,9 +89,9 @@ class ItToMidiConverterTest
     @Test
     void convert_percussionInstrument_routesToDrumChannel()
     {
-        var events = List.of(new ItEvent(0, 0, 60, 1, -1, 0, 0));
-        var result = new ItParseResult("", 4, instruments("hihat"), events);
-        var seq = new ItToMidiConverter().convert(result);
+        var events = List.of(new TrackerEvent(0, 0, 60, 1, -1, 0, 0));
+        var result = new TrackerParseResult("", 4, instruments("hihat"), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -101,10 +106,10 @@ class ItToMidiConverterTest
     void convert_noteCut_emitsNoteOff()
     {
         var events = List.of(
-                new ItEvent(0,       0, 60, 1, -1, 0, 0),
-                new ItEvent(480_000, 0, -2, 0, -1, 0, 0));
-        var result = new ItParseResult("", 4, instruments("lead"), events);
-        var seq = new ItToMidiConverter().convert(result);
+                new TrackerEvent(0,       0, 60, 1, -1, 0, 0),
+                new TrackerEvent(480_000, 0, -2, 0, -1, 0, 0));
+        var result = new TrackerParseResult("", 4, instruments("lead"), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -118,9 +123,9 @@ class ItToMidiConverterTest
     @Test
     void convert_volumeColumn_emitsCC7()
     {
-        var events = List.of(new ItEvent(0, 0, -1, 0, 32, 0, 0));
-        var result = new ItParseResult("", 4, List.of(), events);
-        var seq = new ItToMidiConverter().convert(result);
+        var events = List.of(new TrackerEvent(0, 0, -1, 0, 32, 0, 0));
+        var result = new TrackerParseResult("", 4, List.of(), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -134,19 +139,19 @@ class ItToMidiConverterTest
     @Test
     void toTick_zeroPosIsZero()
     {
-        assertEquals(0L, ItToMidiConverter.toTick(0));
+        assertEquals(0L, TrackerToMidiConverter.toTick(0));
     }
 
     @Test
     void toTick_oneSecond_is960Ticks()
     {
-        assertEquals(960L, ItToMidiConverter.toTick(1_000_000));
+        assertEquals(960L, TrackerToMidiConverter.toTick(1_000_000));
     }
 
     @Test
     void buildMidiChannelMap_skipsDrumChannel()
     {
-        int[] map = ItToMidiConverter.buildMidiChannelMap(10);
+        int[] map = TrackerToMidiConverter.buildMidiChannelMap(10);
         for (int ch : map) assertNotEquals(9, ch);
     }
 }

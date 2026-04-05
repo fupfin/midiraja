@@ -17,8 +17,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
+import com.fupfin.midiraja.tracker.TrackerEvent;
+import com.fupfin.midiraja.tracker.TrackerInstrument;
+import com.fupfin.midiraja.tracker.TrackerParseResult;
+
 /**
- * Parses FastTracker 2 XM files into an {@link XmParseResult}.
+ * Parses FastTracker 2 XM files into an {@link TrackerParseResult}.
  *
  * <p>Global header layout (all integers little-endian):
  * <ul>
@@ -55,14 +59,14 @@ public class XmParser
     private static final int FX_PAT_BREAK  = 0x0D;
     private static final int FX_SPEED_BPM  = 0x0F;
 
-    public XmParseResult parse(File file) throws IOException
+    public TrackerParseResult parse(File file) throws IOException
     {
         byte[] data = new FileInputStream(file).readAllBytes();
         return parseBytes(data);
     }
 
     /** Parse from a raw byte array (useful for testing). */
-    public XmParseResult parseBytes(byte[] data) throws IOException
+    public TrackerParseResult parseBytes(byte[] data) throws IOException
     {
         if (data.length < 80)
             throw new IOException("File too small to be a valid XM file");
@@ -131,10 +135,10 @@ public class XmParser
         }
 
         // Read instruments
-        var instruments = new ArrayList<XmInstrument>(insCount);
+        var instruments = new ArrayList<TrackerInstrument>(insCount);
         for (int i = 0; i < insCount && pos < data.length; i++)
         {
-            if (pos + 29 > data.length) { instruments.add(new XmInstrument("", 64)); continue; }
+            if (pos + 29 > data.length) { instruments.add(new TrackerInstrument("", 64)); continue; }
             int insHdrSize  = buf.getInt(pos);
             String insName  = readAsciiTrimmed(data, pos + 4, 22);
             int numSamples  = pos + 29 < data.length ? (buf.getShort(pos + 27) & 0xFFFF) : 0;
@@ -146,7 +150,7 @@ public class XmParser
                 if (sampleBase + 14 <= data.length)
                     sampleVol = data[sampleBase + 12] & 0xFF;
             }
-            instruments.add(new XmInstrument(insName, Math.min(sampleVol, 64)));
+            instruments.add(new TrackerInstrument(insName, Math.min(sampleVol, 64)));
 
             // Skip past instrument header + all sample headers + all sample data
             int skipSize = insHdrSize;
@@ -170,7 +174,7 @@ public class XmParser
                 patternVols, patternFxCmd, patternFxPar, patternCount, channelCount,
                 initSpeed, initBpm);
 
-        return new XmParseResult(title, channelCount, List.copyOf(instruments), events);
+        return new TrackerParseResult(title, channelCount, List.copyOf(instruments), events);
     }
 
     private void unpackPattern(byte[] data, int start, int packedSize, int rows, int channels,
@@ -210,12 +214,12 @@ public class XmParser
         }
     }
 
-    private List<XmEvent> linearize(int[] orders, int songLength, int[] patternRows,
+    private List<TrackerEvent> linearize(int[] orders, int songLength, int[] patternRows,
             int[][][] notes, int[][][] instrs, int[][][] vols,
             int[][][] fxCmd, int[][][] fxPar,
             int patternCount, int channelCount, int initSpeed, int initBpm)
     {
-        var events = new ArrayList<XmEvent>();
+        var events = new ArrayList<TrackerEvent>();
         int speed = initSpeed;
         int bpm   = initBpm;
         long currentMicrosecond = 0;
@@ -268,7 +272,7 @@ public class XmParser
                 int finalVol  = effectVol >= 0 ? effectVol : vol;
 
                 if (midiNote != -1 || instr != 0 || finalVol != -1 || fx != 0)
-                    events.add(new XmEvent(currentMicrosecond, ch, midiNote, instr,
+                    events.add(new TrackerEvent(currentMicrosecond, ch, midiNote, instr,
                             finalVol, fx, fxp));
             }
 

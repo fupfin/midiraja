@@ -16,24 +16,29 @@ import javax.sound.midi.ShortMessage;
 
 import org.junit.jupiter.api.Test;
 
+import com.fupfin.midiraja.tracker.TrackerEvent;
+import com.fupfin.midiraja.tracker.TrackerInstrument;
+import com.fupfin.midiraja.tracker.TrackerParseResult;
+import com.fupfin.midiraja.tracker.TrackerToMidiConverter;
+
 class S3mToMidiConverterTest
 {
-    private static S3mParseResult emptyResult()
+    private static TrackerParseResult emptyResult()
     {
-        return new S3mParseResult("", 4, List.of(), List.of());
+        return new TrackerParseResult("", 4, List.of(), List.of());
     }
 
-    private static List<S3mInstrument> instruments(String... names)
+    private static List<TrackerInstrument> instruments(String... names)
     {
-        var list = new java.util.ArrayList<S3mInstrument>();
-        for (String n : names) list.add(new S3mInstrument(n, 64));
+        var list = new java.util.ArrayList<TrackerInstrument>();
+        for (String n : names) list.add(new TrackerInstrument(n, 64));
         return List.copyOf(list);
     }
 
     @Test
     void convert_empty_returnsValidSequence()
     {
-        var seq = new S3mToMidiConverter().convert(emptyResult());
+        var seq = new TrackerToMidiConverter().convert(emptyResult());
         assertNotNull(seq);
         assertEquals(Sequence.PPQ, seq.getDivisionType());
         assertEquals(480, seq.getResolution());
@@ -42,7 +47,7 @@ class S3mToMidiConverterTest
     @Test
     void convert_hasTempoTrack()
     {
-        var seq = new S3mToMidiConverter().convert(emptyResult());
+        var seq = new TrackerToMidiConverter().convert(emptyResult());
         var t = seq.getTracks()[0];
         boolean found = false;
         for (int i = 0; i < t.size(); i++)
@@ -54,8 +59,8 @@ class S3mToMidiConverterTest
     @Test
     void convert_titleInTempoTrack()
     {
-        var seq = new S3mToMidiConverter().convert(
-                new S3mParseResult("My Track", 4, List.of(), List.of()));
+        var seq = new TrackerToMidiConverter().convert(
+                new TrackerParseResult("My Track", 4, List.of(), List.of()));
         var t = seq.getTracks()[0];
         boolean found = false;
         for (int i = 0; i < t.size(); i++)
@@ -67,10 +72,9 @@ class S3mToMidiConverterTest
     @Test
     void convert_noteEvent_producesNoteOn()
     {
-        // C5 = MIDI 60; instrument 1; volume -1 (column empty)
-        var events = List.of(new S3mEvent(0, 0, 60, 1, -1, 0, 0));
-        var result = new S3mParseResult("", 4, instruments("lead"), events);
-        var seq = new S3mToMidiConverter().convert(result);
+        var events = List.of(new TrackerEvent(0, 0, 60, 1, -1, 0, 0));
+        var result = new TrackerParseResult("", 4, instruments("lead"), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -84,9 +88,9 @@ class S3mToMidiConverterTest
     @Test
     void convert_percussionInstrument_routesToDrumChannel()
     {
-        var events = List.of(new S3mEvent(0, 0, 60, 1, -1, 0, 0));
-        var result = new S3mParseResult("", 4, instruments("kick drum"), events);
-        var seq = new S3mToMidiConverter().convert(result);
+        var events = List.of(new TrackerEvent(0, 0, 60, 1, -1, 0, 0));
+        var result = new TrackerParseResult("", 4, instruments("kick drum"), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -100,10 +104,9 @@ class S3mToMidiConverterTest
     @Test
     void convert_volumeColumn_emitsCC7()
     {
-        // volume=32 → 32/64*127 ≈ 63
-        var events = List.of(new S3mEvent(0, 0, -1, 0, 32, 0, 0));
-        var result = new S3mParseResult("", 4, List.of(), events);
-        var seq = new S3mToMidiConverter().convert(result);
+        var events = List.of(new TrackerEvent(0, 0, -1, 0, 32, 0, 0));
+        var result = new TrackerParseResult("", 4, List.of(), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -117,19 +120,19 @@ class S3mToMidiConverterTest
     @Test
     void toTick_zeroPosIsZero()
     {
-        assertEquals(0L, S3mToMidiConverter.toTick(0));
+        assertEquals(0L, TrackerToMidiConverter.toTick(0));
     }
 
     @Test
     void toTick_oneSecond_is960Ticks()
     {
-        assertEquals(960L, S3mToMidiConverter.toTick(1_000_000));
+        assertEquals(960L, TrackerToMidiConverter.toTick(1_000_000));
     }
 
     @Test
     void buildMidiChannelMap_skipsDrumChannel()
     {
-        int[] map = S3mToMidiConverter.buildMidiChannelMap(8);
+        int[] map = TrackerToMidiConverter.buildMidiChannelMap(8);
         for (int ch : map) assertNotEquals(9, ch, "MIDI channel 9 must not be assigned");
     }
 }

@@ -5,7 +5,7 @@
  * directory of this source tree.
  */
 
-package com.fupfin.midiraja.it;
+package com.fupfin.midiraja.tracker;
 
 import static com.fupfin.midiraja.vgm.FmMidiUtil.addEvent;
 
@@ -22,32 +22,38 @@ import com.fupfin.midiraja.mod.ModInstrumentMapper;
 import com.fupfin.midiraja.vgm.TrackRoleAssigner;
 
 /**
- * Converts an {@link ItParseResult} into a {@link javax.sound.midi.Sequence}.
+ * Converts a {@link TrackerParseResult} (S3M, XM, or IT) into a {@link Sequence}.
  *
- * <p>Channel mapping: IT channels (up to 64) are mapped sequentially to MIDI channels 0–14,
- * skipping channel 9 (GM drums). Instruments whose name matches a percussion keyword are routed
- * to channel 9.
+ * <p>Channel mapping: tracker channels are mapped to MIDI channels 0–14, skipping channel 9
+ * (GM drums). Instruments whose name matches a percussion keyword are routed to channel 9.
+ *
+ * <p>Volume slide effects: S3M and IT use effect code 4 (D); XM uses 10 (A). Both are handled.
+ * When a nibble equals {@code 0xF} (fine-slide marker in S3M/IT), that nibble is skipped.
  *
  * <p>Timing: fixed 120 BPM (PPQ=480); tick = round(microsecond × 960 / 1_000_000).
  */
-public class ItToMidiConverter
+public class TrackerToMidiConverter
 {
-    private static final int PPQ             = 480;
-    private static final long TICKS_PER_SEC = 960L;
-    private static final byte[] TEMPO_BYTES = {0x07, (byte) 0xA1, 0x20};
-    private static final int DRUM_CH        = 9;
+    private static final int PPQ              = 480;
+    private static final long TICKS_PER_SEC  = 960L; // PPQ * 2 (120 BPM)
+    private static final byte[] TEMPO_BYTES  = {0x07, (byte) 0xA1, 0x20}; // 500000 µs
+    private static final int DRUM_CH         = 9;
+    // Volume slide effect codes: S3M/IT = 4 (D), XM = 10 (A)
+    private static final int FX_VOL_SLIDE_D  = 4;
+    private static final int FX_VOL_SLIDE_A  = 10;
 
     private final Set<Integer> mutedChannels;
 
-    public ItToMidiConverter()               { this(Set.of()); }
-    public ItToMidiConverter(Set<Integer> m) { this.mutedChannels = m; }
+    public TrackerToMidiConverter()               { this(Set.of()); }
+    public TrackerToMidiConverter(Set<Integer> m) { this.mutedChannels = m; }
 
-    static long toTick(long microsecond)
+    /** Converts a microsecond position to a MIDI tick at 120 BPM / PPQ=480. */
+    public static long toTick(long microsecond)
     {
         return Math.round(microsecond * (double) TICKS_PER_SEC / 1_000_000.0);
     }
 
-    public Sequence convert(ItParseResult parsed)
+    public Sequence convert(TrackerParseResult parsed)
     {
         try
         {
@@ -80,7 +86,7 @@ public class ItToMidiConverter
                 instrGmProgram[i] = instrIsDrum[i] ? 0 : Math.max(gm, 0);
             }
 
-            // Per-channel state
+            // Per-channel state (up to 14 melodic channels, same limit for all tracker formats)
             int maxCh = Math.min(parsed.channelCount(), 14);
             int[] midiChannel = buildMidiChannelMap(maxCh);
             int[] activeNote  = new int[maxCh];
@@ -100,11 +106,11 @@ public class ItToMidiConverter
 
             for (var ev : parsed.events())
             {
-                int itCh = ev.channel();
-                if (itCh >= maxCh) continue;
+                int trackerCh = ev.channel();
+                if (trackerCh >= maxCh) continue;
 
                 long tick  = toTick(ev.microsecond());
-                int midiCh = midiChannel[itCh];
+                int midiCh = midiChannel[trackerCh];
 
                 // Instrument change
                 if (ev.instrument() > 0 && ev.instrument() <= insCount)
@@ -112,16 +118,16 @@ public class ItToMidiConverter
                     int i = ev.instrument();
                     if (instrIsDrum[i])
                     {
-                        isDrum[itCh] = true;
+                        isDrum[trackerCh] = true;
                         midiCh = DRUM_CH;
-                        midiChannel[itCh] = DRUM_CH;
+                        midiChannel[trackerCh] = DRUM_CH;
                     }
-                    else if (activeInstr[itCh] != i)
+                    else if (activeInstr[trackerCh] != i)
                     {
-                        isDrum[itCh] = false;
+                        isDrum[trackerCh] = false;
                         addEvent(routed[midiCh], ShortMessage.PROGRAM_CHANGE,
                                 midiCh, instrGmProgram[i], 0, tick);
-                        activeInstr[itCh] = i;
+                        activeInstr[trackerCh] = i;
                     }
                 }
 
@@ -132,40 +138,45 @@ public class ItToMidiConverter
                     addEvent(routed[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, cc7, tick);
                 }
 
-                // Note
+                // Note event
                 int note = ev.note();
-                if (note == -2) // note cut / note fade
+                if (note == -2) // key-off / note cut
                 {
-                    if (activeNote[itCh] >= 0)
-                        addEvent(routed[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[itCh], 0, tick);
-                    activeNote[itCh] = -1;
+                    if (activeNote[trackerCh] >= 0)
+                        addEvent(routed[midiCh], ShortMessage.NOTE_OFF,
+                                midiCh, activeNote[trackerCh], 0, tick);
+                    activeNote[trackerCh] = -1;
                 }
                 else if (note >= 0)
                 {
-                    if (activeNote[itCh] >= 0)
-                        addEvent(routed[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[itCh], 0, tick);
+                    if (activeNote[trackerCh] >= 0)
+                        addEvent(routed[midiCh], ShortMessage.NOTE_OFF,
+                                midiCh, activeNote[trackerCh], 0, tick);
 
-                    int instrIdx = ev.instrument() > 0 ? ev.instrument() : activeInstr[itCh];
+                    int instrIdx = ev.instrument() > 0 ? ev.instrument() : activeInstr[trackerCh];
                     int baseVol  = instrIdx > 0 && instrIdx <= insCount
                             ? instruments.get(instrIdx - 1).volume() : 64;
                     int vel = Math.clamp(Math.round(baseVol / 64.0f * 127), 1, 127);
 
-                    int destCh = isDrum[itCh] ? DRUM_CH : midiCh;
+                    int destCh = isDrum[trackerCh] ? DRUM_CH : midiCh;
                     addEvent(routed[destCh], ShortMessage.NOTE_ON, destCh, note, vel, tick);
-                    activeNote[itCh] = note;
+                    activeNote[trackerCh] = note;
                 }
 
-                // Volume slide effect (D)
-                if (ev.effectCmd() == 4)
+                // Volume slide: S3M/IT use effect D (4), XM uses effect A (10)
+                if (ev.effectCmd() == FX_VOL_SLIDE_D || ev.effectCmd() == FX_VOL_SLIDE_A)
                 {
                     int up   = (ev.effectParam() >> 4) & 0x0F;
                     int down = ev.effectParam() & 0x0F;
-                    if (up != 0xF && down != 0xF && (up > 0 || down > 0))
+                    // Nibble 0xF = fine-slide marker in S3M/IT; treat as no slide for that direction
+                    int effectiveUp   = (up   == 0xF) ? 0 : up;
+                    int effectiveDown = (down == 0xF) ? 0 : down;
+                    if (effectiveUp > 0 || effectiveDown > 0)
                     {
-                        int instrIdx = activeInstr[itCh] > 0 ? activeInstr[itCh] : 0;
+                        int instrIdx = activeInstr[trackerCh] > 0 ? activeInstr[trackerCh] : 0;
                         int baseVol = instrIdx > 0 && instrIdx <= insCount
                                 ? instruments.get(instrIdx - 1).volume() : 64;
-                        int newVol = Math.clamp(baseVol + up - down, 0, 64);
+                        int newVol = Math.clamp(baseVol + effectiveUp - effectiveDown, 0, 64);
                         int cc7 = Math.clamp(Math.round(newVol / 64.0f * 127), 0, 127);
                         addEvent(routed[midiCh], ShortMessage.CONTROL_CHANGE, midiCh, 7, cc7, tick);
                     }
@@ -181,8 +192,8 @@ public class ItToMidiConverter
         }
     }
 
-    /** Maps IT channel indices to MIDI channels, skipping channel 9. */
-    static int[] buildMidiChannelMap(int channelCount)
+    /** Maps tracker channel indices to MIDI channels, skipping channel 9 (GM drums). */
+    public static int[] buildMidiChannelMap(int channelCount)
     {
         int[] map = new int[channelCount];
         int midiCh = 0;

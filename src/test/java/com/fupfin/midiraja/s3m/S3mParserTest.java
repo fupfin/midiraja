@@ -14,6 +14,8 @@ import java.nio.ByteOrder;
 
 import org.junit.jupiter.api.Test;
 
+import com.fupfin.midiraja.tracker.TrackerParseResult;
+
 class S3mParserTest
 {
     /**

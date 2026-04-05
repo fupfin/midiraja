@@ -5,12 +5,12 @@
  * directory of this source tree.
  */
 
-package com.fupfin.midiraja.s3m;
+package com.fupfin.midiraja.tracker;
 
 /**
- * A single instrument (PCM sample slot) from a Scream Tracker 3 module.
+ * A single instrument slot shared across tracker formats (S3M, XM, IT).
  *
- * @param name   display name from the instrument header (up to 28 characters)
+ * @param name   display name (up to 28 characters depending on format)
  * @param volume default volume (0–64)
  */
-public record S3mInstrument(String name, int volume) {}
+public record TrackerInstrument(String name, int volume) {}

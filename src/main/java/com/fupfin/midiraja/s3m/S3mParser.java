@@ -17,6 +17,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
+import com.fupfin.midiraja.tracker.TrackerEvent;
+import com.fupfin.midiraja.tracker.TrackerInstrument;
+import com.fupfin.midiraja.tracker.TrackerParseResult;
+
 /**
  * Parses Scream Tracker 3 (.s3m) files into an {@link S3mParseResult}.
  *
@@ -57,14 +61,14 @@ public class S3mParser
     private static final int FX_SET_TEMPO    = 20; // T
     private static final int FX_GLOBAL_VOL   = 22; // V
 
-    public S3mParseResult parse(File file) throws IOException
+    public TrackerParseResult parse(File file) throws IOException
     {
         byte[] data = new FileInputStream(file).readAllBytes();
         return parseBytes(data);
     }
 
     /** Parse from a raw byte array (useful for testing). */
-    public S3mParseResult parseBytes(byte[] data) throws IOException
+    public TrackerParseResult parseBytes(byte[] data) throws IOException
     {
         if (data.length < 96)
             throw new IOException("File too small to be a valid S3M file");
@@ -116,26 +120,26 @@ public class S3mParser
             patPara[i] = (buf.getShort(patParaOffset + i * 2) & 0xFFFF) * 16;
 
         // Instruments
-        var instruments = new ArrayList<S3mInstrument>(insNum);
+        var instruments = new ArrayList<TrackerInstrument>(insNum);
         for (int i = 0; i < insNum; i++)
         {
             int base = insPara[i];
-            if (base + 80 > data.length) { instruments.add(new S3mInstrument("", 64)); continue; }
+            if (base + 80 > data.length) { instruments.add(new TrackerInstrument("", 64)); continue; }
             String insName = readAsciiTrimmed(data, base + 48, 28);
             int volume = data[base + 28] & 0xFF;
-            instruments.add(new S3mInstrument(insName, volume));
+            instruments.add(new TrackerInstrument(insName, volume));
         }
 
         var events = linearize(data, orders, ordNum, patPara, chanIndexMap, channelCount,
                 initSpeed, initTempo);
 
-        return new S3mParseResult(title, channelCount, List.copyOf(instruments), events);
+        return new TrackerParseResult(title, channelCount, List.copyOf(instruments), events);
     }
 
-    private List<S3mEvent> linearize(byte[] data, int[] orders, int ordNum, int[] patPara,
+    private List<TrackerEvent> linearize(byte[] data, int[] orders, int ordNum, int[] patPara,
             int[] chanIndexMap, int channelCount, int initSpeed, int initTempo)
     {
-        var events = new ArrayList<S3mEvent>();
+        var events = new ArrayList<TrackerEvent>();
         int speed = initSpeed;
         int tempo = initTempo;
         long currentMicrosecond = 0;
@@ -232,7 +236,7 @@ public class S3mParser
                              : s3mNoteToMidi(note);
 
                 if (midiNote != -1 || instr != 0 || vol != -1 || fxCmd != 0)
-                    events.add(new S3mEvent(currentMicrosecond, seqCh, midiNote, instr, vol, fxCmd, fxPar));
+                    events.add(new TrackerEvent(currentMicrosecond, seqCh, midiNote, instr, vol, fxCmd, fxPar));
             }
 
             speed = nextSpeed;

@@ -13,22 +13,20 @@ import java.util.Set;
 
 import javax.sound.midi.Sequence;
 
+import com.fupfin.midiraja.it.ItFileDetector;
+import com.fupfin.midiraja.it.ItParser;
 import com.fupfin.midiraja.midi.MidiUtils;
 import com.fupfin.midiraja.mod.ModFileDetector;
 import com.fupfin.midiraja.mod.ModParser;
 import com.fupfin.midiraja.mod.ModToMidiConverter;
 import com.fupfin.midiraja.s3m.S3mFileDetector;
 import com.fupfin.midiraja.s3m.S3mParser;
-import com.fupfin.midiraja.s3m.S3mToMidiConverter;
-import com.fupfin.midiraja.it.ItFileDetector;
-import com.fupfin.midiraja.it.ItParser;
-import com.fupfin.midiraja.it.ItToMidiConverter;
-import com.fupfin.midiraja.xm.XmFileDetector;
-import com.fupfin.midiraja.xm.XmParser;
-import com.fupfin.midiraja.xm.XmToMidiConverter;
+import com.fupfin.midiraja.tracker.TrackerToMidiConverter;
 import com.fupfin.midiraja.vgm.VgmFileDetector;
 import com.fupfin.midiraja.vgm.VgmParser;
 import com.fupfin.midiraja.vgm.VgmToMidiConverter;
+import com.fupfin.midiraja.xm.XmFileDetector;
+import com.fupfin.midiraja.xm.XmParser;
 
 /**
  * Single entry point for loading any supported music file format into a MIDI {@link Sequence}.
@@ -48,16 +46,17 @@ public final class MusicFormatLoader
      */
     public static Sequence load(File file, Set<Integer> mutedChannels) throws Exception
     {
+        var tracker = new TrackerToMidiConverter(mutedChannels);
         if (VgmFileDetector.isVgmFile(file))
             return new VgmToMidiConverter(mutedChannels).convert(new VgmParser().parse(file));
         if (ModFileDetector.isModFile(file))
             return new ModToMidiConverter(mutedChannels).convert(new ModParser().parse(file));
         if (S3mFileDetector.isS3mFile(file))
-            return new S3mToMidiConverter(mutedChannels).convert(new S3mParser().parse(file));
+            return tracker.convert(new S3mParser().parse(file));
         if (XmFileDetector.isXmFile(file))
-            return new XmToMidiConverter(mutedChannels).convert(new XmParser().parse(file));
+            return tracker.convert(new XmParser().parse(file));
         if (ItFileDetector.isItFile(file))
-            return new ItToMidiConverter(mutedChannels).convert(new ItParser().parse(file));
+            return tracker.convert(new ItParser().parse(file));
         return MidiUtils.loadSequence(file);
     }
 

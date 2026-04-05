@@ -16,24 +16,29 @@ import javax.sound.midi.ShortMessage;
 
 import org.junit.jupiter.api.Test;
 
-class XmToMidiConverterTest
+import com.fupfin.midiraja.tracker.TrackerEvent;
+import com.fupfin.midiraja.tracker.TrackerInstrument;
+import com.fupfin.midiraja.tracker.TrackerParseResult;
+import com.fupfin.midiraja.tracker.TrackerToMidiConverter;
+
+class TrackerToMidiConverterTest
 {
-    private static XmParseResult emptyResult()
+    private static TrackerParseResult emptyResult()
     {
-        return new XmParseResult("", 4, List.of(), List.of());
+        return new TrackerParseResult("", 4, List.of(), List.of());
     }
 
-    private static List<XmInstrument> instruments(String... names)
+    private static List<TrackerInstrument> instruments(String... names)
     {
-        var list = new java.util.ArrayList<XmInstrument>();
-        for (String n : names) list.add(new XmInstrument(n, 64));
+        var list = new java.util.ArrayList<TrackerInstrument>();
+        for (String n : names) list.add(new TrackerInstrument(n, 64));
         return List.copyOf(list);
     }
 
     @Test
     void convert_empty_returnsValidSequence()
     {
-        var seq = new XmToMidiConverter().convert(emptyResult());
+        var seq = new TrackerToMidiConverter().convert(emptyResult());
         assertNotNull(seq);
         assertEquals(Sequence.PPQ, seq.getDivisionType());
         assertEquals(480, seq.getResolution());
@@ -42,7 +47,7 @@ class XmToMidiConverterTest
     @Test
     void convert_hasTempoTrack()
     {
-        var seq = new XmToMidiConverter().convert(emptyResult());
+        var seq = new TrackerToMidiConverter().convert(emptyResult());
         var t = seq.getTracks()[0];
         boolean found = false;
         for (int i = 0; i < t.size(); i++)
@@ -54,8 +59,8 @@ class XmToMidiConverterTest
     @Test
     void convert_titleInTempoTrack()
     {
-        var seq = new XmToMidiConverter().convert(
-                new XmParseResult("My XM Track", 4, List.of(), List.of()));
+        var seq = new TrackerToMidiConverter().convert(
+                new TrackerParseResult("My XM Track", 4, List.of(), List.of()));
         var t = seq.getTracks()[0];
         boolean found = false;
         for (int i = 0; i < t.size(); i++)
@@ -68,9 +73,9 @@ class XmToMidiConverterTest
     void convert_noteEvent_producesNoteOn()
     {
         // MIDI note 60 (middle C), instrument 1, no volume
-        var events = List.of(new XmEvent(0, 0, 60, 1, -1, 0, 0));
-        var result = new XmParseResult("", 4, instruments("lead"), events);
-        var seq = new XmToMidiConverter().convert(result);
+        var events = List.of(new TrackerEvent(0, 0, 60, 1, -1, 0, 0));
+        var result = new TrackerParseResult("", 4, instruments("lead"), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -84,9 +89,9 @@ class XmToMidiConverterTest
     @Test
     void convert_percussionInstrument_routesToDrumChannel()
     {
-        var events = List.of(new XmEvent(0, 0, 60, 1, -1, 0, 0));
-        var result = new XmParseResult("", 4, instruments("snare"), events);
-        var seq = new XmToMidiConverter().convert(result);
+        var events = List.of(new TrackerEvent(0, 0, 60, 1, -1, 0, 0));
+        var result = new TrackerParseResult("", 4, instruments("snare"), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -100,9 +105,9 @@ class XmToMidiConverterTest
     @Test
     void convert_volumeColumn_emitsCC7()
     {
-        var events = List.of(new XmEvent(0, 0, -1, 0, 32, 0, 0));
-        var result = new XmParseResult("", 4, List.of(), events);
-        var seq = new XmToMidiConverter().convert(result);
+        var events = List.of(new TrackerEvent(0, 0, -1, 0, 32, 0, 0));
+        var result = new TrackerParseResult("", 4, List.of(), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -118,10 +123,10 @@ class XmToMidiConverterTest
     {
         // First event: note on, second: key-off
         var events = List.of(
-                new XmEvent(0,       0, 60, 1, -1, 0, 0),
-                new XmEvent(480_000, 0, -2, 0, -1, 0, 0));
-        var result = new XmParseResult("", 4, instruments("lead"), events);
-        var seq = new XmToMidiConverter().convert(result);
+                new TrackerEvent(0,       0, 60, 1, -1, 0, 0),
+                new TrackerEvent(480_000, 0, -2, 0, -1, 0, 0));
+        var result = new TrackerParseResult("", 4, instruments("lead"), events);
+        var seq = new TrackerToMidiConverter().convert(result);
 
         boolean found = false;
         for (var track : seq.getTracks())
@@ -135,19 +140,19 @@ class XmToMidiConverterTest
     @Test
     void toTick_zeroPosIsZero()
     {
-        assertEquals(0L, XmToMidiConverter.toTick(0));
+        assertEquals(0L, TrackerToMidiConverter.toTick(0));
     }
 
     @Test
     void toTick_oneSecond_is960Ticks()
     {
-        assertEquals(960L, XmToMidiConverter.toTick(1_000_000));
+        assertEquals(960L, TrackerToMidiConverter.toTick(1_000_000));
     }
 
     @Test
     void buildMidiChannelMap_skipsDrumChannel()
     {
-        int[] map = XmToMidiConverter.buildMidiChannelMap(10);
+        int[] map = TrackerToMidiConverter.buildMidiChannelMap(10);
         for (int ch : map) assertNotEquals(9, ch);
     }
 }

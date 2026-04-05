@@ -18,8 +18,12 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 
+import com.fupfin.midiraja.tracker.TrackerEvent;
+import com.fupfin.midiraja.tracker.TrackerInstrument;
+import com.fupfin.midiraja.tracker.TrackerParseResult;
+
 /**
- * Parses Impulse Tracker (.it) files into an {@link ItParseResult}.
+ * Parses Impulse Tracker (.it) files into an {@link TrackerParseResult}.
  *
  * <p>Global header layout (all integers little-endian):
  * <ul>
@@ -68,14 +72,14 @@ public class ItParser
     private static final int FX_VOL_SLIDE  = 4;   // D
     private static final int FX_SET_TEMPO  = 20;  // T
 
-    public ItParseResult parse(File file) throws IOException
+    public TrackerParseResult parse(File file) throws IOException
     {
         byte[] data = new FileInputStream(file).readAllBytes();
         return parseBytes(data);
     }
 
     /** Parse from a raw byte array (useful for testing). */
-    public ItParseResult parseBytes(byte[] data) throws IOException
+    public TrackerParseResult parseBytes(byte[] data) throws IOException
     {
         if (data.length < 192)
             throw new IOException("File too small to be a valid IT file");
@@ -128,13 +132,13 @@ public class ItParser
         var events = linearize(data, buf, orders, ordNum, patOffsets, patNum,
                 channelCount, initSpeed, initTempo);
 
-        return new ItParseResult(title, channelCount, List.copyOf(instruments), events);
+        return new TrackerParseResult(title, channelCount, List.copyOf(instruments), events);
     }
 
-    private List<ItInstrument> readInstruments(byte[] data, ByteBuffer buf,
+    private List<TrackerInstrument> readInstruments(byte[] data, ByteBuffer buf,
             int insNum, int smpNum, int insOffBase, int smpOffBase, int cmwt)
     {
-        var instruments = new ArrayList<ItInstrument>(insNum);
+        var instruments = new ArrayList<TrackerInstrument>(insNum);
 
         if (cmwt >= 0x200)
         {
@@ -143,12 +147,12 @@ public class ItParser
             for (int i = 0; i < insNum; i++)
             {
                 int off = insOffBase + i * 4;
-                if (off + 4 > data.length) { instruments.add(new ItInstrument("", 64)); continue; }
+                if (off + 4 > data.length) { instruments.add(new TrackerInstrument("", 64)); continue; }
                 int insOff = buf.getInt(off);
-                if (insOff + 58 > data.length) { instruments.add(new ItInstrument("", 64)); continue; }
+                if (insOff + 58 > data.length) { instruments.add(new TrackerInstrument("", 64)); continue; }
                 String name = readAsciiTrimmed(data, insOff + 32, 26);
                 int vol = data[insOff + 24] & 0xFF;
-                instruments.add(new ItInstrument(name, Math.min(vol, 64)));
+                instruments.add(new TrackerInstrument(name, Math.min(vol, 64)));
             }
         }
         else
@@ -158,22 +162,22 @@ public class ItParser
             for (int i = 0; i < smpNum; i++)
             {
                 int off = smpOffBase + i * 4;
-                if (off + 4 > data.length) { instruments.add(new ItInstrument("", 64)); continue; }
+                if (off + 4 > data.length) { instruments.add(new TrackerInstrument("", 64)); continue; }
                 int smpOff = buf.getInt(off);
-                if (smpOff + 46 > data.length) { instruments.add(new ItInstrument("", 64)); continue; }
+                if (smpOff + 46 > data.length) { instruments.add(new TrackerInstrument("", 64)); continue; }
                 String name = readAsciiTrimmed(data, smpOff + 20, 26);
                 int vol = data[smpOff + 19] & 0xFF;
-                instruments.add(new ItInstrument(name, Math.min(vol, 64)));
+                instruments.add(new TrackerInstrument(name, Math.min(vol, 64)));
             }
         }
 
         return instruments;
     }
 
-    private List<ItEvent> linearize(byte[] data, ByteBuffer buf, int[] orders, int ordNum,
+    private List<TrackerEvent> linearize(byte[] data, ByteBuffer buf, int[] orders, int ordNum,
             int[] patOffsets, int patNum, int channelCount, int initSpeed, int initTempo)
     {
-        var events = new ArrayList<ItEvent>();
+        var events = new ArrayList<TrackerEvent>();
         int speed = initSpeed;
         int tempo = initTempo;
         long currentMicrosecond = 0;
@@ -245,7 +249,7 @@ public class ItParser
                 int cellVol = (vol >= 0 && vol <= 64) ? vol : -1;
 
                 if (midiNote != -1 || instr != 0 || cellVol != -1 || fxCmd != 0)
-                    events.add(new ItEvent(currentMicrosecond, ch, midiNote, instr,
+                    events.add(new TrackerEvent(currentMicrosecond, ch, midiNote, instr,
                             cellVol, fxCmd, fxPar));
             }
 

@@ -5,17 +5,17 @@
  * directory of this source tree.
  */
 
-package com.fupfin.midiraja.s3m;
+package com.fupfin.midiraja.tracker;
 
 import java.util.List;
 
 /**
- * The result of parsing a Scream Tracker 3 (.s3m) file.
+ * The result of parsing any tracker module (S3M, XM, IT).
  *
- * @param title       module title (may be blank)
- * @param channelCount number of active PCM channels (up to 16)
+ * @param title        module title (may be blank)
+ * @param channelCount number of active channels
  * @param instruments  0-based list; index 0 corresponds to instrument slot 1
  * @param events       linearized note events in chronological order
  */
-public record S3mParseResult(String title, int channelCount,
-                              List<S3mInstrument> instruments, List<S3mEvent> events) {}
+public record TrackerParseResult(String title, int channelCount,
+                                 List<TrackerInstrument> instruments, List<TrackerEvent> events) {}
