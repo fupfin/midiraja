@@ -144,4 +144,136 @@ class ModParserTest
         assertThrows(java.io.IOException.class,
                 () -> new ModParser().parseBytes(new byte[100]));
     }
+
+    // ── Navigation effect helpers ─────────────────────────────────────────────
+
+    /** Allocate a blank N-pattern 4-channel M.K. MOD with the given order table. */
+    private static byte[] blankMod(int nPatterns, int[] order, int songLength)
+    {
+        int headerSize   = 1084;
+        int bytesPerPat  = 64 * 4 * 4; // 64 rows × 4 ch × 4 bytes
+        byte[] data = new byte[headerSize + nPatterns * bytesPerPat];
+        data[950]    = (byte) songLength;
+        for (int i = 0; i < Math.min(order.length, 128); i++)
+            data[952 + i] = (byte) order[i];
+        data[1080] = 'M'; data[1081] = '.'; data[1082] = 'K'; data[1083] = '.';
+        return data;
+    }
+
+    /** Write a 4-byte MOD cell at pattern/row/channel. */
+    private static void writeCell(byte[] data, int pat, int row, int ch,
+            int period, int instrument, int effect, int param)
+    {
+        int offset = 1084 + pat * (64 * 4 * 4) + row * 4 * 4 + ch * 4;
+        data[offset]     = (byte) ((instrument & 0xF0) | ((period >> 8) & 0x0F));
+        data[offset + 1] = (byte) (period & 0xFF);
+        data[offset + 2] = (byte) (((instrument & 0x0F) << 4) | (effect & 0x0F));
+        data[offset + 3] = (byte) param;
+    }
+
+    // ── Bxx position jump ─────────────────────────────────────────────────────
+
+    /**
+     * Pattern 0 row 1 has B02 (jump to order 2).  Pattern 1 should be skipped.
+     * Order: [0, 1, 2], songLength=3.  Each pattern has a unique period.
+     */
+    @Test
+    void positionJump_Bxx_skipsIntermediatePattern() throws Exception
+    {
+        // 3 patterns, order=[0,1,2], songLength=3
+        byte[] data = blankMod(3, new int[]{0, 1, 2}, 3);
+
+        // Pat0 row0 ch0: note period=428
+        writeCell(data, 0, 0, 0, 428, 1, 0, 0);
+        // Pat0 row1 ch0: B02 (jump to order 2)
+        writeCell(data, 0, 1, 0, 0, 0, 0xB, 2);
+        // Pat1 row0 ch0: period=200 — should be skipped
+        writeCell(data, 1, 0, 0, 200, 1, 0, 0);
+        // Pat2 row0 ch0: period=356
+        writeCell(data, 2, 0, 0, 356, 1, 0, 0);
+
+        var result = new ModParser().parseBytes(data);
+        var events = result.events();
+
+        boolean hasPeriod200 = events.stream().anyMatch(e -> e.period() == 200);
+        boolean hasPeriod356 = events.stream().anyMatch(e -> e.period() == 356);
+        assertFalse(hasPeriod200, "Pattern 1 should be skipped by B02 position jump");
+        assertTrue(hasPeriod356, "Pattern 2 should be reached after B02 jump");
+    }
+
+    // ── Dxx pattern break ─────────────────────────────────────────────────────
+
+    /**
+     * Pattern 0 row 1 has D05 (break to row 5 of next pattern).
+     * The note in pattern 1 row 5 must appear at t = 2 × rowDuration.
+     * Default: speed=6, tempo=125 → rowDuration = 6 × 2_500_000 / 125 = 120_000 µs.
+     */
+    @Test
+    void patternBreak_Dxx_startsNextPatternAtSpecifiedRow() throws Exception
+    {
+        byte[] data = blankMod(2, new int[]{0, 1}, 2);
+
+        // Pat0 row0 ch0: note
+        writeCell(data, 0, 0, 0, 428, 1, 0, 0);
+        // Pat0 row1 ch0: D05 (break to row 5)  — param 0x05 → (0)*10+5 = row 5
+        writeCell(data, 0, 1, 0, 0, 0, 0xD, 0x05);
+        // Pat1 row5 ch1: distinguishing note on channel 1
+        writeCell(data, 1, 5, 1, 428, 1, 0, 0);
+
+        var result = new ModParser().parseBytes(data);
+
+        long rowDuration = 6L * 2_500_000L / 125L; // 120_000 µs
+        // Row 0 of pat0 → t=0, row 1 (Dxx) → t=120_000; after Dxx row advances → t=240_000
+        long expectedMicros = 2 * rowDuration;
+
+        var ch1Event = result.events().stream()
+                .filter(e -> e.channel() == 1 && e.period() > 0)
+                .findFirst();
+        assertTrue(ch1Event.isPresent(), "Should have event on channel 1 in pattern 1");
+        assertEquals(expectedMicros, ch1Event.get().microsecond(),
+                "Pattern-break target row must start at 2×rowDuration");
+    }
+
+    @Test
+    void patternBreak_Dxx_rowsBeforeTargetAreSkipped() throws Exception
+    {
+        byte[] data = blankMod(2, new int[]{0, 1}, 2);
+
+        // Pat0 row0 ch0: D05
+        writeCell(data, 0, 0, 0, 0, 0, 0xD, 0x05);
+        // Pat1 row0 ch0: period=200 — should be skipped (before row 5)
+        writeCell(data, 1, 0, 0, 200, 1, 0, 0);
+        // Pat1 row5 ch0: period=356 — should appear
+        writeCell(data, 1, 5, 0, 356, 1, 0, 0);
+
+        var result = new ModParser().parseBytes(data);
+        assertFalse(result.events().stream().anyMatch(e -> e.period() == 200),
+                "Rows before pattern-break target must be skipped");
+        assertTrue(result.events().stream().anyMatch(e -> e.period() == 356),
+                "Pattern-break target row must be played");
+    }
+
+    // ── Loop detection ────────────────────────────────────────────────────────
+
+    /**
+     * B00 on row 0 of the only pattern creates an infinite self-loop.
+     * The parser must detect (orderPos=0,row=0) visited twice and stop.
+     */
+    @Test
+    void loopDetection_Bxx_selfJump_terminates() throws Exception
+    {
+        byte[] data = blankMod(1, new int[]{0}, 1);
+
+        // Pat0 row0 ch0: note
+        writeCell(data, 0, 0, 0, 428, 1, 0, 0);
+        // Pat0 row0 ch1: B00 (jump to order 0)
+        writeCell(data, 0, 0, 1, 0, 0, 0xB, 0);
+
+        var result = new ModParser().parseBytes(data);
+        // Only row 0 of pattern 0 should be emitted — exactly once
+        long row0Count = result.events().stream().filter(e -> e.microsecond() == 0L).count();
+        // After second visit to (0,0) the loop is broken; only one pass through row 0
+        assertTrue(row0Count >= 1 && row0Count <= 4 /* 4 channels */,
+                "Self-loop must terminate after one pass");
+    }
 }
