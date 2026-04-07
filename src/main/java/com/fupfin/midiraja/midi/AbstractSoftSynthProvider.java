@@ -32,6 +32,7 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
     protected final T bridge;
     protected final @Nullable AudioProcessor audioOut;
     protected final ConcurrentLinkedQueue<byte[]> eventQueue = new ConcurrentLinkedQueue<>();
+    private MidiEventDispatcher dispatcher;
 
     protected @Nullable Thread renderThread;
     protected volatile boolean running = false;
@@ -47,6 +48,7 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
     {
         this.bridge = bridge;
         this.audioOut = audioOut;
+        this.dispatcher = new MidiEventDispatcher(bridge);
     }
 
     /**
@@ -188,7 +190,7 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
             byte[] event;
             while ((event = eventQueue.poll()) != null)
             {
-                dispatchToNative(event);
+                dispatcher.dispatch(event);
             }
 
             if (pendingDspReset)
@@ -225,35 +227,6 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
         }
     }
 
-    protected void dispatchToNative(byte[] data)
-    {
-        if (data == null || data.length == 0)
-            return;
-        int status = data[0] & 0xFF;
-        if (status >= 0xF0)
-        {
-            if (data.length > 1)
-                bridge.systemExclusive(data);
-            return;
-        }
-
-        int command = status & 0xF0;
-        int channel = status & 0x0F;
-        if (data.length < 2)
-            return;
-        int data1 = data[1] & 0xFF;
-        int data2 = (data.length >= 3) ? (data[2] & 0xFF) : 0;
-
-        switch (command)
-        {
-            case 0x90 -> bridge.noteOn(channel, data1, data2);
-            case 0x80 -> bridge.noteOff(channel, data1);
-            case 0xB0 -> bridge.controlChange(channel, data1, data2);
-            case 0xC0 -> bridge.patchChange(channel, data1);
-            case 0xE0 -> bridge.pitchBend(channel, (data2 << 7) | data1);
-        }
-    }
-
     /** Returns {@code " [NAME]"} for a retro/dac mode tag, or {@code ""} when mode is null. */
     public static String retroTag(@Nullable String mode)
     {
@@ -286,7 +259,7 @@ public abstract class AbstractSoftSynthProvider<T extends MidiNativeBridge>
         byte[] event;
         while ((event = eventQueue.poll()) != null)
         {
-            dispatchToNative(event);
+            dispatcher.dispatch(event);
         }
     }
 }
