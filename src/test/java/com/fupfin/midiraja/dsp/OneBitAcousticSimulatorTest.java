@@ -178,26 +178,34 @@ class OneBitAcousticSimulatorTest
     {
         var sim = new OneBitAcousticSimulator(SAMPLE_RATE, "dsd", new Random(7));
 
-        float[] leftFirst = fill(64, 0.5f);
-        float[] rightFirst = fill(64, 0.5f);
-        sim.process(leftFirst, rightFirst, 64);
+        // Warm up with signal to build up accumulator state
+        float[] leftWarm = fill(256, 0.8f);
+        float[] rightWarm = fill(256, 0.8f);
+        sim.process(leftWarm, rightWarm, 256);
 
         sim.reset();
 
-        float[] leftAfterReset = fill(64, 0.5f);
-        float[] rightAfterReset = fill(64, 0.5f);
-        sim.process(leftAfterReset, rightAfterReset, 64);
+        // After reset with silence, output should converge near zero — just as a fresh simulator
+        var freshSim = new OneBitAcousticSimulator(SAMPLE_RATE, "dsd", new Random(99));
 
-        // A fresh simulator with the same seed and same input
-        var freshSim = new OneBitAcousticSimulator(SAMPLE_RATE, "dsd", new Random(7));
-        float[] leftFresh = fill(64, 0.5f);
-        float[] rightFresh = fill(64, 0.5f);
-        freshSim.process(leftFresh, rightFresh, 64);
+        int n = 512;
+        float[] leftAfterReset = new float[n];
+        float[] rightAfterReset = new float[n];
+        float[] leftFresh = new float[n];
+        float[] rightFresh = new float[n];
 
-        // Note: reset() does not re-seed rand, so DSD output post-reset differs from fresh.
-        // What we verify is that reset() completes without error and further processing works.
-        assertDoesNotThrow(() -> sim.process(new float[4], new float[4], 4),
-            "Simulator should work normally after reset");
+        sim.process(leftAfterReset, rightAfterReset, n);
+        freshSim.process(leftFresh, rightFresh, n);
+
+        // Both should settle near zero for silence input; verify they're in the same ballpark
+        double meanAfterReset = 0, meanFresh = 0;
+        for (int i = n / 2; i < n; i++)
+        {
+            meanAfterReset += leftAfterReset[i];
+            meanFresh += leftFresh[i];
+        }
+        assertTrue(Math.abs(meanAfterReset) < 0.1, "DSD after reset: silence must settle near zero");
+        assertTrue(Math.abs(meanFresh) < 0.1, "DSD fresh: silence must settle near zero");
     }
 
     // ── both modes: zero frames ───────────────────────────────────────────────

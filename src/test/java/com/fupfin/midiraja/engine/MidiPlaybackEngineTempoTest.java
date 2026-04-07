@@ -78,4 +78,20 @@ class MidiPlaybackEngineTempoTest
         byte[] msg = { (byte) 0xFF, 0x51, 0x03, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF };
         assertEquals(16777215, MidiPlaybackEngine.extractTempoMspqn(msg));
     }
+
+    @Test
+    void array_exactly_6_bytes_is_minimum_valid_length()
+    {
+        // 100 BPM = 600000 µs/qn = 0x0927C0
+        byte[] msg = { (byte) 0xFF, 0x51, 0x03, 0x09, 0x27, (byte) 0xC0 };
+        assertEquals(600000, MidiPlaybackEngine.extractTempoMspqn(msg));
+    }
+
+    @Test
+    void array_longer_than_6_bytes_still_reads_correctly()
+    {
+        // Extra trailing bytes should be ignored; 120 BPM = 500000
+        byte[] msg = { (byte) 0xFF, 0x51, 0x03, 0x07, (byte) 0xA1, 0x20, 0x00, 0x00 };
+        assertEquals(500000, MidiPlaybackEngine.extractTempoMspqn(msg));
+    }
 }

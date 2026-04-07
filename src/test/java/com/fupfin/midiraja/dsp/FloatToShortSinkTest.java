@@ -341,6 +341,43 @@ class FloatToShortSinkTest
         assertEquals(0, engine.flushCount, "negative push in processInterleaved must not flush");
     }
 
+    @org.junit.jupiter.api.Test
+    void processInterleaved_flush_called_after_threshold_zero_returns()
+    {
+        var engine = new StubEngine();
+        // push returns 0 twice (threshold=2), then succeeds
+        engine.willReturnOnPush(0, 0, 2);
+        var sink = new FloatToShortSink(engine, 2, 2);
+
+        short[] pcm = { 100, 200 };
+        sink.processInterleaved(pcm, 1, 2);
+
+        assertEquals(1, engine.flushCount,
+            "flush must be called once after threshold zero-returns in processInterleaved");
+    }
+
+    // ── zero-frame boundary ───────────────────────────────────────────────────
+
+    @org.junit.jupiter.api.Test
+    void process_zero_frames_does_not_crash()
+    {
+        var engine = new StubEngine();
+        var sink = new FloatToShortSink(engine, 2, 1);
+
+        assertDoesNotThrow(() -> sink.process(new float[0], new float[0], 0));
+        assertTrue(engine.pushes.isEmpty(), "zero frames must not push anything");
+    }
+
+    @org.junit.jupiter.api.Test
+    void processInterleaved_zero_frames_does_not_crash()
+    {
+        var engine = new StubEngine();
+        var sink = new FloatToShortSink(engine, 2, 1);
+
+        assertDoesNotThrow(() -> sink.processInterleaved(new short[0], 0, 2));
+        assertTrue(engine.pushes.isEmpty(), "zero frames must not push anything");
+    }
+
     // ── DEFAULT_flushThreshold constant is accessible ─────────────────────────
 
     @org.junit.jupiter.api.Test
