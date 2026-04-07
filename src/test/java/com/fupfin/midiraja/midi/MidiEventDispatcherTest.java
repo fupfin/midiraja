@@ -21,15 +21,25 @@ class MidiEventDispatcherTest
 
     static class RecordingBridge implements MidiNativeBridge
     {
-        record NoteOnCall(int channel, int note, int velocity) {}
+        record NoteOnCall(int channel, int note, int velocity)
+        {
+        }
 
-        record NoteOffCall(int channel, int note) {}
+        record NoteOffCall(int channel, int note)
+        {
+        }
 
-        record ControlChangeCall(int channel, int cc, int value) {}
+        record ControlChangeCall(int channel, int cc, int value)
+        {
+        }
 
-        record PatchChangeCall(int channel, int program) {}
+        record PatchChangeCall(int channel, int program)
+        {
+        }
 
-        record PitchBendCall(int channel, int bend) {}
+        record PitchBendCall(int channel, int bend)
+        {
+        }
 
         final List<NoteOnCall> noteOns = new ArrayList<>();
         final List<NoteOffCall> noteOffs = new ArrayList<>();
@@ -230,7 +240,7 @@ class MidiEventDispatcherTest
         dispatcher.dispatch(new byte[] { (byte) 0xF0 });
 
         assertTrue(bridge.sysexMessages.isEmpty(),
-            "single-byte 0xF0 must not be dispatched to systemExclusive");
+                "single-byte 0xF0 must not be dispatched to systemExclusive");
     }
 
     @Test
@@ -290,6 +300,6 @@ class MidiEventDispatcherTest
         dispatcher.dispatch(new byte[] { (byte) 0x90, 60, (byte) 200 });
 
         assertEquals(200, bridge.noteOns.get(0).velocity(),
-            "velocity byte must be treated as unsigned (& 0xFF)");
+                "velocity byte must be treated as unsigned (& 0xFF)");
     }
 }

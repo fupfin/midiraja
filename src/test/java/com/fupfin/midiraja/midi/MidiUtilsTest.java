@@ -13,7 +13,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiEvent;
@@ -92,9 +91,9 @@ class MidiUtilsTest
         Files.write(file, new byte[] { 'R', 'I', 'F', 'F', 0, 0, 0, 0 });
 
         var ex = assertThrows(InvalidMidiDataException.class,
-            () -> MidiUtils.loadSequence(file.toFile()));
+                () -> MidiUtils.loadSequence(file.toFile()));
         assertTrue(ex.getMessage().contains(file.toFile().getPath()),
-            "exception message must include file path");
+                "exception message must include file path");
     }
 
     @Test

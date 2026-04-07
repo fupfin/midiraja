@@ -186,7 +186,7 @@ class TubeSaturationFilterTest
 
         // drive=2 → outLevel = 1/sqrt(2) ≈ 0.707
         // drive=10 → outLevel = 1/sqrt(10) ≈ 0.316
-        var tubeLow = new TubeSaturationFilter(sinkLow, 10f);  // maps to drive≈1+9*0.1=1.9
+        var tubeLow = new TubeSaturationFilter(sinkLow, 10f); // maps to drive≈1+9*0.1=1.9
         var tubeHigh = new TubeSaturationFilter(sinkHigh, 100f); // maps to drive=10
 
         float[] signal = fill(64, 0.1f); // small amplitude; tanh nearly linear here

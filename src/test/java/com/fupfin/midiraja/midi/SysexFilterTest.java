@@ -62,7 +62,7 @@ class SysexFilterTest
             byte[] msg = { status };
             filter.sendMessage(msg);
             assertFalse(rec.received.isEmpty(), "0x" + Integer.toHexString(status & 0xFF) +
-                " must pass when ignoreSysex=true");
+                    " must pass when ignoreSysex=true");
         }
     }
 

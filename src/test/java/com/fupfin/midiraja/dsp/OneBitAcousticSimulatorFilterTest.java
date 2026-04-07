@@ -68,7 +68,7 @@ class OneBitAcousticSimulatorFilterTest
         filter.process(fill(4, 0.5f), fill(4, 0.5f), 4);
 
         assertFalse(next.processCalled,
-            "Disabled filter must return immediately without calling next.process()");
+                "Disabled filter must return immediately without calling next.process()");
     }
 
     // ── enabled=false: processInterleaved() delegates to next ─────────────────
@@ -82,7 +82,7 @@ class OneBitAcousticSimulatorFilterTest
         filter.processInterleaved(new short[] { 1000, -1000 }, 1, 2);
 
         assertTrue(next.processInterleavedCalled,
-            "Disabled filter must still delegate processInterleaved() to next");
+                "Disabled filter must still delegate processInterleaved() to next");
     }
 
     // ── enabled=true: process() runs simulator then next ─────────────────────
@@ -100,7 +100,7 @@ class OneBitAcousticSimulatorFilterTest
         assertTrue(next.processCalled, "Enabled filter must call next.process()");
         // The simulator modifies buffers in-place; next receives modified data
         assertFalse(Arrays.equals(originalLeft, next.capturedLeft),
-            "Enabled filter should modify buffers before passing them to next");
+                "Enabled filter should modify buffers before passing them to next");
     }
 
     // ── enabled=true: processInterleaved() passes through to next only ────────
@@ -115,7 +115,7 @@ class OneBitAcousticSimulatorFilterTest
         filter.processInterleaved(pcm, 2, 2);
 
         assertTrue(next.processInterleavedCalled,
-            "processInterleaved() must always delegate to next");
+                "processInterleaved() must always delegate to next");
         // PCM buffer should be unchanged because the simulator is not invoked
         assertEquals(10000, pcm[0], "processInterleaved must not modify the PCM buffer");
         assertEquals(-10000, pcm[1]);
@@ -143,7 +143,7 @@ class OneBitAcousticSimulatorFilterTest
 
         // Both filters use PWM (deterministic), so outputs must match
         assertArrayEquals(next1.capturedLeft, next2.capturedLeft, 0.0f,
-            "Identical PWM simulators must produce identical output");
+                "Identical PWM simulators must produce identical output");
     }
 
     @Test
@@ -165,7 +165,7 @@ class OneBitAcousticSimulatorFilterTest
         filter2.process(leftInput.clone(), rightInput.clone(), 64);
 
         assertArrayEquals(next1.capturedLeft, next2.capturedLeft, 0.0f,
-            "DSD simulators with same seed must produce identical output");
+                "DSD simulators with same seed must produce identical output");
     }
 
     // ── reset() calls both simulator.reset() and next.reset() ────────────────
@@ -203,7 +203,7 @@ class OneBitAcousticSimulatorFilterTest
         filterAfterReset.process(inputAfterReset, fill(32, 0.4f), 32);
 
         assertArrayEquals(captureNext.capturedLeft, captureAfterReset.capturedLeft, 0.0f,
-            "Simulator should be fully reset to initial state");
+                "Simulator should be fully reset to initial state");
     }
 
     // ── null oneBitMode defaults to pwm ──────────────────────────────────────
@@ -213,8 +213,7 @@ class OneBitAcousticSimulatorFilterTest
     {
         var next = new TrackingProcessor();
 
-        assertDoesNotThrow(() ->
-        {
+        assertDoesNotThrow(() -> {
             var filter = new OneBitAcousticSimulatorFilter(true, (String) null, next);
             filter.process(fill(4, 0.5f), fill(4, 0.5f), 4);
         }, "null oneBitMode must not cause NPE — should default to pwm");
@@ -238,7 +237,7 @@ class OneBitAcousticSimulatorFilterTest
         filterPwm.process(inputPwm, fill(64, -0.35f), 64);
 
         assertArrayEquals(nextPwm.capturedLeft, nextNull.capturedLeft, 0.0f,
-            "null mode should produce the same output as explicit 'pwm'");
+                "null mode should produce the same output as explicit 'pwm'");
     }
 
     // ── enabled=false: input arrays left unchanged ────────────────────────────
@@ -257,9 +256,9 @@ class OneBitAcousticSimulatorFilterTest
         filter.process(left, right, 3);
 
         assertArrayEquals(leftCopy, left, 0.0f,
-            "Disabled filter must not modify input arrays");
+                "Disabled filter must not modify input arrays");
         assertArrayEquals(rightCopy, right, 0.0f,
-            "Disabled filter must not modify input arrays");
+                "Disabled filter must not modify input arrays");
     }
 
     // ── zero-frame boundary ───────────────────────────────────────────────────

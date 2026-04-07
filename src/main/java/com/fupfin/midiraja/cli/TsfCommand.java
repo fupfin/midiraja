@@ -10,10 +10,7 @@ package com.fupfin.midiraja.cli;
 import static java.util.Objects.requireNonNull;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -96,13 +93,7 @@ public class TsfCommand implements Callable<Integer>
     public static @Nullable String findBundledSf3()
     {
         String homeDir = System.getProperty("user.home");
-        List<String> baseDirs = new ArrayList<>();
-
-        String midraData = System.getenv("MIDRA_DATA");
-        if (midraData != null)
-            baseDirs.add(midraData);
-
-        baseDirs.addAll(Arrays.asList(
+        var locator = ResourceLocator.withMidraDataFirst(
                 homeDir + "/.local/share/midra",
                 homeDir + "/.local/share/midiraja",
                 homeDir + "/.config/midiraja",
@@ -113,17 +104,10 @@ public class TsfCommand implements Callable<Integer>
                 "/usr/share/midra",
                 "/usr/share/midiraja",
                 ".",
-                "build/soundfonts"));
-
-        for (String base : baseDirs)
-        {
-            Path candidate = Path.of(base, "soundfonts", BUNDLED_SF3_NAME);
-            if (Files.isRegularFile(candidate))
-            {
-                return candidate.toAbsolutePath().toString();
-            }
-        }
-        return null;
+                "build/soundfonts");
+        return locator.findFile("soundfonts/" + BUNDLED_SF3_NAME)
+                .map(p -> p.toString())
+                .orElse(null);
     }
 
     @Override

@@ -10,7 +10,6 @@ package com.fupfin.midiraja.dsp;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -201,7 +200,9 @@ class LegacyProcessorSinkTest
         AudioProcessor nextSink = new AudioProcessor()
         {
             @Override
-            public void process(float[] l, float[] r, int f) {}
+            public void process(float[] l, float[] r, int f)
+            {
+            }
 
             @Override
             public void reset()
@@ -250,8 +251,7 @@ class LegacyProcessorSinkTest
     @Test
     void process_processorModifiesArray_nextReceivesModifiedValues()
     {
-        AudioProcessor doubler = (left, right, frames) ->
-        {
+        AudioProcessor doubler = (left, right, frames) -> {
             for (int i = 0; i < frames; i++)
             {
                 left[i] *= 2.0f;

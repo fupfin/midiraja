@@ -22,10 +22,10 @@ class MidiPlaybackEngineTickDurationTest
         // Calculation: 60,000,000,000 / (120 * 1 * 480) = 60,000,000,000 / 57600 = 1,041,666.66...
         // Let's use a simpler one for verification: 60,000,000,000 / (120 * 1 * 1) = 500,000,000
         // Actually, let's just test the math: 60,000,000,000 / (bpm * speed * resolution)
-        
+
         // Let's use 60 BPM, 1.0 speed, 480 resolution
         // 60,000,000,000 / (60 * 1 * 480) = 60,000,000,000 / 28800 = 2,083,333.33...
-        
+
         // Let's use a value that divides perfectly:
         // 60,000,000,000 / (100 * 1 * 1000) = 60,000,000,000 / 100,000 = 600,000
         double result = invokeTickDurationNanos(100.0f, 1.0, 1000);
@@ -64,7 +64,8 @@ class MidiPlaybackEngineTickDurationTest
     {
         try
         {
-            var method = MidiPlaybackEngine.class.getDeclaredMethod("tickDurationNanos", float.class, double.class, int.class);
+            var method = MidiPlaybackEngine.class.getDeclaredMethod("tickDurationNanos", float.class, double.class,
+                    int.class);
             method.setAccessible(true);
             return (double) method.invoke(null, bpm, speed, resolution);
         }

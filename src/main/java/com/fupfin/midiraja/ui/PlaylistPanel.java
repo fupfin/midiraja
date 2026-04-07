@@ -19,9 +19,9 @@ import javax.sound.midi.Sequence;
 import org.jspecify.annotations.Nullable;
 
 import com.fupfin.midiraja.engine.PlaylistContext;
+import com.fupfin.midiraja.format.vgm.VgmFileDetector;
+import com.fupfin.midiraja.format.vgm.VgmParser;
 import com.fupfin.midiraja.midi.MidiUtils;
-import com.fupfin.midiraja.vgm.VgmFileDetector;
-import com.fupfin.midiraja.vgm.VgmParser;
 
 public class PlaylistPanel implements Panel
 {

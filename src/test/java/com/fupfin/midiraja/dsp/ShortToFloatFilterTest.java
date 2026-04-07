@@ -148,7 +148,8 @@ class ShortToFloatFilterTest
 
         // Second call with more frames — buffer must grow
         short[] larger = new short[10];
-        for (int i = 0; i < 10; i++) larger[i] = (short) (i * 3000);
+        for (int i = 0; i < 10; i++)
+            larger[i] = (short) (i * 3000);
         filter.processInterleaved(larger, 5, 2);
         assertEquals(5, sink.capturedFrames);
     }

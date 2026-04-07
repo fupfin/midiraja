@@ -33,7 +33,8 @@ class FloatToShortSinkTest
 
         void willReturnOnPush(int... results)
         {
-            for (int r : results) pushResults.add(r);
+            for (int r : results)
+                pushResults.add(r);
         }
 
         @Override
@@ -353,7 +354,7 @@ class FloatToShortSinkTest
         sink.processInterleaved(pcm, 1, 2);
 
         assertEquals(1, engine.flushCount,
-            "flush must be called once after threshold zero-returns in processInterleaved");
+                "flush must be called once after threshold zero-returns in processInterleaved");
     }
 
     // ── zero-frame boundary ───────────────────────────────────────────────────

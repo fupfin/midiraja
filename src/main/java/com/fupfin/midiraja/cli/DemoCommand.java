@@ -231,43 +231,18 @@ public class DemoCommand implements Callable<Integer>
     @Nullable
     private File findDemoDirectory()
     {
-        String[] paths = {
-                "src/main/resources/demomidi",
-                "share/midra/demomidi",
-                "share/demomidi",
-                "../share/midra/demomidi"
-        };
-
-        String midraData = System.getenv("MIDRA_DATA");
-        if (midraData != null)
-        {
-            File f = new File(midraData, "demomidi");
-            if (f.exists())
-                return f;
-        }
-
-        for (String p : paths)
-        {
-            File f = new File(p);
-            if (f.exists())
-                return f;
-        }
-        return null;
+        var locator = ResourceLocator.withMidraDataFirst(
+                "src/main/resources",
+                "share/midra",
+                "share",
+                "../share/midra");
+        return locator.findDirectory("demomidi").map(p -> p.toFile()).orElse(null);
     }
 
     private @Nullable String findResource(String subPath)
     {
-        String midraData = System.getenv("MIDRA_DATA");
-        if (midraData != null)
-        {
-            File f = new File(midraData, subPath);
-            if (f.exists())
-                return f.getAbsolutePath();
-        }
-        File dev = new File("build", subPath);
-        if (dev.exists())
-            return dev.getAbsolutePath();
-        return null;
+        var locator = ResourceLocator.withMidraDataFirst("build");
+        return locator.findFile(subPath).map(p -> p.toString()).orElse(null);
     }
 
     private String getSearchPaths()

@@ -40,7 +40,8 @@ class ChorusFilterTest
     private static double rms(float[] buf)
     {
         double sum = 0;
-        for (float v : buf) sum += (double) v * v;
+        for (float v : buf)
+            sum += (double) v * v;
         return Math.sqrt(sum / buf.length);
     }
 

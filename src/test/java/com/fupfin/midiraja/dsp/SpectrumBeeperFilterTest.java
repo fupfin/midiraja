@@ -58,7 +58,8 @@ class SpectrumBeeperFilterTest
     private static double rms(float[] buf)
     {
         double sum = 0;
-        for (float v : buf) sum += (double) v * v;
+        for (float v : buf)
+            sum += (double) v * v;
         return Math.sqrt(sum / buf.length);
     }
 
@@ -114,7 +115,7 @@ class SpectrumBeeperFilterTest
         var sinkL = new CaptureSink();
         var sinkR = new CaptureSink();
 
-        var filterL = new SpectrumBeeperFilter(true, true, sinkL);   // auxOut for raw quantized
+        var filterL = new SpectrumBeeperFilter(true, true, sinkL); // auxOut for raw quantized
         var filterR = new SpectrumBeeperFilter(true, true, sinkR);
 
         // L=0.8, R=0.0 → mix = 0.4

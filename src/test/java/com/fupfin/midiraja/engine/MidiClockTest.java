@@ -66,8 +66,7 @@ class MidiClockTest
     @Test
     void system_onSpinWait_canBeCalledRepeatedly()
     {
-        assertDoesNotThrow(() ->
-        {
+        assertDoesNotThrow(() -> {
             for (int i = 0; i < 1000; i++)
             {
                 MidiClock.SYSTEM.onSpinWait();
@@ -89,10 +88,14 @@ class MidiClockTest
             }
 
             @Override
-            public void sleepMillis(long ms) throws InterruptedException {}
+            public void sleepMillis(long ms) throws InterruptedException
+            {
+            }
 
             @Override
-            public void onSpinWait() {}
+            public void onSpinWait()
+            {
+            }
         };
 
         assertEquals(123_456_789L, stub.nanoTime());
@@ -117,7 +120,9 @@ class MidiClockTest
             }
 
             @Override
-            public void onSpinWait() {}
+            public void onSpinWait()
+            {
+            }
         };
 
         assertEquals(0L, stub.nanoTime());
@@ -143,7 +148,9 @@ class MidiClockTest
             }
 
             @Override
-            public void onSpinWait() {}
+            public void onSpinWait()
+            {
+            }
         };
 
         assertThrows(InterruptedException.class, () -> stub.sleepMillis(10),
@@ -157,10 +164,15 @@ class MidiClockTest
         MidiClock stub = new MidiClock()
         {
             @Override
-            public long nanoTime() { return 0L; }
+            public long nanoTime()
+            {
+                return 0L;
+            }
 
             @Override
-            public void sleepMillis(long ms) throws InterruptedException {}
+            public void sleepMillis(long ms) throws InterruptedException
+            {
+            }
 
             @Override
             public void onSpinWait()
@@ -169,7 +181,8 @@ class MidiClockTest
             }
         };
 
-        for (int i = 0; i < 5; i++) stub.onSpinWait();
+        for (int i = 0; i < 5; i++)
+            stub.onSpinWait();
         assertEquals(5, spinCount[0]);
     }
 
@@ -179,8 +192,7 @@ class MidiClockTest
     void system_sleepMillis_throwsWhenInterrupted() throws InterruptedException
     {
         boolean[] interrupted = { false };
-        Thread t = new Thread(() ->
-        {
+        Thread t = new Thread(() -> {
             try
             {
                 MidiClock.SYSTEM.sleepMillis(5000);

@@ -99,7 +99,8 @@ class AmigaPaulaFilterTest
 
         // After many frames the output should approach a steady state but A500 LPF damps it
         float maxOut = 0;
-        for (float v : sink.capturedLeft) maxOut = Math.max(maxOut, Math.abs(v));
+        for (float v : sink.capturedLeft)
+            maxOut = Math.max(maxOut, Math.abs(v));
         assertTrue(maxOut <= 1.5f, "A500 output should be within reasonable amplitude");
         assertTrue(maxOut > 0.0f, "A500 output should not be silent for full-scale input");
     }
@@ -303,7 +304,8 @@ class AmigaPaulaFilterTest
         var filter = new AmigaPaulaFilter(true, AmigaPaulaFilter.Profile.A1200, 1.0f, sink);
 
         short[] pcm = new short[8]; // 4 stereo frames
-        for (int i = 0; i < 8; i++) pcm[i] = (short) (i % 2 == 0 ? 16000 : -16000);
+        for (int i = 0; i < 8; i++)
+            pcm[i] = (short) (i % 2 == 0 ? 16000 : -16000);
         filter.processInterleaved(pcm, 4, 2);
 
         assertNotNull(sink.capturedInterleaved,

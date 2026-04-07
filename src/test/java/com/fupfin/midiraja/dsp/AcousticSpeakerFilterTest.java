@@ -58,7 +58,8 @@ class AcousticSpeakerFilterTest
     private static double rms(float[] buf)
     {
         double sum = 0;
-        for (float v : buf) sum += (double) v * v;
+        for (float v : buf)
+            sum += (double) v * v;
         return Math.sqrt(sum / buf.length);
     }
 
@@ -213,7 +214,8 @@ class AcousticSpeakerFilterTest
         boolean anyChanged = false;
         for (short s : sink.capturedPcm)
         {
-            if (Math.abs(s) < 16000) anyChanged = true;
+            if (Math.abs(s) < 16000)
+                anyChanged = true;
         }
         assertTrue(anyChanged, "TIN_CAN should change at least some values in interleaved mode");
     }

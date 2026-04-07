@@ -19,7 +19,7 @@ import java.util.OptionalInt;
 
 import org.jspecify.annotations.Nullable;
 
-import com.fupfin.midiraja.media.MusicFormatLoader;
+import com.fupfin.midiraja.format.MusicFormatLoader;
 
 /**
  * Builds a flat playlist from a mix of .mid files, directories, and .m3u playlists. M3U files may

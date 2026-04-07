@@ -94,7 +94,7 @@ class VolumeFilterTest
             var filter = new VolumeFilter(rec, 0.5);
             filter.sendMessage(cc7(ch, 80));
             assertEquals(40, rec.received.get(0)[2] & 0xFF,
-                "channel " + ch + " must apply volume scale");
+                    "channel " + ch + " must apply volume scale");
         }
     }
 

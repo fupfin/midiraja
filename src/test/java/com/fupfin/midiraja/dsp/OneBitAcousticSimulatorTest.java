@@ -30,7 +30,8 @@ class OneBitAcousticSimulatorTest
     private static double mean(float[] buf)
     {
         double sum = 0;
-        for (float v : buf) sum += v;
+        for (float v : buf)
+            sum += v;
         return sum / buf.length;
     }
 
@@ -49,9 +50,9 @@ class OneBitAcousticSimulatorTest
 
         // The mean of the settled output should be near zero
         assertTrue(Math.abs(mean(left)) < 0.1,
-            "PWM silence output mean should be near zero after settling: " + mean(left));
+                "PWM silence output mean should be near zero after settling: " + mean(left));
         assertTrue(Math.abs(mean(right)) < 0.1,
-            "PWM silence output mean should be near zero after settling: " + mean(right));
+                "PWM silence output mean should be near zero after settling: " + mean(right));
     }
 
     // ── PWM mode: polarity ───────────────────────────────────────────────────
@@ -124,9 +125,9 @@ class OneBitAcousticSimulatorTest
         freshSim.process(leftFresh, rightFresh, 64);
 
         assertArrayEquals(leftFresh, leftAfterReset, 0.0f,
-            "Reset should restore simulator to initial state");
+                "Reset should restore simulator to initial state");
         assertArrayEquals(rightFresh, rightAfterReset, 0.0f,
-            "Reset should restore simulator to initial state");
+                "Reset should restore simulator to initial state");
     }
 
     // ── DSD mode: seeded Random produces deterministic exact output ───────────
@@ -145,9 +146,9 @@ class OneBitAcousticSimulatorTest
         sim2.process(left2, right2, 32);
 
         assertArrayEquals(left1, left2, 0.0f,
-            "DSD with seeded Random(0) must produce identical output");
+                "DSD with seeded Random(0) must produce identical output");
         assertArrayEquals(right1, right2, 0.0f,
-            "DSD with seeded Random(0) must produce identical output");
+                "DSD with seeded Random(0) must produce identical output");
     }
 
     // ── DSD mode: silence input long-run mean near zero ───────────────────────
@@ -166,9 +167,9 @@ class OneBitAcousticSimulatorTest
         double meanL = mean(left);
         double meanR = mean(right);
         assertTrue(Math.abs(meanL) < 0.05,
-            "DSD silence long-run mean (left) should be near zero: " + meanL);
+                "DSD silence long-run mean (left) should be near zero: " + meanL);
         assertTrue(Math.abs(meanR) < 0.05,
-            "DSD silence long-run mean (right) should be near zero: " + meanR);
+                "DSD silence long-run mean (right) should be near zero: " + meanR);
     }
 
     // ── DSD mode: reset clears accumulator state ──────────────────────────────
@@ -285,9 +286,9 @@ class OneBitAcousticSimulatorTest
         for (int i = 0; i < n; i++)
         {
             assertTrue(left[i] >= -2.0f && left[i] <= 2.0f,
-                "PWM left[" + i + "] = " + left[i] + " exceeds hard bound ±2.0");
+                    "PWM left[" + i + "] = " + left[i] + " exceeds hard bound ±2.0");
             assertTrue(right[i] >= -2.0f && right[i] <= 2.0f,
-                "PWM right[" + i + "] = " + right[i] + " exceeds hard bound ±2.0");
+                    "PWM right[" + i + "] = " + right[i] + " exceeds hard bound ±2.0");
         }
     }
 
@@ -308,9 +309,9 @@ class OneBitAcousticSimulatorTest
         for (int i = 0; i < n; i++)
         {
             assertTrue(left[i] >= -2.0f && left[i] <= 2.0f,
-                "DSD left[" + i + "] = " + left[i] + " exceeds hard bound ±2.0");
+                    "DSD left[" + i + "] = " + left[i] + " exceeds hard bound ±2.0");
             assertTrue(right[i] >= -2.0f && right[i] <= 2.0f,
-                "DSD right[" + i + "] = " + right[i] + " exceeds hard bound ±2.0");
+                    "DSD right[" + i + "] = " + right[i] + " exceeds hard bound ±2.0");
         }
     }
 
@@ -319,8 +320,7 @@ class OneBitAcousticSimulatorTest
     @Test
     void modeString_caseInsensitive_PWM_uppercase_doesNotThrow()
     {
-        assertDoesNotThrow(() ->
-        {
+        assertDoesNotThrow(() -> {
             var sim = new OneBitAcousticSimulator(SAMPLE_RATE, "PWM");
             sim.process(fill(4, 0.5f), fill(4, 0.5f), 4);
         }, "Uppercase 'PWM' mode should be accepted");
@@ -329,8 +329,7 @@ class OneBitAcousticSimulatorTest
     @Test
     void modeString_caseInsensitive_DSD_uppercase_doesNotThrow()
     {
-        assertDoesNotThrow(() ->
-        {
+        assertDoesNotThrow(() -> {
             var sim = new OneBitAcousticSimulator(SAMPLE_RATE, "DSD");
             sim.process(fill(4, 0.5f), fill(4, 0.5f), 4);
         }, "Uppercase 'DSD' mode should be accepted");
@@ -339,8 +338,7 @@ class OneBitAcousticSimulatorTest
     @Test
     void modeString_caseInsensitive_Pwm_mixedCase_doesNotThrow()
     {
-        assertDoesNotThrow(() ->
-        {
+        assertDoesNotThrow(() -> {
             var sim = new OneBitAcousticSimulator(SAMPLE_RATE, "Pwm");
             sim.process(fill(4, 0.5f), fill(4, 0.5f), 4);
         }, "Mixed-case 'Pwm' mode should be accepted");
@@ -358,8 +356,8 @@ class OneBitAcousticSimulatorTest
         new OneBitAcousticSimulator(SAMPLE_RATE, "PWM").process(leftUpper, rightUpper, 64);
 
         assertArrayEquals(leftLower, leftUpper, 0.0f,
-            "'pwm' and 'PWM' should produce identical output");
+                "'pwm' and 'PWM' should produce identical output");
         assertArrayEquals(rightLower, rightUpper, 0.0f,
-            "'pwm' and 'PWM' should produce identical output");
+                "'pwm' and 'PWM' should produce identical output");
     }
 }

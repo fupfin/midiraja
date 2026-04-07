@@ -43,8 +43,7 @@ class WavFileWriterTest
     {
         Path file = tempDir.resolve("test.wav");
         try (var writer = new WavFileWriter(file.toString(), 44100, 2))
-        {
-        }
+        {}
         byte[] bytes = Files.readAllBytes(file);
 
         assertEquals('R', bytes[0]);
@@ -62,8 +61,7 @@ class WavFileWriterTest
     {
         Path file = tempDir.resolve("test.wav");
         try (var writer = new WavFileWriter(file.toString(), 44100, 2))
-        {
-        }
+        {}
         byte[] bytes = Files.readAllBytes(file);
 
         assertEquals('f', bytes[12]);
@@ -81,8 +79,7 @@ class WavFileWriterTest
     {
         Path file = tempDir.resolve("test.wav");
         try (var writer = new WavFileWriter(file.toString(), 44100, 2))
-        {
-        }
+        {}
         byte[] bytes = Files.readAllBytes(file);
         short audioFormat = ByteBuffer.wrap(bytes, 20, 2).order(ByteOrder.LITTLE_ENDIAN).getShort();
 
@@ -94,8 +91,7 @@ class WavFileWriterTest
     {
         Path file = tempDir.resolve("test.wav");
         try (var writer = new WavFileWriter(file.toString(), 44100, 2))
-        {
-        }
+        {}
         byte[] bytes = Files.readAllBytes(file);
         short bitsPerSample = ByteBuffer.wrap(bytes, 34, 2).order(ByteOrder.LITTLE_ENDIAN).getShort();
 
@@ -109,8 +105,7 @@ class WavFileWriterTest
     {
         Path file = tempDir.resolve("stereo.wav");
         try (var writer = new WavFileWriter(file.toString(), 44100, 2))
-        {
-        }
+        {}
         byte[] bytes = Files.readAllBytes(file);
 
         short channels = ByteBuffer.wrap(bytes, 22, 2).order(ByteOrder.LITTLE_ENDIAN).getShort();
@@ -127,8 +122,7 @@ class WavFileWriterTest
     {
         Path file = tempDir.resolve("mono.wav");
         try (var writer = new WavFileWriter(file.toString(), 22050, 1))
-        {
-        }
+        {}
         byte[] bytes = Files.readAllBytes(file);
 
         short channels = ByteBuffer.wrap(bytes, 22, 2).order(ByteOrder.LITTLE_ENDIAN).getShort();

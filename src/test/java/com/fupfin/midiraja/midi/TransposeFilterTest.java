@@ -138,7 +138,7 @@ class TransposeFilterTest
             var filter = new TransposeFilter(rec, 1);
             filter.sendMessage(noteOn(ch, 60, 100));
             assertEquals(61, rec.received.get(0)[1] & 0xFF,
-                "channel " + ch + " must be transposed");
+                    "channel " + ch + " must be transposed");
         }
     }
 

@@ -10,7 +10,8 @@ package com.fupfin.midiraja.midi;
 /**
  * Routes a raw MIDI byte[] message to the appropriate method on a {@link MidiNativeBridge}.
  *
- * <p>Extracted from {@link AbstractSoftSynthProvider} so the dispatch logic can be tested
+ * <p>
+ * Extracted from {@link AbstractSoftSynthProvider} so the dispatch logic can be tested
  * independently of the render thread and event queue.
  */
 class MidiEventDispatcher
