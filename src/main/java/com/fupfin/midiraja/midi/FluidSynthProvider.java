@@ -87,113 +87,72 @@ public class FluidSynthProvider implements SoftSynthProvider
         }
 
         // --- Bindings ---
-
         // fluid_settings_t* new_fluid_settings(void)
-        new_fluid_settings = linker.downcallHandle(
-                lib.find("new_fluid_settings")
-                        .orElseThrow(() -> new Exception("new_fluid_settings not found")),
+        new_fluid_settings = lookupHandle(linker, lib, "new_fluid_settings",
                 FunctionDescriptor.of(ValueLayout.ADDRESS));
-
-        // int fluid_settings_setstr(fluid_settings_t* settings, const char* name,
-        // const char* str)
-        fluid_settings_setstr = linker.downcallHandle(
-                lib.find("fluid_settings_setstr")
-                        .orElseThrow(() -> new Exception("fluid_settings_setstr not found")),
+        // int fluid_settings_setstr(fluid_settings_t*, const char* name, const char* str)
+        fluid_settings_setstr = lookupHandle(linker, lib, "fluid_settings_setstr",
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS, ValueLayout.ADDRESS));
-
-        // fluid_synth_t* new_fluid_synth(fluid_settings_t* settings)
-        new_fluid_synth = linker.downcallHandle(
-                lib.find("new_fluid_synth")
-                        .orElseThrow(() -> new Exception("new_fluid_synth not found")),
+        // fluid_synth_t* new_fluid_synth(fluid_settings_t*)
+        new_fluid_synth = lookupHandle(linker, lib, "new_fluid_synth",
                 FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
-
-        // int fluid_synth_sfload(fluid_synth_t* synth, const char* filename, int
-        // reset_presets)
-        fluid_synth_sfload = linker.downcallHandle(
-                lib.find("fluid_synth_sfload")
-                        .orElseThrow(() -> new Exception("fluid_synth_sfload not found")),
+        // int fluid_synth_sfload(fluid_synth_t*, const char* filename, int reset_presets)
+        fluid_synth_sfload = lookupHandle(linker, lib, "fluid_synth_sfload",
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
-
-        // fluid_audio_driver_t* new_fluid_audio_driver(fluid_settings_t* settings,
-        // fluid_synth_t* synth)
-        new_fluid_audio_driver = linker.downcallHandle(
-                lib.find("new_fluid_audio_driver")
-                        .orElseThrow(() -> new Exception("new_fluid_audio_driver not found")),
+        // fluid_audio_driver_t* new_fluid_audio_driver(fluid_settings_t*, fluid_synth_t*)
+        new_fluid_audio_driver = lookupHandle(linker, lib, "new_fluid_audio_driver",
                 FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS));
-
-        // int fluid_synth_noteon(fluid_synth_t* synth, int chan, int key, int vel)
-        fluid_synth_noteon_mh = linker.downcallHandle(
-                lib.find("fluid_synth_noteon")
-                        .orElseThrow(() -> new Exception("fluid_synth_noteon not found")),
+        // int fluid_synth_noteon(fluid_synth_t*, int chan, int key, int vel)
+        fluid_synth_noteon_mh = lookupHandle(linker, lib, "fluid_synth_noteon",
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                         ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
-
-        // int fluid_synth_noteoff(fluid_synth_t* synth, int chan, int key)
-        fluid_synth_noteoff_mh = linker.downcallHandle(
-                lib.find("fluid_synth_noteoff")
-                        .orElseThrow(() -> new Exception("fluid_synth_noteoff not found")),
+        // int fluid_synth_noteoff(fluid_synth_t*, int chan, int key)
+        fluid_synth_noteoff_mh = lookupHandle(linker, lib, "fluid_synth_noteoff",
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                         ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
-
-        // int fluid_synth_cc(fluid_synth_t* synth, int chan, int num, int val)
-        fluid_synth_cc_mh = linker.downcallHandle(
-                lib.find("fluid_synth_cc")
-                        .orElseThrow(() -> new Exception("fluid_synth_cc not found")),
+        // int fluid_synth_cc(fluid_synth_t*, int chan, int num, int val)
+        fluid_synth_cc_mh = lookupHandle(linker, lib, "fluid_synth_cc",
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                         ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
-
-        // int fluid_synth_program_change(fluid_synth_t* synth, int chan, int
-        // program)
-        fluid_synth_program_change_mh = linker.downcallHandle(
-                lib.find("fluid_synth_program_change")
-                        .orElseThrow(() -> new Exception("fluid_synth_program_change not found")),
+        // int fluid_synth_program_change(fluid_synth_t*, int chan, int program)
+        fluid_synth_program_change_mh = lookupHandle(linker, lib, "fluid_synth_program_change",
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                         ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
-
-        // int fluid_synth_pitch_bend(fluid_synth_t* synth, int chan, int val)
-        fluid_synth_pitch_bend_mh = linker.downcallHandle(
-                lib.find("fluid_synth_pitch_bend")
-                        .orElseThrow(() -> new Exception("fluid_synth_pitch_bend not found")),
+        // int fluid_synth_pitch_bend(fluid_synth_t*, int chan, int val)
+        fluid_synth_pitch_bend_mh = lookupHandle(linker, lib, "fluid_synth_pitch_bend",
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                         ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
-
-        // int fluid_synth_sysex(fluid_synth_t* synth, const char* data, int len,
+        // int fluid_synth_sysex(fluid_synth_t*, const char* data, int len,
         // char* response, int* response_len, int* handled, int dryrun)
-        fluid_synth_sysex_mh = linker.downcallHandle(
-                lib.find("fluid_synth_sysex")
-                        .orElseThrow(() -> new Exception("fluid_synth_sysex not found")),
+        fluid_synth_sysex_mh = lookupHandle(linker, lib, "fluid_synth_sysex",
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
-
-        // void fluid_set_log_function(int level, fluid_log_function_t fun, void*
-        // data)
-        fluid_set_log_function = linker.downcallHandle(
-                lib.find("fluid_set_log_function")
-                        .orElseThrow(() -> new Exception("fluid_set_log_function not found")),
+        // void fluid_set_log_function(int level, fluid_log_function_t fun, void* data)
+        fluid_set_log_function = lookupHandle(linker, lib, "fluid_set_log_function",
                 FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS));
-
-        // void delete_fluid_audio_driver(fluid_audio_driver_t* driver)
-        delete_fluid_audio_driver = linker.downcallHandle(
-                lib.find("delete_fluid_audio_driver")
-                        .orElseThrow(() -> new Exception("delete_fluid_audio_driver not found")),
+        // void delete_fluid_audio_driver(fluid_audio_driver_t*)
+        delete_fluid_audio_driver = lookupHandle(linker, lib, "delete_fluid_audio_driver",
                 FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
-
-        // void delete_fluid_synth(fluid_synth_t* synth)
-        delete_fluid_synth = linker.downcallHandle(
-                lib.find("delete_fluid_synth")
-                        .orElseThrow(() -> new Exception("delete_fluid_synth not found")),
+        // void delete_fluid_synth(fluid_synth_t*)
+        delete_fluid_synth = lookupHandle(linker, lib, "delete_fluid_synth",
                 FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
-
-        // void delete_fluid_settings(fluid_settings_t* settings)
-        delete_fluid_settings = linker.downcallHandle(
-                lib.find("delete_fluid_settings")
-                        .orElseThrow(() -> new Exception("delete_fluid_settings not found")),
+        // void delete_fluid_settings(fluid_settings_t*)
+        delete_fluid_settings = lookupHandle(linker, lib, "delete_fluid_settings",
                 FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+    }
+
+    /** Looks up {@code name} in {@code lib} and binds it to a downcall handle via {@code linker}. */
+    private static MethodHandle lookupHandle(Linker linker, SymbolLookup lib, String name,
+            FunctionDescriptor desc) throws Exception
+    {
+        return linker.downcallHandle(
+                lib.find(name).orElseThrow(() -> new Exception(name + " not found")),
+                desc);
     }
 
     @Override

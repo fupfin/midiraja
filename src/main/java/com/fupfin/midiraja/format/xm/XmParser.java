@@ -103,12 +103,7 @@ public class XmParser
         int patternBase = 60 + headerSize;
 
         // Read all pattern data
-        int[][][] patternNotes = new int[patternCount][][];
-        int[][][] patternInstrs = new int[patternCount][][];
-        int[][][] patternVols = new int[patternCount][][];
-        int[][][] patternFxCmd = new int[patternCount][][];
-        int[][][] patternFxPar = new int[patternCount][][];
-        int[] patternRows = new int[patternCount];
+        var patterns = new PatternData[patternCount];
 
         int pos = patternBase;
         for (int p = 0; p < patternCount && pos < data.length; p++)
@@ -120,21 +115,8 @@ public class XmParser
             int packedSize = buf.getShort(pos + 7) & 0xFFFF;
             int dataStart = pos + patHdrSize;
 
-            patternRows[p] = rows;
-            patternNotes[p] = new int[rows][channelCount];
-            patternInstrs[p] = new int[rows][channelCount];
-            patternVols[p] = new int[rows][channelCount];
-            patternFxCmd[p] = new int[rows][channelCount];
-            patternFxPar[p] = new int[rows][channelCount];
-            for (int r = 0; r < rows; r++)
-            {
-                for (int c = 0; c < channelCount; c++)
-                    patternVols[p][r][c] = -1;
-            }
-
-            unpackPattern(data, dataStart, packedSize, rows, channelCount,
-                    patternNotes[p], patternInstrs[p], patternVols[p],
-                    patternFxCmd[p], patternFxPar[p]);
+            patterns[p] = new PatternData(rows, channelCount);
+            unpackPattern(data, dataStart, packedSize, patterns[p]);
 
             pos = dataStart + packedSize;
         }
@@ -179,21 +161,19 @@ public class XmParser
             pos += skipSize;
         }
 
-        var events = linearize(orders, songLength, patternRows, patternNotes, patternInstrs,
-                patternVols, patternFxCmd, patternFxPar, patternCount, channelCount,
+        var events = linearize(orders, songLength, patterns, patternCount, channelCount,
                 initSpeed, initBpm);
 
         return new TrackerParseResult(title, channelCount, List.copyOf(instruments), events);
     }
 
-    private void unpackPattern(byte[] data, int start, int packedSize, int rows, int channels,
-            int[][] notes, int[][] instrs, int[][] vols, int[][] fxCmd, int[][] fxPar)
+    private void unpackPattern(byte[] data, int start, int packedSize, PatternData pat)
     {
         int pos = start;
         int end = start + packedSize;
-        for (int r = 0; r < rows && pos < end; r++)
+        for (int r = 0; r < pat.rows && pos < end; r++)
         {
-            for (int c = 0; c < channels && pos < end; c++)
+            for (int c = 0; c < pat.notes[r].length && pos < end; c++)
             {
                 int first = data[pos++] & 0xFF;
                 int note = 0, instr = 0, vol = -1, fx = 0, fxp = 0;
@@ -222,19 +202,17 @@ public class XmParser
                     if (pos < end)
                         fxp = data[pos++] & 0xFF;
                 }
-                notes[r][c] = note;
-                instrs[r][c] = instr;
+                pat.notes[r][c] = note;
+                pat.instrs[r][c] = instr;
                 // volume column: 0x10-0x50 = volume 0-64; 0 or 0x0F = empty
-                vols[r][c] = (vol >= 0x10 && vol <= 0x50) ? vol - 0x10 : -1;
-                fxCmd[r][c] = fx;
-                fxPar[r][c] = fxp;
+                pat.vols[r][c] = (vol >= 0x10 && vol <= 0x50) ? vol - 0x10 : -1;
+                pat.fxCmd[r][c] = fx;
+                pat.fxPar[r][c] = fxp;
             }
         }
     }
 
-    private List<TrackerEvent> linearize(int[] orders, int songLength, int[] patternRows,
-            int[][][] notes, int[][][] instrs, int[][][] vols,
-            int[][][] fxCmd, int[][][] fxPar,
+    private List<TrackerEvent> linearize(int[] orders, int songLength, PatternData[] patterns,
             int patternCount, int channelCount, int initSpeed, int initBpm)
     {
         var events = new ArrayList<TrackerEvent>();
@@ -249,21 +227,21 @@ public class XmParser
         while (orderPos < songLength)
         {
             int patIdx = orders[orderPos];
-            if (patIdx >= patternCount)
+            if (patIdx >= patternCount || patterns[patIdx] == null)
             {
                 orderPos++;
                 row = 0;
                 continue;
             }
 
-            int rows = patternRows[patIdx];
-            if (rows == 0)
+            PatternData pat = patterns[patIdx];
+            if (pat.rows == 0)
             {
                 orderPos++;
                 row = 0;
                 continue;
             }
-            if (row >= rows)
+            if (row >= pat.rows)
             {
                 row = 0;
                 orderPos++;
@@ -274,73 +252,31 @@ public class XmParser
             if (!visited.add(key))
                 break;
 
-            // Pre-scan for tempo changes (Fxx)
-            int nextSpeed = speed;
-            int nextBpm = bpm;
-            for (int ch = 0; ch < channelCount; ch++)
-            {
-                int fx = fxCmd[patIdx][row][ch];
-                int fxp = fxPar[patIdx][row][ch];
-                if (fx == FX_SPEED_BPM && fxp > 0)
-                {
-                    if (fxp < 32)
-                        nextSpeed = fxp;
-                    else
-                        nextBpm = fxp;
-                }
-            }
+            // Pre-scan for tempo changes (Fxx effect) — must run before emitting events
+            int[] tempoResult = prescanTempoChanges(pat, row, channelCount, speed, bpm);
+            int nextSpeed = tempoResult[0];
+            int nextBpm = tempoResult[1];
 
-            // Emit events
-            for (int ch = 0; ch < channelCount; ch++)
-            {
-                int xmNote = notes[patIdx][row][ch];
-                int instr = instrs[patIdx][row][ch];
-                int vol = vols[patIdx][row][ch];
-                int fx = fxCmd[patIdx][row][ch];
-                int fxp = fxPar[patIdx][row][ch];
-
-                int midiNote = xmNote == 0
-                        ? -1
-                        : xmNote == NOTE_KEYOFF
-                                ? -2
-                                : Math.clamp(xmNote + 11, 0, 127);
-
-                // Volume set from effect Cxx overrides column
-                int effectVol = (fx == FX_SET_VOL) ? Math.min(fxp, 64) : -1;
-                int finalVol = effectVol >= 0 ? effectVol : vol;
-
-                if (midiNote != -1 || instr != 0 || finalVol != -1 || fx != 0)
-                    events.add(new TrackerEvent(currentMicrosecond, ch, midiNote, instr,
-                            finalVol, fx, fxp));
-            }
+            emitEvents(events, pat, row, channelCount, currentMicrosecond);
 
             speed = nextSpeed;
             bpm = nextBpm;
             long rowDuration = (long) speed * 2_500_000L / bpm;
             currentMicrosecond += rowDuration;
 
-            // Navigation
-            int jumpToOrder = -1;
-            int breakToRow = -1;
-            for (int ch = 0; ch < channelCount; ch++)
-            {
-                int fx = fxCmd[patIdx][row][ch];
-                int fxp = fxPar[patIdx][row][ch];
-                if (fx == FX_PAT_JUMP)
-                    jumpToOrder = fxp;
-                if (fx == FX_PAT_BREAK)
-                    breakToRow = ((fxp >> 4) * 10) + (fxp & 0x0F);
-            }
+            int[] nav = resolveNavigation(pat, row, channelCount);
+            int jumpToOrder = nav[0];
+            int breakToRow = nav[1];
 
             if (jumpToOrder >= 0 || breakToRow >= 0)
             {
                 orderPos = jumpToOrder >= 0 ? jumpToOrder : orderPos + 1;
-                row = breakToRow >= 0 ? Math.min(breakToRow, rows - 1) : 0;
+                row = breakToRow >= 0 ? Math.min(breakToRow, pat.rows - 1) : 0;
             }
             else
             {
                 row++;
-                if (row >= rows)
+                if (row >= pat.rows)
                 {
                     row = 0;
                     orderPos++;
@@ -349,6 +285,106 @@ public class XmParser
         }
 
         return List.copyOf(events);
+    }
+
+    /**
+     * Scans effect column for Fxx commands and returns the updated [speed, bpm] pair.
+     * Values below 32 set speed (ticks/row); values 32+ set BPM.
+     */
+    private static int[] prescanTempoChanges(PatternData pat, int row, int channelCount,
+            int speed, int bpm)
+    {
+        int nextSpeed = speed;
+        int nextBpm = bpm;
+        for (int ch = 0; ch < channelCount; ch++)
+        {
+            int fx = pat.fxCmd[row][ch];
+            int fxp = pat.fxPar[row][ch];
+            if (fx == FX_SPEED_BPM && fxp > 0)
+            {
+                if (fxp < 32)
+                    nextSpeed = fxp;
+                else
+                    nextBpm = fxp;
+            }
+        }
+        return new int[] { nextSpeed, nextBpm };
+    }
+
+    /** Emits TrackerEvents for all channels in the given row at the given timestamp. */
+    private static void emitEvents(List<TrackerEvent> events, PatternData pat, int row,
+            int channelCount, long currentMicrosecond)
+    {
+        for (int ch = 0; ch < channelCount; ch++)
+        {
+            int xmNote = pat.notes[row][ch];
+            int instr = pat.instrs[row][ch];
+            int vol = pat.vols[row][ch];
+            int fx = pat.fxCmd[row][ch];
+            int fxp = pat.fxPar[row][ch];
+
+            int midiNote = xmNote == 0
+                    ? -1
+                    : xmNote == NOTE_KEYOFF
+                            ? -2
+                            : Math.clamp(xmNote + 11, 0, 127);
+
+            // Volume set from effect Cxx overrides column
+            int effectVol = (fx == FX_SET_VOL) ? Math.min(fxp, 64) : -1;
+            int finalVol = effectVol >= 0 ? effectVol : vol;
+
+            if (midiNote != -1 || instr != 0 || finalVol != -1 || fx != 0)
+                events.add(new TrackerEvent(currentMicrosecond, ch, midiNote, instr,
+                        finalVol, fx, fxp));
+        }
+    }
+
+    /**
+     * Scans for Bxx (pattern jump) and Dxx (pattern break) effects.
+     * Returns [jumpToOrder, breakToRow]; -1 means not set.
+     */
+    private static int[] resolveNavigation(PatternData pat, int row, int channelCount)
+    {
+        int jumpToOrder = -1;
+        int breakToRow = -1;
+        for (int ch = 0; ch < channelCount; ch++)
+        {
+            int fx = pat.fxCmd[row][ch];
+            int fxp = pat.fxPar[row][ch];
+            if (fx == FX_PAT_JUMP)
+                jumpToOrder = fxp;
+            if (fx == FX_PAT_BREAK)
+                breakToRow = ((fxp >> 4) * 10) + (fxp & 0x0F);
+        }
+        return new int[] { jumpToOrder, breakToRow };
+    }
+
+    /**
+     * Holds all per-pattern cell data for one XM pattern.
+     * Consolidates 5 parallel 2D arrays (notes/instrs/vols/fxCmd/fxPar) + row count.
+     * Volume is initialized to -1 (empty) for all cells.
+     */
+    private static final class PatternData
+    {
+        final int rows;
+        final int[][] notes;
+        final int[][] instrs;
+        final int[][] vols;
+        final int[][] fxCmd;
+        final int[][] fxPar;
+
+        PatternData(int rows, int channels)
+        {
+            this.rows = rows;
+            this.notes = new int[rows][channels];
+            this.instrs = new int[rows][channels];
+            this.vols = new int[rows][channels];
+            this.fxCmd = new int[rows][channels];
+            this.fxPar = new int[rows][channels];
+            // XM volume column: -1 = empty (no explicit volume set)
+            for (int r = 0; r < rows; r++)
+                java.util.Arrays.fill(vols[r], -1);
+        }
     }
 
     /**

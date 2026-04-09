@@ -223,7 +223,7 @@ public class SessionHistory
         if (arrStart < 0 || arrEnd < 0)
             return result;
 
-        arrEnd = findMatchingBracket(json, arrStart);
+        arrEnd = findMatchingDelimiter(json, arrStart, '[', ']');
         if (arrEnd < 0)
             return result;
         String section = json.substring(arrStart + 1, arrEnd);
@@ -234,7 +234,7 @@ public class SessionHistory
             int objStart = section.indexOf('{', pos);
             if (objStart < 0)
                 break;
-            int objEnd = findMatchingBrace(section, objStart);
+            int objEnd = findMatchingDelimiter(section, objStart, '{', '}');
             if (objEnd < 0)
                 break;
             String obj = section.substring(objStart, objEnd + 1);
@@ -253,8 +253,11 @@ public class SessionHistory
         return result;
     }
 
-    /** Returns the index of the `]` matching the `[` at {@code openPos}, or -1 if not found. */
-    private static int findMatchingBracket(String s, int openPos)
+    /**
+     * Returns the index of {@code close} matching the {@code open} at {@code openPos},
+     * skipping characters inside JSON string literals. Returns -1 if not found.
+     */
+    private static int findMatchingDelimiter(String s, int openPos, char open, char close)
     {
         int depth = 0;
         boolean inStr = false;
@@ -278,46 +281,9 @@ public class SessionHistory
                     inStr = true;
                     continue;
                 }
-                if (c == '[')
+                if (c == open)
                     depth++;
-                else if (c == ']')
-                {
-                    if (--depth == 0)
-                        return i;
-                }
-            }
-        }
-        return -1;
-    }
-
-    /** Returns the index of the `}` matching the `{` at {@code openPos}, or -1 if not found. */
-    private static int findMatchingBrace(String s, int openPos)
-    {
-        int depth = 0;
-        boolean inStr = false;
-        for (int i = openPos; i < s.length(); i++)
-        {
-            char c = s.charAt(i);
-            if (inStr)
-            {
-                if (c == '\\')
-                {
-                    i++;
-                    continue;
-                }
-                if (c == '"')
-                    inStr = false;
-            }
-            else
-            {
-                if (c == '"')
-                {
-                    inStr = true;
-                    continue;
-                }
-                if (c == '{')
-                    depth++;
-                else if (c == '}')
+                else if (c == close)
                 {
                     if (--depth == 0)
                         return i;
@@ -334,7 +300,7 @@ public class SessionHistory
         if (start < 0)
             return null;
         int bracketPos = start + marker.length() - 1; // points to '['
-        int arrEnd = findMatchingBracket(obj, bracketPos);
+        int arrEnd = findMatchingDelimiter(obj, bracketPos, '[', ']');
         if (arrEnd < 0)
             return null;
         int arrStart = bracketPos + 1;

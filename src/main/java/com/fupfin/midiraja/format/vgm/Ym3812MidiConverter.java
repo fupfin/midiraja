@@ -48,24 +48,15 @@ public class Ym3812MidiConverter
     // Rhythm GM drum notes: HH, CY, TT, SD, BD (bit 0 → bit 4)
     private static final int[] RHYTHM_GM_NOTE = { 42, 49, 45, 38, 36 };
 
+    // conn=0, fb=0 with strong modulation (modTL < 10) is a percussive/effect patch
+    // in many OPL2 game drivers. Route to MIDI ch 9 (drums) instead of melody.
+    private static final int DRUM_NOTE_EFFECT = 42; // Closed Hi-Hat — metallic, unobtrusive
+
     private final long defaultClock;
     private final int midiChOffset; // 0 for OPL2/OPL3 port 0, 10 for OPL3 port 1
 
-    private final int[] fnumLo = new int[CHANNELS];
-    private final int[] block = new int[CHANNELS];
-    private final int[] fnumHi = new int[CHANNELS]; // bits 1-0 of 0xB0-0xB8
-    private final boolean[] keyState = new boolean[CHANNELS];
-    private final int[] activeNote = { -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-    private final int[] currentProgram = { -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-
-    private final int[] carrierTl = new int[CHANNELS];
-    private final int[] modulatorTl = new int[CHANNELS];
-    private final int[] carrierAr = new int[CHANNELS]; // 4-bit, 0-15
-    private final int[] carrierDr = new int[CHANNELS]; // 4-bit, 0-15
-    private final int[] feedback = new int[CHANNELS];
-    private final int[] connection = new int[CHANNELS];
-
-    private final boolean[] activeDrum = new boolean[CHANNELS];
+    // Per-channel state: consolidates all parallel arrays into a single object per channel.
+    private final ChannelState[] channels = new ChannelState[CHANNELS];
     private @org.jspecify.annotations.Nullable FmPatchCatalog patchCatalog;
     private boolean rhythmMode = false;
     private int rhythmKeyState = 0;
@@ -86,8 +77,8 @@ public class Ym3812MidiConverter
     {
         this.defaultClock = defaultClock;
         this.midiChOffset = midiChOffset;
-        java.util.Arrays.fill(carrierTl, 63);
-        java.util.Arrays.fill(modulatorTl, 63);
+        for (int i = 0; i < CHANNELS; i++)
+            channels[i] = new ChannelState();
     }
 
     public void convert(VgmEvent event, Track[] tracks, long clock, long tick)
@@ -106,7 +97,7 @@ public class Ym3812MidiConverter
         }
         else if (addr >= 0xA0 && addr <= 0xA8)
         {
-            fnumLo[addr - 0xA0] = data;
+            channels[addr - 0xA0].fnumLo = data;
         }
         else if (addr >= 0xB0 && addr <= 0xB8)
         {
@@ -115,11 +106,11 @@ public class Ym3812MidiConverter
         else if (addr >= 0xC0 && addr <= 0xC8)
         {
             int ch = addr - 0xC0;
-            feedback[ch] = (data >> 1) & 0x07;
-            connection[ch] = data & 0x01;
+            channels[ch].feedback = (data >> 1) & 0x07;
+            channels[ch].connection = data & 0x01;
             // Silent patch (conn=0, fb=0) used as instant note-cut trick:
             // immediately kill the active note instead of waiting for key-off.
-            if (isSilentPatch(ch) && activeNote[ch] >= 0)
+            if (isSilentPatch(ch) && channels[ch].activeNote >= 0)
             {
                 noteOff(ch, tick, tracks);
             }
@@ -147,11 +138,11 @@ public class Ym3812MidiConverter
         int tl = data & 0x3F;
         if (isCarrier)
         {
-            carrierTl[ch] = tl;
+            channels[ch].carrierTl = tl;
         }
         else
         {
-            modulatorTl[ch] = tl;
+            channels[ch].modulatorTl = tl;
         }
     }
 
@@ -168,18 +159,18 @@ public class Ym3812MidiConverter
         boolean isCarrier = slot >= 3;
         if (isCarrier)
         {
-            carrierAr[ch] = (data >> 4) & 0x0F;
-            carrierDr[ch] = data & 0x0F;
+            channels[ch].carrierAr = (data >> 4) & 0x0F;
+            channels[ch].carrierDr = data & 0x0F;
         }
     }
 
     private void handleKeyOnBlock(int ch, int data, long tick, Track[] tracks, long clock)
     {
-        fnumHi[ch] = data & 0x03;
-        block[ch] = (data >> 2) & 0x07;
+        channels[ch].fnumHi = data & 0x03;
+        channels[ch].block = (data >> 2) & 0x07;
         boolean newKeyOn = (data & 0x20) != 0;
-        boolean wasKeyOn = keyState[ch];
-        keyState[ch] = newKeyOn;
+        boolean wasKeyOn = channels[ch].keyState;
+        channels[ch].keyState = newKeyOn;
 
         // In rhythm mode, channels 6-8 key-on is handled by 0xBD register
         if (rhythmMode && ch >= 6)
@@ -226,14 +217,11 @@ public class Ym3812MidiConverter
         rhythmKeyState = newKeyState;
     }
 
-    // conn=0, fb=0 with strong modulation (modTL < 10) is a percussive/effect patch
-    // in many OPL2 game drivers. Route to MIDI ch 9 (drums) instead of melody.
-    private static final int DRUM_NOTE_EFFECT = 42; // Closed Hi-Hat — metallic, unobtrusive
-
     /** Strong modulation → metallic/percussive effect → route to drums. */
     private boolean isPercussiveEffect(int ch)
     {
-        return modulatorTl[ch] < 10 && !(connection[ch] == 0 && feedback[ch] == 0);
+        return channels[ch].modulatorTl < 10
+                && !(channels[ch].connection == 0 && channels[ch].feedback == 0);
     }
 
     /** Patch is effectively silent → suppress entirely. */
@@ -241,80 +229,79 @@ public class Ym3812MidiConverter
     {
         // Zero-feedback FM: nearly silent init/reset state
         // Carrier TL >= 55: output attenuated by > 41 dB, inaudible on real hardware
-        return (connection[ch] == 0 && feedback[ch] == 0)
-                || carrierTl[ch] >= 55;
+        return (channels[ch].connection == 0 && channels[ch].feedback == 0)
+                || channels[ch].carrierTl >= 55;
     }
 
     private void noteOn(int ch, int note, long tick, Track[] tracks)
     {
         if (note < 0)
             return;
-
         int sig = FmPatchCatalog.signature(
-                connection[ch], feedback[ch], modulatorTl[ch], carrierTl[ch],
-                carrierAr[ch], carrierDr[ch]);
-
-        // Use catalog if available, otherwise fall back to hardcoded rules
+                channels[ch].connection, channels[ch].feedback, channels[ch].modulatorTl,
+                channels[ch].carrierTl, channels[ch].carrierAr, channels[ch].carrierDr);
         if (patchCatalog != null)
         {
             if (patchCatalog.isSilent(sig))
                 return;
             if (patchCatalog.isDrumEffect(sig))
             {
-                if (9 < tracks.length)
-                {
-                    int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
-                    addEvent(tracks[9], ShortMessage.NOTE_ON, 9, DRUM_NOTE_EFFECT, vel, tick);
-                    activeNote[ch] = note;
-                    activeDrum[ch] = true;
-                }
+                emitDrumNote(ch, note, tick, tracks);
                 return;
             }
-            int midiCh = ch + midiChOffset;
-            if (midiCh >= tracks.length || midiCh == 9)
-                return;
-            int program = patchCatalog.program(sig);
-            if (program != currentProgram[ch])
-            {
-                addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
-                currentProgram[ch] = program;
-            }
-            int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
-            addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);
-            activeNote[ch] = note;
-            activeDrum[ch] = false;
+            emitMelodyNote(ch, note, patchCatalog.program(sig), tick, tracks);
         }
         else
         {
-            // Legacy hardcoded path
             if (isSilentPatch(ch))
                 return;
             if (isPercussiveEffect(ch))
             {
-                if (9 < tracks.length)
-                {
-                    int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
-                    addEvent(tracks[9], ShortMessage.NOTE_ON, 9, DRUM_NOTE_EFFECT, vel, tick);
-                    activeNote[ch] = note;
-                    activeDrum[ch] = true;
-                }
+                emitDrumNote(ch, note, tick, tracks);
                 return;
             }
-            int midiCh = ch + midiChOffset;
-            if (midiCh >= tracks.length || midiCh == 9)
-                return;
-            int vel = Math.clamp(Math.round((63 - carrierTl[ch]) / 63.0f * 127), 1, 127);
-            addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);
-            activeNote[ch] = note;
-            activeDrum[ch] = false;
+            // Legacy path: no catalog, no program change
+            emitMelodyNote(ch, note, -1, tick, tracks);
         }
+    }
+
+    /** Emits a drum hit for a percussive-effect patch, routing to MIDI channel 9. */
+    private void emitDrumNote(int ch, int note, long tick, Track[] tracks)
+    {
+        if (9 < tracks.length)
+        {
+            int vel = Math.clamp(Math.round((63 - channels[ch].carrierTl) / 63.0f * 127), 1, 127);
+            addEvent(tracks[9], ShortMessage.NOTE_ON, 9, DRUM_NOTE_EFFECT, vel, tick);
+            channels[ch].activeNote = note;
+            channels[ch].activeDrum = true;
+        }
+    }
+
+    /**
+     * Emits a melody note, optionally preceded by a Program Change.
+     * Pass {@code program = -1} to skip Program Change (legacy path without catalog).
+     */
+    private void emitMelodyNote(int ch, int note, int program, long tick, Track[] tracks)
+    {
+        int midiCh = ch + midiChOffset;
+        if (midiCh >= tracks.length || midiCh == 9)
+            return;
+        if (program >= 0 && program != channels[ch].currentProgram)
+        {
+            addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
+            channels[ch].currentProgram = program;
+        }
+        int vel = Math.clamp(Math.round((63 - channels[ch].carrierTl) / 63.0f * 127), 1, 127);
+        addEvent(tracks[midiCh], ShortMessage.NOTE_ON, midiCh, note, vel, tick);
+        channels[ch].activeNote = note;
+        channels[ch].activeDrum = false;
     }
 
     private void noteOff(int ch, long tick, Track[] tracks)
     {
-        if (activeNote[ch] < 0)
+        if (channels[ch].activeNote < 0)
             return;
-        if (activeDrum[ch])
+        if (channels[ch].activeDrum)
         {
             if (9 < tracks.length)
             {
@@ -326,26 +313,16 @@ public class Ym3812MidiConverter
             int midiCh = ch + midiChOffset;
             if (midiCh >= tracks.length || midiCh == 9)
                 return;
-            addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, activeNote[ch], 0, tick);
+            addEvent(tracks[midiCh], ShortMessage.NOTE_OFF, midiCh, channels[ch].activeNote, 0,
+                    tick);
         }
-        activeNote[ch] = -1;
-    }
-
-    private void emitProgramIfNeeded(int ch, int midiCh, int note, long tick, Track[] tracks)
-    {
-        boolean perc = FmMidiUtil.isPercussive(carrierAr[ch], carrierDr[ch]);
-        int program = FmMidiUtil.selectProgram(note, perc);
-        if (program != currentProgram[ch])
-        {
-            addEvent(tracks[midiCh], ShortMessage.PROGRAM_CHANGE, midiCh, program, 0, tick);
-            currentProgram[ch] = program;
-        }
+        channels[ch].activeNote = -1;
     }
 
     private int computeNote(int ch, long clock)
     {
-        int fnum = (fnumHi[ch] << 8) | fnumLo[ch];
-        return opl2Note(clock, fnum, block[ch]);
+        int fnum = (channels[ch].fnumHi << 8) | channels[ch].fnumLo;
+        return opl2Note(clock, fnum, channels[ch].block);
     }
 
     /**
@@ -386,5 +363,22 @@ public class Ym3812MidiConverter
         if (connection == 1)
             return percussive ? 11 : 81; // AM: Vibraphone or Sawtooth Lead
         return percussive ? 4 : 80; // FM: Electric Piano 1 or Square Lead
+    }
+
+    /**
+     * Mutable per-channel state. Groups all registers that evolve independently per OPL channel.
+     * Defaults match the OPL2 power-on state: fully attenuated (TL=63), no active note.
+     */
+    private static final class ChannelState
+    {
+        int fnumLo = 0, block = 0, fnumHi = 0;
+        boolean keyState = false;
+        int activeNote = -1;
+        int currentProgram = -1;
+        int carrierTl = 63; // OPL2 default: fully attenuated
+        int modulatorTl = 63;
+        int carrierAr = 0, carrierDr = 0;
+        int feedback = 0, connection = 0;
+        boolean activeDrum = false;
     }
 }
