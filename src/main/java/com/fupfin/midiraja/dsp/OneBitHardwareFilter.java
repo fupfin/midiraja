@@ -267,52 +267,39 @@ public class OneBitHardwareFilter implements AudioProcessor
         if (abs(monoIn) < 1e-4)
         {
             for (int s = 0; s < OVERSAMPLE; s++)
-            {
-                iirStatePre += iirAlphaPre * (0.0 - iirStatePre);
-                if (!auxOut)
-                {
-                    iirState1 += iirAlpha * (iirStatePre - iirState1);
-                    iirState2 += iirAlpha * (iirState1 - iirState2);
-                    iirState3 += iirAlpha * (iirState2 - iirState3);
-                    iirState4 += iirAlpha * (iirState3 - iirState4);
-                    iirState5 += iirAlpha * (iirState4 - iirState5);
-                    iirState6 += iirAlpha * (iirState5 - iirState6);
-                }
-                carrierPhase = (carrierPhase + subCarrierStep) % 1.0;
-            }
-            if (auxOut)
-                return (float) (iirStatePre * invDriveGain);
-            double out = iirState6 * invDriveGain;
-            double[] c1 = biquad1Coeffs, s1 = biquad1State;
-            if (c1 != null && s1 != null)
-                out = applyBiquad(c1, s1, out);
-            double[] c2 = biquad2Coeffs, s2 = biquad2State;
-            if (c2 != null && s2 != null)
-                out = applyBiquad(c2, s2, out);
-            return (float) out;
+                advanceSubSample(0.0);
+            return finalizeOutput();
         }
 
         double rawDuty = max(0.0, min(1.0, (monoIn + 1.0) * 0.5));
         double duty = round(rawDuty * levels) / levels;
 
         for (int s = 0; s < OVERSAMPLE; s++)
+            advanceSubSample((carrierPhase < duty) ? 1.0 : -1.0);
+        return finalizeOutput();
+    }
+
+    /** Advances one oversampled sub-frame: pre-filter → 6-stage IIR chain → carrier step. */
+    private void advanceSubSample(double input)
+    {
+        iirStatePre += iirAlphaPre * (input - iirStatePre);
+        if (!auxOut)
         {
-            double bit = (carrierPhase < duty) ? 1.0 : -1.0;
-            iirStatePre += iirAlphaPre * (bit - iirStatePre);
-            if (!auxOut)
-            {
-                iirState1 += iirAlpha * (iirStatePre - iirState1);
-                iirState2 += iirAlpha * (iirState1 - iirState2);
-                iirState3 += iirAlpha * (iirState2 - iirState3);
-                iirState4 += iirAlpha * (iirState3 - iirState4);
-                iirState5 += iirAlpha * (iirState4 - iirState5);
-                iirState6 += iirAlpha * (iirState5 - iirState6);
-            }
-            carrierPhase = (carrierPhase + subCarrierStep) % 1.0;
+            iirState1 += iirAlpha * (iirStatePre - iirState1);
+            iirState2 += iirAlpha * (iirState1 - iirState2);
+            iirState3 += iirAlpha * (iirState2 - iirState3);
+            iirState4 += iirAlpha * (iirState3 - iirState4);
+            iirState5 += iirAlpha * (iirState4 - iirState5);
+            iirState6 += iirAlpha * (iirState5 - iirState6);
         }
+        carrierPhase = (carrierPhase + subCarrierStep) % 1.0;
+    }
+
+    /** Reads IIR state, applies drive scaling and biquad peaks, returns final sample. */
+    private float finalizeOutput()
+    {
         if (auxOut)
             return (float) (iirStatePre * invDriveGain);
-
         double out = iirState6 * invDriveGain;
         double[] c1 = biquad1Coeffs, s1 = biquad1State;
         if (c1 != null && s1 != null)
