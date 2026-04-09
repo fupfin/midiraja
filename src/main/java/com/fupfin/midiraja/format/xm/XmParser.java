@@ -7,6 +7,9 @@
 
 package com.fupfin.midiraja.format.xm;
 
+import static com.fupfin.midiraja.format.tracker.TrackerParserUtils.decodeBreakRow;
+import static com.fupfin.midiraja.format.tracker.TrackerParserUtils.readAsciiTrimmed;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -354,7 +357,7 @@ public class XmParser
             if (fx == FX_PAT_JUMP)
                 jumpToOrder = fxp;
             if (fx == FX_PAT_BREAK)
-                breakToRow = ((fxp >> 4) * 10) + (fxp & 0x0F);
+                breakToRow = decodeBreakRow(fxp);
         }
         return new int[] { jumpToOrder, breakToRow };
     }
@@ -396,12 +399,4 @@ public class XmParser
         return Math.clamp(xmNote + 11, 0, 127);
     }
 
-    private static String readAsciiTrimmed(byte[] data, int offset, int maxLen)
-    {
-        int end = offset;
-        for (int i = offset; i < offset + maxLen && i < data.length; i++)
-            if (data[i] != 0)
-                end = i + 1;
-        return new String(data, offset, end - offset, StandardCharsets.US_ASCII).trim();
-    }
 }

@@ -331,119 +331,108 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
             if (assignedNotes.isEmpty())
                 return 0.0;
 
-            double sumPwm = 0.0;
             int numNotes = assignedNotes.size();
             double trueSampleRate = sampleRate * oversample;
-
+            double sumPwm = 0.0;
             for (int o = 0; o < oversample; o++)
+                sumPwm += renderOversampleFrame(assignedNotes, o, numNotes, trueSampleRate);
+            return applyDcBlocker(sumPwm / oversample);
+        }
+
+        /** Renders one oversample frame: advances carriers, synthesizes all notes, muxes output. */
+        private double renderOversampleFrame(List<ActiveNote> assignedNotes, int overIdx,
+                int numNotes, double trueSampleRate)
+        {
+            pwmCarrierPhase += pwmCarrierStep / oversample;
+            if (pwmCarrierPhase > 1.0)
+                pwmCarrierPhase -= 2.0;
+
+            // Advanced an internal fast carrier just for quantizing PM waves BEFORE multiplexing
+            internalPwmCarrier += (22050.0 / sampleRate) * 2.0 / oversample;
+            if (internalPwmCarrier > 1.0)
+                internalPwmCarrier -= 2.0;
+
+            boolean mixedXor = false;
+            boolean hasActiveNotes = false;
+            boolean tdmBit = false;
+
+            // --- LAYER 1 & 2: SYNTHESIS & QUANTIZATION ---
+            // Every synthesizer MUST output a pure boolean (0 or 1) into the multiplexer.
+            for (int i = 0; i < numNotes; i++)
             {
-                pwmCarrierPhase += pwmCarrierStep / oversample;
-                if (pwmCarrierPhase > 1.0)
-                    pwmCarrierPhase -= 2.0;
+                ActiveNote note = assignedNotes.get(i);
+                double time = note.activeFrames / (double) sampleRate;
+                boolean synthBit = false;
 
-                // Advanced an internal fast carrier just for quantizing PM waves BEFORE
-                // multiplexing
-                internalPwmCarrier += (22050.0 / sampleRate) * 2.0 / oversample;
-                if (internalPwmCarrier > 1.0)
-                    internalPwmCarrier -= 2.0;
-
-                boolean mixedXor = false;
-                boolean hasActiveNotes = false;
-                boolean tdmBit = false;
-
-                // --- LAYER 1 & 2: SYNTHESIS & QUANTIZATION ---
-                // Every synthesizer MUST output a pure boolean (0 or 1) into the multiplexer.
-                for (int i = 0; i < numNotes; i++)
+                if (note.isDrum)
                 {
-                    ActiveNote note = assignedNotes.get(i);
-                    double time = note.activeFrames / (double) sampleRate;
-                    boolean synthBit = false;
-
-                    if (note.isDrum)
-                    {
-                        double out = renderDrumOut(note, time, trueSampleRate);
-                        // Quantize drums using PWM
-                        synthBit = out > internalPwmCarrier;
-                        if (Math.abs(out) > 0.05)
-                            hasActiveNotes = true;
-
-                    }
-                    else
-                    {
-                        if ("xor".equals(synthMode))
-                        {
-                            synthBit = renderXorSynth(note);
-                            double decay = Math.max(0.0, 1.0 - (time / 0.5));
-                            if (decay > 0.01)
-                                hasActiveNotes = true;
-                            else
-                                synthBit = false;
-
-                        }
-                        else if ("square".equals(synthMode))
-                        {
-                            double decay = Math.max(0.0, 1.0 - (time / 1.5));
-                            synthBit = renderSquareSynth(note, trueSampleRate);
-                            if (decay > 0.01)
-                                hasActiveNotes = true;
-                            else
-                                synthBit = false;
-
-                        }
-                        else
-                        {
-                            double out = renderFMSynth(note, time, trueSampleRate);
-                            synthBit = out > internalPwmCarrier;
-                            if (Math.abs(out) > 0.05)
-                                hasActiveNotes = true;
-                            else
-                                synthBit = false;
-                        }
-                    }
-
-                    // --- LAYER 3: THE MULTIPLEXER (Boolean Domain Only) ---
-                    if (i == 0)
-                        mixedXor = synthBit;
-                    else
-                        mixedXor ^= synthBit;
-
-                    if (i == (o % numNotes))
-                        tdmBit = synthBit;
-                }
-
-                // Final Pin Output
-                if ("tdm".equals(muxMode))
-                {
-                    if (!hasActiveNotes)
-                        sumPwm += 0.0;
-                    else
-                        sumPwm += (tdmBit ? 1.0 : -1.0);
+                    double out = renderDrumOut(note, time, trueSampleRate);
+                    // Quantize drums using PWM
+                    synthBit = out > internalPwmCarrier;
+                    if (Math.abs(out) > 0.05)
+                        hasActiveNotes = true;
                 }
                 else
                 {
-                    // Default to XOR mux
-                    if (!hasActiveNotes)
-                        sumPwm += 0.0;
+                    if ("xor".equals(synthMode))
+                    {
+                        synthBit = renderXorSynth(note);
+                        double decay = Math.max(0.0, 1.0 - (time / 0.5));
+                        if (decay > 0.01)
+                            hasActiveNotes = true;
+                        else
+                            synthBit = false;
+                    }
+                    else if ("square".equals(synthMode))
+                    {
+                        double decay = Math.max(0.0, 1.0 - (time / 1.5));
+                        synthBit = renderSquareSynth(note, trueSampleRate);
+                        if (decay > 0.01)
+                            hasActiveNotes = true;
+                        else
+                            synthBit = false;
+                    }
                     else
-                        sumPwm += (mixedXor ? 1.0 : -1.0);
+                    {
+                        double out = renderFMSynth(note, time, trueSampleRate);
+                        synthBit = out > internalPwmCarrier;
+                        if (Math.abs(out) > 0.05)
+                            hasActiveNotes = true;
+                        else
+                            synthBit = false;
+                    }
                 }
+
+                // --- LAYER 3: THE MULTIPLEXER (Boolean Domain Only) ---
+                if (i == 0)
+                    mixedXor = synthBit;
+                else
+                    mixedXor ^= synthBit;
+
+                if (i == (overIdx % numNotes))
+                    tdmBit = synthBit;
             }
 
-            double rawPwm = sumPwm / oversample;
+            return computeMuxOutput(mixedXor, tdmBit, hasActiveNotes);
+        }
 
-            // ISOLATION: Apply DC Blocking instantly at the pin level.
-            if (dspUseDcBlocker)
-            {
-                double R = dspDcBlockerR;
-                double cleanSignal = rawPwm - dcBlockerX + (R * dcBlockerY);
-                dcBlockerX = rawPwm;
-                dcBlockerY = cleanSignal;
-                return cleanSignal;
-            }
-            else
-            {
+        /** Selects the final pin output value from the mux state. */
+        private double computeMuxOutput(boolean mixedXor, boolean tdmBit, boolean hasActiveNotes)
+        {
+            if (!hasActiveNotes)
+                return 0.0;
+            return "tdm".equals(muxMode) ? (tdmBit ? 1.0 : -1.0) : (mixedXor ? 1.0 : -1.0);
+        }
+
+        /** Applies the DC blocker filter at the pin level, or returns the signal unchanged. */
+        private double applyDcBlocker(double rawPwm)
+        {
+            if (!dspUseDcBlocker)
                 return rawPwm;
-            }
+            double cleanSignal = rawPwm - dcBlockerX + (dspDcBlockerR * dcBlockerY);
+            dcBlockerX = rawPwm;
+            dcBlockerY = cleanSignal;
+            return cleanSignal;
         }
     }
 

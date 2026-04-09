@@ -7,12 +7,14 @@
 
 package com.fupfin.midiraja.format.s3m;
 
+import static com.fupfin.midiraja.format.tracker.TrackerParserUtils.decodeBreakRow;
+import static com.fupfin.midiraja.format.tracker.TrackerParserUtils.readAsciiTrimmed;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -287,7 +289,7 @@ public class S3mParser
             if (fx == FX_PAT_JUMP)
                 jumpToOrder = pa;
             if (fx == FX_PAT_BREAK)
-                breakToRow = ((pa >> 4) * 10) + (pa & 0x0F);
+                breakToRow = decodeBreakRow(pa);
         }
         return new int[] { jumpToOrder, breakToRow };
     }
@@ -373,12 +375,4 @@ public class S3mParser
         return Math.clamp(octave * 12 + semitone, 0, 127);
     }
 
-    private static String readAsciiTrimmed(byte[] data, int offset, int maxLen)
-    {
-        int end = offset;
-        for (int i = offset; i < offset + maxLen && i < data.length; i++)
-            if (data[i] != 0)
-                end = i + 1;
-        return new String(data, offset, end - offset, StandardCharsets.US_ASCII).trim();
-    }
 }
