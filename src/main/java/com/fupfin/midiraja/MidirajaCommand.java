@@ -337,13 +337,11 @@ public class MidirajaCommand implements Callable<Integer>
         {
             case "patch" ->
             {
-                audio.init(44100, 2, 4096);
-                AudioProcessor pipeline = new FloatToShortSink(audio);
+                AudioProcessor pipeline = initAndPipeline(audio, 2);
                 builtinProvider = new GusSynthProvider(pipeline, null);
             }
             case "soundfont" ->
             {
-                audio.init(44100, 2, 4096);
                 String sfPath = TsfCommand.findBundledSf3();
                 if (sfPath == null)
                 {
@@ -351,36 +349,32 @@ public class MidirajaCommand implements Callable<Integer>
                             + "Run 'midra soundfont --help' for details.");
                     return 1;
                 }
-                AudioProcessor pipeline = new FloatToShortSink(audio);
+                AudioProcessor pipeline = initAndPipeline(audio, 2);
                 builtinProvider = new TsfSynthProvider(new FFMTsfNativeBridge(), pipeline, null);
                 soundbankArg = Optional.of(sfPath);
             }
             case "opl" ->
             {
-                audio.init(44100, 2, 4096);
-                AudioProcessor pipeline = new FloatToShortSink(audio);
+                AudioProcessor pipeline = initAndPipeline(audio, 2);
                 builtinProvider = new AdlMidiSynthProvider(new FFMAdlMidiNativeBridge(), pipeline,
                         0, 4, null);
                 soundbankArg = Optional.of("bank:0");
             }
             case "opn" ->
             {
-                audio.init(44100, 2, 4096);
-                AudioProcessor pipeline = new FloatToShortSink(audio);
+                AudioProcessor pipeline = initAndPipeline(audio, 2);
                 builtinProvider = new OpnMidiSynthProvider(new FFMOpnMidiNativeBridge(), pipeline,
                         0, 4, null);
                 soundbankArg = Optional.of("");
             }
             case "1bit" ->
             {
-                audio.init(44100, 1, 4096);
-                AudioProcessor pipeline = new FloatToShortSink(audio, 1);
+                AudioProcessor pipeline = initAndPipeline(audio, 1);
                 builtinProvider = new BeepSynthProvider(pipeline, 2, 2.0, 2.0, 1, "dsd", "square");
             }
             case "psg" ->
             {
-                audio.init(44100, 1, 4096);
-                AudioProcessor pipeline = new FloatToShortSink(audio, 1);
+                AudioProcessor pipeline = initAndPipeline(audio, 1);
                 builtinProvider = new PsgSynthProvider(pipeline, 4, 5.0, 25.0, false, false);
             }
             default ->
@@ -392,5 +386,13 @@ public class MidirajaCommand implements Callable<Integer>
 
         var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
         return runner.run(builtinProvider, true, Optional.empty(), soundbankArg, files, common, originalArgs());
+    }
+
+    /** Initialises the native audio engine and wires it to a {@link FloatToShortSink} pipeline. */
+    private static AudioProcessor initAndPipeline(NativeAudioEngine audio, int channels)
+            throws Exception
+    {
+        audio.init(44100, channels, 4096);
+        return new FloatToShortSink(audio, channels);
     }
 }

@@ -279,39 +279,7 @@ public class GusSynthProvider implements SoftSynthProvider
     public void prepareForNewTrack(Sequence sequence)
     {
         if (bank != null)
-        {
-            boolean[] loadedPrograms = new boolean[128];
-            boolean[] loadedDrums = new boolean[128];
-            for (Track track : sequence.getTracks())
-            {
-                for (int i = 0; i < track.size(); i++)
-                {
-                    byte[] data = track.get(i).getMessage().getMessage();
-                    if (data == null || data.length < 1)
-                        continue;
-                    int status = data[0] & 0xFF;
-                    if ((status & 0xF0) == 0xC0 && data.length >= 2)
-                    {
-                        int ch = status & 0x0F;
-                        int prog = data[1] & 0xFF;
-                        if (ch != 9 && !loadedPrograms[prog])
-                        {
-                            loadedPrograms[prog] = true;
-                            loadPatchOnDemand(0, prog);
-                        }
-                    }
-                    else if ((status & 0xF0) == 0x90 && data.length >= 3 && (status & 0x0F) == 9)
-                    {
-                        int note = data[1] & 0xFF;
-                        if (!loadedDrums[note])
-                        {
-                            loadedDrums[note] = true;
-                            loadPatchOnDemand(128, note);
-                        }
-                    }
-                }
-            }
-        }
+            loadPatchesForSequence(sequence);
 
         renderPaused = true;
         try
@@ -323,6 +291,48 @@ public class GusSynthProvider implements SoftSynthProvider
         if (audioOut != null)
             audioOut.reset();
         engine.getActiveVoices().clear();
+    }
+
+    /** Pre-scans the sequence and loads all referenced GUS patches before playback. */
+    private void loadPatchesForSequence(Sequence sequence)
+    {
+        boolean[] loadedPrograms = new boolean[128];
+        boolean[] loadedDrums = new boolean[128];
+        for (Track track : sequence.getTracks())
+        {
+            for (int i = 0; i < track.size(); i++)
+            {
+                byte[] data = track.get(i).getMessage().getMessage();
+                if (data == null || data.length < 1)
+                    continue;
+                loadPatchForEvent(data, loadedPrograms, loadedDrums);
+            }
+        }
+    }
+
+    /** Loads a GUS patch referenced by a single MIDI event, if not already loaded. */
+    private void loadPatchForEvent(byte[] data, boolean[] loadedPrograms, boolean[] loadedDrums)
+    {
+        int status = data[0] & 0xFF;
+        if ((status & 0xF0) == 0xC0 && data.length >= 2)
+        {
+            int ch = status & 0x0F;
+            int prog = data[1] & 0xFF;
+            if (ch != 9 && !loadedPrograms[prog])
+            {
+                loadedPrograms[prog] = true;
+                loadPatchOnDemand(0, prog);
+            }
+        }
+        else if ((status & 0xF0) == 0x90 && data.length >= 3 && (status & 0x0F) == 9)
+        {
+            int note = data[1] & 0xFF;
+            if (!loadedDrums[note])
+            {
+                loadedDrums[note] = true;
+                loadPatchOnDemand(128, note);
+            }
+        }
     }
 
     @Override

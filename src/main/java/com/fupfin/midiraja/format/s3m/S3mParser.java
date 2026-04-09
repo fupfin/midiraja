@@ -191,18 +191,137 @@ public class S3mParser
                 continue;
             }
 
-            // Unpack pattern into row data
-            int[][] rowNotes = new int[ROWS_PER_PATTERN][32]; // note per S3M channel
-            int[][] rowInstrs = new int[ROWS_PER_PATTERN][32];
-            int[][] rowVols = new int[ROWS_PER_PATTERN][32];
-            int[][] rowFxCmd = new int[ROWS_PER_PATTERN][32];
-            int[][] rowFxPar = new int[ROWS_PER_PATTERN][32];
+            PatternData pat = PatternData.unpack(data, patOffset);
+
+            int[] tempoResult = prescanTempoChanges(pat, row, speed, tempo);
+            int nextSpeed = tempoResult[0];
+            int nextTempo = tempoResult[1];
+
+            emitEvents(events, pat, row, chanIndexMap, currentMicrosecond);
+
+            speed = nextSpeed;
+            tempo = nextTempo;
+            long rowDuration = (long) speed * 2_500_000L / tempo;
+            currentMicrosecond += rowDuration;
+
+            int[] nav = resolveNavigation(pat, row);
+            int jumpToOrder = nav[0];
+            int breakToRow = nav[1];
+
+            if (jumpToOrder >= 0 || breakToRow >= 0)
+            {
+                orderPos = jumpToOrder >= 0 ? jumpToOrder : orderPos + 1;
+                row = breakToRow >= 0 ? Math.min(breakToRow, ROWS_PER_PATTERN - 1) : 0;
+            }
+            else
+            {
+                row++;
+                if (row >= ROWS_PER_PATTERN)
+                {
+                    row = 0;
+                    orderPos++;
+                }
+            }
+        }
+
+        return List.copyOf(events);
+    }
+
+    /** Scans effect columns for speed/tempo changes; returns [speed, tempo]. */
+    private static int[] prescanTempoChanges(PatternData pat, int row, int speed, int tempo)
+    {
+        int nextSpeed = speed;
+        int nextTempo = tempo;
+        for (int ch = 0; ch < 32; ch++)
+        {
+            int fx = pat.fxCmd[row][ch];
+            int pa = pat.fxPar[row][ch];
+            if (fx == FX_SET_SPEED && pa > 0)
+                nextSpeed = pa;
+            if (fx == FX_SET_TEMPO && pa >= 32)
+                nextTempo = pa;
+        }
+        return new int[] { nextSpeed, nextTempo };
+    }
+
+    /** Emits TrackerEvents for all active channels in the given row. */
+    private static void emitEvents(List<TrackerEvent> events, PatternData pat, int row,
+            int[] chanIndexMap, long currentMicrosecond)
+    {
+        for (int ch = 0; ch < 32; ch++)
+        {
+            int seqCh = chanIndexMap[ch];
+            if (seqCh < 0)
+                continue;
+
+            int note = pat.notes[row][ch];
+            int instr = pat.instrs[row][ch];
+            int vol = pat.vols[row][ch];
+            int fxCmd = pat.fxCmd[row][ch];
+            int fxPar = pat.fxPar[row][ch];
+
+            int midiNote = note == NOTE_NONE
+                    ? -1
+                    : note == NOTE_KEYOFF
+                            ? -2
+                            : s3mNoteToMidi(note);
+
+            if (midiNote != -1 || instr != 0 || vol != -1 || fxCmd != 0)
+                events.add(new TrackerEvent(currentMicrosecond, seqCh, midiNote, instr, vol,
+                        fxCmd, fxPar));
+        }
+    }
+
+    /**
+     * Scans for pattern jump (Bxx) and pattern break (Cxx) effects.
+     * Returns [jumpToOrder, breakToRow]; -1 means not set.
+     */
+    private static int[] resolveNavigation(PatternData pat, int row)
+    {
+        int jumpToOrder = -1;
+        int breakToRow = -1;
+        for (int ch = 0; ch < 32; ch++)
+        {
+            int fx = pat.fxCmd[row][ch];
+            int pa = pat.fxPar[row][ch];
+            if (fx == FX_PAT_JUMP)
+                jumpToOrder = pa;
+            if (fx == FX_PAT_BREAK)
+                breakToRow = ((pa >> 4) * 10) + (pa & 0x0F);
+        }
+        return new int[] { jumpToOrder, breakToRow };
+    }
+
+    /**
+     * Holds all per-pattern cell data for one S3M pattern.
+     * Consolidates 5 parallel 2D arrays (notes/instrs/vols/fxCmd/fxPar).
+     * Notes default to NOTE_NONE (255); volumes default to -1 (empty).
+     */
+    private static final class PatternData
+    {
+        final int[][] notes;
+        final int[][] instrs;
+        final int[][] vols;
+        final int[][] fxCmd;
+        final int[][] fxPar;
+
+        PatternData()
+        {
+            this.notes = new int[ROWS_PER_PATTERN][32];
+            this.instrs = new int[ROWS_PER_PATTERN][32];
+            this.vols = new int[ROWS_PER_PATTERN][32];
+            this.fxCmd = new int[ROWS_PER_PATTERN][32];
+            this.fxPar = new int[ROWS_PER_PATTERN][32];
             for (int r = 0; r < ROWS_PER_PATTERN; r++)
             {
-                java.util.Arrays.fill(rowNotes[r], NOTE_NONE);
-                java.util.Arrays.fill(rowVols[r], -1);
+                java.util.Arrays.fill(notes[r], NOTE_NONE);
+                java.util.Arrays.fill(vols[r], -1);
             }
+        }
 
+        static PatternData unpack(byte[] data, int patOffset)
+        {
+            var pat = new PatternData();
             int pos = patOffset + 2; // skip packed-length word
             int curRow = 0;
             while (curRow < ROWS_PER_PATTERN && pos < data.length)
@@ -231,86 +350,15 @@ public class S3mParser
                 }
                 if (ch < 32 && curRow < ROWS_PER_PATTERN)
                 {
-                    rowNotes[curRow][ch] = note;
-                    rowInstrs[curRow][ch] = instr;
-                    rowVols[curRow][ch] = vol;
-                    rowFxCmd[curRow][ch] = fxCmd;
-                    rowFxPar[curRow][ch] = fxPar;
+                    pat.notes[curRow][ch] = note;
+                    pat.instrs[curRow][ch] = instr;
+                    pat.vols[curRow][ch] = vol;
+                    pat.fxCmd[curRow][ch] = fxCmd;
+                    pat.fxPar[curRow][ch] = fxPar;
                 }
             }
-
-            // Process current row
-            // Pre-scan for tempo changes
-            int nextSpeed = speed;
-            int nextTempo = tempo;
-            for (int ch = 0; ch < 32; ch++)
-            {
-                int fx = rowFxCmd[row][ch];
-                int pa = rowFxPar[row][ch];
-                if (fx == FX_SET_SPEED && pa > 0)
-                    nextSpeed = pa;
-                if (fx == FX_SET_TEMPO && pa >= 32)
-                    nextTempo = pa;
-            }
-
-            // Emit events
-            for (int ch = 0; ch < 32; ch++)
-            {
-                int seqCh = chanIndexMap[ch];
-                if (seqCh < 0)
-                    continue;
-
-                int note = rowNotes[row][ch];
-                int instr = rowInstrs[row][ch];
-                int vol = rowVols[row][ch];
-                int fxCmd = rowFxCmd[row][ch];
-                int fxPar = rowFxPar[row][ch];
-
-                int midiNote = note == NOTE_NONE
-                        ? -1
-                        : note == NOTE_KEYOFF
-                                ? -2
-                                : s3mNoteToMidi(note);
-
-                if (midiNote != -1 || instr != 0 || vol != -1 || fxCmd != 0)
-                    events.add(new TrackerEvent(currentMicrosecond, seqCh, midiNote, instr, vol, fxCmd, fxPar));
-            }
-
-            speed = nextSpeed;
-            tempo = nextTempo;
-            long rowDuration = (long) speed * 2_500_000L / tempo;
-            currentMicrosecond += rowDuration;
-
-            // Navigation effects
-            int jumpToOrder = -1;
-            int breakToRow = -1;
-            for (int ch = 0; ch < 32; ch++)
-            {
-                int fx = rowFxCmd[row][ch];
-                int pa = rowFxPar[row][ch];
-                if (fx == FX_PAT_JUMP)
-                    jumpToOrder = pa;
-                if (fx == FX_PAT_BREAK)
-                    breakToRow = ((pa >> 4) * 10) + (pa & 0x0F);
-            }
-
-            if (jumpToOrder >= 0 || breakToRow >= 0)
-            {
-                orderPos = jumpToOrder >= 0 ? jumpToOrder : orderPos + 1;
-                row = breakToRow >= 0 ? Math.min(breakToRow, ROWS_PER_PATTERN - 1) : 0;
-            }
-            else
-            {
-                row++;
-                if (row >= ROWS_PER_PATTERN)
-                {
-                    row = 0;
-                    orderPos++;
-                }
-            }
+            return pat;
         }
-
-        return List.copyOf(events);
     }
 
     /**
