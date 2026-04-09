@@ -36,6 +36,34 @@ final class FourOpPatchCatalog extends FmPatchCatalog
     /** Duration threshold for drum detection (MIDI ticks at 960 ticks/sec). */
     private static final long DRUM_DURATION_THRESHOLD = 150;
 
+    // ── Register layout descriptors ────────────────────────────────────────────
+
+    /**
+     * Describes how a 4-op FM chip lays out TL/AR/D1R registers in address space.
+     *
+     * <p>
+     * Each register type spans {@link #rangeSize()} = {@code 4 ops × (1 << opShift)} bytes,
+     * where {@code opShift} equals log₂(channels-per-address-group):
+     * <ul>
+     * <li>OPN: 4 channels/group → opShift=2, chMask=0x03, rangeSize=16
+     * <li>OPM: 8 channels/group → opShift=3, chMask=0x07, rangeSize=32
+     * </ul>
+     */
+    private record ChipRegMap(int tlBase, int arBase, int d1rBase, int opShift, int chMask)
+    {
+        /** Address bytes spanned by one register type (4 ops × channels-per-group). */
+        int rangeSize()
+        {
+            return 4 << opShift;
+        }
+    }
+
+    /** OPN/YM2612 family: ops packed in groups of 4 (one per channel). */
+    private static final ChipRegMap OPN_MAP = new ChipRegMap(0x40, 0x50, 0x60, 2, 0x03);
+
+    /** OPM/YM2151: ops packed in groups of 8 (one per channel). */
+    private static final ChipRegMap OPM_MAP = new ChipRegMap(0x60, 0x80, 0xA0, 3, 0x07);
+
     record PatchEvent(int timbreHint, int feedback, int modTl, int carTl,
             int carAr, int carDr, int note)
     {
@@ -164,32 +192,56 @@ final class FourOpPatchCatalog extends FmPatchCatalog
                 || chipId == CHIP_YM2610_PORT1;
     }
 
+    /**
+     * Decodes TL/AR/D1R register writes that are common to all 4-op FM chips.
+     * Returns true (and updates {@code st}) if the address falls within any of
+     * the three register bands; returns false so callers can fall through to
+     * chip-specific handling (key-on, f-number, algorithm, etc.).
+     *
+     * <p>
+     * Address layout differs per chip family:
+     * <ul>
+     * <li>OPN: 4 channels/group → op = (addr − base) >> 2, ch = (addr & 0x03) + portOff
+     * <li>OPM: 8 channels/group → op = (addr − base) >> 3, ch = addr & 0x07
+     * </ul>
+     */
+    private static boolean scanOperatorRegs(ChipState st, int addr, int data,
+            ChipRegMap map, int portOff)
+    {
+        if (addr >= map.tlBase() && addr < map.tlBase() + map.rangeSize())
+        {
+            int op = (addr - map.tlBase()) >> map.opShift();
+            int ch = (addr & map.chMask()) + portOff;
+            if (ch < st.channels)
+                st.tl[ch][op] = data & 0x7F;
+            return true;
+        }
+        if (addr >= map.arBase() && addr < map.arBase() + map.rangeSize())
+        {
+            int op = (addr - map.arBase()) >> map.opShift();
+            int ch = (addr & map.chMask()) + portOff;
+            if (ch < st.channels)
+                st.ar[ch][op] = data & 0x1F;
+            return true;
+        }
+        if (addr >= map.d1rBase() && addr < map.d1rBase() + map.rangeSize())
+        {
+            int op = (addr - map.d1rBase()) >> map.opShift();
+            int ch = (addr & map.chMask()) + portOff;
+            if (ch < st.channels)
+                st.d1r[ch][op] = data & 0x1F;
+            return true;
+        }
+        return false;
+    }
+
     private static void scanOpn(ChipState st, int addr, int data, int portOffset,
             long clock, int divider, long sampleOffset,
             List<PatchEvent> events,
             Map<Integer, List<Long>> sigDurLists)
     {
-        if (addr >= 0x40 && addr <= 0x4F)
-        {
-            int op = (addr - 0x40) >> 2;
-            int ch = (addr & 0x03) + portOffset;
-            if (ch < st.channels)
-                st.tl[ch][op] = data & 0x7F;
-        }
-        else if (addr >= 0x50 && addr <= 0x5F)
-        {
-            int op = (addr - 0x50) >> 2;
-            int ch = (addr & 0x03) + portOffset;
-            if (ch < st.channels)
-                st.ar[ch][op] = data & 0x1F;
-        }
-        else if (addr >= 0x60 && addr <= 0x6F)
-        {
-            int op = (addr - 0x60) >> 2;
-            int ch = (addr & 0x03) + portOffset;
-            if (ch < st.channels)
-                st.d1r[ch][op] = data & 0x1F;
-        }
+        if (scanOperatorRegs(st, addr, data, OPN_MAP, portOffset))
+            return;
         else if (addr >= 0xB0 && addr <= 0xB2)
         {
             int ch = (addr - 0xB0) + portOffset;
@@ -252,27 +304,9 @@ final class FourOpPatchCatalog extends FmPatchCatalog
             long sampleOffset, List<PatchEvent> events,
             Map<Integer, List<Long>> sigDurLists)
     {
-        if (addr >= 0x60 && addr <= 0x7F)
-        {
-            int op = (addr - 0x60) >> 3;
-            int ch = addr & 0x07;
-            if (ch < st.channels)
-                st.tl[ch][op] = data & 0x7F;
-        }
-        else if (addr >= 0x80 && addr <= 0x9F)
-        {
-            int op = (addr - 0x80) >> 3;
-            int ch = addr & 0x07;
-            if (ch < st.channels)
-                st.ar[ch][op] = data & 0x1F;
-        }
-        else if (addr >= 0xA0 && addr <= 0xBF)
-        {
-            int op = (addr - 0xA0) >> 3;
-            int ch = addr & 0x07;
-            if (ch < st.channels)
-                st.d1r[ch][op] = data & 0x1F;
-        }
+        // OPM has no port offset — all 8 channels live in a single address space.
+        if (scanOperatorRegs(st, addr, data, OPM_MAP, 0))
+            return;
         else if (addr >= 0x20 && addr <= 0x27)
         {
             int ch = addr & 0x07;

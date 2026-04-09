@@ -340,26 +340,26 @@ class VgmParserTest
     {
         // Each chip command: cmd byte + 1 or 2 data bytes
         // chip IDs: YM2413=13(0x51), AY8910=3(0xA0), SCC=4(0xD2), YM2151=5(0x54),
-        //           YM2203=6(0x55), YM2608=7(0x56),8(0x57), YM2610=9(0x58),10(0x59),
-        //           GB-DMG=11(0xB3), NES=17(0xB4), HuC6280=12(0xB9),
-        //           OPL2=14(0x5A), OPL3p0=15(0x5E), OPL3p1=16(0x5F)
+        // YM2203=6(0x55), YM2608=7(0x56),8(0x57), YM2610=9(0x58),10(0x59),
+        // GB-DMG=11(0xB3), NES=17(0xB4), HuC6280=12(0xB9),
+        // OPL2=14(0x5A), OPL3p0=15(0x5E), OPL3p1=16(0x5F)
         byte[] cmds = {
-            0x51, 0x00, 0x00,   // YM2413
-            (byte) 0xA0, 0x00, 0x00,  // AY8910
-            (byte) 0xD2, 0x00, 0x00, 0x00, // SCC (3 bytes)
-            0x54, 0x00, 0x00,   // YM2151
-            0x55, 0x00, 0x00,   // YM2203
-            0x56, 0x00, 0x00,   // YM2608 port0
-            0x57, 0x00, 0x00,   // YM2608 port1
-            0x58, 0x00, 0x00,   // YM2610 port0
-            0x59, 0x00, 0x00,   // YM2610 port1
-            (byte) 0xB3, 0x00, 0x00,  // GB-DMG
-            (byte) 0xB4, 0x00, 0x00,  // NES 2A03
-            (byte) 0xB9, 0x00, 0x00,  // HuC6280
-            0x5A, 0x00, 0x00,   // OPL2
-            0x5E, 0x00, 0x00,   // OPL3 port0
-            0x5F, 0x00, 0x00,   // OPL3 port1
-            0x66                // end
+                0x51, 0x00, 0x00, // YM2413
+                (byte) 0xA0, 0x00, 0x00, // AY8910
+                (byte) 0xD2, 0x00, 0x00, 0x00, // SCC (3 bytes)
+                0x54, 0x00, 0x00, // YM2151
+                0x55, 0x00, 0x00, // YM2203
+                0x56, 0x00, 0x00, // YM2608 port0
+                0x57, 0x00, 0x00, // YM2608 port1
+                0x58, 0x00, 0x00, // YM2610 port0
+                0x59, 0x00, 0x00, // YM2610 port1
+                (byte) 0xB3, 0x00, 0x00, // GB-DMG
+                (byte) 0xB4, 0x00, 0x00, // NES 2A03
+                (byte) 0xB9, 0x00, 0x00, // HuC6280
+                0x5A, 0x00, 0x00, // OPL2
+                0x5E, 0x00, 0x00, // OPL3 port0
+                0x5F, 0x00, 0x00, // OPL3 port1
+                0x66 // end
         };
         int totalSize = 0x40 + cmds.length;
         var buf = ByteBuffer.allocate(totalSize).order(ByteOrder.LITTLE_ENDIAN);
@@ -604,7 +604,7 @@ class VgmParserTest
         buf.putInt(0x00, 0x206D6756);
         buf.putInt(0x04, size - 4);
         buf.putInt(0x08, 0x00000161); // v1.61
-        buf.putInt(0x0C, 3_579_545);  // SN76489
+        buf.putInt(0x0C, 3_579_545); // SN76489
         buf.putInt(0x34, 0x0C); // data at 0x40
 
         // v1.61 clock fields
@@ -670,17 +670,17 @@ class VgmParserTest
         buf.put(0x42, (byte) 0x66);
         buf.put(0x43, (byte) 0x00);
         buf.putInt(gd3Offset, 0x20336447); // valid "Gd3 " magic
-        buf.putInt(gd3Offset + 4, 0x100);  // version
-        buf.putInt(gd3Offset + 8, 0);      // length=0, stringsStart == size → return null
+        buf.putInt(gd3Offset + 4, 0x100); // version
+        buf.putInt(gd3Offset + 8, 0); // length=0, stringsStart == size → return null
         return buf.array();
     }
 
     private static byte[] buildVgmWithYm2612()
     {
         byte[] cmds = {
-            0x52, 0x00, 0x00, // YM2612 port0 (chip=1)
-            0x53, 0x00, 0x00, // YM2612 port1 (chip=2)
-            0x66
+                0x52, 0x00, 0x00, // YM2612 port0 (chip=1)
+                0x53, 0x00, 0x00, // YM2612 port1 (chip=2)
+                0x66
         };
         int size = 0x40 + cmds.length;
         var buf = ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN);
@@ -698,11 +698,11 @@ class VgmParserTest
     private static byte[] buildVgmWithSkipCommands()
     {
         byte[] cmds = {
-            0x30, 0x00, 0x00,               // 2-op skip (0x30 range)
-            (byte) 0xC0, 0x00, 0x00, 0x00,  // 3-op skip
-            (byte) 0xE0, 0x00, 0x00, 0x00, 0x00, // 4-op skip
-            0x50, 0x00,                      // SN76489 event
-            0x66
+                0x30, 0x00, 0x00, // 2-op skip (0x30 range)
+                (byte) 0xC0, 0x00, 0x00, 0x00, // 3-op skip
+                (byte) 0xE0, 0x00, 0x00, 0x00, 0x00, // 4-op skip
+                0x50, 0x00, // SN76489 event
+                0x66
         };
         int size = 0x40 + cmds.length;
         var buf = ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN);

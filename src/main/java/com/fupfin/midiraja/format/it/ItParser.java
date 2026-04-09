@@ -62,18 +62,50 @@ import com.fupfin.midiraja.format.tracker.TrackerParseResult;
  */
 public class ItParser
 {
+    // ── Note encoding ─────────────────────────────────────────────────────────
     private static final int NOTE_CUT = 120;
     private static final int NOTE_FADE = 254;
     private static final int NOTE_EMPTY = 255;
+
+    // ── Defaults ──────────────────────────────────────────────────────────────
     private static final int DEFAULT_SPEED = 6;
     private static final int DEFAULT_TEMPO = 125;
 
-    // IT effect command numbers (A=1 … Z=26)
+    // ── IT effect command numbers (A=1 … Z=26) ────────────────────────────────
     private static final int FX_SET_SPEED = 1; // A
     private static final int FX_PAT_JUMP = 2; // B
     private static final int FX_PAT_BREAK = 3; // C
     private static final int FX_VOL_SLIDE = 4; // D
     private static final int FX_SET_TEMPO = 20; // T
+
+    // ── Global header offsets ─────────────────────────────────────────────────
+    private static final int TITLE_OFFSET = 4;
+    private static final int TITLE_LENGTH = 26;
+    private static final int ORD_NUM_OFFSET = 32;
+    private static final int INS_NUM_OFFSET = 34;
+    private static final int SMP_NUM_OFFSET = 36;
+    private static final int PAT_NUM_OFFSET = 38;
+    private static final int CMWT_OFFSET = 42;
+    private static final int INIT_SPEED_OFFSET = 50;
+    private static final int INIT_TEMPO_OFFSET = 51;
+    private static final int CHANNEL_PAN_OFFSET = 64;
+    private static final int MAX_CHANNELS = 64;
+    private static final int CHANNEL_DISABLED = 0x80;
+    private static final int ORDER_LIST_OFFSET = 192; // = HEADER_MIN_SIZE
+
+    // ── Order list sentinels ──────────────────────────────────────────────────
+    private static final int ORDER_END = 0xFF;
+    private static final int ORDER_SKIP = 0xFE;
+
+    // ── IMPI (new-format instrument) field offsets ────────────────────────────
+    private static final int IMPI_NAME_OFFSET = 32;
+    private static final int IMPI_VOL_OFFSET = 24;
+    private static final int IMPI_MIN_SIZE = 58;
+
+    // ── IMPS (old-format sample-as-instrument) field offsets ─────────────────
+    private static final int IMPS_NAME_OFFSET = 20;
+    private static final int IMPS_VOL_OFFSET = 19;
+    private static final int IMPS_MIN_SIZE = 46;
 
     public TrackerParseResult parse(File file) throws IOException
     {
@@ -84,7 +116,7 @@ public class ItParser
     /** Parse from a raw byte array (useful for testing). */
     public TrackerParseResult parseBytes(byte[] data) throws IOException
     {
-        if (data.length < 192)
+        if (data.length < ORDER_LIST_OFFSET)
             throw new IOException("File too small to be a valid IT file");
 
         var buf = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
@@ -93,36 +125,36 @@ public class ItParser
         if (data[0] != 'I' || data[1] != 'M' || data[2] != 'P' || data[3] != 'M')
             throw new IOException("Not a valid IT file (bad magic)");
 
-        String title = readAsciiTrimmed(data, 4, 26);
-        int ordNum = buf.getShort(32) & 0xFFFF;
-        int insNum = buf.getShort(34) & 0xFFFF;
-        int smpNum = buf.getShort(36) & 0xFFFF;
-        int patNum = buf.getShort(38) & 0xFFFF;
-        int cmwt = buf.getShort(42) & 0xFFFF;
-        int initSpeed = data[50] & 0xFF;
-        int initTempo = data[51] & 0xFF;
+        String title = readAsciiTrimmed(data, TITLE_OFFSET, TITLE_LENGTH);
+        int ordNum = buf.getShort(ORD_NUM_OFFSET) & 0xFFFF;
+        int insNum = buf.getShort(INS_NUM_OFFSET) & 0xFFFF;
+        int smpNum = buf.getShort(SMP_NUM_OFFSET) & 0xFFFF;
+        int patNum = buf.getShort(PAT_NUM_OFFSET) & 0xFFFF;
+        int cmwt = buf.getShort(CMWT_OFFSET) & 0xFFFF;
+        int initSpeed = data[INIT_SPEED_OFFSET] & 0xFF;
+        int initTempo = data[INIT_TEMPO_OFFSET] & 0xFF;
 
         if (initSpeed == 0)
             initSpeed = DEFAULT_SPEED;
         if (initTempo == 0)
             initTempo = DEFAULT_TEMPO;
 
-        // Active channel count from channel panning table (offset 64, 64 bytes)
+        // Active channel count from channel panning table
         int channelCount = 0;
-        for (int i = 0; i < 64; i++)
-            if ((data[64 + i] & 0xFF) != 0x80)
+        for (int i = 0; i < MAX_CHANNELS; i++)
+            if ((data[CHANNEL_PAN_OFFSET + i] & 0xFF) != CHANNEL_DISABLED)
                 channelCount++;
-        channelCount = Math.min(channelCount, 64);
+        channelCount = Math.min(channelCount, MAX_CHANNELS);
 
         // Order list at offset 192
-        if (192 + ordNum > data.length)
-            ordNum = data.length - 192;
+        if (ORDER_LIST_OFFSET + ordNum > data.length)
+            ordNum = data.length - ORDER_LIST_OFFSET;
         int[] orders = new int[ordNum];
         for (int i = 0; i < ordNum; i++)
-            orders[i] = data[192 + i] & 0xFF;
+            orders[i] = data[ORDER_LIST_OFFSET + i] & 0xFF;
 
         // Offset tables
-        int insOffBase = 192 + ordNum;
+        int insOffBase = ORDER_LIST_OFFSET + ordNum;
         int smpOffBase = insOffBase + insNum * 4;
         int patOffBase = smpOffBase + smpNum * 4;
 
@@ -151,7 +183,6 @@ public class ItParser
         if (cmwt >= 0x200)
         {
             // New format: IMPI instrument headers
-            // Instrument name at offset +32 (26 bytes), global volume at offset +24
             for (int i = 0; i < insNum; i++)
             {
                 int off = insOffBase + i * 4;
@@ -161,20 +192,19 @@ public class ItParser
                     continue;
                 }
                 int insOff = buf.getInt(off);
-                if (insOff + 58 > data.length)
+                if (insOff + IMPI_MIN_SIZE > data.length)
                 {
                     instruments.add(new TrackerInstrument("", 64));
                     continue;
                 }
-                String name = readAsciiTrimmed(data, insOff + 32, 26);
-                int vol = data[insOff + 24] & 0xFF;
+                String name = readAsciiTrimmed(data, insOff + IMPI_NAME_OFFSET, TITLE_LENGTH);
+                int vol = data[insOff + IMPI_VOL_OFFSET] & 0xFF;
                 instruments.add(new TrackerInstrument(name, Math.min(vol, 64)));
             }
         }
         else
         {
             // Old format: treat samples as instruments (IMPS headers)
-            // Sample name at offset +20 (26 bytes), default volume at offset +19
             for (int i = 0; i < smpNum; i++)
             {
                 int off = smpOffBase + i * 4;
@@ -184,18 +214,22 @@ public class ItParser
                     continue;
                 }
                 int smpOff = buf.getInt(off);
-                if (smpOff + 46 > data.length)
+                if (smpOff + IMPS_MIN_SIZE > data.length)
                 {
                     instruments.add(new TrackerInstrument("", 64));
                     continue;
                 }
-                String name = readAsciiTrimmed(data, smpOff + 20, 26);
-                int vol = data[smpOff + 19] & 0xFF;
+                String name = readAsciiTrimmed(data, smpOff + IMPS_NAME_OFFSET, TITLE_LENGTH);
+                int vol = data[smpOff + IMPS_VOL_OFFSET] & 0xFF;
                 instruments.add(new TrackerInstrument(name, Math.min(vol, 64)));
             }
         }
 
         return instruments;
+    }
+
+    private record NavResult(int orderPos, int row)
+    {
     }
 
     private List<TrackerEvent> linearize(byte[] data, ByteBuffer buf, int[] orders, int ordNum,
@@ -213,9 +247,9 @@ public class ItParser
         while (orderPos < ordNum)
         {
             int orderVal = orders[orderPos];
-            if (orderVal == 0xFF)
+            if (orderVal == ORDER_END)
                 break;
-            if (orderVal == 0xFE)
+            if (orderVal == ORDER_SKIP)
             {
                 orderPos++;
                 row = 0;
@@ -252,12 +286,11 @@ public class ItParser
             if (!visited.add(key))
                 break;
 
-            // Unpack full pattern then process just the target row
-            int[][] rowNotes = new int[rowCount][64];
-            int[][] rowInstrs = new int[rowCount][64];
-            int[][] rowVols = new int[rowCount][64];
-            int[][] rowFxCmd = new int[rowCount][64];
-            int[][] rowFxPar = new int[rowCount][64];
+            int[][] rowNotes = new int[rowCount][MAX_CHANNELS];
+            int[][] rowInstrs = new int[rowCount][MAX_CHANNELS];
+            int[][] rowVols = new int[rowCount][MAX_CHANNELS];
+            int[][] rowFxCmd = new int[rowCount][MAX_CHANNELS];
+            int[][] rowFxPar = new int[rowCount][MAX_CHANNELS];
             for (int r = 0; r < rowCount; r++)
             {
                 Arrays.fill(rowNotes[r], NOTE_EMPTY);
@@ -267,77 +300,94 @@ public class ItParser
             unpackPattern(data, patOff + 8, packedSize, rowCount,
                     rowNotes, rowInstrs, rowVols, rowFxCmd, rowFxPar);
 
-            // Pre-scan for tempo changes (effect A = set speed, T = set tempo)
-            int nextSpeed = speed;
-            int nextTempo = tempo;
-            for (int ch = 0; ch < 64; ch++)
-            {
-                int fx = rowFxCmd[row][ch];
-                int fxp = rowFxPar[row][ch];
-                if (fx == FX_SET_SPEED && fxp > 0)
-                    nextSpeed = fxp;
-                if (fx == FX_SET_TEMPO && fxp >= 32)
-                    nextTempo = fxp;
-            }
+            int[] tempoResult = prescanTempoRow(rowFxCmd, rowFxPar, row, speed, tempo);
+            speed = tempoResult[0];
+            tempo = tempoResult[1];
 
-            // Emit events for active channels only
-            for (int ch = 0; ch < 64 && ch < channelCount; ch++)
-            {
-                int rawNote = rowNotes[row][ch];
-                int instr = rowInstrs[row][ch];
-                int vol = rowVols[row][ch];
-                int fxCmd = rowFxCmd[row][ch];
-                int fxPar = rowFxPar[row][ch];
+            emitRowEvents(events, currentMicrosecond, row, channelCount,
+                    rowNotes, rowInstrs, rowVols, rowFxCmd, rowFxPar);
 
-                int midiNote = rawNote == NOTE_EMPTY
-                        ? -1
-                        : (rawNote == NOTE_CUT || rawNote == NOTE_FADE)
-                                ? -2
-                                : Math.clamp(rawNote, 0, 127);
-
-                // Volume column 0-64 → set volume; anything else (vol slides etc.) ignore
-                int cellVol = (vol >= 0 && vol <= 64) ? vol : -1;
-
-                if (midiNote != -1 || instr != 0 || cellVol != -1 || fxCmd != 0)
-                    events.add(new TrackerEvent(currentMicrosecond, ch, midiNote, instr,
-                            cellVol, fxCmd, fxPar));
-            }
-
-            speed = nextSpeed;
-            tempo = nextTempo;
             long rowDuration = (long) speed * 2_500_000L / tempo;
             currentMicrosecond += rowDuration;
 
-            // Navigation effects
-            int jumpToOrder = -1;
-            int breakToRow = -1;
-            for (int ch = 0; ch < 64; ch++)
-            {
-                int fx = rowFxCmd[row][ch];
-                int fxp = rowFxPar[row][ch];
-                if (fx == FX_PAT_JUMP)
-                    jumpToOrder = fxp;
-                if (fx == FX_PAT_BREAK)
-                    breakToRow = ((fxp >> 4) * 10) + (fxp & 0x0F);
-            }
-
-            if (jumpToOrder >= 0 || breakToRow >= 0)
-            {
-                orderPos = jumpToOrder >= 0 ? jumpToOrder : orderPos + 1;
-                row = breakToRow >= 0 ? Math.min(breakToRow, rowCount - 1) : 0;
-            }
-            else
-            {
-                row++;
-                if (row >= rowCount)
-                {
-                    row = 0;
-                    orderPos++;
-                }
-            }
+            NavResult nav = resolveNavigation(rowFxCmd, rowFxPar, row, rowCount, orderPos);
+            orderPos = nav.orderPos();
+            row = nav.row();
         }
 
         return List.copyOf(events);
+    }
+
+    /** Scans one row for speed/tempo effects and returns updated [speed, tempo]. */
+    private static int[] prescanTempoRow(int[][] rowFxCmd, int[][] rowFxPar, int row,
+            int speed, int tempo)
+    {
+        for (int ch = 0; ch < MAX_CHANNELS; ch++)
+        {
+            int fx = rowFxCmd[row][ch];
+            int fxp = rowFxPar[row][ch];
+            if (fx == FX_SET_SPEED && fxp > 0)
+                speed = fxp;
+            if (fx == FX_SET_TEMPO && fxp >= 32)
+                tempo = fxp;
+        }
+        return new int[] { speed, tempo };
+    }
+
+    /** Emits {@link TrackerEvent}s for all active channels in the given row. */
+    private static void emitRowEvents(List<TrackerEvent> events, long timestamp, int row,
+            int channelCount, int[][] rowNotes, int[][] rowInstrs, int[][] rowVols,
+            int[][] rowFxCmd, int[][] rowFxPar)
+    {
+        for (int ch = 0; ch < MAX_CHANNELS && ch < channelCount; ch++)
+        {
+            int rawNote = rowNotes[row][ch];
+            int instr = rowInstrs[row][ch];
+            int vol = rowVols[row][ch];
+            int fxCmd = rowFxCmd[row][ch];
+            int fxPar = rowFxPar[row][ch];
+
+            int midiNote = rawNote == NOTE_EMPTY
+                    ? -1
+                    : (rawNote == NOTE_CUT || rawNote == NOTE_FADE)
+                            ? -2
+                            : Math.clamp(rawNote, 0, 127);
+
+            // Volume column 0-64 → set volume; anything else (vol slides etc.) ignore
+            int cellVol = (vol >= 0 && vol <= 64) ? vol : -1;
+
+            if (midiNote != -1 || instr != 0 || cellVol != -1 || fxCmd != 0)
+                events.add(new TrackerEvent(timestamp, ch, midiNote, instr, cellVol, fxCmd, fxPar));
+        }
+    }
+
+    /** Resolves pattern-jump/break effects and returns the next [orderPos, row]. */
+    private static NavResult resolveNavigation(int[][] rowFxCmd, int[][] rowFxPar,
+            int row, int rowCount, int orderPos)
+    {
+        int jumpToOrder = -1;
+        int breakToRow = -1;
+        for (int ch = 0; ch < MAX_CHANNELS; ch++)
+        {
+            int fx = rowFxCmd[row][ch];
+            int fxp = rowFxPar[row][ch];
+            if (fx == FX_PAT_JUMP)
+                jumpToOrder = fxp;
+            if (fx == FX_PAT_BREAK)
+                breakToRow = ((fxp >> 4) * 10) + (fxp & 0x0F);
+        }
+
+        if (jumpToOrder >= 0 || breakToRow >= 0)
+        {
+            int nextOrder = jumpToOrder >= 0 ? jumpToOrder : orderPos + 1;
+            int nextRow = breakToRow >= 0 ? Math.min(breakToRow, rowCount - 1) : 0;
+            return new NavResult(nextOrder, nextRow);
+        }
+
+        int nextRow = row + 1;
+        if (nextRow >= rowCount)
+            return new NavResult(orderPos + 1, 0);
+        return new NavResult(orderPos, nextRow);
     }
 
     /**

@@ -583,6 +583,17 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
      */
     private void renderCluster(List<ActiveNote> notes, short[] buffer, int frames)
     {
+        List<ActiveNote> survivingNotes = assignNotesToUnits(notes);
+        renderFramesToBuffer(survivingNotes, buffer, frames);
+    }
+
+    /**
+     * Routes each active note to a digital unit using frequency-weighted bass isolation. Notes that
+     * cannot be assigned (overflow) are voice-stolen (deactivated). Returns only the notes that were
+     * successfully assigned.
+     */
+    private List<ActiveNote> assignNotesToUnits(List<ActiveNote> notes)
+    {
         for (int i = 0; i < numUnits; i++)
             unitAssignments.get(i).clear();
 
@@ -679,15 +690,17 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
             }
 
             if (assigned)
-            {
                 survivingNotes.add(note);
-            }
             else
-            {
                 note.active = false; // Voice Stealing: Kill overflow ghost notes
-            }
         }
 
+        return survivingNotes;
+    }
+
+    /** Renders {@code frames} PCM samples from all digital units into {@code buffer}. */
+    private void renderFramesToBuffer(List<ActiveNote> survivingNotes, short[] buffer, int frames)
+    {
         for (int i = 0; i < frames; i++)
         {
             double sumOfAppleIIs = 0.0;
@@ -711,6 +724,19 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
             // 3. Hard Clip safety
             double finalMix = Math.max(-1.0, Math.min(1.0, lpfState2));
             buffer[i] = (short) (finalMix * Short.MAX_VALUE);
+        }
+    }
+
+    /** Updates {@code n.frequency}, {@code n.phaseStep16}, and {@code n.modPhaseStep16} for the given bend. */
+    private void updateNoteFrequency(ActiveNote n, double bendSemitones)
+    {
+        n.frequency = 440.0 * Math.pow(2.0, (n.note - 69 + bendSemitones) / 12.0);
+        double oversampledRate = 44100.0 * oversample;
+        n.phaseStep16 = (int) ((n.frequency * 65536.0) / oversampledRate);
+        n.modPhaseStep16 = (int) ((n.frequency * fmRatio * 65536.0) / oversampledRate);
+        if ("xor".equals(synthMode) && fmRatio == 1.0)
+        {
+            n.modPhaseStep16 = (int) ((n.frequency * 1.005 * 65536.0) / oversampledRate);
         }
     }
 
@@ -764,14 +790,7 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                             n.channel = ch;
                             n.note = note;
                             double bendSemitones = (pitchBends[ch] / 8192.0) * 2.0;
-                            n.frequency = 440.0 * Math.pow(2.0, (n.note - 69 + bendSemitones) / 12.0);
-                            double oversampledRate = 44100.0 * oversample;
-                            n.phaseStep16 = (int) ((n.frequency * 65536.0) / oversampledRate);
-                            n.modPhaseStep16 = (int) ((n.frequency * fmRatio * 65536.0) / oversampledRate);
-                            if ("xor".equals(synthMode) && fmRatio == 1.0)
-                            {
-                                n.modPhaseStep16 = (int) ((n.frequency * 1.005 * 65536.0) / oversampledRate);
-                            }
+                            updateNoteFrequency(n, bendSemitones);
                             n.isDrum = (ch == 9);
                             n.active = true;
                             break;
@@ -814,16 +833,7 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                     {
                         ActiveNote n = activeNotes[i];
                         if (n.active && n.channel == ch)
-                        {
-                            n.frequency = 440.0 * Math.pow(2.0, (n.note - 69) / 12.0);
-                            double oversampledRate = 44100.0 * oversample;
-                            n.phaseStep16 = (int) ((n.frequency * 65536.0) / oversampledRate);
-                            n.modPhaseStep16 = (int) ((n.frequency * fmRatio * 65536.0) / oversampledRate);
-                            if ("xor".equals(synthMode) && fmRatio == 1.0)
-                            {
-                                n.modPhaseStep16 = (int) ((n.frequency * 1.005 * 65536.0) / oversampledRate);
-                            }
-                        }
+                            updateNoteFrequency(n, 0.0);
                     }
                 }
             }

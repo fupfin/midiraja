@@ -59,85 +59,119 @@ public final class TrackRoleAssigner
     private static final double VOLATILE_THRESHOLD = 0.5;
 
     /**
+     * Mutable scan state shared across all FM chip handlers in {@link #isVolatileFm}.
+     * Arrays are indexed by logical channel (0-17 across ports).
+     */
+    private static final class FmScanState
+    {
+        int keyOns, patchChanges;
+        final int[] prevConn = new int[18];
+        final int[] prevFb = new int[18];
+        final boolean[] connSet = new boolean[18];
+
+        FmScanState()
+        {
+            Arrays.fill(prevConn, -1);
+            Arrays.fill(prevFb, -1);
+        }
+    }
+
+    /**
      * Checks if FM chip events have volatile patch parameters (connection/feedback change
      * on more than 50% of key-ons). OPL2/OPL3 game drivers typically reuse channels as a
      * note pool, changing the instrument on nearly every note.
      */
     static boolean isVolatileFm(VgmParseResult parsed)
     {
-        int keyOns = 0, patchChanges = 0;
-        var prevConn = new int[18];
-        var prevFb = new int[18];
-        var connSet = new boolean[18];
-        java.util.Arrays.fill(prevConn, -1);
-        java.util.Arrays.fill(prevFb, -1);
-
+        var st = new FmScanState();
         for (var event : parsed.events())
         {
             int chip = event.chip();
             byte[] raw = event.rawData();
-
-            // OPL2 (chip 14) / OPL3 port 0 (chip 15) / OPL3 port 1 (chip 16)
             if (chip == 14 || chip == 15 || chip == 16)
-            {
-                int reg = raw[0] & 0xFF, val = raw[1] & 0xFF;
-                int portOff = (chip == 16) ? 9 : 0;
-                if (reg >= 0xC0 && reg <= 0xC8)
-                {
-                    int ch = reg - 0xC0 + portOff;
-                    int conn = val & 0x01, fb = (val >> 1) & 0x07;
-                    if (connSet[ch] && (conn != prevConn[ch] || fb != prevFb[ch]))
-                        patchChanges++;
-                    prevConn[ch] = conn;
-                    prevFb[ch] = fb;
-                    connSet[ch] = true;
-                }
-                else if (reg >= 0xB0 && reg <= 0xB8 && (val & 0x20) != 0)
-                {
-                    keyOns++;
-                }
-            }
-            // YM2612 / OPN family (chips 1,2,6,7,8,9,10)
+                scanOplPatch(st, chip, raw);
             else if (chip >= 1 && chip <= 2 || chip >= 6 && chip <= 10)
-            {
-                int reg = raw[0] & 0xFF, val = raw[1] & 0xFF;
-                if (reg >= 0xB0 && reg <= 0xB2)
-                {
-                    int portOff = (chip == 2 || chip == 8 || chip == 10) ? 3 : 0;
-                    int ch = (reg - 0xB0) + portOff;
-                    int alg = val & 0x07, fb = (val >> 3) & 0x07;
-                    if (connSet[ch] && (alg != prevConn[ch] || fb != prevFb[ch]))
-                        patchChanges++;
-                    prevConn[ch] = alg;
-                    prevFb[ch] = fb;
-                    connSet[ch] = true;
-                }
-                else if (reg == 0x28 && (val & 0xF0) != 0)
-                {
-                    keyOns++;
-                }
-            }
-            // YM2151 (chip 5)
+                scanOpnPatch(st, chip, raw);
             else if (chip == 5)
-            {
-                int reg = raw[0] & 0xFF, val = raw[1] & 0xFF;
-                if (reg >= 0x20 && reg <= 0x27)
-                {
-                    int ch = reg & 0x07;
-                    int alg = val & 0x07, fb = (val >> 3) & 0x07;
-                    if (connSet[ch] && (alg != prevConn[ch] || fb != prevFb[ch]))
-                        patchChanges++;
-                    prevConn[ch] = alg;
-                    prevFb[ch] = fb;
-                    connSet[ch] = true;
-                }
-                else if (reg == 0x08 && (val & 0x78) != 0)
-                {
-                    keyOns++;
-                }
-            }
+                scanOpmPatch(st, raw);
         }
-        return keyOns > 0 && (double) patchChanges / keyOns > VOLATILE_THRESHOLD;
+        return st.keyOns > 0 && (double) st.patchChanges / st.keyOns > VOLATILE_THRESHOLD;
+    }
+
+    /**
+     * Scans one OPL2/OPL3 register write for patch-change and key-on signals.
+     * OPL3 port 1 (chip 16) uses a channel offset of 9 to distinguish its 9 channels.
+     */
+    private static void scanOplPatch(FmScanState st, int chip, byte[] raw)
+    {
+        int reg = raw[0] & 0xFF, val = raw[1] & 0xFF;
+        int portOff = (chip == 16) ? 9 : 0;
+        // 0xC0-0xC8: connection/feedback register — detect instrument change
+        if (reg >= 0xC0 && reg <= 0xC8)
+        {
+            int ch = reg - 0xC0 + portOff;
+            int conn = val & 0x01, fb = (val >> 1) & 0x07;
+            if (st.connSet[ch] && (conn != st.prevConn[ch] || fb != st.prevFb[ch]))
+                st.patchChanges++;
+            st.prevConn[ch] = conn;
+            st.prevFb[ch] = fb;
+            st.connSet[ch] = true;
+        }
+        // 0xB0-0xB8 bit 5: key-on
+        else if (reg >= 0xB0 && reg <= 0xB8 && (val & 0x20) != 0)
+        {
+            st.keyOns++;
+        }
+    }
+
+    /**
+     * Scans one OPN/YM2612 register write for patch-change and key-on signals.
+     * Port 1 chips (2, 8, 10) use channel offset 3 so all 6 channels share one index space.
+     */
+    private static void scanOpnPatch(FmScanState st, int chip, byte[] raw)
+    {
+        int reg = raw[0] & 0xFF, val = raw[1] & 0xFF;
+        // 0xB0-0xB2: algorithm/feedback register — detect instrument change
+        if (reg >= 0xB0 && reg <= 0xB2)
+        {
+            int portOff = (chip == 2 || chip == 8 || chip == 10) ? 3 : 0;
+            int ch = (reg - 0xB0) + portOff;
+            int alg = val & 0x07, fb = (val >> 3) & 0x07;
+            if (st.connSet[ch] && (alg != st.prevConn[ch] || fb != st.prevFb[ch]))
+                st.patchChanges++;
+            st.prevConn[ch] = alg;
+            st.prevFb[ch] = fb;
+            st.connSet[ch] = true;
+        }
+        // 0x28: key-on/off — upper nibble non-zero means any operator keyed on
+        else if (reg == 0x28 && (val & 0xF0) != 0)
+        {
+            st.keyOns++;
+        }
+    }
+
+    /**
+     * Scans one OPM/YM2151 register write for patch-change and key-on signals.
+     */
+    private static void scanOpmPatch(FmScanState st, byte[] raw)
+    {
+        int reg = raw[0] & 0xFF, val = raw[1] & 0xFF;
+        // 0x20-0x27: connection/feedback per channel
+        if (reg >= 0x20 && reg <= 0x27)
+        {
+            int ch = reg & 0x07;
+            int alg = val & 0x07, fb = (val >> 3) & 0x07;
+            if (st.connSet[ch] && (alg != st.prevConn[ch] || fb != st.prevFb[ch]))
+                st.patchChanges++;
+            st.prevConn[ch] = alg;
+            st.prevFb[ch] = fb;
+            st.connSet[ch] = true;
+        }
+        // 0x08: key-on/off — bits 6-3 select operators; non-zero = key on
+        else if (reg == 0x08 && (val & 0x78) != 0)
+        {
+            st.keyOns++;
+        }
     }
 
     /**

@@ -48,6 +48,20 @@ public class PlaybackRunner
 {
     private static final java.util.logging.Logger log = java.util.logging.Logger
             .getLogger(PlaybackRunner.class.getName());
+
+    // ── Terminal control constants ────────────────────────────────────────────
+
+    /**
+     * VT100 escape sequence: switch to alternate screen buffer + hide cursor.
+     * Reversed by {@link Theme#TERM_ALT_SCREEN_DISABLE} + {@link Theme#TERM_SHOW_CURSOR}.
+     */
+    private static final String ALT_SCREEN_ON = "\033[?1049h\033[?25l";
+
+    /**
+     * Milliseconds to wait after {@code panic()} before closing the port, giving
+     * the MIDI device time to process all-notes-off messages.
+     */
+    private static final int PORT_CLOSE_WAIT_MS = 200;
     private final PrintStream out;
     private final PrintStream err;
     @Nullable
@@ -242,7 +256,7 @@ public class PlaybackRunner
             ByteArrayOutputStream errBuffer = null;
             if (useAltScreen && isInteractive && !suppressAltScreenRestore)
             {
-                out.print("\033[?1049h\033[?25l");
+                out.print(ALT_SCREEN_ON);
                 out.flush();
                 MidirajaCommand.ALT_SCREEN_ACTIVE = true;
                 errBuffer = new ByteArrayOutputStream();
@@ -290,29 +304,39 @@ public class PlaybackRunner
             // Normal-path port close. The shutdown hook (ShutdownCleaner) also
             // closes the port; portClosed guards against double-close.
             if (portClosed.compareAndSet(false, true))
-            {
-                provider.panic();
-                long endWait = System.currentTimeMillis() + 200;
-                while (System.currentTimeMillis() < endWait)
-                {
-                    try
-                    {
-                        Thread.sleep(max(1, endWait - System.currentTimeMillis()));
-                    }
-                    catch (InterruptedException e)
-                    {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
-                provider.closePort();
-            }
+                closePortWithDrain(provider);
         }
 
         if (lastRawStatus == PlaybackStatus.RESUME_SESSION)
             return new ResumeCommand().call();
 
         return 0;
+    }
+
+    // ── Cleanup helpers ────────────────────────────────────────────────────────
+
+    /**
+     * Sends all-notes-off panic, waits {@value #PORT_CLOSE_WAIT_MS} ms for the device
+     * to process it, then closes the port. The wait prevents note-hanging on hardware
+     * synths that queue MIDI messages internally.
+     */
+    private void closePortWithDrain(MidiOutProvider provider)
+    {
+        provider.panic();
+        long deadline = System.currentTimeMillis() + PORT_CLOSE_WAIT_MS;
+        while (System.currentTimeMillis() < deadline)
+        {
+            try
+            {
+                Thread.sleep(max(1, deadline - System.currentTimeMillis()));
+            }
+            catch (InterruptedException e)
+            {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        provider.closePort();
     }
 
     // ── Port selection ─────────────────────────────────────────────────────────

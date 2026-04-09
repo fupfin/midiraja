@@ -24,6 +24,13 @@ import org.jspecify.annotations.Nullable;
 /** Parses VGM binary files into a structured {@link VgmParseResult}. */
 public class VgmParser
 {
+    // ── Timing constants ─────────────────────────────────────────────────────
+
+    /** NTSC frame: 44100 Hz / 60 fps = 735 samples (command 0x62). */
+    private static final int NTSC_SAMPLES = 735;
+
+    /** PAL frame: 44100 Hz / 50 fps = 882 samples (command 0x63). */
+    private static final int PAL_SAMPLES = 882;
 
     public VgmParseResult parse(File file) throws IOException
     {
@@ -176,136 +183,42 @@ public class VgmParser
                         break;
                     events.add(new VgmEvent(sampleOffset, 0, new byte[] { data[pos++] }));
                 }
-                case 0x51 ->
-                { // YM2413 (OPLL)
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 13, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0xA0 ->
-                { // AY8910 register write
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 3, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
+                // ── 2-byte register write commands ──────────────────────────────
+                // All follow the same pattern: [reg, value] operands consumed by addRegWrite().
+                case 0x51 -> pos = addRegWrite(events, sampleOffset, 13, data, pos); // YM2413 (OPLL)
+                case 0x52 -> pos = addRegWrite(events, sampleOffset, 1, data, pos); // YM2612 port 0
+                case 0x53 -> pos = addRegWrite(events, sampleOffset, 2, data, pos); // YM2612 port 1
+                case 0x54 -> pos = addRegWrite(events, sampleOffset, 5, data, pos); // YM2151 (OPM)
+                case 0x55 -> pos = addRegWrite(events, sampleOffset, 6, data, pos); // YM2203 (OPN)
+                case 0x56 -> pos = addRegWrite(events, sampleOffset, 7, data, pos); // YM2608 (OPNA) port 0
+                case 0x57 -> pos = addRegWrite(events, sampleOffset, 8, data, pos); // YM2608 (OPNA) port 1
+                case 0x58 -> pos = addRegWrite(events, sampleOffset, 9, data, pos); // YM2610 (OPNB) port 0
+                case 0x59 -> pos = addRegWrite(events, sampleOffset, 10, data, pos); // YM2610 (OPNB) port 1
+                case 0x5A -> pos = addRegWrite(events, sampleOffset, 14, data, pos); // YM3812 (OPL2)
+                case 0x5E -> pos = addRegWrite(events, sampleOffset, 15, data, pos); // YMF262 (OPL3) port 0
+                case 0x5F -> pos = addRegWrite(events, sampleOffset, 16, data, pos); // YMF262 (OPL3) port 1
+                case 0xA0 -> pos = addRegWrite(events, sampleOffset, 3, data, pos); // AY8910
+                case 0xB3 -> pos = addRegWrite(events, sampleOffset, 11, data, pos); // Game Boy DMG
+                case 0xB4 -> pos = addRegWrite(events, sampleOffset, 17, data, pos); // NES 2A03
+                case 0xB9 -> pos = addRegWrite(events, sampleOffset, 12, data, pos); // HuC6280 (PC Engine)
                 case 0xD2 ->
-                { // K051649 (SCC) register write
+                { // K051649 (SCC) register write — 3-byte operand
                     if (pos + 2 >= data.length)
                         break;
                     events.add(new VgmEvent(sampleOffset, 4,
                             new byte[] { data[pos], data[pos + 1], data[pos + 2] }));
                     pos += 3;
                 }
-                case 0x52 ->
-                { // YM2612 port0
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 1, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0x53 ->
-                { // YM2612 port1
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 2, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0x54 ->
-                { // YM2151
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 5, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0x55 ->
-                { // YM2203 (OPN)
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 6, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0x56 ->
-                { // YM2608 (OPNA) port 0
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 7, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0x57 ->
-                { // YM2608 (OPNA) port 1
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 8, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0x58 ->
-                { // YM2610 (OPNB) port 0
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 9, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0x59 ->
-                { // YM2610 (OPNB) port 1
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 10, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0xB3 ->
-                { // Game Boy DMG
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 11, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0xB4 ->
-                { // NES 2A03
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 17, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0xB9 ->
-                { // HuC6280 (PC Engine)
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 12, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0x5A ->
-                { // YM3812 (OPL2)
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 14, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0x5E ->
-                { // YMF262 (OPL3) port 0
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 15, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
-                case 0x5F ->
-                { // YMF262 (OPL3) port 1
-                    if (pos + 1 >= data.length)
-                        break;
-                    events.add(new VgmEvent(sampleOffset, 16, new byte[] { data[pos], data[pos + 1] }));
-                    pos += 2;
-                }
                 case 0x61 ->
-                { // Wait N samples
+                { // Wait N samples (16-bit LE)
                     if (pos + 1 >= data.length)
                         break;
                     int n = (data[pos] & 0xFF) | ((data[pos + 1] & 0xFF) << 8);
                     sampleOffset += n;
                     pos += 2;
                 }
-                case 0x62 -> sampleOffset += 735; // NTSC 1/60s
-                case 0x63 -> sampleOffset += 882; // PAL 1/50s
+                case 0x62 -> sampleOffset += NTSC_SAMPLES; // NTSC 1/60 s
+                case 0x63 -> sampleOffset += PAL_SAMPLES; // PAL 1/50 s
                 case 0x66 ->
                 { // End of data; loop once if loop point exists
                     if (loopStart > 0 && !loopDone)
@@ -358,5 +271,19 @@ public class VgmParser
             }
         }
         return events;
+    }
+
+    /**
+     * Appends a 2-byte register-write event and advances past both operand bytes.
+     * Returns {@code pos} unchanged if there are fewer than 2 bytes left — the
+     * truncated command is silently ignored, matching original behavior.
+     */
+    private static int addRegWrite(List<VgmEvent> events, long sampleOffset, int chipId,
+            byte[] data, int pos)
+    {
+        if (pos + 1 >= data.length)
+            return pos;
+        events.add(new VgmEvent(sampleOffset, chipId, new byte[] { data[pos], data[pos + 1] }));
+        return pos + 2;
     }
 }

@@ -43,6 +43,19 @@ public class MidiPlaybackEngine implements PlaybackEngine
     private static final int END_OF_TRACK_MS = 20; // Hold after last event so UI renders final frame
     private static final int RESET_SETTLE_MS = 50; // Give hardware synth time to process reset SysEx
 
+    // Named SysEx reset payloads — avoids inline byte literals in the send method.
+    // mt-32 is an alias for mt32 (both spellings accepted by the --reset flag).
+    private static final Map<String, byte[]> SYSEX_RESETS = Map.of(
+            "gm", new byte[] { (byte) 0xF0, 0x7E, 0x7F, 0x09, 0x01, (byte) 0xF7 },
+            "gm2", new byte[] { (byte) 0xF0, 0x7E, 0x7F, 0x09, 0x03, (byte) 0xF7 },
+            "gs", new byte[] { (byte) 0xF0, 0x41, 0x10, 0x42, 0x12, 0x40, 0x00, 0x7F, 0x00, 0x41,
+                    (byte) 0xF7 },
+            "xg", new byte[] { (byte) 0xF0, 0x43, 0x10, 0x4C, 0x00, 0x00, 0x7E, 0x00, (byte) 0xF7 },
+            "mt32", new byte[] { (byte) 0xF0, 0x41, 0x10, 0x16, 0x12, 0x7F, 0x00, 0x00, 0x00, 0x01,
+                    (byte) 0xF7 },
+            "mt-32", new byte[] { (byte) 0xF0, 0x41, 0x10, 0x16, 0x12, 0x7F, 0x00, 0x00, 0x00, 0x01,
+                    (byte) 0xF7 });
+
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
 
@@ -246,57 +259,44 @@ public class MidiPlaybackEngine implements PlaybackEngine
         if (initialResetType.isEmpty())
             return;
         String type = initialResetType.get().trim().toLowerCase(ROOT);
-        byte[] payload = switch (type)
-        {
-            case "gm" -> new byte[] { (byte) 0xF0, 0x7E, 0x7F, 0x09, 0x01, (byte) 0xF7 };
-            case "gm2" -> new byte[] { (byte) 0xF0, 0x7E, 0x7F, 0x09, 0x03, (byte) 0xF7 };
-            case "gs" -> new byte[] { (byte) 0xF0, 0x41, 0x10, 0x42, 0x12, 0x40, 0x00,
-                    0x7F, 0x00, 0x41, (byte) 0xF7 };
-            case "xg" -> new byte[] { (byte) 0xF0, 0x43, 0x10, 0x4C, 0x00, 0x00, 0x7E,
-                    0x00, (byte) 0xF7 };
-            case "mt32", "mt-32" -> new byte[] { (byte) 0xF0, 0x41, 0x10, 0x16, 0x12, 0x7F, 0x00,
-                    0x00, 0x00, 0x01, (byte) 0xF7 }; // 11-byte Roland SysEx reset
-            default ->
-            {
-                if (type.matches("^[0-9a-fA-F]+$") && type.length() % 2 == 0)
-                {
-                    byte[] hex = new byte[type.length() / 2];
-                    for (int i = 0; i < hex.length; i++)
-                        hex[i] = (byte) Integer.parseInt(type.substring(i * 2, i * 2 + 2), 16);
-                    yield hex;
-                }
-                yield null;
-            }
-        };
-
-        if (payload != null)
+        byte[] payload = resolveResetPayload(type);
+        if (payload.length > 0)
         {
             try
             {
                 pipeline.sendMessage(payload);
-                clock.sleepMillis(RESET_SETTLE_MS); // Give the hardware synthesizer time to
-                                                    // process the reset before slamming it with notes
+                clock.sleepMillis(RESET_SETTLE_MS); // Give hardware synth time to process reset
             }
             catch (Exception e)
             {}
         }
     }
 
+    private static byte[] resolveResetPayload(String type)
+    {
+        byte[] known = SYSEX_RESETS.get(type);
+        if (known != null)
+            return known;
+        if (type.matches("^[0-9a-fA-F]+$") && type.length() % 2 == 0)
+        {
+            byte[] hex = new byte[type.length() / 2];
+            for (int i = 0; i < hex.length; i++)
+                hex[i] = (byte) Integer.parseInt(type.substring(i * 2, i * 2 + 2), 16);
+            return hex;
+        }
+        return new byte[0];
+    }
+
+    /** Carries updated playback position state out of {@link #performSeekChase}. */
+    private record SeekState(int eventIndex, long lastTick, long elapsedNanos, long startTimeNanos,
+            double ticksToNanos)
+    {
+    }
+
     private void playLoop() throws Exception
     {
-        // STARTUP DELAY (UX Improvement): Wait 500ms before actually starting playback.
-        // This allows the user to quickly skip through tracks (Next/Prev)
-        // without triggering heavy audio initialization and unwanted noise.
-        long startupWaitEndNanos = clock.nanoTime() + STARTUP_DELAY_MS * 1_000_000L;
-        while (clock.nanoTime() < startupWaitEndNanos)
-        {
-            if (!isPlaying.get())
-            {
-                // User hit next/prev/quit during the delay. Abort immediately.
-                return;
-            }
-            clock.sleepMillis(STARTUP_POLL_MS);
-        }
+        if (!awaitStartupDelay())
+            return;
 
         playbackActuallyStarted.set(true);
 
@@ -323,57 +323,16 @@ public class MidiPlaybackEngine implements PlaybackEngine
         boolean endReached = false;
         while (isPlaying.get() && (eventIndex < sortedEvents.size() || holdAtEnd.get()))
         {
-            // Check if an external seek was requested
             if (seekTarget.get() != -1)
             {
-                long target = seekTarget.get();
-                seekTarget.set(-1);
-
-                provider.panic(); // Silence lingering notes
-
-                currentBpm.set(120.0f);
-
-                // Fast-forward silently to accumulate correct program/control state up
-                // to the target
-                int newIndex = 0;
-                long chaseNanos = 0;
-                long chaseLastTick = 0;
-                double chaseTicksToNanos = tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
-
-                for (MidiEvent ev : sortedEvents)
-                {
-                    if (ev.getTick() >= target)
-                        break;
-                    long t = ev.getTick();
-                    chaseNanos += (long) ((t - chaseLastTick) * chaseTicksToNanos);
-                    chaseLastTick = t;
-
-                    processChaseEvent(ev);
-
-                    chaseTicksToNanos = tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
-                    newIndex++;
-                }
-
-                chaseNanos += (long) ((target - chaseLastTick) * chaseTicksToNanos);
-
-                // 4. Resume playback from the new position
-
-                lastTick = target;
-                eventIndex = newIndex;
-                elapsedNanos = chaseNanos;
-                currentMicroseconds.set(elapsedNanos / 1000);
-
-                // Reset timing reference after seek
-                ticksToNanos = tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
-                startTimeNanos = clock.nanoTime() - elapsedNanos;
-                try
-                {
-                    provider.onPlaybackStarted();
-                }
-                catch (Exception e)
-                {
-                    /* Safe to ignore: optional listener */
-                }
+                long target = seekTarget.getAndSet(-1);
+                SeekState s = performSeekChase(target);
+                lastTick = s.lastTick();
+                eventIndex = s.eventIndex();
+                elapsedNanos = s.elapsedNanos();
+                startTimeNanos = s.startTimeNanos();
+                ticksToNanos = s.ticksToNanos();
+                endReached = false;
                 continue;
             }
 
@@ -393,19 +352,11 @@ public class MidiPlaybackEngine implements PlaybackEngine
                         && endStatus.get() == PlaybackEngine.PlaybackStatus.FINISHED)
                 {
                     clock.sleepMillis(PLAYBACK_POLL_MS);
-                    // If the user presses next/prev, the UI might change endStatus.get() and set
-                    // isPlaying.get()=false.
-                    // But actually the UI calls next() which sets endStatus.get() = NEXT,
-                    // isPlaying.get() = false.
                 }
 
                 if (seekTarget.get() != -1)
-                {
-                    endReached = false; // Reset so we can seek backward and play again
                     continue;
-                }
 
-                // If we break out, it means isPlaying.get() became false or endStatus.get() changed
                 break;
             }
 
@@ -426,36 +377,11 @@ public class MidiPlaybackEngine implements PlaybackEngine
             if (tick > lastTick)
             {
                 elapsedNanos += (long) ((tick - lastTick) * ticksToNanos);
-                long targetNanos = startTimeNanos + elapsedNanos;
-
-                // High-resolution delay. Cap each sleep at 50ms so seek/stop requests
-                // are detected within 50ms regardless of the gap between MIDI events.
-                // Also update currentMicroseconds during the wait so the UI clock keeps
-                // moving even when there are long stretches with no MIDI events.
-                long currentNanos = clock.nanoTime();
-                while (currentNanos < targetNanos)
-                {
-                    if (seekTarget.get() != -1 || !isPlaying.get())
-                        break;
-                    long nowMicros = (currentNanos - startTimeNanos) / 1000;
-                    currentMicroseconds.set(nowMicros);
-                    listeners.forEach(l -> l.onTick(nowMicros));
-                    long remainingMs = (targetNanos - currentNanos) / 1_000_000L;
-                    if (remainingMs > 1)
-                    {
-                        clock.sleepMillis(min(remainingMs - 1, PLAYBACK_POLL_MS));
-                    }
-                    else
-                    {
-                        clock.onSpinWait(); // Spin-wait for the last millisecond for
-                                            // accuracy
-                    }
-                    currentNanos = clock.nanoTime();
-                }
+                boolean interrupted = waitForEventTime(startTimeNanos + elapsedNanos, startTimeNanos);
+                if (interrupted)
+                    continue;
             }
 
-            // If seek or stop was triggered mid-wait, skip this event and re-check at
-            // loop top.
             if (seekTarget.get() != -1 || !isPlaying.get())
                 continue;
 
@@ -486,6 +412,94 @@ public class MidiPlaybackEngine implements PlaybackEngine
             { /* Allow UI to render 100% frame */
             }
         }
+    }
+
+    /**
+     * Waits 500ms before starting playback so rapid next/prev skips don't trigger audio init.
+     *
+     * @return true if playback should continue, false if cancelled during the delay
+     */
+    private boolean awaitStartupDelay() throws InterruptedException
+    {
+        long endNanos = clock.nanoTime() + STARTUP_DELAY_MS * 1_000_000L;
+        while (clock.nanoTime() < endNanos)
+        {
+            if (!isPlaying.get())
+                return false;
+            clock.sleepMillis(STARTUP_POLL_MS);
+        }
+        return true;
+    }
+
+    /**
+     * Fast-forwards silently to {@code target} tick, accumulating correct program/control state,
+     * and returns the updated playback position state to resume from.
+     */
+    @SuppressWarnings("NullAway")
+    private SeekState performSeekChase(long target) throws Exception
+    {
+        provider.panic(); // Silence lingering notes
+        currentBpm.set(120.0f);
+
+        int newIndex = 0;
+        long chaseNanos = 0;
+        long chaseLastTick = 0;
+        double chaseTicksToNanos = tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
+
+        for (MidiEvent ev : sortedEvents)
+        {
+            if (ev.getTick() >= target)
+                break;
+            long t = ev.getTick();
+            chaseNanos += (long) ((t - chaseLastTick) * chaseTicksToNanos);
+            chaseLastTick = t;
+            processChaseEvent(ev);
+            chaseTicksToNanos = tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
+            newIndex++;
+        }
+
+        chaseNanos += (long) ((target - chaseLastTick) * chaseTicksToNanos);
+        currentMicroseconds.set(chaseNanos / 1000);
+
+        try
+        {
+            provider.onPlaybackStarted();
+        }
+        catch (Exception e)
+        {
+            /* Safe to ignore: optional listener */
+        }
+
+        double ticksToNanos = tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
+        long startTimeNanos = clock.nanoTime() - chaseNanos;
+        return new SeekState(newIndex, target, chaseNanos, startTimeNanos, ticksToNanos);
+    }
+
+    /**
+     * High-resolution wait until {@code targetNanos}. Caps each sleep at 50ms so seek/stop
+     * requests are detected promptly, and updates the UI clock during long inter-event gaps.
+     *
+     * @return true if the wait was interrupted by a seek or stop request
+     */
+    private boolean waitForEventTime(long targetNanos, long startTimeNanos)
+            throws InterruptedException
+    {
+        long currentNanos = clock.nanoTime();
+        while (currentNanos < targetNanos)
+        {
+            if (seekTarget.get() != -1 || !isPlaying.get())
+                return true;
+            long nowMicros = (currentNanos - startTimeNanos) / 1000;
+            currentMicroseconds.set(nowMicros);
+            listeners.forEach(l -> l.onTick(nowMicros));
+            long remainingMs = (targetNanos - currentNanos) / 1_000_000L;
+            if (remainingMs > 1)
+                clock.sleepMillis(min(remainingMs - 1, PLAYBACK_POLL_MS));
+            else
+                clock.onSpinWait(); // Spin-wait for the last millisecond for accuracy
+            currentNanos = clock.nanoTime();
+        }
+        return false;
     }
 
     private void processChaseEvent(MidiEvent event)

@@ -323,16 +323,7 @@ class PlaylistPlayer
         for (int i = 0; i < size; i++)
             order[i] = i;
         if (shuffle)
-        {
-            var rng = new java.util.Random();
-            for (int i = size - 1; i > 0; i--)
-            {
-                int j = rng.nextInt(i + 1);
-                int tmp = order[i];
-                order[i] = order[j];
-                order[j] = tmp;
-            }
-        }
+            shuffleRange(order, 0, size - 1);
         return order;
     }
 
@@ -343,21 +334,9 @@ class PlaylistPlayer
             return;
         int currentSong = playOrder[currentIdx];
         if (shuffleOn)
-        {
-            // Full Fisher-Yates shuffle of entire array
-            var rng = new java.util.Random();
-            for (int i = n - 1; i > 0; i--)
-            {
-                int j = rng.nextInt(i + 1);
-                int tmp = playOrder[i];
-                playOrder[i] = playOrder[j];
-                playOrder[j] = tmp;
-            }
-        }
+            shuffleRange(playOrder, 0, n - 1);
         else
-        {
             java.util.Arrays.sort(playOrder);
-        }
         // Restore the currently-playing song to currentIdx so the index stays valid
         for (int i = 0; i < n; i++)
         {
@@ -367,6 +346,23 @@ class PlaylistPlayer
                 playOrder[currentIdx] = currentSong;
                 break;
             }
+        }
+    }
+
+    /**
+     * Fisher-Yates in-place shuffle of {@code order[from..to]} (inclusive).
+     * Used by both {@link #buildPlayOrder} (initial order) and
+     * {@link #reshuffleRemaining} (live re-order while a track is playing).
+     */
+    private static void shuffleRange(int[] order, int from, int to)
+    {
+        var rng = new java.util.Random();
+        for (int i = to; i > from; i--)
+        {
+            int j = from + rng.nextInt(i - from + 1);
+            int tmp = order[i];
+            order[i] = order[j];
+            order[j] = tmp;
         }
     }
 
