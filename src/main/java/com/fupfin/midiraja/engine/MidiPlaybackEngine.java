@@ -506,36 +506,11 @@ public class MidiPlaybackEngine implements PlaybackEngine
     {
         if (isShuttingDown.getAsBoolean())
             return;
-        var msg = event.getMessage();
-        var raw = msg.getMessage();
-
-        // Meta Tempo
-        int mspqn = extractTempoMspqn(raw);
-        if (mspqn > 0)
-        {
-            currentBpm.set(60_000_000.0f / mspqn);
-            @SuppressWarnings("NullAway")
-            float bpm = currentBpm.get();
-            listeners.forEach(l -> l.onTempoChanged(bpm));
+        var raw = event.getMessage().getMessage();
+        if (handleCommonEvent(raw))
             return;
-        }
 
         int status = raw[0] & 0xFF;
-
-        // Forward SysEx during chase (e.g. MT-32 initialization at song start)
-        if (status == 0xF0)
-        {
-            try
-            {
-                pipeline.sendMessage(raw);
-            }
-            catch (Exception e)
-            {
-                /* Ignore */
-            }
-            return;
-        }
-
         if (status < 0xF0)
         {
             int cmd = status & 0xF0;
@@ -560,13 +535,13 @@ public class MidiPlaybackEngine implements PlaybackEngine
         }
     }
 
-    private void processEvent(MidiEvent event)
+    /**
+     * Handles tempo meta and SysEx events common to processEvent and processChaseEvent.
+     *
+     * @return true if the event was fully handled (caller should return)
+     */
+    private boolean handleCommonEvent(byte[] raw)
     {
-        if (isShuttingDown.getAsBoolean())
-            return;
-        var msg = event.getMessage();
-        var raw = msg.getMessage();
-
         int mspqn = extractTempoMspqn(raw);
         if (mspqn > 0)
         {
@@ -574,14 +549,9 @@ public class MidiPlaybackEngine implements PlaybackEngine
             @SuppressWarnings("NullAway")
             float bpm = currentBpm.get();
             listeners.forEach(l -> l.onTempoChanged(bpm));
-            return;
+            return true;
         }
-
-        int status = raw[0] & 0xFF;
-
-        // Forward SysEx to the synthesizer (e.g. MT-32 patch/channel setup
-        // messages)
-        if (status == 0xF0)
+        if ((raw[0] & 0xFF) == 0xF0)
         {
             try
             {
@@ -591,9 +561,20 @@ public class MidiPlaybackEngine implements PlaybackEngine
             {
                 // ignore
             }
-            return;
+            return true;
         }
+        return false;
+    }
 
+    private void processEvent(MidiEvent event)
+    {
+        if (isShuttingDown.getAsBoolean())
+            return;
+        var raw = event.getMessage().getMessage();
+        if (handleCommonEvent(raw))
+            return;
+
+        int status = raw[0] & 0xFF;
         if (status < 0xF0)
         {
             int cmd = status & 0xF0;
