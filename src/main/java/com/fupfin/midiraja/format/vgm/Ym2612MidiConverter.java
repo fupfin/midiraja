@@ -225,18 +225,7 @@ public class Ym2612MidiConverter
 
     private int catalogSignature(int ch)
     {
-        int timbreHint = FmPatchCatalog.algorithmToTimbreHint(algorithm[ch]);
-        int avgModTl = avgModulatorTl(tl, algorithm, ch);
-        int[] cops = carrierOps(algorithm[ch]);
-        int totalCarTl = 0, totalAr = 0, totalDr = 0;
-        for (int op : cops)
-        {
-            totalCarTl += tl[ch][op];
-            totalAr += ar[ch][op];
-            totalDr += d1r[ch][op];
-        }
-        return FmPatchCatalog.signature(timbreHint, feedback[ch], avgModTl,
-                totalCarTl / cops.length, totalAr / cops.length / 2, totalDr / cops.length / 2);
+        return FmMidiUtil.catalogSignature(tl, algorithm, feedback, ar, d1r, ch);
     }
 
     private void emitPanIfNeeded(int ch, int midiCh, Track[] tracks, long tick)
@@ -254,20 +243,7 @@ public class Ym2612MidiConverter
         var catalog = patchCatalog;
         if (catalog == null)
             return;
-        int timbreHint = FmPatchCatalog.algorithmToTimbreHint(algorithm[ch]);
-        int avgModTl = avgModulatorTl(tl, algorithm, ch);
-        int[] cops = carrierOps(algorithm[ch]);
-        int totalCarTl = 0, totalAr = 0, totalDr = 0;
-        for (int op : cops)
-        {
-            totalCarTl += tl[ch][op];
-            totalAr += ar[ch][op];
-            totalDr += d1r[ch][op];
-        }
-        int avgCarTl = totalCarTl / cops.length;
-        int avgAr = totalAr / cops.length / 2;
-        int avgDr = totalDr / cops.length / 2;
-        int sig = FmPatchCatalog.signature(timbreHint, feedback[ch], avgModTl, avgCarTl, avgAr, avgDr);
+        int sig = catalogSignature(ch);
         int program = catalog.program(sig);
         if (program >= 0 && program != currentProgram[ch])
         {

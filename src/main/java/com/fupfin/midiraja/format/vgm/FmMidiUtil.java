@@ -158,6 +158,31 @@ public final class FmMidiUtil
         return Math.min(127, Math.max(1, (int) Math.round(amplitude * 127)));
     }
 
+    /**
+     * Computes the patch catalog signature for a given FM channel.
+     *
+     * <p>
+     * Encodes algorithm, feedback, modulator TL average, and averaged carrier envelope
+     * parameters (TL, AR, D1R) into a single integer key suitable for catalog lookup.
+     * Shared by OPN (YM2612/YM2203) and OPM (YM2151) converters.
+     */
+    static int catalogSignature(int[][] tl, int[] algorithm, int[] feedback, int[][] ar,
+            int[][] d1r, int ch)
+    {
+        int timbreHint = FmPatchCatalog.algorithmToTimbreHint(algorithm[ch]);
+        int avgModTl = avgModulatorTl(tl, algorithm, ch);
+        int[] cops = carrierOps(algorithm[ch]);
+        int totalCarTl = 0, totalAr = 0, totalDr = 0;
+        for (int op : cops)
+        {
+            totalCarTl += tl[ch][op];
+            totalAr += ar[ch][op];
+            totalDr += d1r[ch][op];
+        }
+        return FmPatchCatalog.signature(timbreHint, feedback[ch], avgModTl,
+                totalCarTl / cops.length, totalAr / cops.length / 2, totalDr / cops.length / 2);
+    }
+
     /** Maps LR mask (bit1=L, bit0=R) to MIDI CC10 pan value. */
     static int lrMaskToPan(int lrMask)
     {
