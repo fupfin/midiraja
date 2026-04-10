@@ -716,6 +716,16 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
         }
     }
 
+    private void deactivateNote(int channel, int note)
+    {
+        for (int i = 0; i < MAX_POLYPHONY; i++)
+        {
+            ActiveNote n = activeNotes[i];
+            if (n.active && n.channel == channel && n.note == note)
+                n.active = false;
+        }
+    }
+
     /** Updates {@code n.frequency}, {@code n.phaseStep16}, and {@code n.modPhaseStep16} for the given bend. */
     private void updateNoteFrequency(ActiveNote n, double bendSemitones)
     {
@@ -764,12 +774,7 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                 int velocity = data[2] & 0xFF;
                 if (velocity > 0)
                 {
-                    for (int i = 0; i < MAX_POLYPHONY; i++)
-                    {
-                        ActiveNote n = activeNotes[i];
-                        if (n.active && n.channel == ch && n.note == note)
-                            n.active = false;
-                    }
+                    deactivateNote(ch, note);
                     for (int i = 0; i < MAX_POLYPHONY; i++)
                     {
                         ActiveNote n = activeNotes[i];
@@ -788,23 +793,13 @@ public class BeepSynthProvider extends AbstractOneBitSynthProvider
                 }
                 else
                 {
-                    for (int i = 0; i < MAX_POLYPHONY; i++)
-                    {
-                        ActiveNote n = activeNotes[i];
-                        if (n.active && n.channel == ch && n.note == note)
-                            n.active = false;
-                    }
+                    deactivateNote(ch, note);
                 }
             }
             else if (cmd == 0x80 && data.length >= 2)
             {
                 int note = data[1] & 0xFF;
-                for (int i = 0; i < MAX_POLYPHONY; i++)
-                {
-                    ActiveNote n = activeNotes[i];
-                    if (n.active && n.channel == ch && n.note == note)
-                        n.active = false;
-                }
+                deactivateNote(ch, note);
             }
             else if (cmd == 0xB0 && data.length >= 3)
             {
