@@ -16,7 +16,6 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.sound.midi.MidiSystem;
 
 import org.jspecify.annotations.Nullable;
 
@@ -24,7 +23,6 @@ import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.engine.MidiPlaybackEngine;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaybackEngineFactory;
-import com.fupfin.midiraja.format.MusicFormatLoader;
 import com.fupfin.midiraja.io.JLineTerminalIO;
 import com.fupfin.midiraja.io.TerminalIO;
 import com.fupfin.midiraja.media.MediaKeyIntegration;
@@ -189,16 +187,6 @@ public class PlaybackRunner
             err.println("Error: No MIDI files specified. Use 'midra <file1.mid>' "
                     + "or 'midra -h' for help.");
             return 1;
-        }
-
-        // ── Export mode: convert and write to file, no playback ──────────────
-        if (common.exportMidi.isPresent())
-        {
-            var input = playlist.get(0);
-            var sequence = MusicFormatLoader.load(input, mutedChannels);
-            MidiSystem.write(sequence, 1, common.exportMidi.get());
-            out.println("Exported: " + common.exportMidi.get());
-            return 0;
         }
 
         // Auto-save session to history
