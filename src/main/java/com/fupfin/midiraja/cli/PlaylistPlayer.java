@@ -40,6 +40,13 @@ import com.fupfin.midiraja.ui.PlaybackUI;
 class PlaylistPlayer
 {
 
+    /** Optional override for loading a music file into a {@link javax.sound.midi.Sequence}. */
+    @FunctionalInterface
+    interface SequenceLoader
+    {
+        javax.sound.midi.Sequence load(File file) throws Exception;
+    }
+
     private final PlaybackEngineFactory engineFactory;
     private final @Nullable FxOptions fxOptions;
     private final boolean includeRetroInSuffix;
@@ -48,6 +55,12 @@ class PlaylistPlayer
     private final PrintStream err;
     private final MediaKeyIntegration mediaKeys;
     private final Set<Integer> mutedChannels;
+    private @Nullable SequenceLoader sequenceLoader = null;
+
+    void setSequenceLoader(SequenceLoader loader)
+    {
+        this.sequenceLoader = loader;
+    }
 
     PlaylistPlayer(PlaybackEngineFactory engineFactory,
             @Nullable FxOptions fxOptions,
@@ -95,7 +108,9 @@ class PlaylistPlayer
             var file = playlist.get(playOrderHolder[0][currentIdxHolder[0]]);
             try
             {
-                var sequence = MusicFormatLoader.load(file, mutedChannels);
+                var sequence = sequenceLoader != null
+                        ? sequenceLoader.load(file)
+                        : MusicFormatLoader.load(file, mutedChannels);
                 logVerbose(common.isVerbose(),
                         String.format("Loaded '%s' - Resolution: %d PPQ, Microsecond Length: %d",
                                 file.getName(), sequence.getResolution(),

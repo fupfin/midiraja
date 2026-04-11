@@ -74,6 +74,7 @@ public class PlaybackRunner
     private boolean includeRetroInSuffix = false;
     private java.util.Set<Integer> mutedChannels = java.util.Set.of();
     private final PlaybackEngineFactory engineFactory;
+    private PlaylistPlayer.@Nullable SequenceLoader sequenceLoader = null;
 
     public void setFxOptions(FxOptions fx)
     {
@@ -94,6 +95,12 @@ public class PlaybackRunner
     public void setMutedChannels(java.util.Set<Integer> channels)
     {
         this.mutedChannels = channels;
+    }
+
+    /** Overrides the default {@link com.fupfin.midiraja.format.MusicFormatLoader} used to load files. */
+    public void setSequenceLoader(PlaylistPlayer.SequenceLoader loader)
+    {
+        this.sequenceLoader = loader;
     }
 
     public PlaybackStatus getLastRawStatus()
@@ -256,6 +263,8 @@ public class PlaybackRunner
             {
                 var player = new PlaylistPlayer(engineFactory, fxOptions, includeRetroInSuffix,
                         suppressHoldAtEnd, exitOnNavBoundary, err, mediaKeys, mutedChannels);
+                if (sequenceLoader != null)
+                    player.setSequenceLoader(sequenceLoader);
                 lastRawStatus = player.play(playlist, provider, ports.get(portIndex), common,
                         ui, activeIO, currentStartTime, originalArgs);
             }

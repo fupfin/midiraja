@@ -46,5 +46,14 @@ public interface PlaybackState
 
     String getPortSuffix();
 
+    /**
+     * Returns {@code true} when the engine provides spectrum data instead of MIDI channel activity.
+     * The default implementation returns {@code false}.
+     */
+    default boolean isSpectrumMode()
+    {
+        return false;
+    }
+
     void addPlaybackEventListener(PlaybackEventListener listener);
 }

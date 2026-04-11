@@ -46,6 +46,18 @@ public interface PlaybackEventListener
     void onChannelActivity(int channel, int velocity);
 
     /**
+     * Called each render cycle when spectrum analysis data is available.
+     *
+     * @param levels
+     *            16-element array in interleaved order [L0,R0,L1,R1,…,L7,R7]: even indices are
+     *            left-channel band levels, odd indices are right-channel band levels. Each value is
+     *            in [0, 1]. The array is a snapshot; do not retain a reference to it.
+     */
+    default void onSpectrumUpdate(float[] levels)
+    {
+    }
+
+    /**
      * Called when the bookmark state of the current session changes.
      *
      * @param bookmarked

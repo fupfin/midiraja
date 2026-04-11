@@ -9,6 +9,9 @@ public final class Theme
     // --- ANSI Color Codes ---
     public static final String COLOR_RESET = "\033[0m";
 
+    // Bright white — used for VU meter peak block
+    public static final String COLOR_WHITE = "\033[97m";
+
     // Roland SC-55 Amber aesthetic (256 color code 215)
     public static final String COLOR_HIGHLIGHT = "\033[38;5;215m"; // Default: Amber
 
@@ -26,6 +29,9 @@ public final class Theme
 
     // Dim amber for VU bars — same brightness as COLOR_DIM_FG on dark terminals, but orange
     public static final String COLOR_VU = "\033[38;5;136m";
+
+    // Light amber (#FFBC79) — brighter variant of COLOR_HIGHLIGHT for R-channel spectrum bars
+    public static final String COLOR_SPECTRUM_R = "\033[38;2;255;188;121m";
 
     // Invert Colors (for top banner)
     public static final String FORMAT_INVERT = "\033[7m";

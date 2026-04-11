@@ -46,6 +46,13 @@ public class LineUI implements PlaybackUI
                 if (channel >= 0 && channel < 16)
                     channelLevels[channel] = Math.max(channelLevels[channel], velocity / 127.0);
             }
+
+            @Override
+            public void onSpectrumUpdate(float[] levels)
+            {
+                for (int i = 0; i < 16; i++)
+                    channelLevels[i] = Math.max(channelLevels[i], levels[i]);
+            }
         });
 
         var term = TerminalIO.CONTEXT.get();
@@ -89,6 +96,7 @@ public class LineUI implements PlaybackUI
         staticLinesPrinted++;
 
         String[] blocks = { " ", " ", "▂", "▃", "▄", "▅", "▆", "▇", Theme.CHAR_BLOCK_FULL };
+        boolean spectrumMode = engine.isSpectrumMode();
 
         try
         {
@@ -100,16 +108,18 @@ public class LineUI implements PlaybackUI
                 double[] levels = channelLevels;
 
                 ScreenBuffer buffer = new ScreenBuffer();
-                buffer.append("\r\033[38;5;215mVol:[\033[0m");
+                String label = spectrumMode ? "Spec" : "Vol";
+                buffer.append("\r").append(Theme.COLOR_HIGHLIGHT).append(label).append(":[\033[0m");
                 for (int i = 0; i < 16; i++)
                 {
                     int levelIndex = (int) round(levels[i] * 8);
                     levelIndex = max(0, min(8, levelIndex));
-                    // Highlight bars
-                    buffer.append(Theme.COLOR_HIGHLIGHT).append(blocks[levelIndex])
-                            .append(Theme.COLOR_RESET);
+                    String color = (spectrumMode && i % 2 == 1)
+                            ? Theme.COLOR_SPECTRUM_R
+                            : Theme.COLOR_HIGHLIGHT;
+                    buffer.append(color).append(blocks[levelIndex]).append(Theme.COLOR_RESET);
                 }
-                buffer.append("\033[38;5;215m]\033[0m ");
+                buffer.append(Theme.COLOR_HIGHLIGHT).append("]\033[0m ");
 
                 long totalMicros = engine.getTotalMicroseconds();
                 long currentMicros = engine.getCurrentMicroseconds();

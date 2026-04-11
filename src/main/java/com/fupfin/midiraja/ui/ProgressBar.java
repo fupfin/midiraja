@@ -43,8 +43,16 @@ public class ProgressBar
      *            Whether to wrap the output in '[' and ']'.
      * @return An ANSI-colored string representing the bar.
      */
+    /** @deprecated Use {@link #render(int, int, Style, boolean, String)} with an explicit color. */
+    @Deprecated
     public static String render(int filledLength, int totalLength, Style style,
             boolean showBrackets)
+    {
+        return render(filledLength, totalLength, style, showBrackets, Theme.COLOR_HIGHLIGHT);
+    }
+
+    public static String render(int filledLength, int totalLength, Style style,
+            boolean showBrackets, String trailColor)
     {
         int clampedFilled = Math.max(0, Math.min(totalLength, filledLength));
         StringBuilder sb = new StringBuilder();
@@ -56,14 +64,12 @@ public class ProgressBar
 
         if (clampedFilled > 0)
         {
-            // Amber trail
             if (clampedFilled > 1)
             {
-                sb.append(Theme.COLOR_HIGHLIGHT)
-                        .append(Theme.CHAR_BLOCK_FULL.repeat(clampedFilled - 1));
+                sb.append(trailColor).append(Theme.CHAR_BLOCK_FULL.repeat(clampedFilled - 1));
             }
             // White peak
-            sb.append(Theme.COLOR_RESET).append(Theme.CHAR_BLOCK_FULL);
+            sb.append(Theme.COLOR_WHITE).append(Theme.CHAR_BLOCK_FULL);
         }
 
         // Background

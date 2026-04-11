@@ -9,11 +9,32 @@ package com.fupfin.midiraja.ui;
 
 import static java.lang.Math.*;
 
+import com.fupfin.midiraja.engine.PlaybackState;
+
 /**
- * Responsive VU meter display for 16 MIDI channels.
+ * Responsive VU meter display for 16 MIDI channels or 8-band stereo spectrum.
  */
 public class ChannelActivityPanel implements Panel
 {
+    /** Selects whether rows represent MIDI channels or spectrum frequency bands. */
+    public enum Mode
+    {
+        /** Rows show per-channel MIDI velocity levels (channels 1–16). */
+        MIDI,
+        /** Rows show 8-band stereo spectrum levels; even indices are L, odd are R. */
+        SPECTRUM
+    }
+
+    private static final String[] SPECTRUM_LABELS = {
+            " 63Hz L", "      R",
+            "125Hz L", "      R",
+            "250Hz L", "      R",
+            "500Hz L", "      R",
+            " 1kHz L", "      R",
+            " 2kHz L", "      R",
+            " 4kHz L", "      R",
+            " 8kHz L", "      R"
+    };
     private static final String[] GM_INSTRUMENTS = {
             // Piano (0-7)
             "Grand Piano", "Bright Piano", "El.Grand Piano", "Honky-tonk",
@@ -68,6 +89,12 @@ public class ChannelActivityPanel implements Panel
     private LayoutConstraints constraints = new LayoutConstraints(80, 16, false, false);
     private final double[] channelLevels = new double[16];
     private final int[] channelPrograms = new int[16];
+    private Mode mode = Mode.MIDI;
+
+    public void setMode(Mode mode)
+    {
+        this.mode = mode;
+    }
 
     @Override
     public void onLayoutUpdated(LayoutConstraints bounds)
@@ -93,9 +120,19 @@ public class ChannelActivityPanel implements Panel
     @Override
     public void onChannelActivity(int channel, int velocity)
     {
-        if (channel >= 0 && channel < 16)
+        if (mode == Mode.MIDI && channel >= 0 && channel < 16)
         {
             channelLevels[channel] = max(channelLevels[channel], velocity / 127.0);
+        }
+    }
+
+    @Override
+    public void onSpectrumUpdate(float[] levels)
+    {
+        if (mode == Mode.SPECTRUM)
+        {
+            for (int i = 0; i < 16; i++)
+                channelLevels[i] = max(channelLevels[i], levels[i]);
         }
     }
 
@@ -104,8 +141,17 @@ public class ChannelActivityPanel implements Panel
         System.arraycopy(programs, 0, channelPrograms, 0, 16);
     }
 
+    /** Registers this panel as a listener on {@code engine} and syncs initial program state. */
+    public void bindToEngine(PlaybackState engine)
+    {
+        engine.addPlaybackEventListener(this);
+        updatePrograms(engine.getChannelPrograms());
+    }
+
     private String getChannelName(int ch)
     {
+        if (mode == Mode.SPECTRUM)
+            return SPECTRUM_LABELS[ch];
         if (ch == 9)
             return "Drums";
         int prog = channelPrograms[ch];
@@ -164,6 +210,9 @@ public class ChannelActivityPanel implements Panel
                 if (ch >= 16)
                     break;
 
+                String trailColor = (mode == Mode.SPECTRUM && ch % 2 == 1)
+                        ? Theme.COLOR_SPECTRUM_R
+                        : Theme.COLOR_HIGHLIGHT;
                 String cell;
                 if (numCols == 4)
                 {
@@ -173,7 +222,7 @@ public class ChannelActivityPanel implements Panel
                     int meterLen = (int) (channelLevels[ch] * maxMeter);
 
                     String meter = ProgressBar.render(meterLen, maxMeter,
-                            ProgressBar.Style.DOTTED_BACKGROUND, true);
+                            ProgressBar.Style.DOTTED_BACKGROUND, true, trailColor);
                     cell = String.format("C%02d:%s", ch + 1, meter);
 
                     int visibleLen = 4 + 2 + maxMeter;
@@ -182,21 +231,21 @@ public class ChannelActivityPanel implements Panel
                 else
                 {
                     String instName = getChannelName(ch);
-                    if (instName.length() > 11)
+                    if (instName.length() > 8)
                     {
-                        instName = instName.substring(0, 11);
+                        instName = instName.substring(0, 8);
                     }
 
-                    // Format: "CH 01 (Piano ): [%s]"
-                    // "CH 01 " (6) + "(Piano )" (13) + ": " (2) + brackets (2) = 23 static
-                    int staticLen = 23;
+                    // Format: " 63Hz L: [%s]"
+                    // instName (8) + ": " (2) + brackets (2) = 12 static
+                    int staticLen = 12;
                     int maxMeter = max(2, colWidth - staticLen);
                     int meterLen = (int) (channelLevels[ch] * maxMeter);
 
                     String meter = ProgressBar.render(meterLen, maxMeter,
-                            ProgressBar.Style.DOTTED_BACKGROUND, true);
+                            ProgressBar.Style.DOTTED_BACKGROUND, true, trailColor);
 
-                    cell = String.format("CH %02d %-13s: %s", ch + 1, "(" + instName + ")", meter);
+                    cell = String.format("%-8s: %s", instName, meter);
 
                     int visibleLen = staticLen + maxMeter;
                     cell += " ".repeat(max(0, colWidth - visibleLen));

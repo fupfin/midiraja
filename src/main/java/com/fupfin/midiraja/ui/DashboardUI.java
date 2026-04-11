@@ -75,6 +75,12 @@ public class DashboardUI implements PlaybackUI
         rawPlaylistPanel.updateContext(engine.getContext());
         rawChannelPanel.updatePrograms(engine.getChannelPrograms());
 
+        if (engine.isSpectrumMode())
+        {
+            rawChannelPanel.setMode(ChannelActivityPanel.Mode.SPECTRUM);
+            channelPanel.setTitle("SPECTRUM");
+        }
+
         nowPlayingPanel.setCopyright(extractCopyright(engine.getSequence()));
         nowPlayingPanel.setFilterInfo(engine.getFilterDescription());
         nowPlayingPanel.setPortSuffix(engine.getPortSuffix());
