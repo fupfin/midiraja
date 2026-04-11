@@ -125,6 +125,20 @@ public final class FmMidiUtil
     }
 
     /**
+     * Returns the smallest MULT value among carrier operators for the given algorithm.
+     * MULT=0 means ×0.5 per spec and is treated as the lowest value.
+     * The carrier with the lowest frequency multiple determines the perceived fundamental pitch.
+     */
+    static int minCarrierMult(int[] multRow, int alg)
+    {
+        int[] cops = carrierOps(alg);
+        int min = Integer.MAX_VALUE;
+        for (int op : cops)
+            min = Math.min(min, multRow[op]);
+        return (min == Integer.MAX_VALUE) ? 1 : min;
+    }
+
+    /**
      * Returns operator indices that are carriers for the given algorithm.
      *
      * <p>

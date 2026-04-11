@@ -72,6 +72,11 @@ public class Ym2612MidiConverter
     private final int[] algorithm = new int[6];
     private final int[] feedback = new int[6];
     private final int[] currentProgram = { -1, -1, -1, -1, -1, -1 };
+    // MUL per channel per operator (0x30-0x3F). MULT=0 means ×0.5; MULT=n means ×n.
+    private final int[][] mult = {
+            { 1, 1, 1, 1 }, { 1, 1, 1, 1 }, { 1, 1, 1, 1 },
+            { 1, 1, 1, 1 }, { 1, 1, 1, 1 }, { 1, 1, 1, 1 }
+    };
     // TL per channel per operator. Op index: 0=S1(0x40), 1=S3(0x44), 2=S2(0x48), 3=S4(0x4C).
     private final int[][] tl = {
             { 127, 127, 127, 127 }, { 127, 127, 127, 127 }, { 127, 127, 127, 127 },
@@ -99,7 +104,14 @@ public class Ym2612MidiConverter
         int data = event.rawData()[1] & 0xFF;
         int portOffset = (event.chip() == port1ChipId) ? 3 : 0;
 
-        if (addr >= 0x40 && addr <= 0x4F)
+        if (addr >= 0x30 && addr <= 0x3F)
+        {
+            int op = (addr - 0x30) >> 2;
+            int ch = (addr & 0x03) + portOffset;
+            if (ch < 6)
+                mult[ch][op] = data & 0x0F;
+        }
+        else if (addr >= 0x40 && addr <= 0x4F)
         {
             int op = (addr - 0x40) >> 2;
             int ch = (addr & 0x03) + portOffset;
@@ -274,14 +286,32 @@ public class Ym2612MidiConverter
     {
         int fnum = (fnumHigh[ch] & 0x07) << 8 | fnumLow[ch];
         int block = (fnumHigh[ch] >> 3) & 0x07;
-        return opnNote(clock, fnum, block, fmDivider);
+        return opnNote(clock, fnum, block, fmDivider, minCarrierMult(ch));
+    }
+
+    private int minCarrierMult(int ch)
+    {
+        return FmMidiUtil.minCarrierMult(mult[ch], algorithm[ch]);
     }
 
     static int opnNote(long clock, int fnum, int block, int divider)
     {
+        return opnNote(clock, fnum, block, divider, 1);
+    }
+
+    /**
+     * Converts YM2612 F-number / Block / carrier MULT to a MIDI note number.
+     *
+     * @param carrierMult
+     *            MULT value of the dominant (lowest-frequency) carrier operator.
+     *            MULT=0 means ×0.5 per YM2612 spec; MULT=n means ×n.
+     */
+    static int opnNote(long clock, int fnum, int block, int divider, int carrierMult)
+    {
         if (fnum <= 0)
             return -1;
-        double f = fnum * clock / ((double) divider * (1L << (21 - block)));
+        double base = fnum * clock / ((double) divider * (1L << (21 - block)));
+        double f = (carrierMult == 0) ? base * 0.5 : base * carrierMult;
         return clampNote((int) Math.round(12 * Math.log(f / 440.0) / Math.log(2) + 69));
     }
 

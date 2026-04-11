@@ -290,6 +290,69 @@ class Ym2612MidiConverterTest
         assertNull(noteOn, "fnum=0 should suppress NoteOn");
     }
 
+    // ── opnNote carrier MULT correction ──────────────────────────────────────
+
+    @Test
+    void opnNote_mult1_matchesBaseFrequency() throws Exception
+    {
+        // MULT=1 (default): note should equal the base F-number computation
+        int noMult = Ym2612MidiConverter.opnNote(CLOCK, 618, 4, 144, 1);
+        int withMult1 = Ym2612MidiConverter.opnNote(CLOCK, 618, 4, 144, 1);
+        assertEquals(noMult, withMult1, "MULT=1 must yield the same note as no correction");
+    }
+
+    @Test
+    void opnNote_mult2_raisesNoteByOneOctave() throws Exception
+    {
+        // MULT=2: carrier frequency doubles → one octave up → +12 semitones
+        int base = Ym2612MidiConverter.opnNote(CLOCK, 618, 4, 144, 1);
+        int octaveUp = Ym2612MidiConverter.opnNote(CLOCK, 618, 4, 144, 2);
+        assertEquals(base + 12, octaveUp, "MULT=2 must raise note by 12 semitones");
+    }
+
+    @Test
+    void opnNote_mult0_lowersNoteByOneOctave() throws Exception
+    {
+        // MULT=0 means ×0.5: carrier frequency halved → one octave down → −12 semitones
+        int base = Ym2612MidiConverter.opnNote(CLOCK, 618, 4, 144, 1);
+        int octaveDown = Ym2612MidiConverter.opnNote(CLOCK, 618, 4, 144, 0);
+        assertEquals(base - 12, octaveDown, "MULT=0 (×0.5) must lower note by 12 semitones");
+    }
+
+    @Test
+    void converter_alg4_carrierMult2_raisesNoteByOctave() throws Exception
+    {
+        // alg=4: carriers are op2 (0x38+ch=0x38) and op3 (0x3C+ch=0x3C).
+        // MUL register for ch0: op2=0x38, op3=0x3C.
+        var converter = new Ym2612MidiConverter();
+        var tracks = makeTracks();
+
+        // Baseline: alg=4, TL audible, MULT=1 (default)
+        converter.convert(port0(0xB0, 0x04), tracks, CLOCK, 0); // alg=4, fb=0
+        converter.convert(port0(0x48, 10), tracks, CLOCK, 0); // op2 TL=10
+        converter.convert(port0(0x4C, 10), tracks, CLOCK, 0); // op3 TL=10
+        converter.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
+        converter.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
+        converter.convert(port0(0x28, 0xF0), tracks, CLOCK, 1); // key-on
+        int noteWithMult1 = findFirst(tracks[3], ShortMessage.NOTE_ON).getData1();
+
+        // Now set carrier op2 and op3 (MUL regs 0x38, 0x3C) to MULT=2
+        var converter2 = new Ym2612MidiConverter();
+        converter2.convert(port0(0xB0, 0x04), tracks, CLOCK, 0); // alg=4, fb=0
+        converter2.convert(port0(0x38, 0x02), tracks, CLOCK, 0); // op2 MULT=2
+        converter2.convert(port0(0x3C, 0x02), tracks, CLOCK, 0); // op3 MULT=2
+        converter2.convert(port0(0x48, 10), tracks, CLOCK, 0); // op2 TL=10
+        converter2.convert(port0(0x4C, 10), tracks, CLOCK, 0); // op3 TL=10
+        converter2.convert(port0(0xA4, 0x22), tracks, CLOCK, 0);
+        converter2.convert(port0(0xA0, 0x6A), tracks, CLOCK, 0);
+        var tracks2 = makeTracks();
+        converter2.convert(port0(0x28, 0xF0), tracks2, CLOCK, 1); // key-on
+        int noteWithMult2 = findFirst(tracks2[3], ShortMessage.NOTE_ON).getData1();
+
+        assertEquals(noteWithMult1 + 12, noteWithMult2,
+                "alg4 with carrier MULT=2 must emit note one octave above MULT=1");
+    }
+
     @Test
     void port1_channel_usesCorrectMidiChannel() throws Exception
     {

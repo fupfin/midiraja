@@ -55,6 +55,11 @@ public class Ym2151MidiConverter
     private final int[] algorithm = new int[CHANNELS];
     private final int[] feedback = new int[CHANNELS];
     private final int[] currentProgram = { -1, -1, -1, -1, -1, -1, -1, -1 };
+    // MUL per channel per operator. Op index: 0=M1(0x40), 1=M2(0x48), 2=C1(0x50), 3=C2(0x58).
+    private final int[][] mult = {
+            { 1, 1, 1, 1 }, { 1, 1, 1, 1 }, { 1, 1, 1, 1 }, { 1, 1, 1, 1 },
+            { 1, 1, 1, 1 }, { 1, 1, 1, 1 }, { 1, 1, 1, 1 }, { 1, 1, 1, 1 }
+    };
     // TL per channel per operator. Op index: 0=M1(0x60), 1=M2(0x68), 2=C1(0x70), 3=C2(0x78).
     private final int[][] tl = {
             { 127, 127, 127, 127 }, { 127, 127, 127, 127 }, { 127, 127, 127, 127 }, { 127, 127, 127, 127 },
@@ -86,7 +91,14 @@ public class Ym2151MidiConverter
         int addr = event.rawData()[0] & 0xFF;
         int data = event.rawData()[1] & 0xFF;
 
-        if (addr >= 0x60 && addr <= 0x7F)
+        if (addr >= 0x40 && addr <= 0x5F)
+        {
+            // DT1/MUL: bits 3-0 = MUL, bits 6-4 = DT1
+            int op = (addr - 0x40) >> 3;
+            int ch = addr & 0x07;
+            mult[ch][op] = data & 0x0F;
+        }
+        else if (addr >= 0x60 && addr <= 0x7F)
         {
             // TL registers: M1=0x60+ch, M2=0x68+ch, C1=0x70+ch, C2=0x78+ch
             int op = (addr - 0x60) >> 3;
@@ -245,12 +257,16 @@ public class Ym2151MidiConverter
     }
 
     /**
-     * Converts KC (Key Code) to a MIDI note number.
+     * Converts KC (Key Code) to a MIDI note number, corrected for carrier MULT.
      *
      * <p>
      * KC encodes octave in bits 6-4 and a non-linear note code in bits 3-0.
      * Within each octave the sequence starts at C# (semitone 0) and wraps to C of
-     * the next octave (semitone 11). MIDI note = octave × 12 + semitone + 13.
+     * the next octave (semitone 11). Base MIDI note = octave × 12 + semitone + 13.
+     *
+     * <p>
+     * The minimum carrier MULT shifts the perceived pitch: MULT=2 adds one octave,
+     * MULT=0 (×0.5) subtracts one octave.
      */
     private int computeNote(int ch)
     {
@@ -259,7 +275,10 @@ public class Ym2151MidiConverter
         int semitone = KC_SEMITONE[noteCode];
         if (semitone < 0)
             return -1;
-        int midiNote = octave * 12 + semitone + KC_MIDI_BASE;
-        return Math.clamp(midiNote, 0, 127);
+        int base = octave * 12 + semitone + KC_MIDI_BASE;
+        int m = minCarrierMult(mult[ch], algorithm[ch]);
+        double multFactor = (m == 0) ? 0.5 : m;
+        int offset = (int) Math.round(12 * Math.log(multFactor) / Math.log(2));
+        return Math.clamp(base + offset, 0, 127);
     }
 }

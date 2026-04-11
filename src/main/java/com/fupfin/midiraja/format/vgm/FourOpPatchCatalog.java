@@ -240,6 +240,14 @@ final class FourOpPatchCatalog extends FmPatchCatalog
             List<PatchEvent> events,
             Map<Integer, List<Long>> sigDurLists)
     {
+        if (addr >= 0x30 && addr <= 0x3F)
+        {
+            int op = (addr - 0x30) >> 2;
+            int ch = (addr & 0x03) + portOffset;
+            if (ch < st.channels)
+                st.mult[ch][op] = data & 0x0F;
+            return;
+        }
         if (scanOperatorRegs(st, addr, data, OPN_MAP, portOffset))
             return;
         else if (addr >= 0xB0 && addr <= 0xB2)
@@ -281,7 +289,8 @@ final class FourOpPatchCatalog extends FmPatchCatalog
                 {
                     int fnum = (st.fnumHigh[ch] & 0x07) << 8 | st.fnumLow[ch];
                     int block = (st.fnumHigh[ch] >> 3) & 0x07;
-                    int note = Ym2612MidiConverter.opnNote(clock, fnum, block, divider);
+                    int minMult = minCarrierMult(st.mult[ch], st.algorithm[ch]);
+                    int note = Ym2612MidiConverter.opnNote(clock, fnum, block, divider, minMult);
                     if (note >= 0)
                     {
                         collectEvent(st, ch, note, events);
@@ -432,6 +441,7 @@ final class FourOpPatchCatalog extends FmPatchCatalog
         final boolean[] keyState;
         final int[] algorithm;
         final int[] feedback;
+        final int[][] mult;
         final int[][] tl;
         final int[][] ar;
         final int[][] d1r;
@@ -447,11 +457,14 @@ final class FourOpPatchCatalog extends FmPatchCatalog
             keyState = new boolean[channels];
             algorithm = new int[channels];
             feedback = new int[channels];
+            mult = new int[channels][4];
             tl = new int[channels][4];
             ar = new int[channels][4];
             d1r = new int[channels][4];
             keyOnSample = new long[channels];
             keyOnSig = new int[channels];
+            for (int[] row : mult)
+                Arrays.fill(row, 1);
             for (int[] row : tl)
                 Arrays.fill(row, 127);
         }
