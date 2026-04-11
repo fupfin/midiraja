@@ -9,7 +9,7 @@
 
     <!-- FFM native bridge fields and methods mirror exact C function names and cannot be renamed -->
     <suppress checks="MemberNameCheck"
-              files=".*(FFMAdlMidiNativeBridge|FFMMuntNativeBridge|FFMOpnMidiNativeBridge|FFMTsfNativeBridge|NativeAudioEngine|FluidSynthProvider)\.java"/>
+              files=".*(FFMAdlMidiNativeBridge|FFMMuntNativeBridge|FFMOpnMidiNativeBridge|FFMTsfNativeBridge|FFMLibvgmBridge|NativeAudioEngine|FluidSynthProvider)\.java"/>
     <suppress checks="MethodNameCheck" files=".*FluidSynthProvider\.java"/>
     <suppress checks="LocalVariableNameCheck" files=".*FluidSynthProvider\.java"/>
 

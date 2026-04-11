@@ -378,9 +378,30 @@ task buildMiniaudioLib(type: Exec) {
     """
 }
 
+task buildVgmLib(type: Exec) {
+    description = 'Builds libmidiraja_vgm shared library via cmake + make (requires ext/libvgm submodule).'
+    onlyIf {
+        !org.gradle.internal.os.OperatingSystem.current().isWindows() &&
+        file("ext/libvgm/CMakeLists.txt").exists()
+    }
+
+    def sourceDir = file("src/main/c/libvgm")
+    def buildDir  = file("build/native-libs/${nativeTarget}/vgm")
+    inputs.dir(sourceDir)
+    inputs.dir(file("ext/libvgm"))
+    outputs.file(file("${buildDir}/libmidiraja_vgm.${org.gradle.internal.os.OperatingSystem.current().isMacOsX() ? 'dylib' : 'so'}"))
+
+    doFirst { buildDir.mkdirs() }
+    commandLine 'bash', '-c', """
+        cmake -S ${sourceDir.absolutePath} -B ${buildDir.absolutePath} \\
+            -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release && \\
+        make -C ${buildDir.absolutePath} -j\$(sysctl -n hw.ncpu 2>/dev/null || nproc)
+    """
+}
+
 // nativeCompile must have native libraries present before linking
 tasks.named('nativeCompile').configure {
-    dependsOn buildAdlMidiLib, buildOpnMidiLib, buildMiniaudioLib, buildTsfLib, buildMediakeysLib
+    dependsOn buildAdlMidiLib, buildOpnMidiLib, buildMiniaudioLib, buildTsfLib, buildMediakeysLib, buildVgmLib
     doLast {
         // Copy mediakeys dylib next to the native binary so rpath (@executable_path/../lib) finds it
         def os = org.gradle.internal.os.OperatingSystem.current()
@@ -395,11 +416,11 @@ tasks.named('nativeCompile').configure {
 
 // Make local dev builds also compile the C libraries automatically
 tasks.named('installDist').configure {
-    dependsOn buildMiniaudioLib, buildAdlMidiLib, buildOpnMidiLib, buildTsfLib, buildMediakeysLib
+    dependsOn buildMiniaudioLib, buildAdlMidiLib, buildOpnMidiLib, buildTsfLib, buildMediakeysLib, buildVgmLib
 }
 
 tasks.named('test').configure {
-    dependsOn buildMiniaudioLib, buildAdlMidiLib, buildOpnMidiLib, buildTsfLib, buildMediakeysLib
+    dependsOn buildMiniaudioLib, buildAdlMidiLib, buildOpnMidiLib, buildTsfLib, buildMediakeysLib, buildVgmLib
     dependsOn checkstyleMain
 }
 
@@ -411,6 +432,10 @@ distributions {
             from("build/native-libs/${nativeTarget}/mediakeys") {
                 into 'lib'
                 include '*.dylib', '*.so'
+            }
+            from("build/native-libs/${nativeTarget}/vgm") {
+                into 'lib'
+                include '*.dylib', '*.so', '*.dll'
             }
         }
     }

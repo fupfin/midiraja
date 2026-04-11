@@ -10,3 +10,6 @@
 [submodule "ext/TinySoundFont"]
 	path = ext/TinySoundFont
 	url = https://github.com/schellingb/TinySoundFont
+[submodule "ext/libvgm"]
+	path = ext/libvgm
+	url = https://github.com/ValleyBell/libvgm.git

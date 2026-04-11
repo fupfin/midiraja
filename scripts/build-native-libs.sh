@@ -215,4 +215,26 @@ if [ "$OS_FAMILY" = "windows" ]; then
     fi
 fi
 
+# 9. Build libvgm wrapper (requires ext/libvgm submodule)
+if [ -d "$PROJECT_ROOT/ext/libvgm" ]; then
+    LIBVGM_OUT="$NATIVE_LIBS/vgm"
+    LIBVGM_LIB="$LIBVGM_OUT/libmidiraja_vgm.$LIB_EXT"
+    LIBVGM_SRC="$PROJECT_ROOT/src/main/c/libvgm/vgm_bridge.cpp"
+    LIBVGM_CMAKE="$PROJECT_ROOT/src/main/c/libvgm/CMakeLists.txt"
+    if needs_rebuild "$LIBVGM_LIB" "$LIBVGM_SRC" "$LIBVGM_CMAKE"; then
+        echo "==> Building libmidiraja_vgm..."
+        mkdir -p "$LIBVGM_OUT"
+        # Use -S/-B so cmake reconfigures automatically (handles stale caches)
+        cmake -S "$PROJECT_ROOT/src/main/c/libvgm" -B "$LIBVGM_OUT" \
+            -G "$CMAKE_GENERATOR" $CMAKE_MAKE_FLAG \
+            -DCMAKE_BUILD_TYPE=Release
+        $MAKE_CMD -C "$LIBVGM_OUT" -j"$PARALLEL"
+    else
+        echo "==> libmidiraja_vgm up-to-date, skipping."
+    fi
+else
+    echo "==> Skipping libmidiraja_vgm (ext/libvgm submodule not found)."
+    echo "    To enable: git submodule add https://github.com/ValleyBell/libvgm.git ext/libvgm"
+fi
+
 echo "Native libraries built successfully → $NATIVE_LIBS"
