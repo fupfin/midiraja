@@ -15,6 +15,10 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.fupfin.midiraja.export.vgm.ChipSpec;
+import com.fupfin.midiraja.export.vgm.ChipType;
+import com.fupfin.midiraja.export.vgm.RoutingMode;
+
 class VgmCommandTest
 {
 
@@ -46,120 +50,120 @@ class VgmCommandTest
         assertFalse(VgmCommand.isVgmFile(new File("game")), "Files without extension should not be recognized");
     }
 
-    // ── System option defaults ────────────────────────────────────────────────
+    // ── Chip spec resolution — presets ───────────────────────────────────────
 
     @Test
-    void system_defaultIsAy8910()
+    void noChipSpec_defaultsToAy8910Dual()
     {
         VgmCommand cmd = new VgmCommand();
-        assertEquals("ay8910", cmd.getSystem(), "Default --system value should be 'ay8910'");
-    }
-
-    // ── System option validation ──────────────────────────────────────────────
-
-    @Test
-    void ay8910System_isValid()
-    {
-        VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("ay8910");
-        assertDoesNotThrow(() -> cmd.validateSystem(), "ay8910 system should be valid");
+        assertEquals(List.of(ChipType.AY8910, ChipType.AY8910), cmd.resolveChipSpec().chips(),
+                "Default chip list should be dual AY8910");
     }
 
     @Test
-    void ym2413System_isValid()
+    void system_ay8910_returnsDualAy8910()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("ym2413");
-        assertDoesNotThrow(() -> cmd.validateSystem(), "ym2413 system should be valid");
+        cmd.chipSpec.system = "ay8910";
+        assertEquals(List.of(ChipType.AY8910, ChipType.AY8910), cmd.resolveChipSpec().chips());
     }
 
     @Test
-    void msxSystem_isValid()
+    void system_ym2413_returnsYm2413()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("msx");
-        assertDoesNotThrow(() -> cmd.validateSystem(), "msx system should be valid");
+        cmd.chipSpec.system = "ym2413";
+        assertEquals(List.of(ChipType.YM2413), cmd.resolveChipSpec().chips());
     }
 
     @Test
-    void opl3System_isValid()
+    void system_msx_returnsYm2413PlusAy8910()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("opl3");
-        assertDoesNotThrow(() -> cmd.validateSystem(), "opl3 system should be valid");
+        cmd.chipSpec.system = "msx";
+        assertEquals(List.of(ChipType.YM2413, ChipType.AY8910), cmd.resolveChipSpec().chips());
+    }
+
+    @Test
+    void system_opl3_returnsOpl3()
+    {
+        VgmCommand cmd = new VgmCommand();
+        cmd.chipSpec.system = "opl3";
+        assertEquals(List.of(ChipType.OPL3), cmd.resolveChipSpec().chips());
+    }
+
+    @Test
+    void system_presets_useSequentialRouting()
+    {
+        VgmCommand cmd = new VgmCommand();
+        cmd.chipSpec.system = "msx";
+        assertEquals(RoutingMode.SEQUENTIAL, cmd.resolveChipSpec().mode(),
+                "Presets should always use SEQUENTIAL routing mode");
+    }
+
+    @Test
+    void system_caseInsensitive()
+    {
+        VgmCommand cmd = new VgmCommand();
+        cmd.chipSpec.system = "AY8910";
+        assertDoesNotThrow(() -> cmd.resolveChipSpec(), "System name lookup should be case-insensitive");
+
+        cmd.chipSpec.system = "YM2413";
+        assertDoesNotThrow(() -> cmd.resolveChipSpec());
+
+        cmd.chipSpec.system = "MSX";
+        assertDoesNotThrow(() -> cmd.resolveChipSpec());
+
+        cmd.chipSpec.system = "OPL3";
+        assertDoesNotThrow(() -> cmd.resolveChipSpec());
     }
 
     @Test
     void unknownSystem_throwsIllegalArgument()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("xyz");
-        assertThrows(IllegalArgumentException.class, () -> cmd.validateSystem(),
-                "Unknown system value 'xyz' should throw IllegalArgumentException");
+        cmd.chipSpec.system = "xyz";
+        assertThrows(IllegalArgumentException.class, () -> cmd.resolveChipSpec(),
+                "Unknown system value should throw IllegalArgumentException");
     }
 
     @Test
     void emptySystem_throwsIllegalArgument()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("");
-        assertThrows(IllegalArgumentException.class, () -> cmd.validateSystem(),
+        cmd.chipSpec.system = "";
+        assertThrows(IllegalArgumentException.class, () -> cmd.resolveChipSpec(),
                 "Empty system value should throw IllegalArgumentException");
     }
 
-    @Test
-    void systemValidation_isCaseInsensitive()
-    {
-        VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("AY8910");
-        assertDoesNotThrow(() -> cmd.validateSystem(), "System validation should be case-insensitive");
-
-        cmd.setSystem("YM2413");
-        assertDoesNotThrow(() -> cmd.validateSystem(), "System validation should be case-insensitive");
-
-        cmd.setSystem("MSX");
-        assertDoesNotThrow(() -> cmd.validateSystem(), "System validation should be case-insensitive");
-
-        cmd.setSystem("OPL3");
-        assertDoesNotThrow(() -> cmd.validateSystem(), "System validation should be case-insensitive");
-    }
-
-    // ── System exporter mapping ───────────────────────────────────────────────
+    // ── Chip spec resolution — --chips spec ──────────────────────────────────
 
     @Test
-    void ay8910System_returnsAy8910Exporter()
+    void chips_singleAy8910_returnsSingleChip()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("ay8910");
-        assertEquals("Ay8910VgmExporter", cmd.getExporterClassName(),
-                "ay8910 system should use Ay8910VgmExporter");
+        cmd.chipSpec.chips = "ay8910";
+        assertEquals(List.of(ChipType.AY8910), cmd.resolveChipSpec().chips());
     }
 
     @Test
-    void ym2413System_returnsYm2413Exporter()
+    void chips_ay8910PlusYm2413_returnsTwoChipsWithChannelMode()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("ym2413");
-        assertEquals("Ym2413VgmExporter", cmd.getExporterClassName(),
-                "ym2413 system should use Ym2413VgmExporter");
+        cmd.chipSpec.chips = "ay8910+ym2413";
+        ChipSpec spec = cmd.resolveChipSpec();
+        assertEquals(List.of(ChipType.AY8910, ChipType.YM2413), spec.chips());
+        assertEquals(RoutingMode.CHANNEL, spec.mode(), "+ separator should produce CHANNEL routing mode");
     }
 
     @Test
-    void msxSystem_returnsMsxExporter()
+    void chips_sequentialSeparator_returnsSequentialMode()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("msx");
-        assertEquals("MsxVgmExporter", cmd.getExporterClassName(),
-                "msx system should use MsxVgmExporter");
-    }
-
-    @Test
-    void opl3System_returnsOpl3Exporter()
-    {
-        VgmCommand cmd = new VgmCommand();
-        cmd.setSystem("opl3");
-        assertEquals("Opl3VgmExporter", cmd.getExporterClassName(),
-                "opl3 system should use Opl3VgmExporter");
+        cmd.chipSpec.chips = "scc>ay8910";
+        ChipSpec spec = cmd.resolveChipSpec();
+        assertEquals(List.of(ChipType.SCC, ChipType.AY8910), spec.chips());
+        assertEquals(RoutingMode.SEQUENTIAL, spec.mode(), "> separator should produce SEQUENTIAL routing mode");
     }
 
     // ── File list handling ────────────────────────────────────────────────────

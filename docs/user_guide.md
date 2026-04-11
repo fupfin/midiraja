@@ -299,7 +299,7 @@ Midiraja plays VGM/VGZ (Video Game Music) files — the standard format for pres
 | **8-bit Systems** | Game Boy DMG, NES APU, SNES SPC700 | Nintendo systems |
 | **Arcade & PC** | OPL2, OPL3, Namco WSG, Konami VRC6/VRC7 | DOS, Arcade boards, NES cartridges |
 
-See the full list in [libvgm Integration Architecture](libvgm_integration.md).
+See the full list in [libvgm Integration Architecture](vgm_playback.md).
 
 **Example:**
 ```bash
@@ -331,7 +331,7 @@ midra vgm --system ym2413 --reverb hall --reverb-level 5 mynotes.mid
 
 ##### Technical Details
 
-For details on libvgm architecture, the C API, native bridge design, and how MIDI→VGM export works, see [libvgm Integration Architecture](libvgm_integration.md).
+For details on libvgm architecture, the C API, native bridge design, and how MIDI→VGM export works, see [libvgm Integration Architecture](vgm_playback.md).
 
 ---
 

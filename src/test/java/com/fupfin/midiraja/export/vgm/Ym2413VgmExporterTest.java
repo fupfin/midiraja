@@ -21,6 +21,11 @@ import org.junit.jupiter.api.Test;
 
 class Ym2413VgmExporterTest
 {
+    private static CompositeVgmExporter composite()
+    {
+        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("ym2413")));
+    }
+
     private static int readInt32Le(byte[] data, int offset)
     {
         return (data[offset] & 0xFF)
@@ -38,7 +43,7 @@ class Ym2413VgmExporterTest
         seq.createTrack().add(
                 new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 100), 0));
         var out = new ByteArrayOutputStream();
-        new Ym2413VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         assertEquals('V', data[0]);
@@ -54,7 +59,7 @@ class Ym2413VgmExporterTest
         var seq = new Sequence(Sequence.PPQ, 480);
         seq.createTrack();
         var out = new ByteArrayOutputStream();
-        new Ym2413VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
         assertEquals(VgmWriter.YM2413_CLOCK, readInt32Le(data, 0x10));
     }
@@ -68,7 +73,7 @@ class Ym2413VgmExporterTest
         seq.createTrack().add(
                 new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 127), 0));
         var out = new ByteArrayOutputStream();
-        new Ym2413VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // 0x30 slot0 = instrument|vol; velocity 127 → vol=0 (0 = max on YM2413)
@@ -85,7 +90,7 @@ class Ym2413VgmExporterTest
         seq.createTrack().add(
                 new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 100), 0));
         var out = new ByteArrayOutputStream();
-        new Ym2413VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // 0x20 slot0 with bit 4 (0x10) set = key on
@@ -103,7 +108,7 @@ class Ym2413VgmExporterTest
         track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 100), 0));
         track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_OFF, 0, 69, 0), 480));
         var out = new ByteArrayOutputStream();
-        new Ym2413VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // After note off, there should be a write to 0x20 with 0 (key off)
@@ -122,7 +127,7 @@ class Ym2413VgmExporterTest
         // NOTE_ON with vel=0 is note-off
         track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 0), 480));
         var out = new ByteArrayOutputStream();
-        new Ym2413VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         List<int[]> writes = findYm2413Writes(data, 0x40);
@@ -136,18 +141,18 @@ class Ym2413VgmExporterTest
     {
         var seq = new Sequence(Sequence.PPQ, 480);
         Track track = seq.createTrack();
-        // Program 8 (Chromatic Perc) → YM2413 instrument 11
+        // Program 8 (Celesta) → YM2413 instrument 12 (Vibraphone)
         track.add(new MidiEvent(new ShortMessage(ShortMessage.PROGRAM_CHANGE, 0, 8, 0), 0));
         track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 100), 0));
         var out = new ByteArrayOutputStream();
-        new Ym2413VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         List<int[]> writes = findYm2413Writes(data, 0x40);
-        // Instrument 11 → upper nibble of 0x30 = 11 << 4 = 0xB0
-        boolean foundInst11 = writes.stream()
-                .anyMatch(w -> w[0] == 0x30 && ((w[1] >> 4) & 0x0F) == 11);
-        assertTrue(foundInst11, "Program 8 should map to YM2413 instrument 11");
+        // Instrument 12 → upper nibble of 0x30 = 12 << 4 = 0xC0
+        boolean foundInst12 = writes.stream()
+                .anyMatch(w -> w[0] == 0x30 && ((w[1] >> 4) & 0x0F) == 12);
+        assertTrue(foundInst12, "Program 8 (Celesta) should map to YM2413 instrument 12 (Vibraphone)");
     }
 
     // ── Rhythm mode ───────────────────────────────────────────────────────────
@@ -159,7 +164,7 @@ class Ym2413VgmExporterTest
         seq.createTrack().add(
                 new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 36, 100), 0));
         var out = new ByteArrayOutputStream();
-        new Ym2413VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // Rhythm mode enable = reg 0x0E = 0x20
@@ -177,8 +182,79 @@ class Ym2413VgmExporterTest
         for (int i = 0; i < 8; i++) // >6 melodic slots → stealing
             track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60 + i, 80), 0));
         var out = new ByteArrayOutputStream();
-        assertDoesNotThrow(() -> new Ym2413VgmExporter().export(seq, out));
+        assertDoesNotThrow(() -> composite().export(seq, out));
         assertEquals('V', out.toByteArray()[0]);
+    }
+
+    // ── Volume range ──────────────────────────────────────────────────────────
+
+    @Test
+    void highVelocity127_producesMinimumVolume0() throws Exception
+    {
+        var seq = new Sequence(Sequence.PPQ, 480);
+        seq.createTrack().add(
+                new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 127), 0));
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // velocity=127 → vol = 15 - (int)round(127 * 15.0 / 127.0) = 15 - 15 = 0
+        List<int[]> writes = findYm2413Writes(data, 0x40);
+        boolean foundMaxVol = writes.stream()
+                .anyMatch(w -> w[0] == 0x30 && (w[1] & 0x0F) == 0);
+        assertTrue(foundMaxVol, "velocity=127 should produce volume=0 (max on YM2413)");
+    }
+
+    @Test
+    void lowVelocity1_producesHighVolume15() throws Exception
+    {
+        var seq = new Sequence(Sequence.PPQ, 480);
+        seq.createTrack().add(
+                new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 1), 0));
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // velocity=1 → vol = 15 - (int)round(1 * 15.0 / 127.0) = 15 - 0 = 15
+        List<int[]> writes = findYm2413Writes(data, 0x40);
+        boolean foundMinVol = writes.stream()
+                .anyMatch(w -> w[0] == 0x30 && (w[1] & 0x0F) == 15);
+        assertTrue(foundMinVol, "velocity=1 should produce volume=15 (near silent on YM2413)");
+    }
+
+    @Test
+    void mediumVelocity64_producesMiddleVolume() throws Exception
+    {
+        var seq = new Sequence(Sequence.PPQ, 480);
+        seq.createTrack().add(
+                new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 64), 0));
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // velocity=64 → vol = 15 - (int)round(64 * 15.0 / 127.0) = 15 - 8 = 7
+        List<int[]> writes = findYm2413Writes(data, 0x40);
+        boolean foundMidVol = writes.stream()
+                .anyMatch(w -> w[0] == 0x30 && (w[1] & 0x0F) == 7);
+        assertTrue(foundMidVol, "velocity=64 should produce volume=7 (middle range)");
+    }
+
+    @Test
+    void rhythmHighVelocity127_producesMinimumVolume0() throws Exception
+    {
+        var seq = new Sequence(Sequence.PPQ, 480);
+        seq.createTrack().add(
+                new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 36, 127), 0));
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // For bass drum, register 0x36 has vol in both nibbles
+        // vol = 15 - (int)round(127 * 15.0 / 127.0) = 0
+        List<int[]> writes = findYm2413Writes(data, 0x40);
+        boolean foundMaxVol = writes.stream()
+                .anyMatch(w -> w[0] == 0x36 && (w[1] & 0x0F) == 0);
+        assertTrue(foundMaxVol, "rhythm velocity=127 should produce volume=0 (max)");
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

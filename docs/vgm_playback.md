@@ -161,38 +161,122 @@ All timestamps and sample counts use libvgm's internal precision (typically PCM 
 
 ## MIDI → VGM Conversion Path
 
-Midiraja supports the `--system <chip>` flag to convert MIDI files to VGM format in memory, then play via libvgm. This allows you to audition how a MIDI composition would sound on classic hardware.
+Midiraja can convert MIDI (and MOD/XM/etc.) files to VGM format in memory, then play via libvgm. This lets you audition how a composition would sound on classic hardware, using either the `--system` shorthand or the explicit `--chips` flag.
 
-### Supported Target Systems
+### Chip Selection
 
-| System | Chip(s) | Class |
+#### `--system` presets
+
+| Preset | Chip(s) | Notes |
 |--------|---------|-------|
-| `ay8910` | AY-3-8910 | PSG |
-| `ym2413` | YM2413 (OPLL) | FM |
-| `msx` | YM2413 (OPLL) | FM (MSX profile) |
-| `opl3` | YMF262 (OPL3) | FM |
+| `ay8910` | AY-3-8910 | Default; 3-voice PSG |
+| `ym2413` | YM2413 (OPLL) | 9 FM voices or 6 FM + rhythm |
+| `msx` | AY-3-8910 + YM2413 | Combined PSG + FM (MSX2 profile) |
+| `msx-scc` | AY-3-8910 + SCC + YM2413 | Full MSX combo with wavetable SCC |
+| `opl3` | YMF262 (OPL3) | 18 FM voices, 4-op support |
 
-These are the four systems currently supported for `--system` conversion. Passing any other value produces an error listing the valid choices.
+Passing an unrecognised value prints the valid choices.
+
+#### `--chips` — explicit chip combinations
+
+The `--chips` flag accepts one or more chip names with a separator that also determines the **routing mode**:
+
+| Separator | Syntax example | Routing mode | Behaviour |
+|-----------|----------------|--------------|-----------|
+| `+` | `scc+ay8910` | CHANNEL | Round-robin assignment by MIDI channel |
+| `,` | `ay8910,ym2413` | CHANNEL | Same as `+` |
+| `>` | `scc>ay8910` | SEQUENTIAL | Fill first chip before spilling to next |
+
+When `--chips` and `--system` are both absent the preset `ay8910` is used.
+
+### PSG-Preferred Routing
+
+When AY-3-8910 is present alongside other chips, **GM programs 112–127** (sound-effects / percussive timbres such as TinkBell, Gunshot, Bird Tweet) are always routed to the AY-3-8910 first, regardless of which chip the round-robin or fill-first algorithm would otherwise select. This reflects the historical convention that PSG chips handle noise-based sound effects better than FM synthesis.
+
+### Voice Allocation
+
+**CHANNEL mode** (`+` / `,`): each MIDI channel is permanently assigned to one chip handler in round-robin order. Channel 1 → handler 0, channel 2 → handler 1, etc., wrapping around.
+
+**SEQUENTIAL mode** (`>`): voices are assigned to handler 0 until all of its polyphony slots are occupied, then overflow spills into handler 1, and so on. Good for maximising polyphony when two chips of the same type are combined.
+
+### Supported Chips for MIDI → VGM Export
+
+| Chip | Type | Voices | Notes |
+|------|------|--------|-------|
+| AY-3-8910 | PSG | 3 tone + noise | Handles noise/SFX programs by preference |
+| YM2413 (OPLL) | FM | 9 melodic or 6 + rhythm | Built-in patch ROM; user patch via CC |
+| SCC (Konami) | Wavetable | 5 | Percussion mapped to slot 4 via synthesised waveforms |
+| YMF262 (OPL3) | FM | 18 (2-op) / 6 (4-op) | Full GM patch mapping via WOPL bank |
+
+### Unsupported Chips (Future Implementation)
+
+The following chips are planned but not yet implemented. Each entry describes the intended approach.
+
+#### SN76489 — Texas Instruments PSG (Sega Master System / Game Gear)
+
+- 3 square-wave tone channels + 1 noise channel
+- Simpler than AY-3-8910 (no envelope hardware, only 4-bit volume)
+- Planned: `sn76489` preset; noise channel used for drums, tone channels for melody
+
+#### YM2612 — FM synthesis (Sega Mega Drive / Genesis)
+
+- 6 FM channels, 4-operator OPX algorithm
+- Channel 6 optionally switches to PCM DAC (used for bass drums in practice)
+- VGM command: `0x52/0x53` (port 0/1 writes)
+- Planned: `ym2612` or `genesis` preset; patch map via OPN2 bank format
+
+#### YM2151 — FM synthesis (arcade / Sharp X68000)
+
+- 8 FM channels, 4-operator OPM algorithm
+- Used in many Capcom/Konami arcade boards and the X68000 home computer
+- VGM command: `0x54`
+- Planned: `ym2151` or `x68000` preset
+
+#### OPN Family — YM2203 / YM2608 / YM2610 (PC-88, Neo Geo, etc.)
+
+- YM2203 (OPN): 3 FM + AY-3-8910 SSG
+- YM2608 (OPNA): 6 FM + SSG + ADPCM rhythm + 6-channel ADPCM; used in PC-98
+- YM2610 (OPNB): 4 FM + SSG + ADPCM; used in Neo Geo
+- Planned: `ym2203`, `opna`, `neogeo` presets respectively
+
+#### YM3812 — OPL2 (AdLib / Sound Blaster)
+
+- 9 FM channels, 2-operator; OPL2 subset of OPL3
+- Already partially covered by the OPL3 exporter, but a dedicated OPL2 target
+  would honour the 9-channel limit and exclude 4-op / stereo features
+- Planned: `opl2` or `adlib` preset
+
+#### HuC6280 — Hudson Soft PSG (PC Engine / TurboGrafx-16)
+
+- 6 wavetable channels with 32-sample waveforms; similar to SCC but stereo panning per channel
+- VGM command: `0xB9`
+- Planned: `huc6280` or `pce` preset
+
+#### Game Boy DMG — LR35902 APU
+
+- 2 pulse channels, 1 wavetable channel, 1 noise channel
+- VGM command: `0xB3` (DMG registers)
+- Planned: `dmg` or `gameboy` preset; pulse channels for melody, noise for percussion
 
 ### Conversion Architecture
 
 ```
 MusicFormatLoader.load()
-├─ if --system flag provided:
-│  ├─ load MIDI as Sequence
-│  ├─ look up XxxVgmExporter (e.g., Ym2413VgmExporter)
-│  ├─ convert Sequence → byte[] VGM data
+├─ if MIDI/MOD/etc. (non-VGM input):
+│  ├─ load as Sequence
+│  ├─ resolve ChipSpec (--system or --chips)
+│  ├─ CompositeVgmExporter → byte[] VGM data
 │  └─ vgm_open_data(ctx, bytes, len)
-└─ else if .vgm/.vgz file:
-   ├─ vgm_open_file(ctx, path)
+└─ if .vgm/.vgz file:
+   └─ vgm_open_file(ctx, path)
 ```
 
-Each exporter (`Ay8910VgmExporter`, `Ym2413VgmExporter`, etc.) translates MIDI note-on/note-off/CC events into the target chip's register writes, generating valid VGM data.
+Each handler (`Ay8910Handler`, `Ym2413Handler`, `SccHandler`, `Opl3Handler`) translates MIDI note-on/note-off/CC events into the target chip's register writes, generating valid VGM data.
 
 **Key design points:**
 
 - **In-memory:** No temporary file I/O; conversion and playback are seamless
-- **Deterministic:** Same MIDI + system = same VGM bytes every time
+- **Deterministic:** Same MIDI + chip spec = same VGM bytes every time
 - **Lossless within target:** The VGM is properly formatted and playable by any VGM player
 - **DSP effects compatible:** The resulting PCM can be processed by EQ, reverb, etc.
 
@@ -413,7 +497,7 @@ If `vgm_render()` detects corrupt data mid-stream:
 
 ## Related Documentation
 
-- [VGM → MIDI Conversion Architecture](vgm-architecture.md) — The older conversion pipeline (still available for non-libvgm engines)
+- [VGM → MIDI Conversion Architecture](vgm_to_midi_conversion.md) — The older conversion pipeline (still available for non-libvgm engines)
 - [Native Audio Bridge Engineering](native-bridge-engineering.md) — FFM API patterns; libvgm uses the Queue-and-Drain pattern (implicit via SoftSynthProvider contract)
 - [DSP Pipeline Architecture](dsp-pipeline-engineering.md) — How libvgm PCM output feeds into EQ, reverb, and other effects
 - [User Guide: VGM Playback](user_guide.md#7-vgm-chiptune-playback) — Usage examples and command reference

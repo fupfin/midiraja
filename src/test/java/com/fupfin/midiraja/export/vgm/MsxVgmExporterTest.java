@@ -21,6 +21,11 @@ import org.junit.jupiter.api.Test;
 
 class MsxVgmExporterTest
 {
+    private static CompositeVgmExporter composite()
+    {
+        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("msx")));
+    }
+
     // ── Header ────────────────────────────────────────────────────────────────
 
     @Test
@@ -28,7 +33,7 @@ class MsxVgmExporterTest
     {
         var seq = singleNote(0, 69, 100);
         var out = new ByteArrayOutputStream();
-        new MsxVgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
         assertEquals('V', data[0]);
         assertEquals('g', data[1]);
@@ -47,7 +52,7 @@ class MsxVgmExporterTest
         for (int i = 0; i < 9; i++)
             track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60 + i, 80), 0));
         var out = new ByteArrayOutputStream();
-        new MsxVgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // 9 notes → 9 YM2413 key-on writes (reg 0x20-0x28 with bit 4 set)
@@ -65,7 +70,7 @@ class MsxVgmExporterTest
         for (int i = 0; i < 10; i++)
             track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60 + i, 80), 0));
         var out = new ByteArrayOutputStream();
-        new MsxVgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // At least one AY amplitude write (reg 8, 9, or 10) should be non-zero
@@ -81,7 +86,7 @@ class MsxVgmExporterTest
     {
         var seq = singleNote(9, 36, 100); // kick drum
         var out = new ByteArrayOutputStream();
-        new MsxVgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         boolean rhythmEnabled = findYm2413Writes(data).stream()
@@ -99,8 +104,70 @@ class MsxVgmExporterTest
         for (int i = 0; i < 15; i++) // more than 12 total slots
             track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60 + i, 80), 0));
         var out = new ByteArrayOutputStream();
-        assertDoesNotThrow(() -> new MsxVgmExporter().export(seq, out));
+        assertDoesNotThrow(() -> composite().export(seq, out));
         assertEquals('V', out.toByteArray()[0]);
+    }
+
+    // ── FM volume range ───────────────────────────────────────────────────────
+
+    @Test
+    void highVelocity127_producesMinimumVolume0() throws Exception
+    {
+        var seq = singleNote(0, 69, 127); // max velocity
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // velocity=127 → vol = 15 - (int)round(127 * 15.0 / 127.0) = 15 - 15 = 0
+        List<int[]> writes = findYm2413Writes(data);
+        boolean foundMaxVol = writes.stream()
+                .anyMatch(w -> w[0] == 0x30 && (w[1] & 0x0F) == 0);
+        assertTrue(foundMaxVol, "velocity=127 should produce volume=0 (max on YM2413)");
+    }
+
+    @Test
+    void lowVelocity1_producesHighVolume15() throws Exception
+    {
+        var seq = singleNote(0, 69, 1); // min velocity
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // velocity=1 → vol = 15 - (int)round(1 * 15.0 / 127.0) = 15 - 0 = 15
+        List<int[]> writes = findYm2413Writes(data);
+        boolean foundMinVol = writes.stream()
+                .anyMatch(w -> w[0] == 0x30 && (w[1] & 0x0F) == 15);
+        assertTrue(foundMinVol, "velocity=1 should produce volume=15 (near silent on YM2413)");
+    }
+
+    @Test
+    void mediumVelocity64_producesMiddleVolume() throws Exception
+    {
+        var seq = singleNote(0, 69, 64); // mid velocity
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // velocity=64 → vol = 15 - (int)round(64 * 15.0 / 127.0) = 15 - 8 = 7
+        List<int[]> writes = findYm2413Writes(data);
+        boolean foundMidVol = writes.stream()
+                .anyMatch(w -> w[0] == 0x30 && (w[1] & 0x0F) == 7);
+        assertTrue(foundMidVol, "velocity=64 should produce volume=7 (middle range)");
+    }
+
+    @Test
+    void rhythmHighVelocity127_producesMinimumVolume0() throws Exception
+    {
+        var seq = singleNote(9, 36, 127); // kick drum, max velocity
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // For bass drum (bit 4), register 0x36 has vol in both nibbles
+        List<int[]> writes = findYm2413Writes(data);
+        boolean foundMaxVol = writes.stream()
+                .anyMatch(w -> w[0] == 0x36 && (w[1] & 0x0F) == 0);
+        assertTrue(foundMaxVol, "rhythm velocity=127 should produce volume=0 (max)");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 import javax.sound.midi.Sequence;
 
 import org.jspecify.annotations.Nullable;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
@@ -34,10 +35,10 @@ import com.fupfin.midiraja.dsp.AudioProcessor;
 import com.fupfin.midiraja.dsp.FloatToShortSink;
 import com.fupfin.midiraja.dsp.SpectrumAnalyzerFilter;
 import com.fupfin.midiraja.engine.PlaylistContext;
-import com.fupfin.midiraja.export.vgm.Ay8910VgmExporter;
-import com.fupfin.midiraja.export.vgm.MsxVgmExporter;
-import com.fupfin.midiraja.export.vgm.Opl3VgmExporter;
-import com.fupfin.midiraja.export.vgm.Ym2413VgmExporter;
+import com.fupfin.midiraja.export.vgm.ChipHandlers;
+import com.fupfin.midiraja.export.vgm.ChipSpec;
+import com.fupfin.midiraja.export.vgm.CompositeVgmExporter;
+import com.fupfin.midiraja.export.vgm.RoutingMode;
 import com.fupfin.midiraja.format.MusicFormatLoader;
 import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.NativeAudioEngine;
@@ -49,7 +50,16 @@ import com.fupfin.midiraja.midi.vgm.LibvgmSynthProvider;
         "chiptune" }, mixinStandardHelpOptions = true, description = "VGM/VGZ direct playback or MIDI → VGM → libvgm synthesis.")
 public class VgmCommand implements Callable<Integer>
 {
-    private static final Set<String> VALID_SYSTEMS = Set.of("ay8910", "ym2413", "msx", "opl3");
+    static final class ChipSpecOptions
+    {
+        @Option(names = "--system", description = "Named chip preset: ay8910, ym2413, msx, msx-scc, opl3. Default: ay8910.")
+        @Nullable
+        String system;
+
+        @Option(names = "--chips", description = "Chip combination, e.g. ay8910+ym2413, ay8910,ym2413, scc>ay8910 or opl3. Separators: '+' or ',' = CHANNEL mode (round-robin by MIDI channel); '>' = SEQUENTIAL mode (fill first chip before second).")
+        @Nullable
+        String chips;
+    }
 
     @Spec
     @Nullable
@@ -62,9 +72,8 @@ public class VgmCommand implements Callable<Integer>
     @Parameters(index = "0..*", arity = "1..*", description = "VGM, VGZ, MIDI, MOD, or other music files to play.")
     private List<File> files = new ArrayList<>();
 
-    @Option(names = {
-            "--system" }, defaultValue = "ay8910", description = "Target chip system for non-VGM input: ay8910, ym2413, msx, opl3. Default: ay8910.")
-    private String system = "ay8910";
+    @ArgGroup(exclusive = true, multiplicity = "0..1")
+    ChipSpecOptions chipSpec = new ChipSpecOptions();
 
     @Mixin
     private FxOptions fxOptions = new FxOptions();
@@ -74,33 +83,26 @@ public class VgmCommand implements Callable<Integer>
 
     // ── Test-accessible setters ───────────────────────────────────────────────
 
-    public String getSystem()
-    {
-        return system;
-    }
-
-    public void setSystem(String system)
-    {
-        this.system = system;
-    }
-
     public void setFiles(List<File> files)
     {
         this.files = files;
     }
 
-    // ── Validation ────────────────────────────────────────────────────────────
+    // ── Chip spec resolution ──────────────────────────────────────────────────
 
-    public void validateSystem()
+    ChipSpec resolveChipSpec()
     {
-        if (system == null || system.isEmpty()
-                || !VALID_SYSTEMS.contains(system.toLowerCase(Locale.ROOT)))
-        {
+        if (chipSpec.chips != null)
+            return ChipHandlers.parseChips(chipSpec.chips);
+        String sys = chipSpec.system != null ? chipSpec.system.toLowerCase(Locale.ROOT) : "ay8910";
+        var chips = ChipHandlers.PRESETS.get(sys);
+        if (chips == null)
             throw new IllegalArgumentException(
-                    "Unknown --system value: '" + system
-                            + "'. Valid values: ay8910, ym2413, msx, opl3");
-        }
+                "Unknown --system value: '" + sys + "'. Valid values: " + ChipHandlers.PRESETS.keySet());
+        return new ChipSpec(chips, RoutingMode.SEQUENTIAL);
     }
+
+    // ── Validation ────────────────────────────────────────────────────────────
 
     public void validateFiles()
     {
@@ -114,20 +116,6 @@ public class VgmCommand implements Callable<Integer>
     {
         String name = file.getName().toLowerCase(Locale.ROOT);
         return name.endsWith(".vgm") || name.endsWith(".vgz");
-    }
-
-    // ── Exporter mapping (for testing / inspection) ───────────────────────────
-
-    public String getExporterClassName()
-    {
-        return switch (system.toLowerCase(Locale.ROOT))
-        {
-            case "ay8910" -> "Ay8910VgmExporter";
-            case "ym2413" -> "Ym2413VgmExporter";
-            case "msx" -> "MsxVgmExporter";
-            case "opl3" -> "Opl3VgmExporter";
-            default -> throw new IllegalArgumentException("Unknown system: " + system);
-        };
     }
 
     // ── CLI entry point ───────────────────────────────────────────────────────
@@ -181,24 +169,12 @@ public class VgmCommand implements Callable<Integer>
             return new Sequence(Sequence.PPQ, 480); // unknown duration
         }
 
-        validateSystem();
         var sequence = MusicFormatLoader.load(file, Set.of());
+        var spec = resolveChipSpec();
         var vgmBytes = new ByteArrayOutputStream();
-        exportSequenceToVgm(sequence, vgmBytes);
+        new CompositeVgmExporter(ChipHandlers.create(spec), spec.mode()).export(sequence, vgmBytes);
         provider.loadVgmData(vgmBytes.toByteArray());
         return sequence;
-    }
-
-    private void exportSequenceToVgm(Sequence sequence, java.io.OutputStream out)
-    {
-        switch (system.toLowerCase(Locale.ROOT))
-        {
-            case "ay8910" -> new Ay8910VgmExporter().export(sequence, out);
-            case "ym2413" -> new Ym2413VgmExporter().export(sequence, out);
-            case "msx" -> new MsxVgmExporter().export(sequence, out);
-            case "opl3" -> new Opl3VgmExporter().export(sequence, out);
-            default -> throw new IllegalArgumentException("Unknown system: " + system);
-        }
     }
 
     private List<String> originalArgs()

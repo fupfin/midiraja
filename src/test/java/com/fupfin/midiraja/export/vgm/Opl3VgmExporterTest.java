@@ -21,6 +21,11 @@ import org.junit.jupiter.api.Test;
 
 class Opl3VgmExporterTest
 {
+    private static CompositeVgmExporter composite()
+    {
+        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("opl3")));
+    }
+
     private static int readInt32Le(byte[] data, int offset)
     {
         return (data[offset] & 0xFF)
@@ -36,7 +41,7 @@ class Opl3VgmExporterTest
     {
         var seq = singleNote(0, 69, 100);
         var out = new ByteArrayOutputStream();
-        new Opl3VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         assertEquals('V', data[0]);
@@ -51,7 +56,7 @@ class Opl3VgmExporterTest
     {
         var seq = singleNote(0, 69, 100);
         var out = new ByteArrayOutputStream();
-        new Opl3VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
         assertEquals(data.length - 4, readInt32Le(data, 0x04));
     }
@@ -62,7 +67,7 @@ class Opl3VgmExporterTest
         var seq = new Sequence(Sequence.PPQ, 480);
         seq.createTrack();
         var out = new ByteArrayOutputStream();
-        new Opl3VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
         assertEquals(VgmWriter.YMF262_CLOCK, readInt32Le(data, 0x5C));
     }
@@ -74,7 +79,7 @@ class Opl3VgmExporterTest
     {
         var seq = singleNote(0, 69, 100);
         var out = new ByteArrayOutputStream();
-        new Opl3VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // OPL3 bank1 enable: 0x5F 0x05 0x01
@@ -99,7 +104,7 @@ class Opl3VgmExporterTest
     {
         var seq = singleNote(0, 69, 100);
         var out = new ByteArrayOutputStream();
-        new Opl3VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // At least one 0x5E (OPL3 bank0 write) should exist
@@ -120,7 +125,7 @@ class Opl3VgmExporterTest
     {
         var seq = singleNote(0, 69, 100);
         var out = new ByteArrayOutputStream();
-        new Opl3VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // Key-on: reg 0xB0-0xB8 with bit 5 set (0x20)
@@ -138,7 +143,7 @@ class Opl3VgmExporterTest
         track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 100), 0));
         track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_OFF, 0, 69, 0), 480));
         var out = new ByteArrayOutputStream();
-        new Opl3VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         List<int[]> writes = findOpl3Bank0Writes(data, 0x80);
@@ -157,8 +162,27 @@ class Opl3VgmExporterTest
         for (int i = 0; i < 20; i++) // more than 18 total slots
             track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 48 + i, 80), 0));
         var out = new ByteArrayOutputStream();
-        assertDoesNotThrow(() -> new Opl3VgmExporter().export(seq, out));
+        assertDoesNotThrow(() -> composite().export(seq, out));
         assertEquals('V', out.toByteArray()[0]);
+    }
+
+    @Test
+    void programChange_usesDifferentPatch() throws Exception
+    {
+        // Send program change to channel 0 with program 40 (Violin)
+        var seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.PROGRAM_CHANGE, 0, 40, 0), 0));
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 69, 100), 0));
+        var out = new ByteArrayOutputStream();
+        assertDoesNotThrow(() -> composite().export(seq, out));
+
+        byte[] data = out.toByteArray();
+        assertEquals('V', data[0]);
+        assertEquals('g', data[1]);
+        assertEquals('m', data[2]);
+        assertEquals(' ', data[3]);
+        assertEquals(0x66, data[data.length - 1] & 0xFF);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

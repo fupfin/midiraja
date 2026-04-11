@@ -9,7 +9,7 @@ This document describes two distinct VGM playback pipelines in Midiraja:
 
 ## libvgm Native Playback
 
-`midra vgm` routes VGM files (and MIDI-to-VGM conversions) through libvgm for direct chip emulation. See [libvgm Integration Architecture](libvgm_integration.md) for full details on the C API, FFM bridge, DSP integration, and spectrum analysis.
+`midra vgm` routes VGM files (and MIDI-to-VGM conversions) through libvgm for direct chip emulation. See [VGM Playback](vgm_playback.md) for full details on the C API, FFM bridge, DSP integration, and spectrum analysis.
 
 ### When VGM files are loaded via `MusicFormatLoader`
 

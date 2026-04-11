@@ -10,6 +10,7 @@ package com.fupfin.midiraja.export.vgm;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayOutputStream;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -23,10 +24,10 @@ class VgmWriterTest
                 | ((data[offset + 3] & 0xFF) << 24);
     }
 
-    private static byte[] write(VgmWriter.ChipMode mode)
+    private static byte[] write(ChipType... types)
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, mode))
+        try (var w = new VgmWriter(out, List.of(types)))
         {
             // intentionally empty
         }
@@ -38,7 +39,7 @@ class VgmWriterTest
     @Test
     void header_hasVgmMagic()
     {
-        byte[] data = write(VgmWriter.ChipMode.AY8910);
+        byte[] data = write(ChipType.AY8910, ChipType.AY8910);
         assertEquals('V', data[0]);
         assertEquals('g', data[1]);
         assertEquals('m', data[2]);
@@ -48,7 +49,7 @@ class VgmWriterTest
     @Test
     void header_eofOffset_isCorrect()
     {
-        byte[] data = write(VgmWriter.ChipMode.AY8910);
+        byte[] data = write(ChipType.AY8910, ChipType.AY8910);
         int eofOffset = readInt32Le(data, 0x04);
         assertEquals(data.length - 4, eofOffset);
     }
@@ -56,49 +57,49 @@ class VgmWriterTest
     @Test
     void header_version_ay8910_is161()
     {
-        byte[] data = write(VgmWriter.ChipMode.AY8910);
+        byte[] data = write(ChipType.AY8910, ChipType.AY8910);
         assertEquals(0x161, readInt32Le(data, 0x08));
     }
 
     @Test
     void header_version_ym2413_is150()
     {
-        byte[] data = write(VgmWriter.ChipMode.YM2413);
+        byte[] data = write(ChipType.YM2413);
         assertEquals(0x150, readInt32Le(data, 0x08));
     }
 
     @Test
     void header_version_sn76489_is150()
     {
-        byte[] data = write(VgmWriter.ChipMode.SN76489);
+        byte[] data = write(ChipType.SN76489);
         assertEquals(0x150, readInt32Le(data, 0x08));
     }
 
     @Test
     void header_version_msx_is161()
     {
-        byte[] data = write(VgmWriter.ChipMode.MSX);
+        byte[] data = write(ChipType.YM2413, ChipType.AY8910);
         assertEquals(0x161, readInt32Le(data, 0x08));
     }
 
     @Test
     void header_version_opl3_is161()
     {
-        byte[] data = write(VgmWriter.ChipMode.OPL3);
+        byte[] data = write(ChipType.OPL3);
         assertEquals(0x161, readInt32Le(data, 0x08));
     }
 
     @Test
     void header_ay8910Clock_at0x74()
     {
-        byte[] data = write(VgmWriter.ChipMode.AY8910);
+        byte[] data = write(ChipType.AY8910, ChipType.AY8910);
         assertEquals(VgmWriter.AY8910_CLOCK, readInt32Le(data, 0x74));
     }
 
     @Test
     void header_ay8910DualChip_at0x78_hasBit31Set()
     {
-        byte[] data = write(VgmWriter.ChipMode.AY8910);
+        byte[] data = write(ChipType.AY8910, ChipType.AY8910);
         int clock2 = readInt32Le(data, 0x78);
         assertTrue((clock2 & 0x80000000) != 0, "Second AY8910 clock must have bit 31 set");
     }
@@ -106,7 +107,7 @@ class VgmWriterTest
     @Test
     void header_msx_ay8910Clock_at0x74_noDualChipFlag()
     {
-        byte[] data = write(VgmWriter.ChipMode.MSX);
+        byte[] data = write(ChipType.YM2413, ChipType.AY8910);
         assertEquals(VgmWriter.AY8910_CLOCK, readInt32Le(data, 0x74));
         assertEquals(0, readInt32Le(data, 0x78), "MSX has only one AY chip");
     }
@@ -114,36 +115,43 @@ class VgmWriterTest
     @Test
     void header_ym2413Clock_at0x10()
     {
-        byte[] data = write(VgmWriter.ChipMode.YM2413);
+        byte[] data = write(ChipType.YM2413);
         assertEquals(VgmWriter.YM2413_CLOCK, readInt32Le(data, 0x10));
     }
 
     @Test
     void header_sn76489Clock_at0x0C()
     {
-        byte[] data = write(VgmWriter.ChipMode.SN76489);
+        byte[] data = write(ChipType.SN76489);
         assertEquals(VgmWriter.SN76489_CLOCK, readInt32Le(data, 0x0C));
     }
 
     @Test
     void header_opl3Clock_at0x5C()
     {
-        byte[] data = write(VgmWriter.ChipMode.OPL3);
+        byte[] data = write(ChipType.OPL3);
         assertEquals(VgmWriter.YMF262_CLOCK, readInt32Le(data, 0x5C));
+    }
+
+    @Test
+    void header_sccClock_at0x9C()
+    {
+        byte[] data = write(ChipType.SCC, ChipType.AY8910);
+        assertEquals(VgmWriter.K051649_CLOCK, readInt32Le(data, 0x9C));
     }
 
     @Test
     void header_vgmDataOffset_at0x34()
     {
         // For AY8910 mode, header is 0x80, so data offset relative to 0x34 = 0x80 - 0x34 = 0x4C
-        byte[] data = write(VgmWriter.ChipMode.AY8910);
+        byte[] data = write(ChipType.AY8910, ChipType.AY8910);
         assertEquals(0x4C, readInt32Le(data, 0x34));
     }
 
     @Test
     void header_totalSamples_zero_whenNoWait()
     {
-        byte[] data = write(VgmWriter.ChipMode.AY8910);
+        byte[] data = write(ChipType.AY8910, ChipType.AY8910);
         assertEquals(0, readInt32Le(data, 0x18));
     }
 
@@ -151,7 +159,7 @@ class VgmWriterTest
     void header_totalSamples_sumsAllWaits()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.AY8910))
+        try (var w = new VgmWriter(out, List.of(ChipType.AY8910, ChipType.AY8910)))
         {
             w.waitSamples(1000);
             w.waitSamples(500);
@@ -165,7 +173,7 @@ class VgmWriterTest
     @Test
     void close_writesEndOfDataMarker()
     {
-        byte[] data = write(VgmWriter.ChipMode.AY8910);
+        byte[] data = write(ChipType.AY8910, ChipType.AY8910);
         assertEquals(0x66, data[data.length - 1] & 0xFF);
     }
 
@@ -175,7 +183,7 @@ class VgmWriterTest
     void waitSamples_emitsCorrectBytes()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.AY8910))
+        try (var w = new VgmWriter(out, List.of(ChipType.AY8910, ChipType.AY8910)))
         {
             w.waitSamples(300);
         }
@@ -190,7 +198,7 @@ class VgmWriterTest
     void waitSamples_zero_emitsNothing()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.AY8910))
+        try (var w = new VgmWriter(out, List.of(ChipType.AY8910, ChipType.AY8910)))
         {
             w.waitSamples(0);
             w.waitSamples(-1);
@@ -204,7 +212,7 @@ class VgmWriterTest
     void waitSamples_chunksOver65535()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.AY8910))
+        try (var w = new VgmWriter(out, List.of(ChipType.AY8910, ChipType.AY8910)))
         {
             w.waitSamples(70000); // > 65535, requires two wait commands
         }
@@ -224,7 +232,7 @@ class VgmWriterTest
     void writeAy_emitsCommandA0()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.AY8910))
+        try (var w = new VgmWriter(out, List.of(ChipType.AY8910, ChipType.AY8910)))
         {
             w.writeAy(7, 0x3F);
         }
@@ -239,7 +247,7 @@ class VgmWriterTest
     void writeAy2_setsRegBit7()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.AY8910))
+        try (var w = new VgmWriter(out, List.of(ChipType.AY8910, ChipType.AY8910)))
         {
             w.writeAy2(7, 0x3F);
         }
@@ -254,7 +262,7 @@ class VgmWriterTest
     void writePsg_emitsCommand50()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.SN76489))
+        try (var w = new VgmWriter(out, List.of(ChipType.SN76489)))
         {
             w.writePsg(0x9F);
         }
@@ -268,7 +276,7 @@ class VgmWriterTest
     void writePsg2_emitsCommand30()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.SN76489))
+        try (var w = new VgmWriter(out, List.of(ChipType.SN76489)))
         {
             w.writePsg2(0x9F);
         }
@@ -282,7 +290,7 @@ class VgmWriterTest
     void writeYm2413_emitsCommand51()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.YM2413))
+        try (var w = new VgmWriter(out, List.of(ChipType.YM2413)))
         {
             w.writeYm2413(0x20, 0x15);
         }
@@ -294,10 +302,26 @@ class VgmWriterTest
     }
 
     @Test
+    void writeScc_emitsCommandD2()
+    {
+        var out = new ByteArrayOutputStream();
+        try (var w = new VgmWriter(out, List.of(ChipType.SCC, ChipType.AY8910)))
+        {
+            w.writeScc(0x00, 0x7F);
+        }
+        byte[] data = out.toByteArray();
+        int pos = 0xC0; // SCC uses v1.70 header (0xC0 bytes)
+        assertEquals(0xD2, data[pos] & 0xFF);
+        assertEquals(0x00, data[pos + 1] & 0xFF); // port 0
+        assertEquals(0x00, data[pos + 2] & 0xFF); // reg 0
+        assertEquals(0x7F, data[pos + 3] & 0xFF); // data
+    }
+
+    @Test
     void writeOpl3_emitsCommand5E()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.OPL3))
+        try (var w = new VgmWriter(out, List.of(ChipType.OPL3)))
         {
             w.writeOpl3(0xA0, 0x42);
         }
@@ -312,7 +336,7 @@ class VgmWriterTest
     void writeOpl3Bank1_emitsCommand5F()
     {
         var out = new ByteArrayOutputStream();
-        try (var w = new VgmWriter(out, VgmWriter.ChipMode.OPL3))
+        try (var w = new VgmWriter(out, List.of(ChipType.OPL3)))
         {
             w.writeOpl3Bank1(0x05, 0x01);
         }

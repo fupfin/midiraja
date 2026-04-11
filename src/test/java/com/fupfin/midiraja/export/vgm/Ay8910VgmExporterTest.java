@@ -46,6 +46,11 @@ class Ay8910VgmExporterTest
         return new MidiEvent(new ShortMessage(ShortMessage.PROGRAM_CHANGE, ch, prog, 0), 0);
     }
 
+    private static CompositeVgmExporter composite()
+    {
+        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("ay8910")));
+    }
+
     private static int readInt32Le(byte[] data, int offset)
     {
         return (data[offset] & 0xFF)
@@ -61,7 +66,7 @@ class Ay8910VgmExporterTest
     {
         var seq = sequence(noteOn(0, 69, 100), noteOff(0, 69));
         var out = new ByteArrayOutputStream();
-        new Ay8910VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         assertEquals('V', data[0]);
@@ -76,7 +81,7 @@ class Ay8910VgmExporterTest
     {
         var seq = sequence(noteOn(0, 69, 100));
         var out = new ByteArrayOutputStream();
-        new Ay8910VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
         assertEquals(data.length - 4, readInt32Le(data, 0x04));
     }
@@ -89,7 +94,7 @@ class Ay8910VgmExporterTest
         // A4 = 440 Hz, tp = round(1789772 / (16 * 440)) = 254
         var seq = sequence(noteOn(0, 69, 100));
         var out = new ByteArrayOutputStream();
-        new Ay8910VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // Scan data area for 0xA0 commands and find the tone period registers (0 or 1 for ch 0)
@@ -104,7 +109,7 @@ class Ay8910VgmExporterTest
     {
         var seq = sequence(noteOn(0, 69, 100));
         var out = new ByteArrayOutputStream();
-        new Ay8910VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // The last write to mixer register (7) should have tone bit for ch0 cleared (active low)
@@ -121,7 +126,7 @@ class Ay8910VgmExporterTest
     {
         var seq = sequence(noteOn(0, 69, 127));
         var out = new ByteArrayOutputStream();
-        new Ay8910VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         // Amplitude register for ch0 is reg 8; velocity 127 → amp 15
@@ -136,26 +141,18 @@ class Ay8910VgmExporterTest
     // ── Percussion ────────────────────────────────────────────────────────────
 
     @Test
-    void percussionNoteOn_writesNoiseToChip1() throws Exception
+    void percussionNoteOn_writesNoiseToChip0() throws Exception
     {
-        // MIDI ch 9 = percussion; maps to NOISE_SLOT (5) = chip1, ch2
+        // MIDI ch 9 = percussion; routes to first handler (AY chip 0)
         var seq = sequence(noteOn(9, 36, 100)); // kick drum
         var out = new ByteArrayOutputStream();
-        new Ay8910VgmExporter().export(seq, out);
+        composite().export(seq, out);
         byte[] data = out.toByteArray();
 
-        // Noise period goes to chip1 reg 6 → AY2 write (reg | 0x80)
-        boolean noiseWritten = false;
-        for (int i = 0x80; i < data.length - 1; i++)
-        {
-            if ((data[i] & 0xFF) == 0xA0 && (data[i + 1] & 0xFF) == (6 | 0x80))
-            {
-                noiseWritten = true;
-                assertEquals(31, data[i + 2] & 0xFF, "Kick drum noise period should be 31");
-                break;
-            }
-        }
-        assertTrue(noiseWritten, "Expected noise period write on chip1 reg6");
+        // Noise period goes to chip0 reg 6 → AY1 write (plain reg, no bit 7)
+        boolean noiseWritten = findAyWrites(data, 0x80).stream()
+                .anyMatch(w -> w[0] == 6 && w[1] == 31); // kick drum noise period = 31
+        assertTrue(noiseWritten, "Expected noise period write 31 on chip0 reg6 for kick drum");
     }
 
     // ── Voice stealing ────────────────────────────────────────────────────────
@@ -165,11 +162,11 @@ class Ay8910VgmExporterTest
     {
         var seq = new Sequence(Sequence.PPQ, 480);
         Track track = seq.createTrack();
-        // Play 7 notes simultaneously (5 tone + 1 noise reserved + 1 more = steals)
+        // Play 7 notes simultaneously — more than 6 dual-AY slots triggers stealing
         for (int i = 0; i < 7; i++)
             track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60 + i, 80), 0));
         var out = new ByteArrayOutputStream();
-        assertDoesNotThrow(() -> new Ay8910VgmExporter().export(seq, out));
+        assertDoesNotThrow(() -> composite().export(seq, out));
         byte[] data = out.toByteArray();
         assertEquals('V', data[0]); // still produces valid VGM
     }

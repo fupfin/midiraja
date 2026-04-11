@@ -11,18 +11,20 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.util.List;
+import javax.sound.midi.MetaMessage;
 
 /**
  * Writes VGM (Video Game Music) binary data to an {@link OutputStream}.
  *
  * <p>
- * Supports AY-3-8910, SN76489, YM2413, MSX (AY+YM2413), and OPL3 (YMF262) chip modes.
+ * Supports arbitrary combinations of {@link ChipType}s specified at construction time.
  * All data is buffered in memory; the complete VGM file (with patched header) is written
  * to the output stream on {@link #close()}, making stdout output possible.
  *
  * <p>
- * Usage: construct, call write* and {@link #waitSamples} for each chip event, then
- * {@link #close()} to flush the complete VGM to the target stream.
+ * Usage: construct with desired chip list, call write* and {@link #waitSamples} for each
+ * chip event, then {@link #close()} to flush the complete VGM to the target stream.
  */
 public final class VgmWriter implements AutoCloseable
 {
@@ -32,6 +34,7 @@ public final class VgmWriter implements AutoCloseable
     static final long AY8910_CLOCK_DUAL = (long) AY8910_CLOCK | 0x80000000L;
     static final int SN76489_CLOCK = 3_579_545;
     static final int YM2413_CLOCK = 3_579_545;
+    static final int K051649_CLOCK = 3_579_545;
     static final int YMF262_CLOCK = 14_318_180;
     static final int VGM_SAMPLE_RATE = 44100;
 
@@ -39,39 +42,49 @@ public final class VgmWriter implements AutoCloseable
 
     /** v1.50 header (64 bytes): SN76489, YM2413 */
     private static final int HEADER_SIZE_V150 = 0x40;
-    /** v1.61 header (128 bytes): AY8910, MSX, OPL3 */
-    private static final int HEADER_SIZE_AY = 0x80;
+    /** v1.61 header (128 bytes): AY8910, OPL3, multi-chip */
+    private static final int HEADER_SIZE_V161 = 0x80;
+    /** v1.70 header (192 bytes): K051649/SCC and other extended chips */
+    private static final int HEADER_SIZE_V170 = 0xC0;
 
     // ── VGM versions ─────────────────────────────────────────────────────────
 
     private static final int VERSION_150 = 0x00000150;
     private static final int VERSION_161 = 0x00000161;
-
-    public enum ChipMode
-    {
-        AY8910, SN76489, YM2413, MSX, OPL3
-    }
+    private static final int VERSION_170 = 0x00000170;
 
     private final OutputStream out;
-    private final ChipMode mode;
+    private final List<ChipType> chips;
     private final ByteArrayOutputStream buf = new ByteArrayOutputStream(65536);
     private long totalSamples = 0;
 
-    public VgmWriter(OutputStream out, ChipMode mode)
+    public VgmWriter(OutputStream out, List<ChipType> chips)
     {
         this.out = out;
-        this.mode = mode;
+        this.chips = chips;
         // Reserve header space (all zeros initially)
         buf.writeBytes(new byte[headerSize()]);
     }
 
+    private boolean isVersion150()
+    {
+        // Only a single YM2413 or a single SN76489 uses the compact v1.50 header
+        return chips.size() == 1
+                && (chips.get(0) == ChipType.YM2413 || chips.get(0) == ChipType.SN76489);
+    }
+
+    private boolean hasScc()
+    {
+        return chips.contains(ChipType.SCC);
+    }
+
     private int headerSize()
     {
-        return switch (mode)
-        {
-            case SN76489, YM2413 -> HEADER_SIZE_V150;
-            default -> HEADER_SIZE_AY;
-        };
+        if (isVersion150())
+            return HEADER_SIZE_V150;
+        if (hasScc())
+            return HEADER_SIZE_V170;
+        return HEADER_SIZE_V161;
     }
 
     // ── VGM chip write commands ───────────────────────────────────────────────
@@ -110,6 +123,15 @@ public final class VgmWriter implements AutoCloseable
     public void writeYm2413(int reg, int data)
     {
         buf.write(0x51);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /** K051649 (SCC) register write (command 0xD2, port 0). */
+    public void writeScc(int reg, int data)
+    {
+        buf.write(0xD2);
+        buf.write(0x00); // port 0
         buf.write(reg & 0xFF);
         buf.write(data & 0xFF);
     }
@@ -182,15 +204,15 @@ public final class VgmWriter implements AutoCloseable
         int32Le(data, 0x04, data.length - 4);
 
         // Version at 0x08
-        int version = (mode == ChipMode.SN76489 || mode == ChipMode.YM2413) ? VERSION_150 : VERSION_161;
+        int version = isVersion150() ? VERSION_150 : hasScc() ? VERSION_170 : VERSION_161;
         int32Le(data, 0x08, version);
 
         // SN76489 clock at 0x0C
-        if (mode == ChipMode.SN76489)
+        if (chips.contains(ChipType.SN76489))
             int32Le(data, 0x0C, SN76489_CLOCK);
 
         // YM2413 clock at 0x10
-        if (mode == ChipMode.YM2413 || mode == ChipMode.MSX)
+        if (chips.contains(ChipType.YM2413))
             int32Le(data, 0x10, YM2413_CLOCK);
 
         // GD3 offset at 0x14 (0 = no tag)
@@ -211,25 +233,51 @@ public final class VgmWriter implements AutoCloseable
         // VGM data offset at 0x34 (relative to position 0x34)
         int32Le(data, 0x34, headerSize() - 0x34);
 
-        // Extended header fields for v1.61
-        if (version == VERSION_161)
+        // Extended header fields for v1.61+
+        if (!isVersion150())
         {
-            // AY-3-8910 clock at 0x74
-            if (mode == ChipMode.AY8910)
-            {
-                int32Le(data, 0x74, AY8910_CLOCK);
-                // Second AY chip: same clock with bit 31 set (dual-chip flag)
-                int32Le(data, 0x78, (int) AY8910_CLOCK_DUAL);
-            }
-            else if (mode == ChipMode.MSX)
-            {
-                int32Le(data, 0x74, AY8910_CLOCK);
-            }
-
             // YMF262 (OPL3) clock at 0x5C
-            if (mode == ChipMode.OPL3)
+            if (chips.contains(ChipType.OPL3))
                 int32Le(data, 0x5C, YMF262_CLOCK);
+
+            // AY-3-8910: first chip at 0x74; if two present, second at 0x78 with dual-chip flag
+            long ayCount = chips.stream().filter(c -> c == ChipType.AY8910).count();
+            if (ayCount >= 1)
+                int32Le(data, 0x74, AY8910_CLOCK);
+            if (ayCount >= 2)
+                int32Le(data, 0x78, (int) AY8910_CLOCK_DUAL);
         }
+
+        // K051649 (SCC) clock at 0x9C — requires v1.70 header (0xC0 bytes)
+        if (hasScc())
+            int32Le(data, 0x9C, K051649_CLOCK);
+    }
+
+    /**
+     * Converts MIDI ticks to VGM samples for the given resolution and tempo.
+     *
+     * @param resolution
+     *            MIDI ticks per beat (PPQ from {@code Sequence.getResolution()})
+     * @param usPerBeat
+     *            microseconds per beat (500000 = 120 BPM)
+     */
+    static double ticksPerSample(int resolution, int usPerBeat)
+    {
+        return resolution * 1_000_000.0 / ((double) usPerBeat * VGM_SAMPLE_RATE);
+    }
+
+    /**
+     * Returns microseconds-per-beat from a MIDI Set Tempo meta event, or -1 if the
+     * message is not a Set Tempo event (type 0x51).
+     */
+    static int tempoUsPerBeat(MetaMessage meta)
+    {
+        if (meta.getType() != 0x51)
+            return -1;
+        byte[] d = meta.getData();
+        if (d.length < 3)
+            return -1;
+        return ((d[0] & 0xFF) << 16) | ((d[1] & 0xFF) << 8) | (d[2] & 0xFF);
     }
 
     private static void int32Le(byte[] data, int offset, int value)
