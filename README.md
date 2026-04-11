@@ -99,7 +99,7 @@ midra device song.mid
 | PSG (MSX / ZX Spectrum / Atari ST) | 8-bit home computers | `midra psg song.mid` |
 | 1-bit (Apple II / PC Speaker) | Extreme lo-fi | `midra 1bit song.mid` |
 
-**VGM chiptune playback** — plays .vgm/.vgz files by converting chip events to MIDI:
+**VGM chiptune playback** — plays .vgm/.vgz files with native libvgm for authentic chip emulation (40+ chip types, lossless):
 
 | Chip | Platform | Command |
 |------|----------|---------|
@@ -109,6 +109,13 @@ midra device song.mid
 | AY-3-8910 + SCC | MSX | `midra vgm nemesis.vgz` |
 | HuC6280 | PC Engine | `midra vgm rtype.vgz` |
 | Game Boy DMG | Game Boy | `midra vgm pokemon.vgz` |
+
+You can also convert MIDI files to VGM first, then play via libvgm:
+
+```bash
+midra vgm --system ay8910 song.mid      # Render MIDI as AY-3-8910 VGM, then play
+midra vgm --system ym2413 --retro msx song.mid   # Convert + apply retro effects
+```
 
 **`--retro` post-processing** — vintage hardware audio simulation applied on top of any engine:
 

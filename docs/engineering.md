@@ -99,6 +99,7 @@ Terminal I/O uses **JLine 3.25.1** with the `jline-terminal-ffm` backend — JLi
 | [FM Synthesis Engineering](fm-synthesis-engineering.md) | Architecture of the `opl` and `opn` FM engines — lock-free design, OPL/OPN chip emulation via libADLMIDI & libOPNMIDI, DSP volume normalisation |
 | [PSG Tracker Hacks](psg-tracker-engineering.md) | `psg`/`msx` engine — Yamaha YM2149F/AY-3-8910 and Konami SCC emulation, arpeggio/envelope tracker tricks for polyphony |
 | [1-Bit Audio Engineering](beep-1bit-audio-engineering.md) | `1bit`/`beep` engine — phase modulation, delta-sigma modulation, XOR multiplexer, and the strict integer mathematics of single-bit audio |
+| [libvgm Integration Architecture](libvgm_integration.md) | `vgm` engine — native emulation of 40+ sound chips via libvgm; C API bridge via Panama FFM; MIDI→VGM conversion path; supported chip list; performance and thread safety |
 | [Retro Hardware Audio Simulation](retro/README.md) | `--retro` modes — cycle-accurate reconstruction of Macintosh 128k, ZX Spectrum beeper, IBM PC Speaker (RealSound), Covox, and Amiga Paula |
 
 ---

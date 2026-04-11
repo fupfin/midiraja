@@ -281,43 +281,57 @@ These engines are baked directly into the Midiraja app. They require **absolutel
 * **🎛️ DSP Effects:** All standard effects are supported — `--tube`, `--chorus`, `--reverb`, EQ, LPF/HPF.
 
 #### 7. VGM Chiptune Playback (`vgm`)
-* **What is it?** Plays VGM/VGZ (Video Game Music) files — the standard format for preserving
-  retro game music as chip register dumps. Midiraja converts the raw chip events to MIDI in
-  real time, then renders them through the built-in SoundFont engine (FluidR3 GM).
+
+Midiraja plays VGM/VGZ (Video Game Music) files — the standard format for preserving retro game music as chip register dumps. The `midra vgm` command uses **native libvgm emulation** to render 40+ chip types with perfect accuracy (lossless). All DSP effects (`--retro`, `--reverb`, `--eq`, etc.) apply on top of the libvgm output.
+
+##### Direct VGM File Playback
+
+* **What is it?** Accurate emulation of original sound chips via libvgm.
 * **How to use it:** `midra vgm song.vgz`
-* **Supported chips:**
 
-| Chip | Platform | Notes |
-|------|----------|-------|
-| SN76489 | Sega Genesis / Master System | PSG (3 tone + noise) |
-| YM2612 | Sega Genesis | 6-channel FM with TL-based velocity and stereo pan |
-| YM2151 (OPM) | Arcade (CPS1, System 16, etc.) | 8-channel FM |
-| YM2203 (OPN) | PC-88 | 3 FM + SSG (AY8910-compatible) |
-| YM2608 (OPNA) | PC-98 | 6 FM + SSG |
-| YM2610 (OPNB) | Neo Geo | 4 FM + SSG |
-| AY-3-8910 | MSX, ZX Spectrum | PSG (3 tone + noise) |
-| K051649 (SCC) | MSX (Konami cartridges) | 5-channel wavetable |
-| HuC6280 | PC Engine / TurboGrafx-16 | 6-channel wavetable with stereo; waveform-based GM selection |
-| Game Boy DMG | Game Boy | 2 pulse + 1 wave + 1 noise |
+**Supported chips (40+ types):**
 
-* **Options:**
-  * `--mute <CHANNELS>` — silence specific MIDI channels using 1-based numbers matching the UI
-    display. Examples: `--mute 4-9` (mute YM2612 FM), `--mute 1-3,10` (mute PSG).
-    Useful for isolating individual chips or channels during diagnostic listening.
-  * `--export-midi <FILE>` — write the converted MIDI to a file without playing.
-* **Chip-specific features:**
-  * FM chips (YM2612, YM2151, OPN family): GM program selected dynamically from algorithm,
-    feedback, and modulator TL depth. Carrier TL drives MIDI velocity.
-  * HuC6280: 32-sample waveform shape is analyzed (steep-edge counting) to select
-    Square Lead, Sawtooth Lead, Calliope Lead, or Synth Brass automatically.
-  * Game Boy: pulse channels → Square Lead, wave channel → Recorder, noise → GM drums.
-* **Where to get VGM files:** [vgmrips.net](https://vgmrips.net) hosts thousands of VGM/VGZ
-  files organized by platform and game.
-* **Example:**
-  ```bash
-  midra vgm --mute 1-3,10 sonic_data_select.vgz   # mute PSG, hear FM only
-  midra vgm --export-midi out.mid game.vgz          # convert to MIDI file
-  ```
+| Category | Chips | Platform |
+|----------|-------|----------|
+| **PSG (3 tone + 1 noise)** | SN76489, AY-3-8910, PSG (Sega Master System) | Sega Genesis, MSX, ZX Spectrum |
+| **FM Synthesis** | YM2612, YM2151, YM2413, YM2203, YM2608, YM2610 | Genesis, Arcade, MSX, PC-88/98, Neo Geo |
+| **Wavetable** | K051649 (SCC), HuC6280 | MSX, PC Engine |
+| **8-bit Systems** | Game Boy DMG, NES APU, SNES SPC700 | Nintendo systems |
+| **Arcade & PC** | OPL2, OPL3, Namco WSG, Konami VRC6/VRC7 | DOS, Arcade boards, NES cartridges |
+
+See the full list in [libvgm Integration Architecture](libvgm_integration.md).
+
+**Example:**
+```bash
+midra vgm sonic.vgz                                  # Play with defaults
+midra vgm --retro amiga pokemon.vgz                  # Play Game Boy ROM through Amiga Paula filter
+midra vgm --reverb hall --reverb-level 4 game.vgz   # Add reverb to arcade game
+```
+
+##### MIDI → VGM Conversion & Playback
+
+You can also convert MIDI files to VGM format first (simulating a specific chip), then play the result through libvgm. This is useful for experimenting with how a MIDI composition would sound on classic hardware.
+
+* **How to use it:** `midra vgm --system <chip> song.mid`
+* **Supported target systems:** `ay8910`, `ym2413`, `msx`, `opl3`
+
+The conversion happens in memory — no temporary file is created. All DSP effects still apply.
+
+**Examples:**
+```bash
+midra vgm --system ay8910 mynotes.mid     # Render MIDI on AY-3-8910, then play
+midra vgm --system ym2413 --retro msx mynotes.mid   # Render on YM2413 + MSX hardware filter
+midra vgm --system opl3 --retro pc mynotes.mid      # DOS OPL3 + IBM PC Speaker simulation
+midra vgm --system ym2413 --reverb hall --reverb-level 5 mynotes.mid
+```
+
+##### Where to Get VGM Files
+
+[vgmrips.net](https://vgmrips.net) hosts thousands of VGM/VGZ files organized by platform and game title. You can also find archived soundtracks from ROM hacks, demos, and homebrew games.
+
+##### Technical Details
+
+For details on libvgm architecture, the C API, native bridge design, and how MIDI→VGM export works, see [libvgm Integration Architecture](libvgm_integration.md).
 
 ---
 

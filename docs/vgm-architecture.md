@@ -1,6 +1,51 @@
-# VGM → MIDI Conversion Architecture
+# VGM Architecture
 
-## Overview
+This document describes two distinct VGM playback pipelines in Midiraja:
+
+1. **libvgm native playback** — the primary pipeline (`midra vgm`); uses libvgm for direct, cycle-accurate chip emulation
+2. **VGM → MIDI conversion** — the legacy pipeline; converts VGM chip register events into a MIDI Sequence for the existing SynthProvider chain
+
+---
+
+## libvgm Native Playback
+
+`midra vgm` routes VGM files (and MIDI-to-VGM conversions) through libvgm for direct chip emulation. See [libvgm Integration Architecture](libvgm_integration.md) for full details on the C API, FFM bridge, DSP integration, and spectrum analysis.
+
+### When VGM files are loaded via `MusicFormatLoader`
+
+```
+VGM/VGZ file ──► LibvgmSynthProvider ──► FFMLibvgmBridge
+                                               │
+                                          vgm_bridge.cpp
+                                               │
+                                          libvgm chip emulators
+                                               │
+                                          short[] PCM
+                                               │
+                                     SpectrumAnalyzerFilter (transparent)
+                                               │
+                                          DSP chain (EQ, Reverb, Tube, Retro…)
+                                               │
+                                          Audio output (miniaudio)
+```
+
+### When MIDI files are converted with `--system`
+
+```
+MIDI file ──► Ay8910VgmExporter / Ym2413VgmExporter (in memory)
+                        │
+                    byte[] VGM data
+                        │
+              LibvgmSynthProvider (vgm_open_data)
+                        │
+                  (same path as above)
+```
+
+---
+
+## VGM → MIDI Conversion Architecture (Legacy)
+
+### Overview
 
 Converts VGM (Video Game Music) files to `javax.sound.midi.Sequence` for playback through
 the existing MIDI pipeline. The conversion is injected in `PlaylistPlayer.play()` before the
