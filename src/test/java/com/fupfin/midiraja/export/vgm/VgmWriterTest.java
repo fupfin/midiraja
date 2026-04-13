@@ -141,6 +141,16 @@ class VgmWriterTest
     }
 
     @Test
+    void header_scciClock_at0x9C_hasBit31Set()
+    {
+        byte[] data = write(ChipType.SCCI, ChipType.AY8910);
+        int clock = readInt32Le(data, 0x9C);
+        // Bit 31 activates K052539 (SCC-I) mode_plus in libvgm
+        assertTrue((clock & 0x80000000) != 0, "SCC-I clock must have bit 31 set");
+        assertEquals(VgmWriter.K051649_CLOCK, clock & ~0x80000000, "SCC-I base clock must equal K051649_CLOCK");
+    }
+
+    @Test
     void header_vgmDataOffset_at0x34()
     {
         // For AY8910 mode, header is 0x80, so data offset relative to 0x34 = 0x80 - 0x34 = 0x4C
@@ -307,7 +317,7 @@ class VgmWriterTest
         var out = new ByteArrayOutputStream();
         try (var w = new VgmWriter(out, List.of(ChipType.SCC, ChipType.AY8910)))
         {
-            w.writeScc(0x00, 0x7F);
+            w.writeScc(0, 0x00, 0x7F);
         }
         byte[] data = out.toByteArray();
         int pos = 0xC0; // SCC uses v1.70 header (0xC0 bytes)
@@ -315,6 +325,22 @@ class VgmWriterTest
         assertEquals(0x00, data[pos + 1] & 0xFF); // port 0
         assertEquals(0x00, data[pos + 2] & 0xFF); // reg 0
         assertEquals(0x7F, data[pos + 3] & 0xFF); // data
+    }
+
+    @Test
+    void writeScc_usesGivenPort()
+    {
+        var out = new ByteArrayOutputStream();
+        try (var w = new VgmWriter(out, List.of(ChipType.SCC)))
+        {
+            w.writeScc(1, 0x02, 0x55); // port 1 = frequency
+        }
+        byte[] data = out.toByteArray();
+        int pos = 0xC0;
+        assertEquals(0xD2, data[pos] & 0xFF);
+        assertEquals(0x01, data[pos + 1] & 0xFF); // port 1
+        assertEquals(0x02, data[pos + 2] & 0xFF); // reg
+        assertEquals(0x55, data[pos + 3] & 0xFF); // data
     }
 
     @Test

@@ -21,14 +21,27 @@ final class Ay8910Handler implements ChipHandler
 
     // General MIDI percussion note numbers → noise period
     private static final int GM_BASS_DRUM = 36;
+    private static final int GM_ACOUSTIC_BASS_DRUM = 35; // note 35 = Acoustic Bass Drum
     private static final int GM_CLOSED_HIHAT = 42;
     private static final int GM_SNARE = 38;
     private static final int NOISE_KICK = 31;
     private static final int NOISE_HIHAT = 4;
-    private static final int NOISE_SNARE = 14;
+    /**
+     * NP=14 produces a noise clock at ~8 kHz whose 2nd digital alias appears at ~16 kHz
+     * (clearly audible as a very high-pitched tone in digital playback at 44100 Hz).
+     * NP=31 (the AY8910 register maximum) lowers the noise clock to ~3.6 kHz,
+     * moving the alias to ~7.2 kHz where it is far less obtrusive.
+     */
+    private static final int NOISE_SNARE = 31;
+
+    /**
+     * AY8910 noise is broadband and perceived louder than a sine wave at the same register level.
+     * Use a lower amplitude scale for percussion so it does not drown out SCC melody channels.
+     */
+    private static final double PERCUSSION_AMP_SCALE = 7.0 / 15.0;
 
     private final int chipIndex; // 0 = primary AY, 1 = secondary AY
-    private int mixer = 0x38; // initial: all noise/tone off
+    private int mixer = 0x3F; // matches initSilence chip state (all bits set = mute all)
 
     Ay8910Handler(int chipIndex)
     {
@@ -44,7 +57,7 @@ final class Ay8910Handler implements ChipHandler
     @Override
     public int slotCount()
     {
-        return SLOTS;
+        return NOISE_SLOT; // slot 2 is reserved for percussion noise
     }
 
     @Override
@@ -86,11 +99,28 @@ final class Ay8910Handler implements ChipHandler
     }
 
     @Override
+    public void finalSilence(VgmWriter w)
+    {
+        // Zero all three channels (including the noise slot outside the melody pool)
+        for (int ch = 0; ch < SLOTS; ch++)
+            writeAmp(w, ch, 0);
+        mixer = 0x3F; // disable all tone and noise outputs
+        writeReg(w, 7, 0x3F);
+    }
+
+    @Override
     public void handlePercussion(int note, int velocity, VgmWriter w)
     {
+        if (velocity == 0)
+        {
+            writeAmp(w, NOISE_SLOT, 0);
+            mixer |= (1 << (NOISE_SLOT + 3)); // disable noise on slot 2
+            writeReg(w, 7, mixer);
+            return;
+        }
         int noisePeriod = drumNoisePeriod(note);
         writeReg(w, 6, noisePeriod); // noise period register
-        int amp = (int) Math.round(velocity * 15.0 / 127.0);
+        int amp = (int) Math.round(velocity * 15.0 * PERCUSSION_AMP_SCALE / 127.0);
         mixer &= ~(1 << (NOISE_SLOT + 3)); // enable noise on slot 2
         mixer |= (1 << NOISE_SLOT); // disable tone on slot 2
         writeReg(w, 7, mixer);
@@ -112,7 +142,7 @@ final class Ay8910Handler implements ChipHandler
 
     private static int drumNoisePeriod(int note)
     {
-        if (note == GM_BASS_DRUM)
+        if (note == GM_BASS_DRUM || note == GM_ACOUSTIC_BASS_DRUM)
             return NOISE_KICK;
         if (note == GM_CLOSED_HIHAT)
             return NOISE_HIHAT;

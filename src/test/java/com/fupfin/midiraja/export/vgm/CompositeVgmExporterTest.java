@@ -26,11 +26,17 @@ import org.junit.jupiter.api.Test;
  * <p>Chip write VGM commands used here:
  * <ul>
  *   <li>0xA0 rr dd — AY8910 register write
- *   <li>0xD2 pp rr dd — SCC register write (port=0)
+ *   <li>0xD2 pp rr dd — SCC register write (port, reg, data)
  * </ul>
- * <p>SCC melodic slot frequency dividers are at regs 0xA0-0xA9.
- * SCC initSilence only writes to 0x00-0x7F (waveforms) and 0xAA-0xAF (volumes/mask), so any
- * 0xD2 write to reg 0xA0-0xA9 after init means a note was routed to SCC.
+ * <p>K051649 (SCC) uses port-based dispatch:
+ * <ul>
+ *   <li>port 0 — waveform RAM (reg 0x00-0x9F)
+ *   <li>port 1 — frequency dividers (reg 0-9, 2 bytes per channel)
+ *   <li>port 2 — volumes (reg 0-4)
+ *   <li>port 3 — channel enable mask
+ * </ul>
+ * SCC initSilence only writes port=0 (waveforms) and port=2/3 (volumes/mask), so any
+ * 0xD2 write with port=1 after init means a note was routed to SCC.
  */
 class CompositeVgmExporterTest
 {
@@ -72,7 +78,7 @@ class CompositeVgmExporterTest
     }
 
     /**
-     * Returns (reg, data) pairs for all SCC register writes (VGM 0xD2 port-0 commands)
+     * Returns (port, reg, data) triples for all SCC register writes (VGM 0xD2 commands)
      * found in {@code vgm} starting from the data area offset.
      */
     private static List<int[]> sccWrites(byte[] vgm, int headerSize)
@@ -80,9 +86,9 @@ class CompositeVgmExporterTest
         var result = new ArrayList<int[]>();
         for (int i = headerSize; i < vgm.length - 3; i++)
         {
-            if ((vgm[i] & 0xFF) == 0xD2 && (vgm[i + 1] & 0xFF) == 0x00)
+            if ((vgm[i] & 0xFF) == 0xD2)
             {
-                result.add(new int[] { vgm[i + 2] & 0xFF, vgm[i + 3] & 0xFF });
+                result.add(new int[] { vgm[i + 1] & 0xFF, vgm[i + 2] & 0xFF, vgm[i + 3] & 0xFF });
                 i += 3;
             }
         }
@@ -108,9 +114,9 @@ class CompositeVgmExporterTest
         // SCC uses v1.70 header (0xC0 bytes)
         int headerSize = 0xC0;
 
-        // No SCC melodic frequency write (regs 0xA0-0xA9) should appear — note went to AY8910
+        // No SCC frequency write (port=1) should appear — note went to AY8910
         boolean sccMelodicFreqWritten = sccWrites(vgm, headerSize).stream()
-                .anyMatch(w -> w[0] >= 0xA0 && w[0] <= 0xA9);
+                .anyMatch(w -> w[0] == 1);
         assertFalse(sccMelodicFreqWritten,
                 "Program 112 note should route to AY8910, not SCC frequency registers");
 
@@ -134,9 +140,9 @@ class CompositeVgmExporterTest
 
         int headerSize = 0xC0;
 
-        // SCC frequency register write should appear — note went to SCC
+        // SCC frequency write (port=1) should appear — note went to SCC
         boolean sccMelodicFreqWritten = sccWrites(vgm, headerSize).stream()
-                .anyMatch(w -> w[0] >= 0xA0 && w[0] <= 0xA9);
+                .anyMatch(w -> w[0] == 1);
         assertTrue(sccMelodicFreqWritten,
                 "Program 0 with channel mode should route channel 0 to SCC (handler 0)");
     }
@@ -146,41 +152,40 @@ class CompositeVgmExporterTest
     @Test
     void sequentialMode_fillsFirstHandlerBeforeSecond() throws Exception
     {
-        // SCC has 5 melodic slots + 1 percussion slot (but perc slot is slot 4).
-        // With SEQUENTIAL, first 4 melodic notes should go to SCC (slots 0-3), not AY8910.
+        // SCC has 5 melodic slots; AY8910 handles percussion via its noise channel.
+        // With SEQUENTIAL, first 3 melodic notes should go to SCC (slots 0-2), not AY8910.
         var handlers = ChipHandlers.create(List.of(ChipType.SCC, ChipType.AY8910));
         var exporter = new CompositeVgmExporter(handlers, RoutingMode.SEQUENTIAL);
 
         // Program 0 to avoid PSG-preferred routing
         var seq = sequence(
-                programChange(0, 0), programChange(1, 0), programChange(2, 0), programChange(3, 0),
-                noteOn(0, 60, 80), noteOn(1, 62, 80), noteOn(2, 64, 80), noteOn(3, 65, 80));
+                programChange(0, 0), programChange(1, 0), programChange(2, 0),
+                noteOn(0, 60, 80), noteOn(1, 62, 80), noteOn(2, 64, 80));
         var out = new ByteArrayOutputStream();
         exporter.export(seq, out);
         byte[] vgm = out.toByteArray();
 
         int headerSize = 0xC0;
 
-        // Should find SCC frequency writes for multiple SCC slots (0xA0, 0xA2, 0xA4, 0xA6)
+        // Should find SCC frequency writes (port=1) for 3 SCC slots (reg 0,2,4 = lo bytes)
         long sccSlotCount = sccWrites(vgm, headerSize).stream()
-                .filter(w -> w[0] >= 0xA0 && w[0] <= 0xA7)
-                .mapToInt(w -> w[0])
+                .filter(w -> w[0] == 1 && w[1] % 2 == 0) // port=1, even reg = lo-byte of slot
+                .mapToInt(w -> w[1])
                 .distinct()
                 .count();
-        assertTrue(sccSlotCount >= 4,
-                "SEQUENTIAL mode should fill at least 4 SCC slots for 4 simultaneous notes");
+        assertTrue(sccSlotCount >= 3,
+                "SEQUENTIAL mode should fill at least 3 SCC slots for 3 simultaneous notes");
     }
 
     @Test
     void sequentialMode_overflowNotesGoToSecondHandler() throws Exception
     {
-        // SCC has 5 slots (4 melodic + 1 perc), fill them all then overflow to AY8910
-        // Use 6 notes on distinct channels with program 0
+        // SCC has 5 melodic slots; overflow to AY8910's 2 melodic slots; use 7 notes total
         var handlers = ChipHandlers.create(List.of(ChipType.SCC, ChipType.AY8910));
         var exporter = new CompositeVgmExporter(handlers, RoutingMode.SEQUENTIAL);
 
         List<MidiEvent> events = new ArrayList<>();
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 7; i++)
         {
             events.add(programChange(i, 0));
             events.add(noteOn(i, 60 + i, 80));
@@ -196,11 +201,11 @@ class CompositeVgmExporterTest
 
         int headerSize = 0xC0;
 
-        // The 6th note should overflow to AY8910; look for AY8910 amplitude write
+        // Notes 6-7 overflow to AY8910 once SCC's 5 slots are full
         boolean ayAmplitudeWritten = ayWrites(vgm, headerSize).stream()
                 .anyMatch(w -> w[0] >= 8 && w[0] <= 10 && w[1] > 0);
         assertTrue(ayAmplitudeWritten,
-                "SEQUENTIAL mode: 6th note should overflow to AY8910 when SCC is full");
+                "SEQUENTIAL mode: notes beyond SCC's 5 slots should overflow to AY8910");
     }
 
     // ── CHANNEL mode ──────────────────────────────────────────────────────────
@@ -228,7 +233,7 @@ class CompositeVgmExporterTest
 
         // Both SCC (ch0) and AY8910 (ch1) writes should appear for their respective notes
         boolean sccFreqWritten = sccWrites(vgm, headerSize).stream()
-                .anyMatch(w -> w[0] >= 0xA0 && w[0] <= 0xA9);
+                .anyMatch(w -> w[0] == 1);
         boolean ayAmplitudeWritten = ayWrites(vgm, headerSize).stream()
                 .anyMatch(w -> w[0] >= 8 && w[0] <= 10 && w[1] > 0);
 

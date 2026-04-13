@@ -52,6 +52,8 @@ interface ChipHandler
 
     /**
      * Triggers a percussion hit.  Only called when {@link #supportsRhythm()} is {@code true}.
+     * Handlers that return {@code false} from {@link #supportsRhythm()} may rely on this default
+     * no-op.
      *
      * @param note
      *            GM percussion note number
@@ -60,5 +62,26 @@ interface ChipHandler
      * @param w
      *            the VGM writer
      */
-    void handlePercussion(int note, int velocity, VgmWriter w);
+    default void handlePercussion(int note, int velocity, VgmWriter w)
+    {
+    }
+
+    /**
+     * Writes a final all-notes-off for every output this chip controls, including any percussion
+     * channel not managed by the melody slot pool.  Called once after all MIDI events have been
+     * processed so that notes with missing NOTE_OFF events do not sustain into silence.
+     *
+     * <p>
+     * The default implementation calls {@link #silenceSlot} for every melody slot and, for handlers
+     * that support rhythm, calls {@link #handlePercussion handlePercussion(0, 0, w)} to silence the
+     * percussion channel.  Override when a handler owns registers outside the melody slot pool that
+     * need explicit zeroing (e.g. the AY-3-8910 noise channel).
+     */
+    default void finalSilence(VgmWriter w)
+    {
+        for (int slot = 0; slot < slotCount(); slot++)
+            silenceSlot(slot, w);
+        if (supportsRhythm())
+            handlePercussion(0, 0, w);
+    }
 }

@@ -23,7 +23,7 @@ class Ym2413VgmExporterTest
 {
     private static CompositeVgmExporter composite()
     {
-        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("ym2413")));
+        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("fmpac")));
     }
 
     private static int readInt32Le(byte[] data, int offset)

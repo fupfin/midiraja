@@ -48,7 +48,7 @@ class Ay8910VgmExporterTest
 
     private static CompositeVgmExporter composite()
     {
-        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("ay8910")));
+        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("zxspectrum")));
     }
 
     private static int readInt32Le(byte[] data, int offset)
@@ -117,8 +117,10 @@ class Ay8910VgmExporterTest
                 .filter(w -> w[0] == 7)
                 .toList();
         assertFalse(mixerWrites.isEmpty(), "Expected mixer register write");
-        int lastMixer = mixerWrites.get(mixerWrites.size() - 1)[1];
-        assertEquals(0, lastMixer & 0x01, "Tone bit for ch0 should be 0 (active low = enabled)");
+        // The last write may be the finalSilence reset — check that tone was enabled at some point
+        boolean toneEnabledAtSomePoint = mixerWrites.stream().anyMatch(w -> (w[1] & 0x01) == 0);
+        assertTrue(toneEnabledAtSomePoint,
+                "Tone bit for ch0 should be 0 (active low = enabled) during note");
     }
 
     @Test
@@ -134,8 +136,9 @@ class Ay8910VgmExporterTest
                 .filter(w -> w[0] == 8)
                 .toList();
         assertFalse(ampWrites.isEmpty(), "Expected amplitude register write");
-        int lastAmp = ampWrites.get(ampWrites.size() - 1)[1];
-        assertEquals(15, lastAmp, "Velocity 127 → amp 15");
+        // The last write may be the finalSilence reset — check that max amplitude was set at some point
+        boolean maxAmpWritten = ampWrites.stream().anyMatch(w -> w[1] == 15);
+        assertTrue(maxAmpWritten, "Velocity 127 → amp 15 should be written during note");
     }
 
     // ── Percussion ────────────────────────────────────────────────────────────
@@ -155,6 +158,31 @@ class Ay8910VgmExporterTest
         assertTrue(noiseWritten, "Expected noise period write 31 on chip0 reg6 for kick drum");
     }
 
+    @Test
+    void percussionNoteOff_silencesNoise() throws Exception
+    {
+        // NOTE_ON then NOTE_OFF for percussion — noise amplitude must be zeroed on note-off
+        var seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 36, 100), 0));
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_OFF, 9, 36, 0), 240));
+
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // After NOTE_OFF, AY amplitude for noise slot (reg 10 = 8+NOISE_SLOT=8+2) must be 0
+        List<int[]> writes = findAyWrites(data, 0x80);
+        // Find the last amplitude write for reg 10
+        int lastAmp = -1;
+        for (var w : writes)
+        {
+            if (w[0] == 10)
+                lastAmp = w[1];
+        }
+        assertEquals(0, lastAmp, "Noise slot amplitude must be 0 after percussion NOTE_OFF");
+    }
+
     // ── Voice stealing ────────────────────────────────────────────────────────
 
     @Test
@@ -169,6 +197,60 @@ class Ay8910VgmExporterTest
         assertDoesNotThrow(() -> composite().export(seq, out));
         byte[] data = out.toByteArray();
         assertEquals('V', data[0]); // still produces valid VGM
+    }
+
+    // ── Percussion NOTE_OFF injection ────────────────────────────────────────
+
+    @Test
+    void percussionWithoutNoteOff_noiseSilencedAfterAutoDecay() throws Exception
+    {
+        // ch9 kick NOTE_ON at tick 0, NO explicit NOTE_OFF — noise must be zeroed
+        // by the injected synthetic NOTE_OFF (autoDecay = resolution/2 = 240 ticks)
+        var seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 36, 100), 0));
+        // Note: no NOTE_OFF
+
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // Find the last amplitude write for noise slot (reg 10)
+        List<int[]> writes = findAyWrites(data, 0x80);
+        int lastAmp = -1;
+        for (var w : writes)
+        {
+            if (w[0] == 10)
+                lastAmp = w[1];
+        }
+        assertEquals(0, lastAmp, "Noise slot amplitude must be 0 after auto-decay NOTE_OFF");
+    }
+
+    @Test
+    void addMissingPercussionNoteOffs_injectsForMissingNoteOff() throws Exception
+    {
+        // Three consecutive percussion hits, none have NOTE_OFFs
+        var seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 36, 100), 0));
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 38, 100), 240));
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 36, 100), 480));
+
+        var events = new ArrayList<MidiEvent>();
+        for (int i = 0; i < track.size(); i++)
+            events.add(track.get(i));
+        events.sort(java.util.Comparator.comparingLong(MidiEvent::getTick));
+
+        var result = CompositeVgmExporter.addMissingPercussionNoteOffs(events, 480);
+
+        // Should have injected NOTE_OFFs for at least the first kick (tick=0) and the snare
+        long noteOffCount = result.stream()
+                .filter(e -> e.getMessage() instanceof ShortMessage m
+                        && m.getChannel() == 9
+                        && (m.getCommand() == ShortMessage.NOTE_OFF
+                                || (m.getCommand() == ShortMessage.NOTE_ON && m.getData2() == 0)))
+                .count();
+        assertTrue(noteOffCount >= 3, "Expected ≥3 injected NOTE_OFFs, got " + noteOffCount);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

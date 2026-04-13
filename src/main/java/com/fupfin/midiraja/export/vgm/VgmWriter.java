@@ -35,6 +35,8 @@ public final class VgmWriter implements AutoCloseable
     static final int SN76489_CLOCK = 3_579_545;
     static final int YM2413_CLOCK = 3_579_545;
     static final int K051649_CLOCK = 3_579_545;
+    /** K051649 clock with bit 31 set → activates K052539 (SCC-I) {@code mode_plus} in libvgm. */
+    static final int K051649_CLOCK_SCCI = K051649_CLOCK | 0x80000000;
     static final int YMF262_CLOCK = 14_318_180;
     static final int VGM_SAMPLE_RATE = 44100;
 
@@ -75,7 +77,7 @@ public final class VgmWriter implements AutoCloseable
 
     private boolean hasScc()
     {
-        return chips.contains(ChipType.SCC);
+        return chips.contains(ChipType.SCC) || chips.contains(ChipType.SCCI);
     }
 
     private int headerSize()
@@ -127,11 +129,22 @@ public final class VgmWriter implements AutoCloseable
         buf.write(data & 0xFF);
     }
 
-    /** K051649 (SCC) register write (command 0xD2, port 0). */
-    public void writeScc(int reg, int data)
+    /**
+     * K051649 (SCC) register write (command 0xD2).
+     *
+     * <p>
+     * Port mapping:
+     * <ul>
+     *   <li>0 — waveform RAM (reg 0x00-0x9F, 32 bytes × 5 channels)
+     *   <li>1 — frequency dividers (reg 0-9, 2 bytes per channel lo/hi)
+     *   <li>2 — volumes (reg 0-4, 1 byte per channel, bits 3-0)
+     *   <li>3 — channel enable mask (reg ignored, data bits 4-0)
+     * </ul>
+     */
+    public void writeScc(int port, int reg, int data)
     {
         buf.write(0xD2);
-        buf.write(0x00); // port 0
+        buf.write(port & 0xFF);
         buf.write(reg & 0xFF);
         buf.write(data & 0xFF);
     }
@@ -248,8 +261,11 @@ public final class VgmWriter implements AutoCloseable
                 int32Le(data, 0x78, (int) AY8910_CLOCK_DUAL);
         }
 
-        // K051649 (SCC) clock at 0x9C — requires v1.70 header (0xC0 bytes)
-        if (hasScc())
+        // K051649/K052539 clock at 0x9C — requires v1.70 header (0xC0 bytes)
+        // Bit 31 activates K052539 (SCC-I) mode_plus in libvgm.
+        if (chips.contains(ChipType.SCCI))
+            int32Le(data, 0x9C, K051649_CLOCK_SCCI);
+        else if (chips.contains(ChipType.SCC))
             int32Le(data, 0x9C, K051649_CLOCK);
     }
 

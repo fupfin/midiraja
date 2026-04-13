@@ -22,12 +22,30 @@ public enum ChipType
     /** YM2413 (OPLL) FM, 9 melodic channels (or 6 melodic + rhythm), clock 3,579,545 Hz. */
     YM2413,
 
-    /** K051649 (SCC) wavetable, 5 channels, clock 3,579,545 Hz. */
+    /** K051649 (SCC) wavetable, 5 channels (ch 3&4 share waveram), clock 3,579,545 Hz. */
     SCC,
+
+    /**
+     * K052539 (SCC-I / SCC+) wavetable, 5 fully independent channels, clock 3,579,545 Hz.
+     *
+     * <p>
+     * Differs from {@link #SCC} only in waveform isolation: channels 3 and 4 each have their own
+     * 32-byte waveram. Activated via bit 31 of the K051649 clock field at VGM header offset 0x9C.
+     */
+    SCCI,
 
     /** YMF262 (OPL3) FM, 18 channels, clock 14,318,180 Hz. */
     OPL3,
 
     /** SN76489 PSG, 3 tone + noise channels, clock 3,579,545 Hz. */
-    SN76489
+    SN76489,
+
+    /**
+     * YM2612 (OPN2) FM, 6 melodic channels, clock 7,670,454 Hz.
+     *
+     * <p>
+     * Converted via libOPNMIDI's VGMFileDumper backend — not the streaming {@link ChipHandler}
+     * model. Use {@code Ym2612VgmExporter} directly.
+     */
+    YM2612
 }

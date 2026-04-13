@@ -23,11 +23,13 @@ public final class ChipHandlers
 {
     /** Named presets: system name → ordered chip list. */
     public static final Map<String, List<ChipType>> PRESETS = Map.of(
-            "ay8910",  List.of(ChipType.AY8910, ChipType.AY8910),
-            "ym2413",  List.of(ChipType.YM2413),
-            "msx",     List.of(ChipType.YM2413, ChipType.AY8910),
-            "msx-scc", List.of(ChipType.SCC, ChipType.AY8910),
-            "opl3",    List.of(ChipType.OPL3)
+            "zxspectrum", List.of(ChipType.AY8910, ChipType.AY8910),
+            "fmpac",      List.of(ChipType.YM2413),
+            "msx",        List.of(ChipType.YM2413, ChipType.AY8910),
+            "msx-scc",    List.of(ChipType.SCCI, ChipType.AY8910),
+            "sb16",       List.of(ChipType.OPL3),
+            "genesis",    List.of(ChipType.YM2612),
+            "megadrive",  List.of(ChipType.YM2612)
     );
 
     private ChipHandlers()
@@ -65,9 +67,12 @@ public final class ChipHandlers
                 case AY8910 -> new Ay8910Handler(ayIndex++);
                 case YM2413 -> new Ym2413Handler();
                 case SCC -> new SccHandler();
+                case SCCI -> new SccHandler(true);
                 case OPL3 -> new Opl3Handler();
                 case SN76489 -> throw new UnsupportedOperationException(
                     "SN76489 handler not yet implemented");
+                case YM2612 -> throw new UnsupportedOperationException(
+                    "YM2612 requires Ym2612VgmExporter, not CompositeVgmExporter");
             });
         }
         return handlers;

@@ -11,7 +11,9 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiEvent;
 import javax.sound.midi.Sequence;
@@ -52,7 +54,8 @@ public final class CompositeVgmExporter
     {
         try (var writer = new VgmWriter(out, chipTypes))
         {
-            var events = mergeAndSort(sequence);
+            var events = addMissingPercussionNoteOffs(
+                    mergeAndSort(sequence), sequence.getResolution());
             var state = new CompositeState(handlers, mode);
             state.initSilence(writer);
 
@@ -77,6 +80,7 @@ public final class CompositeVgmExporter
                 else if (event.getMessage() instanceof ShortMessage msg)
                     state.handleMessage(msg, writer);
             }
+            state.finalSilence(writer);
         }
     }
 
@@ -90,6 +94,73 @@ public final class CompositeVgmExporter
         }
         events.sort(Comparator.comparingLong(MidiEvent::getTick));
         return events;
+    }
+
+    /**
+     * Injects synthetic NOTE_OFF events for MIDI channel 9 (percussion) hits that have no
+     * corresponding NOTE_OFF within a short auto-decay window.
+     *
+     * <p>
+     * Many MIDI files omit ch9 NOTE_OFFs because acoustic drum samples decay naturally. PSG noise
+     * channels (AY-3-8910) do not decay on their own, so without explicit silencing the noise
+     * persists indefinitely. This method adds synthetic NOTE_OFFs so that the noise channel is
+     * silenced after {@code resolution / 2} ticks (≈ 1/8 note at the default tempo).
+     */
+    static List<MidiEvent> addMissingPercussionNoteOffs(List<MidiEvent> events, int resolution)
+    {
+        int autoDecayTicks = resolution / 2; // ≈ 1/8 note (250 ms at 120 BPM)
+        var pendingOns = new HashMap<Integer, Long>(); // note → last unmatched NOTE_ON tick
+        var injections = new ArrayList<MidiEvent>();
+
+        for (var event : events)
+        {
+            if (!(event.getMessage() instanceof ShortMessage msg) || msg.getChannel() != 9)
+                continue;
+            int note = msg.getData1();
+            boolean isOn = msg.getCommand() == ShortMessage.NOTE_ON && msg.getData2() > 0;
+            boolean isOff = msg.getCommand() == ShortMessage.NOTE_OFF
+                    || (msg.getCommand() == ShortMessage.NOTE_ON && msg.getData2() == 0);
+
+            if (isOn)
+            {
+                if (pendingOns.containsKey(note))
+                {
+                    // Previous hit for same note had no NOTE_OFF — inject one just before this hit
+                    long onTick = pendingOns.get(note);
+                    long offTick = Math.min(onTick + autoDecayTicks, event.getTick());
+                    injections.add(percNoteOff(note, offTick));
+                }
+                pendingOns.put(note, event.getTick());
+            }
+            else if (isOff)
+            {
+                pendingOns.remove(note);
+            }
+        }
+
+        // Remaining pending NOTE_ONs reached end of sequence with no NOTE_OFF
+        for (var entry : pendingOns.entrySet())
+            injections.add(percNoteOff(entry.getKey(), entry.getValue() + autoDecayTicks));
+
+        if (injections.isEmpty())
+            return events;
+
+        var result = new ArrayList<>(events);
+        result.addAll(injections);
+        result.sort(Comparator.comparingLong(MidiEvent::getTick));
+        return result;
+    }
+
+    private static MidiEvent percNoteOff(int note, long tick)
+    {
+        try
+        {
+            return new MidiEvent(new ShortMessage(ShortMessage.NOTE_OFF, 9, note, 0), tick);
+        }
+        catch (InvalidMidiDataException e)
+        {
+            throw new IllegalStateException("Invalid percussion note: " + note, e);
+        }
     }
 
     // ── Composite voice state ─────────────────────────────────────────────────
@@ -134,6 +205,12 @@ public final class CompositeVgmExporter
         {
             for (var handler : handlers)
                 handler.initSilence(w);
+        }
+
+        void finalSilence(VgmWriter w)
+        {
+            for (var handler : handlers)
+                handler.finalSilence(w);
         }
 
         void handleMessage(ShortMessage msg, VgmWriter w)
@@ -290,6 +367,18 @@ public final class CompositeVgmExporter
 
         private void noteOff(int midiCh, int note, VgmWriter w)
         {
+            if (midiCh == 9)
+            {
+                for (var handler : handlers)
+                {
+                    if (handler.supportsRhythm())
+                    {
+                        handler.handlePercussion(note, 0, w);
+                        return;
+                    }
+                }
+                return;
+            }
             for (int g = 0; g < totalSlots; g++)
             {
                 if (active[g] && noteSlot[g] == note && chanSlot[g] == midiCh)
