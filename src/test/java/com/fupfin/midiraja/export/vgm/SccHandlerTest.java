@@ -13,145 +13,85 @@ import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.sound.midi.MidiEvent;
-import javax.sound.midi.Sequence;
-import javax.sound.midi.ShortMessage;
-import javax.sound.midi.Track;
-
 import org.junit.jupiter.api.Test;
 
 class SccHandlerTest
 {
-    private static final int GM_BASS_DRUM_1 = 35;
-    private static final int GM_BASS_DRUM_2 = 36;
-    private static final int GM_SNARE_1 = 38;
-    private static final int GM_CLOSED_HIHAT = 42;
-
     // ── supportsRhythm ────────────────────────────────────────────────────────
 
     @Test
-    void supportsRhythm_returnsTrue()
+    void supportsRhythm_returnsFalse()
     {
-        assertTrue(new SccHandler().supportsRhythm());
+        assertFalse(new SccHandler().supportsRhythm());
     }
 
-    // ── handlePercussion — waveform written to slot 4 ────────────────────────
+    // ── slotCount ─────────────────────────────────────────────────────────────
 
-    /**
-     * Exports a MIDI percussion note and returns the raw VGM bytes.
-     * The VGM header for SCC is 0xC0 bytes; chip writes start at 0xC0.
-     */
-    private static byte[] percussionVgm(int midiNote, int velocity) throws Exception
+    @Test
+    void scc_hasFiveMelodicSlots()
     {
-        var seq = new Sequence(Sequence.PPQ, 480);
-        Track track = seq.createTrack();
-        // Channel 9 = MIDI percussion channel
-        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, midiNote, velocity), 0));
+        assertEquals(5, new SccHandler().slotCount());
+    }
 
+    @Test
+    void scci_hasFiveMelodicSlots()
+    {
+        assertEquals(5, new SccHandler(true).slotCount());
+    }
+
+    // ── initSilence waveform init ─────────────────────────────────────────────
+
+    /** SCC (K051649): only channels 0-3 are written; ch4 inherits via shared waveram. */
+    @Test
+    void scc_initSilence_writesFourChannels() throws Exception
+    {
         var out = new ByteArrayOutputStream();
-        new CompositeVgmExporter(
-                ChipHandlers.create(List.of(ChipType.SCC)),
-                RoutingMode.SEQUENTIAL).export(seq, out);
-        return out.toByteArray();
+        try (var w = new VgmWriter(out, List.of(ChipType.SCC, ChipType.AY8910)))
+        {
+            new SccHandler(false).initSilence(w);
+        }
+        byte[] vgm = out.toByteArray();
+        long ch4Writes = sccWaveWrites(vgm).stream()
+                .filter(reg -> reg >= 0x80 && reg < 0xA0)
+                .count();
+        assertEquals(0, ch4Writes, "SCC: ch4 waveform must not be written explicitly");
     }
 
-    /** Collects (reg, data) pairs for 0xD2 (SCC write) commands from VGM bytes. */
-    private static List<int[]> sccWrites(byte[] vgm)
+    /** SCC-I (K052539): all five channels must be written (independent waveform RAM). */
+    @Test
+    void scci_initSilence_writesAllFiveChannels() throws Exception
     {
-        var writes = new ArrayList<int[]>();
-        // SCC header size = 0xC0 bytes
+        var out = new ByteArrayOutputStream();
+        try (var w = new VgmWriter(out, List.of(ChipType.SCCI, ChipType.AY8910)))
+        {
+            new SccHandler(true).initSilence(w);
+        }
+        byte[] vgm = out.toByteArray();
+        long ch4Writes = sccWaveWrites(vgm).stream()
+                .filter(reg -> reg >= 0x80 && reg < 0xA0)
+                .count();
+        assertEquals(32, ch4Writes, "SCC-I: all 32 bytes of ch4 waveform must be written");
+    }
+
+    /** Returns port-0 reg values from 0xD2 SCC waveform writes (header = 0xC0 bytes). */
+    private static List<Integer> sccWaveWrites(byte[] vgm)
+    {
+        var regs = new ArrayList<Integer>();
         int pos = 0xC0;
         while (pos < vgm.length - 1)
         {
             int cmd = vgm[pos] & 0xFF;
-            if (cmd == 0xD2) // SCC write: D2 pp rr dd
+            if (cmd == 0xD2 && pos + 3 < vgm.length)
             {
-                if (pos + 3 < vgm.length)
-                {
-                    int reg = vgm[pos + 2] & 0xFF;
-                    int data = vgm[pos + 3] & 0xFF;
-                    writes.add(new int[] { reg, data });
-                }
+                if ((vgm[pos + 1] & 0xFF) == 0) // port 0 = waveform
+                    regs.add(vgm[pos + 2] & 0xFF);
                 pos += 4;
             }
-            else if (cmd == 0x66) // end-of-data
-            {
+            else if (cmd == 0x66)
                 break;
-            }
-            else if (cmd == 0x61) // wait nn samples (16-bit)
-            {
-                pos += 3;
-            }
             else
-            {
-                pos += 1;
-            }
+                pos += (cmd == 0x61 ? 3 : 1);
         }
-        return writes;
-    }
-
-    @Test
-    void bassDrum_writesToPercSlotWaveformMemory() throws Exception
-    {
-        byte[] vgm = percussionVgm(GM_BASS_DRUM_1, 100);
-        var writes = sccWrites(vgm);
-
-        // Waveform for slot 4 starts at reg 0x80 (= PERC_SLOT * 32 = 4 * 32 = 128)
-        boolean hasPercWaveWrite = writes.stream().anyMatch(w -> w[0] >= 0x80 && w[0] < 0xA0);
-        assertTrue(hasPercWaveWrite, "Bass drum should write waveform to slot 4 (regs 0x80-0x9F)");
-    }
-
-    @Test
-    void snare_writesToPercSlotWaveformMemory() throws Exception
-    {
-        byte[] vgm = percussionVgm(GM_SNARE_1, 80);
-        var writes = sccWrites(vgm);
-
-        boolean hasPercWaveWrite = writes.stream().anyMatch(w -> w[0] >= 0x80 && w[0] < 0xA0);
-        assertTrue(hasPercWaveWrite, "Snare should write waveform to slot 4 (regs 0x80-0x9F)");
-    }
-
-    @Test
-    void hihat_writesToPercSlotWaveformMemory() throws Exception
-    {
-        byte[] vgm = percussionVgm(GM_CLOSED_HIHAT, 70);
-        var writes = sccWrites(vgm);
-
-        boolean hasPercWaveWrite = writes.stream().anyMatch(w -> w[0] >= 0x80 && w[0] < 0xA0);
-        assertTrue(hasPercWaveWrite, "Hi-hat should write waveform to slot 4 (regs 0x80-0x9F)");
-    }
-
-    @Test
-    void bassDrum_setsVolumeForPercSlot() throws Exception
-    {
-        byte[] vgm = percussionVgm(GM_BASS_DRUM_1, 127);
-        var writes = sccWrites(vgm);
-
-        // Volume register for slot 4 = 0xAA + 4 = 0xAE
-        boolean hasVolWrite = writes.stream().anyMatch(w -> w[0] == 0xAE && w[1] > 0);
-        assertTrue(hasVolWrite, "Bass drum should set non-zero volume at reg 0xAE");
-    }
-
-    @Test
-    void bassDrum_enablesPercSlotInMask() throws Exception
-    {
-        byte[] vgm = percussionVgm(GM_BASS_DRUM_1, 100);
-        var writes = sccWrites(vgm);
-
-        // Enable mask at 0xAF; bit 4 = slot 4
-        boolean hasEnableMask = writes.stream()
-                .anyMatch(w -> w[0] == 0xAF && (w[1] & 0x10) != 0);
-        assertTrue(hasEnableMask, "Bass drum should set bit 4 in enable mask (reg 0xAF)");
-    }
-
-    @Test
-    void zeroVelocity_silencesPercSlot() throws Exception
-    {
-        byte[] vgm = percussionVgm(GM_BASS_DRUM_2, 0);
-        // velocity=0 should be treated as note-off and not trigger percussion;
-        // no waveform write expected
-        var writes = sccWrites(vgm);
-        boolean hasPercWaveWrite = writes.stream().anyMatch(w -> w[0] >= 0x80 && w[0] < 0xA0);
-        assertFalse(hasPercWaveWrite, "Zero-velocity percussion note-on should not write waveform");
+        return regs;
     }
 }

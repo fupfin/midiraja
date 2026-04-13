@@ -7,70 +7,65 @@
 
 package com.fupfin.midiraja.export.vgm;
 
+import com.fupfin.midiraja.midi.psg.SccWaveforms;
+
 /**
- * {@link ChipHandler} for K051649 (SCC/SCC+) — 5 wavetable channels.
+ * {@link ChipHandler} for K051649 (SCC) / K052539 (SCC-I) — 5 wavetable channels.
  *
  * <p>
- * The SCC has five channels each with an independent 32-byte waveform, frequency divider,
- * and volume register. This handler pre-loads a simple sine approximation as the default
- * waveform and programs frequency/volume on each note-on.
+ * All five channels are used for melody. Percussion is not supported: the SCC has no noise
+ * generator and is intended to work alongside a PSG (AY8910) that handles rhythm.
  *
  * <p>
- * SCC register map (VGM command 0xD2, port 0):
+ * K051649 note: channels 3 and 4 share waveform RAM. Any write to waveform offset ≥ 0x60
+ * updates both channels simultaneously. In non-plus mode the two channels will therefore
+ * always share the same waveform; the last {@code startNote} call to either slot wins.
+ *
+ * <p>
+ * K052539 (SCC-I, {@code plusMode=true}): all five channels have independent waveform RAM.
+ * Activated by setting bit 31 of the K051649 clock field in the VGM header.
+ *
+ * <p>
+ * SCC register map (VGM command 0xD2):
  * <ul>
- *   <li>0x00-0x9F: waveform data (32 bytes per channel × 5 channels)
- *   <li>0xA0-0xA9: frequency dividers (2 bytes per channel, lo then hi)
- *   <li>0xAA-0xAE: volumes (5 × 1 byte, bits 3-0)
- *   <li>0xAF: channel enable mask (bit per channel)
+ *   <li>port 0, reg 0x00-0x9F: waveform data (32 bytes × 5 channels)
+ *   <li>port 1, reg 0-9: frequency dividers (lo/hi per channel; Fout = Fclock / (16 × (div+1)))
+ *   <li>port 2, reg 0-4: volumes (bits 3-0)
+ *   <li>port 3: channel enable mask (bits 4-0)
  * </ul>
  */
 final class SccHandler implements ChipHandler
 {
     private static final int SLOTS = 5;
-    private static final int PERC_SLOT = 4; // local slot index dedicated to percussion
 
-    /**
-     * A simple 32-sample signed sine approximation loaded into melodic channels on init.
-     * Values are 8-bit signed (-128..127).
-     */
-    private static final byte[] SINE_WAVE = {
-            0, 25, 49, 71, 90, 106, 118, 126, 127, 126, 118, 106, 90, 71, 49, 25,
-            0, -25, -49, -71, -90, -106, -118, -126, -127, -126, -118, -106, -90, -71, -49, -25
-    };
+    /** K051649 (SCC) only: channels 0-3 are written; ch4 inherits via shared waveram. */
+    private static final int INIT_CHANNELS = 4;
 
-    /** Sawtooth-style waveform for kick approximation (attack transient shape). */
-    private static final byte[] KICK_WAVE = {
-            127, 115, 102, 89, 76, 63, 50, 38, 25, 12, 0, -12, -25, -38, -50, -63,
-            -76, -89, -102, -115, -127, -115, -89, -63, -38, -12, 12, 38, 63, 89, 115, 127
-    };
-
-    /** Irregular pseudo-noise pattern for snare approximation. */
-    private static final byte[] SNARE_WAVE = {
-            127, -127, 63, -63, 127, -63, 63, -127, 31, -31, 127, -127, 63, -63, 31, -31,
-            -127, 127, -63, 63, -127, 63, -63, 127, -31, 31, -127, 127, -63, 63, -31, 31
-    };
-
-    /** Dense alternating pattern for hi-hat approximation. */
-    private static final byte[] HIHAT_WAVE = {
-            127, -127, 127, -127, 127, -127, 127, -127, 127, -127, 127, -127, 127, -127, 127, -127,
-            127, -127, 127, -127, 127, -127, 127, -127, 127, -127, 127, -127, 127, -127, 127, -127
-    };
-
-    // GM percussion note numbers
-    private static final int GM_BASS_DRUM_1 = 35;
-    private static final int GM_BASS_DRUM_2 = 36;
-    private static final int GM_SNARE_1 = 38;
-    private static final int GM_SNARE_2 = 40;
-    private static final int GM_CLOSED_HIHAT = 42;
-    private static final int GM_PEDAL_HIHAT = 44;
-    private static final int GM_OPEN_HIHAT = 46;
+    private final boolean plusMode; // true → K052539 (SCC-I), false → K051649 (SCC)
 
     private int enableMask = 0;
+
+    /**
+     * Last program written per slot; -1 means not yet written.
+     * Used to avoid redundant waveform register writes on consecutive notes with the same program.
+     */
+    private final int[] slotProgram = new int[SLOTS];
+
+    SccHandler()
+    {
+        this(false);
+    }
+
+    SccHandler(boolean plusMode)
+    {
+        this.plusMode = plusMode;
+        java.util.Arrays.fill(slotProgram, -1);
+    }
 
     @Override
     public ChipType chipType()
     {
-        return ChipType.SCC;
+        return plusMode ? ChipType.SCCI : ChipType.SCC;
     }
 
     @Override
@@ -82,90 +77,69 @@ final class SccHandler implements ChipHandler
     @Override
     public boolean supportsRhythm()
     {
-        return true;
+        // SCC has no noise generator — percussion should be handled by an accompanying PSG (AY8910).
+        return false;
     }
 
     @Override
     public void initSilence(VgmWriter w)
     {
-        // Load sine wave into melodic channels 0-3 (0x00-0x7F)
-        for (int ch = 0; ch < PERC_SLOT; ch++)
+        // K051649 (SCC): writing ch3 (offset 0x60-0x7F) also updates ch4 via shared waveram,
+        // so only channels 0-3 need explicit writes.
+        // K052539 (SCC-I): all five channels are independent — ch4 must be written explicitly.
+        int initChannels = plusMode ? SLOTS : INIT_CHANNELS;
+        for (int ch = 0; ch < initChannels; ch++)
         {
             int base = ch * 32;
             for (int i = 0; i < 32; i++)
-                w.writeScc(base + i, SINE_WAVE[i] & 0xFF);
+                w.writeScc(0, base + i, SccWaveforms.SQUARE[i] & 0xFF);
         }
-        // Zero all volumes
+        // Zero all volumes (port 2, reg = channel index)
         for (int ch = 0; ch < SLOTS; ch++)
-            w.writeScc(0xAA + ch, 0);
-        // Disable all channels
-        w.writeScc(0xAF, 0);
+            w.writeScc(2, ch, 0);
+        // Disable all channels (port 3)
+        w.writeScc(3, 0, 0);
     }
 
     @Override
     public void startNote(int localSlot, int note, int velocity, int program, VgmWriter w)
     {
+        // Waveform: port 0, regs slot*32 .. slot*32+31 — write only when program changes.
+        if (slotProgram[localSlot] != program)
+        {
+            byte[] wave = SccWaveforms.forProgram(program);
+            int base = localSlot * 32;
+            for (int i = 0; i < 32; i++)
+                w.writeScc(0, base + i, wave[i] & 0xFF);
+            slotProgram[localSlot] = program;
+        }
+
         double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-        // SCC frequency divider: Fout = Fclock / (2 * (divider + 1) * 32)
-        int divider = (int) Math.round(VgmWriter.K051649_CLOCK / (64.0 * freq)) - 1;
+        // SCC frequency divider: Fout = Fclock / (16 * (divider + 1))
+        int divider = (int) Math.round(VgmWriter.K051649_CLOCK / (16.0 * freq)) - 1;
         divider = Math.clamp(divider, 0, 0xFFF);
 
-        w.writeScc(0xA0 + localSlot * 2, divider & 0xFF);
-        w.writeScc(0xA0 + localSlot * 2 + 1, (divider >> 8) & 0x0F);
+        // Frequency: port 1, reg = slot*2 (lo) and slot*2+1 (hi)
+        w.writeScc(1, localSlot * 2, divider & 0xFF);
+        w.writeScc(1, localSlot * 2 + 1, (divider >> 8) & 0x0F);
 
+        // Volume: port 2, reg = slot index
         int vol = (int) Math.round(velocity * 15.0 / 127.0);
-        w.writeScc(0xAA + localSlot, vol & 0x0F);
+        w.writeScc(2, localSlot, vol & 0x0F);
 
+        // Channel enable: port 3
         enableMask |= (1 << localSlot);
-        w.writeScc(0xAF, enableMask & 0x1F);
+        w.writeScc(3, 0, enableMask & 0x1F);
     }
 
     @Override
     public void silenceSlot(int localSlot, VgmWriter w)
     {
-        w.writeScc(0xAA + localSlot, 0);
+        // Volume: port 2, reg = slot index
+        w.writeScc(2, localSlot, 0);
         enableMask &= ~(1 << localSlot);
-        w.writeScc(0xAF, enableMask & 0x1F);
+        // Channel enable: port 3
+        w.writeScc(3, 0, enableMask & 0x1F);
     }
 
-    @Override
-    public void handlePercussion(int note, int velocity, VgmWriter w)
-    {
-        byte[] wave = percWave(note);
-        int freq = percFreq(note);
-
-        // Load waveform into percussion slot (0x60-0x7F = slot 4)
-        int base = PERC_SLOT * 32;
-        for (int i = 0; i < 32; i++)
-            w.writeScc(base + i, wave[i] & 0xFF);
-
-        int divider = (int) Math.round(VgmWriter.K051649_CLOCK / (64.0 * freq)) - 1;
-        divider = Math.clamp(divider, 0, 0xFFF);
-        w.writeScc(0xA0 + PERC_SLOT * 2, divider & 0xFF);
-        w.writeScc(0xA0 + PERC_SLOT * 2 + 1, (divider >> 8) & 0x0F);
-
-        int vol = (int) Math.round(velocity * 15.0 / 127.0);
-        w.writeScc(0xAA + PERC_SLOT, vol & 0x0F);
-
-        enableMask |= (1 << PERC_SLOT);
-        w.writeScc(0xAF, enableMask & 0x1F);
-    }
-
-    private static byte[] percWave(int note)
-    {
-        if (note == GM_BASS_DRUM_1 || note == GM_BASS_DRUM_2)
-            return KICK_WAVE;
-        if (note == GM_CLOSED_HIHAT || note == GM_PEDAL_HIHAT || note == GM_OPEN_HIHAT)
-            return HIHAT_WAVE;
-        return SNARE_WAVE;
-    }
-
-    private static int percFreq(int note)
-    {
-        if (note == GM_BASS_DRUM_1 || note == GM_BASS_DRUM_2)
-            return 80;
-        if (note == GM_CLOSED_HIHAT || note == GM_PEDAL_HIHAT || note == GM_OPEN_HIHAT)
-            return 2000;
-        return 400; // snare and others
-    }
 }
