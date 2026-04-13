@@ -125,12 +125,12 @@ cmake_build "$NATIVE_LIBS/opnmidi" \
     -DCMAKE_BUILD_TYPE=Release \
     -DlibOPNMIDI_SHARED=ON \
     -DlibOPNMIDI_STATIC=ON \
-    -DWITH_MIDI_SEQUENCER=OFF \
+    -DWITH_MIDI_SEQUENCER=ON \
     -DWITH_XMI_SUPPORT=OFF \
     -DUSE_GENS_EMULATOR=OFF \
     -DUSE_NUKED_OPN2_LLE_EMULATOR=OFF \
     -DUSE_NUKED_OPNA_LLE_EMULATOR=OFF \
-    -DUSE_VGM_FILE_DUMPER=OFF \
+    -DUSE_VGM_FILE_DUMPER=ON \
     "$PROJECT_ROOT/ext/libOPNMIDI"
 
 # 5. Build libtsf (TinySoundFont — single-header, no cmake needed)

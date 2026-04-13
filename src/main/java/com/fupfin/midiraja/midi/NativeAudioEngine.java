@@ -260,6 +260,16 @@ public class NativeAudioEngine extends AbstractFFMBridge implements AudioEngine
             ctx = MemorySegment.NULL;
         }
         pushBuffer = null;
+        if (wavWriter != null)
+        {
+            try
+            {
+                wavWriter.close();
+            }
+            catch (Exception _)
+            {}
+            wavWriter = null;
+        }
         try
         {
             super.close();

@@ -243,6 +243,7 @@ task buildOpnMidiLib(type: Exec) {
                 -DCMAKE_BUILD_TYPE=Release \\
                 -DlibOPNMIDI_SHARED=ON -DlibOPNMIDI_STATIC=ON \\
                 -DWITH_MUS_SUPPORT=OFF -DWITH_XMI_SUPPORT=OFF \\
+                -DUSE_VGM_FILE_DUMPER=ON -DWITH_MIDI_SEQUENCER=ON \\
                 ${sourceDir.absolutePath} && \\
             mingw32-make -j\$NUMBER_OF_PROCESSORS
         else
@@ -250,6 +251,7 @@ task buildOpnMidiLib(type: Exec) {
                 -DCMAKE_BUILD_TYPE=Release \\
                 -DlibOPNMIDI_SHARED=ON -DlibOPNMIDI_STATIC=ON \\
                 -DWITH_MUS_SUPPORT=OFF -DWITH_XMI_SUPPORT=OFF \\
+                -DUSE_VGM_FILE_DUMPER=ON -DWITH_MIDI_SEQUENCER=ON \\
                 ${sourceDir.absolutePath} && \\
             make -j\$(sysctl -n hw.ncpu 2>/dev/null || nproc)
         fi

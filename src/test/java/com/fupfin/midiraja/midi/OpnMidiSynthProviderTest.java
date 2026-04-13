@@ -114,6 +114,22 @@ class OpnMidiSynthProviderTest
         }
 
         @Override
+        public void setVgmOutPath(String path)
+        {
+        }
+
+        @Override
+        public void openMidiData(byte[] midiBytes)
+        {
+        }
+
+        @Override
+        public int playFromFile(short[] buffer)
+        {
+            return 0;
+        }
+
+        @Override
         public void close()
         {
             closed = true;

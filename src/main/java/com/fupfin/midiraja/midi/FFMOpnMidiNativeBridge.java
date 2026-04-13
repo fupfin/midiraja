@@ -13,6 +13,8 @@ import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * FFM implementation of {@link OpnMidiNativeBridge} backed by libOPNMIDI.
  *
@@ -95,6 +97,10 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
     private final MethodHandle opn2_rt_pitchBend;
     private final MethodHandle opn2_rt_systemExclusive;
     private final MethodHandle opn2_errorInfo;
+    // VGMFileDumper / file-based playback
+    private final @Nullable MethodHandle opn2_set_vgm_out_path;
+    private final MethodHandle opn2_openData;
+    private final MethodHandle opn2_play;
 
     public FFMOpnMidiNativeBridge() throws Exception
     {
@@ -159,6 +165,15 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
 
         // const char* opn2_errorInfo(struct OPN2_MIDIPlayer *device)
         opn2_errorInfo = downcall("opn2_errorInfo", DESC_ERROR_INFO);
+
+        // void opn2_set_vgm_out_path(const char *path) — not in public header, optional
+        opn2_set_vgm_out_path = optionalDowncall("opn2_set_vgm_out_path", DESC_VOID_PTR);
+
+        // int opn2_openData(struct OPN2_MIDIPlayer *device, const void *mem, unsigned long size)
+        opn2_openData = downcall("opn2_openData", DESC_PTR_PTR_LONG);
+
+        // int opn2_play(struct OPN2_MIDIPlayer *device, int sampleCount, short *out)
+        opn2_play = downcall("opn2_play", DESC_GENERATE);
     }
 
     @Override
@@ -391,6 +406,72 @@ public class FFMOpnMidiNativeBridge extends AbstractFFMBridge implements OpnMidi
     {
         // opn2_generate sampleCount = total shorts in the buffer (L+R interleaved).
         generateInto(opn2_generate, device, buffer);
+    }
+
+    @Override
+    public void setVgmOutPath(String path)
+    {
+        if (opn2_set_vgm_out_path == null)
+            return;
+        // Allocate from the bridge's long-lived arena — libOPNMIDI stores a raw pointer to this
+        // string in the global g_vgm_path and dereferences it during close()/fopen(), so the
+        // allocation must outlive the entire export sequence, not just this method call.
+        try
+        {
+            MemorySegment pathSeg = arena.allocateFrom(path);
+            opn2_set_vgm_out_path.invokeExact(pathSeg);
+        }
+        catch (Throwable e)
+        {
+            err.println("[NativeBridge Error] " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void openMidiData(byte[] midiBytes) throws Exception
+    {
+        if (device.equals(MemorySegment.NULL) || midiBytes == null || midiBytes.length == 0)
+            return;
+        try (Arena temp = Arena.ofConfined())
+        {
+            MemorySegment seg = temp.allocateFrom(ValueLayout.JAVA_BYTE, midiBytes);
+            int rc = (int) opn2_openData.invokeExact(device, seg, (long) midiBytes.length);
+            if (rc != 0)
+            {
+                throw new IllegalStateException("opn2_openData failed (rc=" + rc + ")");
+            }
+        }
+        catch (Exception e)
+        {
+            err.println("[NativeBridge Error] " + e.getMessage());
+            throw e;
+        }
+        catch (Throwable t)
+        {
+            err.println("[NativeBridge Error] " + t.getMessage());
+            throw new IllegalStateException("Error loading MIDI data", t);
+        }
+    }
+
+    @Override
+    public int playFromFile(short[] buffer)
+    {
+        if (device.equals(MemorySegment.NULL) || buffer == null || buffer.length == 0)
+            return 0;
+        try (Arena temp = Arena.ofConfined())
+        {
+            MemorySegment outBuf = temp.allocate((long) buffer.length * 2);
+            int written = (int) opn2_play.invokeExact(device, buffer.length, outBuf);
+            if (written > 0)
+                MemorySegment.copy(outBuf, ValueLayout.JAVA_SHORT, 0, buffer, 0,
+                        Math.min(written, buffer.length));
+            return written;
+        }
+        catch (Throwable e)
+        {
+            err.println("[NativeBridge Error] " + e.getMessage());
+            return 0;
+        }
     }
 
     @Override

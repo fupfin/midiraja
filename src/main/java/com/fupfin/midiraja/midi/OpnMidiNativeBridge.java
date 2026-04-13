@@ -50,9 +50,46 @@ public interface OpnMidiNativeBridge extends MidiNativeBridge
 
     /**
      * Switches the OPN2 emulator backend. 0 = MAME YM2612, 1 = Nuked YM3438, 2 = GENS, 3 = YMFM
-     * OPN2, 4 = NP2 OPNA, 5 = MAME YM2608 OPNA, 6 = YMFM OPNA.
+     * OPN2, 4 = NP2 OPNA, 5 = MAME YM2608 OPNA, 6 = YMFM OPNA, 7 = VGM Dumper.
      */
     void switchEmulator(int emulatorId);
+
+    /**
+     * Sets the global VGM output file path for the VGMFileDumper backend.
+     *
+     * <p>
+     * This is a global (not per-device) setting in libOPNMIDI and <b>must be called before
+     * {@link #init}</b>. Not thread-safe across concurrent conversions.
+     *
+     * @param path
+     *            absolute path to the output .vgm file
+     */
+    void setVgmOutPath(String path);
+
+    /**
+     * Loads a MIDI file from in-memory bytes for file-based playback or VGM dumping.
+     *
+     * <p>
+     * Call after {@link #init}, {@link #switchEmulator}, and {@link #loadBankData}. Use with
+     * {@link #playFromFile} to drive the conversion loop.
+     *
+     * @param midiBytes
+     *            standard MIDI file bytes (type 0 or type 1)
+     */
+    void openMidiData(byte[] midiBytes) throws Exception;
+
+    /**
+     * Renders one chunk from the loaded MIDI file into {@code buffer}.
+     *
+     * <p>
+     * Returns the number of samples written into the buffer. A return value ≤ 0 indicates
+     * end-of-file. Only valid after {@link #openMidiData}.
+     *
+     * @param buffer
+     *            output buffer to fill
+     * @return samples written; ≤ 0 means end-of-file
+     */
+    int playFromFile(short[] buffer);
 
     /**
      * Resets the synthesizer state (clears all notes and patch settings). Safe to call only from
