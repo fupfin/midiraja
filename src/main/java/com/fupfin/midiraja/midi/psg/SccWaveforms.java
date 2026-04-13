@@ -38,6 +38,18 @@ public final class SccWaveforms
             -128, -128, -128, -128
     };
 
+    /** Pure sine wave (32-sample single cycle). */
+    public static final byte[] SINE = {
+            0, 25, 49, 71, 90, 106, 117, 125, 127, 125, 117, 106, 90, 71, 49, 25,
+            0, -25, -49, -71, -90, -106, -117, -125, -128, -125, -117, -106, -90, -71, -49, -25
+    };
+
+    /** Triangle wave (32-sample single cycle). Smooth, mallet/bell-like timbre. */
+    public static final byte[] TRIANGLE = {
+            0, 16, 32, 48, 64, 80, 96, 112, 127, 112, 96, 80, 64, 48, 32, 16,
+            0, -16, -32, -48, -64, -80, -96, -112, -128, -112, -96, -80, -64, -48, -32, -16
+    };
+
     public static final byte[] SQUARE = new byte[32];
 
     static
@@ -61,10 +73,13 @@ public final class SccWaveforms
     {
         return switch (program / 8)
         {
-            case 0, 1, 3 -> PIANO;   // Piano, Chromatic Perc, Guitar
-            case 4 -> BASS;           // Bass
+            case 0, 3 -> PIANO;        // Piano, Guitar
+            case 1 -> TRIANGLE;        // Chromatic Perc (vibraphone, marimba, bells)
+            case 2 -> SINE;            // Organ (smooth sustained tone)
+            case 4 -> BASS;            // Bass
             case 5, 11, 12 -> STRINGS; // Strings, Synth Pad, Synth FX
-            case 7, 10 -> BRASS;      // Brass, Synth Lead
+            case 7, 10 -> BRASS;       // Brass, Synth Lead
+            case 9 -> SINE;            // Pipe/Flute (breathy, smooth)
             default -> SQUARE;
         };
     }
