@@ -166,6 +166,9 @@ public abstract class AbstractFFMBridge implements AutoCloseable
 
         // Distribution layout: lib/ dir next to the JAR (installDist / packaged release).
         // getProtectionDomain() is non-null in both JVM and GraalVM native image.
+        // JVM mode  : getCodeSource() → lib/midiraja.jar  → jarDir = lib/  → lib/libfoo.dylib ✓
+        // Native img: getCodeSource() → bin/midra          → jarDir = bin/  → bin/libfoo.dylib (miss)
+        //             so also probe ../lib/ to cover the packaged-release layout.
         try
         {
             var src = AbstractFFMBridge.class.getProtectionDomain().getCodeSource();
@@ -174,6 +177,9 @@ public abstract class AbstractFFMBridge implements AutoCloseable
                 var jarDir = new File(src.getLocation().toURI()).getParentFile();
                 for (String path : paths)
                     allPaths.add(jarDir.getAbsolutePath() + "/" + path);
+                var siblingLib = new File(jarDir.getParentFile(), "lib");
+                for (String path : paths)
+                    allPaths.add(siblingLib.getAbsolutePath() + "/" + path);
             }
         }
         catch (Exception | Error ignored)

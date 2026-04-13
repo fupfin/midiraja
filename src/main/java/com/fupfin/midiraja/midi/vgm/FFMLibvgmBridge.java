@@ -20,13 +20,15 @@ import com.fupfin.midiraja.midi.MidiNativeBridge;
  * FFM bridge for libvgm's vgm_bridge C wrapper.
  *
  * <p>
- * Wraps the six-function C API:
+ * Wraps the eight-function C API:
  * <ul>
  * <li>{@code vgm_create(int sampleRate) → void*}</li>
  * <li>{@code vgm_open_file(void* ctx, const char* path) → int}</li>
  * <li>{@code vgm_open_data(void* ctx, const uint8_t* data, size_t len) → int}</li>
  * <li>{@code vgm_render(void* ctx, int frames, short* buf) → int} (interleaved stereo)</li>
  * <li>{@code vgm_is_done(void* ctx) → int}</li>
+ * <li>{@code vgm_get_duration_us(void* ctx) → int64_t}</li>
+ * <li>{@code vgm_set_speed(void* ctx, double speed) → void}</li>
  * <li>{@code vgm_close(void* ctx) → void}</li>
  * </ul>
  *
@@ -44,6 +46,14 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
     private static final FunctionDescriptor DESC_VGM_IS_DONE = FunctionDescriptor.of(
             ValueLayout.JAVA_INT, ValueLayout.ADDRESS);
 
+    // vgm_get_duration_us(void* ctx) → int64_t
+    private static final FunctionDescriptor DESC_VGM_GET_DURATION = FunctionDescriptor.of(
+            ValueLayout.JAVA_LONG, ValueLayout.ADDRESS);
+
+    // vgm_set_speed(void* ctx, double speed) → void
+    private static final FunctionDescriptor DESC_VGM_SET_SPEED = FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS, ValueLayout.JAVA_DOUBLE);
+
     private MemorySegment device = MemorySegment.NULL;
 
     /**
@@ -53,12 +63,14 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
     public static List<FunctionDescriptor> allDowncallDescriptors()
     {
         return List.of(
-                DESC_VGM_CREATE,    // vgm_create(int) → void*
-                DESC_PTR_STR,       // vgm_open_file(void*, const char*) → int
-                DESC_PTR_PTR_LONG,  // vgm_open_data(void*, const uint8_t*, size_t) → int
-                DESC_GENERATE,      // vgm_render(void*, int, short*) → int
-                DESC_VGM_IS_DONE,   // vgm_is_done(void*) → int
-                DESC_VOID_PTR);     // vgm_close(void*) → void
+                DESC_VGM_CREATE,        // vgm_create(int) → void*
+                DESC_PTR_STR,           // vgm_open_file(void*, const char*) → int
+                DESC_PTR_PTR_LONG,      // vgm_open_data(void*, const uint8_t*, size_t) → int
+                DESC_GENERATE,          // vgm_render(void*, int, short*) → int
+                DESC_VGM_IS_DONE,       // vgm_is_done(void*) → int
+                DESC_VGM_GET_DURATION,  // vgm_get_duration_us(void*) → int64_t
+                DESC_VGM_SET_SPEED,     // vgm_set_speed(void*, double) → void
+                DESC_VOID_PTR);         // vgm_close(void*) → void
     }
 
     /**
@@ -77,6 +89,8 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
     private final MethodHandle vgm_open_data;
     private final MethodHandle vgm_render;
     private final MethodHandle vgm_is_done;
+    private final MethodHandle vgm_get_duration_us;
+    private final MethodHandle vgm_set_speed;
     private final MethodHandle vgm_close;
 
     public FFMLibvgmBridge() throws Exception
@@ -86,7 +100,7 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
 
     private FFMLibvgmBridge(Arena arena) throws Exception
     {
-        super(arena, tryLoadLibrary(arena, "libvgm",
+        super(arena, tryLoadLibrary(arena, "vgm",
                 "libmidiraja_vgm.dylib", "libmidiraja_vgm.so", "libmidiraja_vgm.dll"));
 
         vgm_create = downcall("vgm_create", DESC_VGM_CREATE);
@@ -94,6 +108,8 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
         vgm_open_data = downcall("vgm_open_data", DESC_PTR_PTR_LONG);
         vgm_render = downcall("vgm_render", DESC_GENERATE);
         vgm_is_done = downcall("vgm_is_done", DESC_VGM_IS_DONE);
+        vgm_get_duration_us = downcall("vgm_get_duration_us", DESC_VGM_GET_DURATION);
+        vgm_set_speed = downcall("vgm_set_speed", DESC_VGM_SET_SPEED);
         vgm_close = downcall("vgm_close", DESC_VOID_PTR);
     }
 
@@ -183,6 +199,37 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
         {
             err.println("[FFMLibvgmBridge] isDone error: " + t.getMessage());
             return true;
+        }
+    }
+
+    /** Returns the total duration of the loaded VGM in microseconds, or 0 if not loaded. */
+    public long getDurationMicroseconds()
+    {
+        if (device.equals(MemorySegment.NULL))
+            return 0;
+        try
+        {
+            return (long) vgm_get_duration_us.invokeExact(device);
+        }
+        catch (Throwable t)
+        {
+            err.println("[FFMLibvgmBridge] getDurationMicroseconds error: " + t.getMessage());
+            return 0;
+        }
+    }
+
+    /** Sets the playback speed multiplier (1.0 = normal speed). */
+    public void setSpeed(double speed)
+    {
+        if (device.equals(MemorySegment.NULL))
+            return;
+        try
+        {
+            vgm_set_speed.invokeExact(device, speed);
+        }
+        catch (Throwable t)
+        {
+            err.println("[FFMLibvgmBridge] setSpeed error: " + t.getMessage());
         }
     }
 
