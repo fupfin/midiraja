@@ -23,10 +23,30 @@ import com.fupfin.midiraja.midi.MidiPort;
  * {@link FFMLibvgmBridge#generate}. This class starts its own render loop (rather than the
  * standard {@code startRenderThread} loop) so that playback stops automatically when
  * {@link FFMLibvgmBridge#isDone()} returns {@code true}.
+ *
+ * <p>
+ * A cascaded 2-pole IIR low-pass filter (fc ≈ 14 kHz) is applied after each rendered buffer.
+ * libvgm renders the SCC wavetable by stepping through a 32-sample table at 32 × Fout Hz.
+ * For notes above ~E5 (689 Hz) this step rate exceeds the 22 050 Hz Nyquist limit and folds
+ * back as an audible alias (e.g. A5 at 880 Hz → alias at 15 940 Hz). The LP filter suppresses
+ * these digital aliases. Oversampling cannot help here: rendering at a higher rate faithfully
+ * reproduces additional step harmonics (e.g. the 5th harmonic for A3 appears at 35 200 Hz),
+ * which then create new aliases (8 900 Hz) when decimated back to 44 100 Hz. The post-render
+ * LP at the final sample rate is the correct and simplest solution.
  */
 @SuppressWarnings({ "ThreadPriorityCheck", "EmptyCatch" })
 public class LibvgmSynthProvider extends AbstractSoftSynthProvider<FFMLibvgmBridge>
 {
+    /**
+     * IIR 1-pole LP coefficient: α = 2π·fc / (2π·fc + fs), fc = 14 000 Hz, fs = 44 100 Hz.
+     * Two poles cascaded give ≈ −11 dB at 15 940 Hz (A5 alias), preserving content below ~10 kHz.
+     */
+    private static final float LP_ALPHA =
+            (float) (2 * Math.PI * 14_000 / (2 * Math.PI * 14_000 + 44_100));
+
+    // Cascaded 2-pole LP filter state (L/R, pole-1 and pole-2)
+    private float lpL1, lpL2, lpR1, lpR2;
+
     public LibvgmSynthProvider(FFMLibvgmBridge bridge, @Nullable AudioProcessor audioOut)
     {
         super(bridge, audioOut);
@@ -35,7 +55,7 @@ public class LibvgmSynthProvider extends AbstractSoftSynthProvider<FFMLibvgmBrid
     @Override
     public List<MidiPort> getOutputPorts()
     {
-        return List.of(new MidiPort(0, "libvgm"));
+        return List.of(new MidiPort(0, "vgm"));
     }
 
     @Override
@@ -131,6 +151,26 @@ public class LibvgmSynthProvider extends AbstractSoftSynthProvider<FFMLibvgmBrid
         renderThread.start();
     }
 
+    /**
+     * Applies the cascaded 2-pole IIR LP filter in-place to a stereo interleaved buffer.
+     * Attenuates digital aliases above ~14 kHz introduced by SCC wavetable step-rate aliasing.
+     */
+    private void applyHardwareLpf(short[] pcm)
+    {
+        for (int i = 0; i < FRAMES_PER_RENDER; i++)
+        {
+            int li = i * 2;
+            float sL = pcm[li] / 32768.0f;
+            float sR = pcm[li + 1] / 32768.0f;
+            lpL1 += LP_ALPHA * (sL - lpL1);
+            lpL2 += LP_ALPHA * (lpL1 - lpL2);
+            lpR1 += LP_ALPHA * (sR - lpR1);
+            lpR2 += LP_ALPHA * (lpR1 - lpR2);
+            pcm[li] = (short) Math.clamp(Math.round(lpL2 * 32768.0f), -32768, 32767);
+            pcm[li + 1] = (short) Math.clamp(Math.round(lpR2 * 32768.0f), -32768, 32767);
+        }
+    }
+
     private void vgmRenderLoop()
     {
         short[] pcmBuffer = new short[FRAMES_PER_RENDER * 2];
@@ -151,6 +191,7 @@ public class LibvgmSynthProvider extends AbstractSoftSynthProvider<FFMLibvgmBrid
             }
 
             bridge.generate(pcmBuffer, FRAMES_PER_RENDER);
+            applyHardwareLpf(pcmBuffer);
 
             if (audioOut != null)
             {

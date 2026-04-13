@@ -52,6 +52,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     private volatile boolean bookmarked = false;
     private volatile String filterDescription = "";
     private volatile String portSuffix = "";
+    private volatile String chipSuffix = "";
 
     @SuppressWarnings("NullAway")
     private volatile Consumer<Boolean> bookmarkCallback = null;
@@ -150,6 +151,11 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
         this.spectrumFilter = filter;
     }
 
+    public void setChipSuffix(String suffix)
+    {
+        this.chipSuffix = suffix;
+    }
+
     // ── PlaybackState ─────────────────────────────────────────────────────────
 
     @Override
@@ -245,7 +251,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public String getPortSuffix()
     {
-        return portSuffix;
+        return chipSuffix + portSuffix;
     }
 
     @Override
@@ -385,6 +391,8 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
         long pausedMs = 0;
         long pauseStartMs = 0;
         boolean wasPaused = false;
+        // Known duration from MIDI sequence; 0 means unknown (e.g. direct VGM file)
+        long totalUs = sequence.getMicrosecondLength();
 
         while (isPlaying.get() && !provider.isDone())
         {
@@ -409,6 +417,11 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
                 listeners.forEach(l -> l.onTick(us));
                 fireSpectrumLevels();
             }
+
+            // For MIDI-derived VGM the sequence duration is known; exit when time is up
+            // even if the VGM has loop points that prevent isDone() from firing.
+            if (totalUs > 0 && currentMicroseconds.get() >= totalUs)
+                break;
 
             Thread.sleep(POLL_MS);
         }

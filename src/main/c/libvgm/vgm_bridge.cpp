@@ -90,6 +90,11 @@ static int start_player(VgmContext* ctx, DATA_LOADER* ldr)
         /* bitDepth  */ 16,
         /* bufferLen */ 4096);  // must be >= FRAMES_PER_RENDER (512) in Java
 
+    // Play through once and stop. Without this, VGM files with loop points repeat
+    // indefinitely (libvgm default loopCount = 2), preventing isDone() from firing
+    // and blocking playlist advancement.
+    ctx->player.SetLoopCount(1);
+
     ctx->player.Start();
     return 0;
 }
