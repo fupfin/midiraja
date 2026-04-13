@@ -9,9 +9,7 @@ package com.fupfin.midiraja.cli;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
 import java.util.Locale;
 import java.util.concurrent.Callable;
 import javax.sound.midi.Sequence;
@@ -24,9 +22,12 @@ import picocli.CommandLine.Parameters;
 
 import com.fupfin.midiraja.export.vgm.ChipHandlers;
 import com.fupfin.midiraja.export.vgm.ChipSpec;
+import com.fupfin.midiraja.export.vgm.ChipType;
 import com.fupfin.midiraja.export.vgm.CompositeVgmExporter;
 import com.fupfin.midiraja.export.vgm.RoutingMode;
+import com.fupfin.midiraja.export.vgm.Ym2612VgmExporter;
 import com.fupfin.midiraja.format.MusicFormatLoader;
+import com.fupfin.midiraja.midi.FFMOpnMidiNativeBridge;
 
 @Command(name = "vgm", mixinStandardHelpOptions = true, description = "Convert a music file to VGM format.")
 public class ExportVgmCommand implements Callable<Integer>
@@ -53,7 +54,7 @@ public class ExportVgmCommand implements Callable<Integer>
     private File output;
 
     @Override
-    public Integer call()
+    public Integer call() throws Exception
     {
         Sequence sequence;
         try
@@ -71,10 +72,6 @@ public class ExportVgmCommand implements Callable<Integer>
             {
                 exportTo(sequence, out);
             }
-            catch (IOException e)
-            {
-                throw new UncheckedIOException(e);
-            }
             System.out.println("Exported: " + output);
         }
         else
@@ -84,10 +81,17 @@ public class ExportVgmCommand implements Callable<Integer>
         return 0;
     }
 
-    private void exportTo(Sequence sequence, OutputStream out)
+    private void exportTo(Sequence sequence, OutputStream out) throws Exception
     {
         var spec = resolveChipSpec();
-        new CompositeVgmExporter(ChipHandlers.create(spec), spec.mode()).export(sequence, out);
+        if (spec.chips().contains(ChipType.YM2612))
+        {
+            out.write(new Ym2612VgmExporter(new FFMOpnMidiNativeBridge()).export(sequence));
+        }
+        else
+        {
+            new CompositeVgmExporter(ChipHandlers.create(spec), spec.mode()).export(sequence, out);
+        }
     }
 
     ChipSpec resolveChipSpec()

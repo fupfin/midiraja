@@ -53,26 +53,26 @@ class VgmCommandTest
     // ── Chip spec resolution — presets ───────────────────────────────────────
 
     @Test
-    void noChipSpec_defaultsToAy8910Dual()
+    void noChipSpec_defaultsToZxSpectrumDualAy8910()
     {
         VgmCommand cmd = new VgmCommand();
         assertEquals(List.of(ChipType.AY8910, ChipType.AY8910), cmd.resolveChipSpec().chips(),
-                "Default chip list should be dual AY8910");
+                "Default chip list should be dual AY8910 (zxspectrum)");
     }
 
     @Test
-    void system_ay8910_returnsDualAy8910()
+    void system_zxspectrum_returnsDualAy8910()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.chipSpec.system = "ay8910";
+        cmd.chipSpec.system = "zxspectrum";
         assertEquals(List.of(ChipType.AY8910, ChipType.AY8910), cmd.resolveChipSpec().chips());
     }
 
     @Test
-    void system_ym2413_returnsYm2413()
+    void system_fmpac_returnsYm2413()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.chipSpec.system = "ym2413";
+        cmd.chipSpec.system = "fmpac";
         assertEquals(List.of(ChipType.YM2413), cmd.resolveChipSpec().chips());
     }
 
@@ -85,14 +85,31 @@ class VgmCommandTest
     }
 
     @Test
-    void system_opl3_returnsOpl3()
+    void system_sb16_returnsOpl3()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.chipSpec.system = "opl3";
+        cmd.chipSpec.system = "sb16";
         assertEquals(List.of(ChipType.OPL3), cmd.resolveChipSpec().chips());
     }
 
     @Test
+    void system_genesis_returnsYm2612()
+    {
+        VgmCommand cmd = new VgmCommand();
+        cmd.chipSpec.system = "genesis";
+        assertEquals(List.of(ChipType.YM2612), cmd.resolveChipSpec().chips());
+    }
+
+    @Test
+    void system_megadrive_returnsYm2612()
+    {
+        VgmCommand cmd = new VgmCommand();
+        cmd.chipSpec.system = "megadrive";
+        assertEquals(List.of(ChipType.YM2612), cmd.resolveChipSpec().chips());
+    }
+
+
+@Test
     void system_presets_useSequentialRouting()
     {
         VgmCommand cmd = new VgmCommand();
@@ -105,16 +122,16 @@ class VgmCommandTest
     void system_caseInsensitive()
     {
         VgmCommand cmd = new VgmCommand();
-        cmd.chipSpec.system = "AY8910";
+        cmd.chipSpec.system = "ZXSPECTRUM";
         assertDoesNotThrow(() -> cmd.resolveChipSpec(), "System name lookup should be case-insensitive");
 
-        cmd.chipSpec.system = "YM2413";
+        cmd.chipSpec.system = "FMPAC";
         assertDoesNotThrow(() -> cmd.resolveChipSpec());
 
         cmd.chipSpec.system = "MSX";
         assertDoesNotThrow(() -> cmd.resolveChipSpec());
 
-        cmd.chipSpec.system = "OPL3";
+        cmd.chipSpec.system = "SB16";
         assertDoesNotThrow(() -> cmd.resolveChipSpec());
     }
 

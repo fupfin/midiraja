@@ -207,6 +207,7 @@ When AY-3-8910 is present alongside other chips, **GM programs 112–127** (soun
 | YM2413 (OPLL) | FM | 9 melodic or 6 + rhythm | Built-in patch ROM; user patch via CC |
 | SCC (Konami) | Wavetable | 5 | Percussion mapped to slot 4 via synthesised waveforms |
 | YMF262 (OPL3) | FM | 18 (2-op) / 6 (4-op) | Full GM patch mapping via WOPL bank |
+| YM2612 (OPN2) | FM | 6 | libOPNMIDI VGMFileDumper backend; `--system ym2612` or `genesis` |
 
 ### Unsupported Chips (Future Implementation)
 
@@ -217,13 +218,6 @@ The following chips are planned but not yet implemented. Each entry describes th
 - 3 square-wave tone channels + 1 noise channel
 - Simpler than AY-3-8910 (no envelope hardware, only 4-bit volume)
 - Planned: `sn76489` preset; noise channel used for drums, tone channels for melody
-
-#### YM2612 — FM synthesis (Sega Mega Drive / Genesis)
-
-- 6 FM channels, 4-operator OPX algorithm
-- Channel 6 optionally switches to PCM DAC (used for bass drums in practice)
-- VGM command: `0x52/0x53` (port 0/1 writes)
-- Planned: `ym2612` or `genesis` preset; patch map via OPN2 bank format
 
 #### YM2151 — FM synthesis (arcade / Sharp X68000)
 

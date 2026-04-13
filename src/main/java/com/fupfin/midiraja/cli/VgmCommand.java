@@ -37,10 +37,13 @@ import com.fupfin.midiraja.dsp.SpectrumAnalyzerFilter;
 import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.export.vgm.ChipHandlers;
 import com.fupfin.midiraja.export.vgm.ChipSpec;
+import com.fupfin.midiraja.export.vgm.ChipType;
 import com.fupfin.midiraja.export.vgm.CompositeVgmExporter;
 import com.fupfin.midiraja.export.vgm.RoutingMode;
+import com.fupfin.midiraja.export.vgm.Ym2612VgmExporter;
 import com.fupfin.midiraja.format.MusicFormatLoader;
 import com.fupfin.midiraja.io.AppLogger;
+import com.fupfin.midiraja.midi.FFMOpnMidiNativeBridge;
 import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.vgm.FFMLibvgmBridge;
 import com.fupfin.midiraja.midi.vgm.LibvgmPlaybackEngine;
@@ -52,7 +55,7 @@ public class VgmCommand implements Callable<Integer>
 {
     static final class ChipSpecOptions
     {
-        @Option(names = "--system", description = "Named chip preset: ay8910, ym2413, msx, msx-scc, opl3. Default: ay8910.")
+        @Option(names = "--system", description = "System preset: zxspectrum, fmpac, msx, msx-scc, sb16, genesis, megadrive. Default: zxspectrum.")
         @Nullable
         String system;
 
@@ -81,6 +84,11 @@ public class VgmCommand implements Callable<Integer>
     @Mixin
     private final CommonOptions common = new CommonOptions();
 
+    // ── State ─────────────────────────────────────────────────────────────────
+
+    /** Chip label resolved per-file; used to set portSuffix on each engine instance. */
+    private volatile String chipLabel = "";
+
     // ── Test-accessible setters ───────────────────────────────────────────────
 
     public void setFiles(List<File> files)
@@ -94,7 +102,7 @@ public class VgmCommand implements Callable<Integer>
     {
         if (chipSpec.chips != null)
             return ChipHandlers.parseChips(chipSpec.chips);
-        String sys = chipSpec.system != null ? chipSpec.system.toLowerCase(Locale.ROOT) : "ay8910";
+        String sys = chipSpec.system != null ? chipSpec.system.toLowerCase(Locale.ROOT) : "zxspectrum";
         var chips = ChipHandlers.PRESETS.get(sys);
         if (chips == null)
             throw new IllegalArgumentException(
@@ -156,6 +164,8 @@ public class VgmCommand implements Callable<Integer>
             PlaylistContext ctx, SpectrumAnalyzerFilter spectrumFilter)
     {
         var engine = new LibvgmPlaybackEngine(seq, provider, ctx);
+        if (!chipLabel.isEmpty())
+            engine.setChipSuffix("(" + chipLabel + ")");
         engine.setSpectrumFilter(spectrumFilter);
         return engine;
     }
@@ -165,15 +175,27 @@ public class VgmCommand implements Callable<Integer>
     {
         if (isVgmFile(file))
         {
+            chipLabel = "";
             provider.loadVgmFile(file.getAbsolutePath());
             return new Sequence(Sequence.PPQ, 480); // unknown duration
         }
 
         var sequence = MusicFormatLoader.load(file, Set.of());
         var spec = resolveChipSpec();
-        var vgmBytes = new ByteArrayOutputStream();
-        new CompositeVgmExporter(ChipHandlers.create(spec), spec.mode()).export(sequence, vgmBytes);
-        provider.loadVgmData(vgmBytes.toByteArray());
+        chipLabel = spec.chips().stream()
+                .map(ChipType::name)
+                .collect(Collectors.joining(", "));
+        if (spec.chips().contains(ChipType.YM2612))
+        {
+            byte[] vgmBytes = new Ym2612VgmExporter(new FFMOpnMidiNativeBridge()).export(sequence);
+            provider.loadVgmData(vgmBytes);
+        }
+        else
+        {
+            var vgmBytes = new ByteArrayOutputStream();
+            new CompositeVgmExporter(ChipHandlers.create(spec), spec.mode()).export(sequence, vgmBytes);
+            provider.loadVgmData(vgmBytes.toByteArray());
+        }
         return sequence;
     }
 
