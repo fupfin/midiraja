@@ -107,7 +107,8 @@ public class DashboardUI implements PlaybackUI
                 nowPlayingPanel.updateState(engine.getCurrentMicroseconds(),
                         engine.getTotalMicroseconds(), engine.getCurrentBpm(),
                         engine.getCurrentSpeed(), engine.getVolumeScale(),
-                        engine.getCurrentTranspose(), engine.isPaused(), engine.getContext());
+                        engine.getCurrentTranspose(), engine.isTransposeSupported(),
+                        engine.isPaused(), engine.getContext());
 
                 ScreenBuffer buffer = new ScreenBuffer(4096);
                 buffer.append(Theme.TERM_CURSOR_HOME);

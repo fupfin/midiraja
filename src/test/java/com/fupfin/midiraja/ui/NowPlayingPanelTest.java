@@ -24,7 +24,7 @@ class NowPlayingPanelTest
         ctx = new PlaylistContext(
                 List.of(new File("track.mid")), 0,
                 new MidiPort(0, "Test Port"), "Test Song", false, false);
-        panel.updateState(30_000_000L, 120_000_000L, 120f, 1.0, 1.0, 0, false, ctx);
+        panel.updateState(30_000_000L, 120_000_000L, 120f, 1.0, 1.0, 0, true, false, ctx);
     }
 
     @Test

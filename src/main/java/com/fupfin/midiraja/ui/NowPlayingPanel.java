@@ -25,6 +25,7 @@ public class NowPlayingPanel implements Panel
     private double speed = 1.0;
     private double volumeScale = 1.0;
     private int transpose = 0;
+    private boolean transposeSupported = true;
     private boolean isPaused = false;
     @Nullable
     private PlaylistContext context;
@@ -40,7 +41,8 @@ public class NowPlayingPanel implements Panel
     }
 
     public void updateState(long currentMicros, long totalMicros, float bpm, double speed,
-            double volumeScale, int transpose, boolean isPaused, PlaylistContext context)
+            double volumeScale, int transpose, boolean transposeSupported, boolean isPaused,
+            PlaylistContext context)
     {
         this.currentMicros = currentMicros;
         this.totalMicros = totalMicros;
@@ -48,6 +50,7 @@ public class NowPlayingPanel implements Panel
         this.speed = speed;
         this.volumeScale = volumeScale;
         this.transpose = transpose;
+        this.transposeSupported = transposeSupported;
         this.isPaused = isPaused;
         this.context = context;
     }
@@ -140,9 +143,13 @@ public class NowPlayingPanel implements Panel
         lines.add(String.format(fmtTime, "Time:", pauseIndicator, curStr, totStr, bar, percent));
         lines.add(String.format(fmtLabel, "Port:",
                 truncateAnsi(portInfo + portSuffix, constraints.width() - 11)));
+        String transStr = transposeSupported
+                ? String.format("Trans: %+d", transpose)
+                : Theme.COLOR_DIM_FG + "Trans: off" + Theme.COLOR_RESET;
         lines.add(String.format("%-10s %s", "",
-                truncate(String.format("Vol: %d%% | Tempo: %.0f BPM (%.1fx) | Trans: %+d",
-                        (int) (volumeScale * 100), bpm, speed, transpose),
+                truncateAnsi(
+                        String.format("Vol: %d%% | Tempo: %.0f BPM (%.1fx) | ",
+                                (int) (volumeScale * 100), bpm, speed) + transStr,
                         max(10, constraints.width() - 11))));
         if (!filterInfo.isEmpty())
             lines.add(String.format(fmtLabel, "Effects:",

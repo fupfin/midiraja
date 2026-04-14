@@ -132,9 +132,12 @@ public class LineUI implements PlaybackUI
                 }
 
                 double effectiveBpm = engine.getCurrentBpm() * engine.getCurrentSpeed();
-                buffer.append(String.format(" %s | Spd: %.1fx(BPM: %5.1f) | Tr: %+d | Vol: %3d%% ",
+                String trStr = engine.isTransposeSupported()
+                        ? String.format("Tr: %+d", engine.getCurrentTranspose())
+                        : Theme.COLOR_DIM_FG + "Tr: off" + Theme.COLOR_RESET;
+                buffer.append(String.format(" %s | Spd: %.1fx(BPM: %5.1f) | %s | Vol: %3d%% ",
                         timeStr, engine.getCurrentSpeed(), effectiveBpm,
-                        engine.getCurrentTranspose(), (int) (engine.getVolumeScale() * 100)));
+                        trStr, (int) (engine.getVolumeScale() * 100)));
 
                 String loopIcon = engine.isLoopEnabled()
                         ? Theme.COLOR_HIGHLIGHT + Theme.ICON_LOOP + Theme.COLOR_RESET

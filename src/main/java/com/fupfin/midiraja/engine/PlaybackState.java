@@ -55,5 +55,15 @@ public interface PlaybackState
         return false;
     }
 
+    /**
+     * Returns {@code true} when the engine supports real-time transpose adjustment.
+     * The default implementation returns {@code true}; engines that play pre-recorded register
+     * streams (e.g. libvgm) should return {@code false}.
+     */
+    default boolean isTransposeSupported()
+    {
+        return true;
+    }
+
     void addPlaybackEventListener(PlaybackEventListener listener);
 }
