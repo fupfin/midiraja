@@ -8,13 +8,16 @@
 /*
  * vgm_bridge.cpp — thin extern "C" wrapper around libvgm's PlayerA.
  *
- * Exposes six functions consumed by FFMLibvgmBridge via Java Panama FFM:
- *   void* vgm_create(int sample_rate)
- *   int   vgm_open_file(void* ctx, const char* path)
- *   int   vgm_open_data(void* ctx, const uint8_t* data, size_t len)
- *   int   vgm_render(void* ctx, int frames, short* buf)
- *   int   vgm_is_done(void* ctx)
- *   void  vgm_close(void* ctx)
+ * Exposes nine functions consumed by FFMLibvgmBridge via Java Panama FFM:
+ *   void*   vgm_create(int sample_rate)
+ *   int     vgm_open_file(void* ctx, const char* path)
+ *   int     vgm_open_data(void* ctx, const uint8_t* data, size_t len)
+ *   int     vgm_render(void* ctx, int frames, short* buf)
+ *   int     vgm_is_done(void* ctx)
+ *   int64_t vgm_get_duration_us(void* ctx)
+ *   void    vgm_set_speed(void* ctx, double speed)
+ *   void    vgm_seek_us(void* ctx, int64_t target_us)
+ *   void    vgm_close(void* ctx)
  */
 
 #include <cstdlib>
@@ -175,6 +178,46 @@ int vgm_is_done(void* handle)
         return 1;
     auto* ctx = static_cast<VgmContext*>(handle);
     return ctx->done ? 1 : 0;
+}
+
+/**
+ * Returns the total VGM duration in microseconds, or 0 if no file is loaded.
+ * Flags=0: total including intro; flags=1: loop length only.
+ */
+int64_t vgm_get_duration_us(void* handle)
+{
+    if (handle == nullptr)
+        return 0;
+    auto* ctx = static_cast<VgmContext*>(handle);
+    double secs = ctx->player.GetTotalTime(0);
+    return (int64_t)(secs * 1e6);
+}
+
+/**
+ * Sets the playback speed multiplier (1.0 = normal, 2.0 = double speed).
+ */
+void vgm_set_speed(void* handle, double speed)
+{
+    if (handle == nullptr)
+        return;
+    auto* ctx = static_cast<VgmContext*>(handle);
+    ctx->player.SetPlaybackSpeed(speed);
+}
+
+/**
+ * Seeks to the given position in microseconds.
+ * Clears the done flag so playback can resume after a backward seek.
+ */
+void vgm_seek_us(void* handle, int64_t target_us)
+{
+    if (handle == nullptr)
+        return;
+    auto* ctx = static_cast<VgmContext*>(handle);
+    if (target_us < 0)
+        target_us = 0;
+    UINT32 sample = (UINT32)((target_us * (int64_t) ctx->sampleRate) / 1000000LL);
+    ctx->done = false;
+    ctx->player.Seek(PLAYPOS_SAMPLE, sample);
 }
 
 void vgm_close(void* handle)

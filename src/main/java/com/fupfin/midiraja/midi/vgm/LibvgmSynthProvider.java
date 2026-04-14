@@ -47,6 +47,9 @@ public class LibvgmSynthProvider extends AbstractSoftSynthProvider<FFMLibvgmBrid
     // Cascaded 2-pole LP filter state (L/R, pole-1 and pole-2)
     private float lpL1, lpL2, lpR1, lpR2;
 
+    /** PCM volume scale [0.0, 1.0]. Written by engine; read on render thread. */
+    private volatile float volumeScale = 1.0f;
+
     public LibvgmSynthProvider(FFMLibvgmBridge bridge, @Nullable AudioProcessor audioOut)
     {
         super(bridge, audioOut);
@@ -112,6 +115,39 @@ public class LibvgmSynthProvider extends AbstractSoftSynthProvider<FFMLibvgmBrid
         return bridge.isDone();
     }
 
+    /** Returns the total duration of the loaded VGM in microseconds, or 0 if unknown. */
+    public long getDurationMicroseconds()
+    {
+        return bridge.getDurationMicroseconds();
+    }
+
+    /**
+     * Sets the PCM output volume scale in [0.0, 1.0].
+     * Applied to every rendered buffer in the render thread.
+     */
+    public void setVolumeScale(float scale)
+    {
+        this.volumeScale = Math.max(0.0f, Math.min(1.0f, scale));
+    }
+
+    /** Returns the current volume scale. */
+    public float getVolumeScale()
+    {
+        return volumeScale;
+    }
+
+    /** Sets the playback speed multiplier (1.0 = normal). */
+    public void setSpeed(double speed)
+    {
+        bridge.setSpeed(speed);
+    }
+
+    /** Seeks to the given position in microseconds from the start of the VGM. */
+    public void seekTo(long targetMicroseconds)
+    {
+        bridge.seekTo(targetMicroseconds);
+    }
+
     /**
      * Not used for VGM playback. Loads are performed via {@link #loadVgmFile} or
      * {@link #loadVgmData}.
@@ -149,6 +185,15 @@ public class LibvgmSynthProvider extends AbstractSoftSynthProvider<FFMLibvgmBrid
         renderThread.setPriority(Thread.MAX_PRIORITY);
         renderThread.setDaemon(true);
         renderThread.start();
+    }
+
+    /** Scales every sample in {@code pcm} by {@code scale} (no-op when scale ≥ 1.0). */
+    private static void applyVolume(short[] pcm, float scale)
+    {
+        if (scale >= 1.0f)
+            return;
+        for (int i = 0; i < pcm.length; i++)
+            pcm[i] = (short) Math.round(pcm[i] * scale);
     }
 
     /**
@@ -192,6 +237,7 @@ public class LibvgmSynthProvider extends AbstractSoftSynthProvider<FFMLibvgmBrid
 
             bridge.generate(pcmBuffer, FRAMES_PER_RENDER);
             applyHardwareLpf(pcmBuffer);
+            applyVolume(pcmBuffer, volumeScale);
 
             if (audioOut != null)
             {

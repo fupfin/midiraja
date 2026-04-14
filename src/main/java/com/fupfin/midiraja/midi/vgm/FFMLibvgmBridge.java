@@ -54,6 +54,10 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
     private static final FunctionDescriptor DESC_VGM_SET_SPEED = FunctionDescriptor.ofVoid(
             ValueLayout.ADDRESS, ValueLayout.JAVA_DOUBLE);
 
+    // vgm_seek_us(void* ctx, int64_t target_us) → void
+    private static final FunctionDescriptor DESC_VGM_SEEK_US = FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
+
     private MemorySegment device = MemorySegment.NULL;
 
     /**
@@ -70,6 +74,7 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
                 DESC_VGM_IS_DONE,       // vgm_is_done(void*) → int
                 DESC_VGM_GET_DURATION,  // vgm_get_duration_us(void*) → int64_t
                 DESC_VGM_SET_SPEED,     // vgm_set_speed(void*, double) → void
+                DESC_VGM_SEEK_US,       // vgm_seek_us(void*, int64_t) → void
                 DESC_VOID_PTR);         // vgm_close(void*) → void
     }
 
@@ -91,6 +96,7 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
     private final MethodHandle vgm_is_done;
     private final MethodHandle vgm_get_duration_us;
     private final MethodHandle vgm_set_speed;
+    private final MethodHandle vgm_seek_us;
     private final MethodHandle vgm_close;
 
     public FFMLibvgmBridge() throws Exception
@@ -110,6 +116,7 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
         vgm_is_done = downcall("vgm_is_done", DESC_VGM_IS_DONE);
         vgm_get_duration_us = downcall("vgm_get_duration_us", DESC_VGM_GET_DURATION);
         vgm_set_speed = downcall("vgm_set_speed", DESC_VGM_SET_SPEED);
+        vgm_seek_us = downcall("vgm_seek_us", DESC_VGM_SEEK_US);
         vgm_close = downcall("vgm_close", DESC_VOID_PTR);
     }
 
@@ -230,6 +237,21 @@ public class FFMLibvgmBridge extends AbstractFFMBridge implements MidiNativeBrid
         catch (Throwable t)
         {
             err.println("[FFMLibvgmBridge] setSpeed error: " + t.getMessage());
+        }
+    }
+
+    /** Seeks to {@code targetMicroseconds} from the start of the loaded VGM. */
+    public void seekTo(long targetMicroseconds)
+    {
+        if (device.equals(MemorySegment.NULL))
+            return;
+        try
+        {
+            vgm_seek_us.invokeExact(device, targetMicroseconds);
+        }
+        catch (Throwable t)
+        {
+            err.println("[FFMLibvgmBridge] seekTo error: " + t.getMessage());
         }
     }
 

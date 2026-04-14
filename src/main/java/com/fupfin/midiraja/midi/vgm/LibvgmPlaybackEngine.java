@@ -48,6 +48,16 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
             PlaybackStatus.FINISHED);
     private final List<PlaybackEventListener> listeners = new CopyOnWriteArrayList<>();
 
+    private volatile double currentSpeed = 1.0;
+
+    /**
+     * Seek synchronisation: when seekRelative() fires, these two atomics let playLoop() rebuild
+     * its wall-clock base so that currentMicroseconds stays consistent after the seek.
+     * seekEpochMs == -1 means "no pending seek".
+     */
+    private final AtomicLong seekEpochMs = new AtomicLong(-1);
+    private final AtomicLong seekTargetUs = new AtomicLong(0);
+
     private volatile boolean holdAtEnd = false;
     private volatile boolean bookmarked = false;
     private volatile String filterDescription = "";
@@ -179,7 +189,8 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public long getTotalMicroseconds()
     {
-        return sequence.getMicrosecondLength();
+        long seqUs = sequence.getMicrosecondLength();
+        return seqUs > 0 ? seqUs : provider.getDurationMicroseconds();
     }
 
     @Override
@@ -197,7 +208,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public double getCurrentSpeed()
     {
-        return 1.0;
+        return currentSpeed;
     }
 
     @Override
@@ -209,7 +220,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public double getVolumeScale()
     {
-        return 1.0;
+        return provider.getVolumeScale();
     }
 
     @Override
@@ -278,25 +289,47 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public void adjustVolume(double delta)
     {
-        // no-op: volume control not exposed by libvgm bridge
+        float newScale = (float) Math.max(0.0, Math.min(1.0, provider.getVolumeScale() + delta));
+        provider.setVolumeScale(newScale);
+        listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
 
     @Override
     public void adjustSpeed(double delta)
     {
-        // no-op
+        currentSpeed = Math.max(0.1, Math.min(4.0, currentSpeed + delta));
+        provider.setSpeed(currentSpeed);
+        listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
+    }
+
+    @Override
+    public boolean isTransposeSupported()
+    {
+        return false;
     }
 
     @Override
     public void adjustTranspose(int delta)
     {
-        // no-op
+        // not supported: VGM files contain pre-recorded chip register writes with baked-in
+        // frequencies; there is no pitch-shift API in libvgm's PlayerA.
     }
 
     @Override
     public void seekRelative(long microsecondsDelta)
     {
-        // no-op: libvgm does not support seeking
+        long total = getTotalMicroseconds();
+        long target = currentMicroseconds.get() + microsecondsDelta;
+        target = Math.max(0, target);
+        if (total > 0)
+            target = Math.min(target, total);
+        provider.seekTo(target);
+        currentMicroseconds.set(target);
+        // Tell playLoop() to rebuild its wall-clock base from this new position.
+        seekTargetUs.set(target);
+        seekEpochMs.set(System.currentTimeMillis());
+        long finalTarget = target;
+        listeners.forEach(l -> l.onTick(finalTarget));
     }
 
     @Override
@@ -391,11 +424,26 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
         long pausedMs = 0;
         long pauseStartMs = 0;
         boolean wasPaused = false;
-        // Known duration from MIDI sequence; 0 means unknown (e.g. direct VGM file)
-        long totalUs = sequence.getMicrosecondLength();
+        // Known duration from MIDI sequence or libvgm; 0 means truly unknown
+        long totalUs = getTotalMicroseconds();
 
         while (isPlaying.get() && !provider.isDone())
         {
+            // Apply any pending seek: rebuild startMs so elapsed = seekTarget going forward.
+            long epoch = seekEpochMs.getAndSet(-1);
+            if (epoch >= 0)
+            {
+                long seekedUs = seekTargetUs.get();
+                // If we were mid-pause-tracking, fold the partial pause into pausedMs first.
+                if (wasPaused)
+                {
+                    pausedMs += epoch - pauseStartMs;
+                    pauseStartMs = epoch;
+                }
+                // Rebase: choose startMs so that (epoch - startMs - pausedMs) * 1000 == seekedUs
+                startMs = epoch - pausedMs - seekedUs / 1000L;
+            }
+
             boolean curPaused = isPaused.get();
 
             if (curPaused && !wasPaused)
@@ -430,7 +478,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
             return;
 
         // Track finished naturally — broadcast final position
-        long total = sequence.getMicrosecondLength();
+        long total = getTotalMicroseconds();
         if (total > 0)
             currentMicroseconds.set(total);
         long us = currentMicroseconds.get();
