@@ -1,7 +1,10 @@
-# Tracker Format Engineering
+# Music Format Engineering
 
-This document explains Midiraja's approach to Amiga ProTracker MOD files, why S3M/XM/IT
-formats are intentionally not supported, and what a future extension path would look like.
+This document surveys non-MIDI music file formats that Midiraja has evaluated — covering
+formats that are supported, formats that are intentionally not supported (with the rationale),
+and formats that are out of scope with notes on future extension paths.
+
+For end-user format information, see the **[User Guide](user_guide.md)** instead.
 
 ---
 
@@ -128,7 +131,94 @@ FluidSynth)** that run in-process.
 
 ---
 
-## 5. Extension Checklist (Future Work)
+## 5. SNES SPC Format
+
+SNES `.spc` files are **hardware memory snapshots**, not a sequencer format. A SPC file is a
+verbatim dump of the SNES sound subsystem's 64 KB RAM at a moment during gameplay, capturing
+the game's sound driver code, BRR-encoded PCM samples, and sequencer state all in one binary.
+
+### 5.1. SNES Sound Architecture
+
+The SNES sound subsystem is a self-contained unit isolated from the main CPU:
+
+```
+SPC700 CPU  ─── executes the game's sound driver code (proprietary per game company)
+     │
+S-DSP       ─── generates audio: 8-channel BRR sample playback, ADSR envelopes,
+                 hardware echo/reverb (FIR filter), Gaussian interpolation
+```
+
+The S-DSP operates on BRR (Bit Rate Reduction) samples stored in the shared 64 KB RAM.
+It is driven entirely by register writes from the SPC700 CPU.
+
+### 5.2. Comparison with Tracker Formats
+
+Looking at S-DSP alone, the structure resembles a hardware tracker:
+
+| | Tracker (MOD/XM) | S-DSP |
+|--|--|--|
+| Sample storage | PCM/BRR embedded in file | BRR embedded in 64 KB RAM |
+| Channels | 4–32 | 8 fixed |
+| Playback | Per-channel sample with pitch | Per-channel BRR with pitch |
+| Envelopes | Volume envelope | ADSR per channel |
+| Effects | Echo, tremolo, etc. | Hardware echo/reverb |
+
+The fundamental difference is **who controls the channels**:
+
+- **Tracker**: a well-defined format spec describes pattern data; parsing the spec is sufficient
+  to reproduce playback.
+- **SPC**: the SPC700 CPU executes a proprietary driver binary. Nintendo, Konami, and Capcom
+  each wrote different drivers — there is no single spec to parse.
+
+Playback therefore requires **full SPC700 CPU emulation**, not just sample scheduling.
+
+### 5.3. Relationship to VGM
+
+SPC→VGM conversion is conceptually identical to how VGM files are created for other chips:
+
+```
+SPC700 emulation running
+  → capture S-DSP register writes with timestamps
+  → write to VGM file (with BRR sample data blocks)
+  → replay via libvgm's S-DSP emulator
+```
+
+This is the same "CPU tells the chip what to do; we record what it said" model that VGM uses
+for all other chips. libvgm contains an S-DSP emulator internally, but **SNES S-DSP is not
+part of the official VGM specification**. The SPC ecosystem (dedicated players, composition
+tools) was already established before VGM expanded beyond Sega hardware, leaving little
+motivation to formalise SNES support in the VGM spec.
+
+### 5.4. Implementation Options for Midiraja
+
+**Option A — SPC→VGM conversion then vgm engine**
+
+Convert SPC to VGM offline (using an existing tool), then play via the existing `vgm` engine.
+Risk: loop handling is fragile; the SPC700's dynamic loop logic becomes a static stream that
+may not loop correctly.
+
+**Option B — Direct snes_spc binding**
+
+`snes_spc` is a single-header C library (like miniaudio and TinySoundFont) that emulates the
+full SPC700 + S-DSP subsystem. It could be bundled and bound via FFM as a new `midra spc`
+subcommand, following the same pattern as the other native-bridge engines.
+
+Option B is cleaner: no offline conversion step, correct loop handling, and no VGM format
+ambiguity. The resulting engine would be entirely independent of MIDI — the SPC file plays
+directly without any MIDI conversion step.
+
+### 5.5. Why SPC Is Currently Out of Scope
+
+SPC playback requires SPC700 CPU emulation, making it a self-contained engine with no MIDI
+involvement. While technically feasible as a bundled single-header binding, it falls outside
+Midiraja's current MIDI-centric architecture. A future `midra spc` subcommand is a viable
+path when there is demand for it.
+
+---
+
+## 6. Extension Checklist (Future Work)
+
+### IT/XM/S3M via Dynamic SF2
 
 If IT/XM/S3M support is added in the future, the recommended path is:
 
@@ -144,3 +234,11 @@ If IT/XM/S3M support is added in the future, the recommended path is:
 - [ ] Wire up in `MusicFormatLoader.load()` and `isSupportedFile()`.
 - [ ] Add `isSupportedFile_xm`, `isSupportedFile_s3m`, `isSupportedFile_it` tests in
       `MusicFormatLoaderTest` (currently `assertFalse`; flip to `assertTrue` when implemented).
+
+### SNES SPC
+
+- [ ] Bundle `snes_spc` as a single-header C library under `src/main/c/`.
+- [ ] Add `SpcNativeBridge` / `FFMSpcNativeBridge` using the FFM Queue-and-Drain pattern.
+- [ ] Add `midra spc` subcommand; register FFM descriptors in `reachability-metadata.json`.
+- [ ] Add `isSupportedFile_spc` test in `MusicFormatLoaderTest` (currently no entry; SPC
+      bypasses MusicFormatLoader entirely since it does not convert to a MIDI Sequence).
