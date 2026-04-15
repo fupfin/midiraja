@@ -20,7 +20,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
 
 import com.fupfin.midiraja.MidirajaCommand;
+import com.fupfin.midiraja.dsp.SpectrumAnalyzerFilter;
 import com.fupfin.midiraja.engine.MidiPlaybackEngine;
+import com.fupfin.midiraja.engine.PlaybackEngine;
 import com.fupfin.midiraja.engine.PlaybackEngine.PlaybackStatus;
 import com.fupfin.midiraja.engine.PlaybackEngineFactory;
 import com.fupfin.midiraja.io.JLineTerminalIO;
@@ -73,13 +75,10 @@ public class PlaybackRunner
     private FxOptions fxOptions = null;
     private boolean includeRetroInSuffix = false;
     private java.util.Set<Integer> mutedChannels = java.util.Set.of();
+    @Nullable
+    private SpectrumAnalyzerFilter spectrumFilter = null;
     private final PlaybackEngineFactory engineFactory;
     private PlaylistPlayer.@Nullable SequenceLoader sequenceLoader = null;
-
-    public void setFxOptions(FxOptions fx)
-    {
-        this.fxOptions = fx;
-    }
 
     /**
      * Set to true for synths that own the audio pipeline (gus, psg, tsf).
@@ -95,6 +94,25 @@ public class PlaybackRunner
     public void setMutedChannels(java.util.Set<Integer> channels)
     {
         this.mutedChannels = channels;
+    }
+
+    /** Attaches a spectrum analyzer filter to be wired into each {@link MidiPlaybackEngine}. */
+    public void setSpectrumFilter(SpectrumAnalyzerFilter filter)
+    {
+        this.spectrumFilter = filter;
+    }
+
+    private static PlaybackEngineFactory wrapWithSpectrumFilter(PlaybackEngineFactory base,
+            SpectrumAnalyzerFilter filter)
+    {
+        return (seq, prov, ctx, pipe, shut, spd, start) -> attachFilter(base.create(seq, prov, ctx, pipe, shut, spd, start), filter);
+    }
+
+    private static PlaybackEngine attachFilter(PlaybackEngine eng, SpectrumAnalyzerFilter filter)
+    {
+        if (eng instanceof MidiPlaybackEngine mpe)
+            mpe.setSpectrumFilter(filter);
+        return eng;
     }
 
     /** Overrides the default {@link com.fupfin.midiraja.format.MusicFormatLoader} used to load files. */
@@ -130,19 +148,20 @@ public class PlaybackRunner
     }
 
     public PlaybackRunner(PrintStream out, PrintStream err, @Nullable TerminalIO terminalIO,
-            boolean isTestMode)
+            boolean isTestMode, FxOptions fxOptions)
     {
-        this(out, err, terminalIO, isTestMode, MidiPlaybackEngine::new);
+        this(out, err, terminalIO, isTestMode, fxOptions, MidiPlaybackEngine::new);
     }
 
     /** Test constructor: injects a custom engine factory. */
     public PlaybackRunner(PrintStream out, PrintStream err, @Nullable TerminalIO terminalIO,
-            boolean isTestMode, PlaybackEngineFactory engineFactory)
+            boolean isTestMode, FxOptions fxOptions, PlaybackEngineFactory engineFactory)
     {
         this.out = out;
         this.err = err;
         this.terminalIO = terminalIO;
         this.isTestMode = isTestMode;
+        this.fxOptions = fxOptions;
         this.engineFactory = engineFactory;
     }
 
@@ -261,7 +280,10 @@ public class PlaybackRunner
             var mediaKeys = MediaKeyIntegration.create();
             try
             {
-                var player = new PlaylistPlayer(engineFactory, fxOptions, includeRetroInSuffix,
+                var capturedFilter = spectrumFilter;
+                PlaybackEngineFactory effectiveFactory = capturedFilter == null ? engineFactory
+                        : wrapWithSpectrumFilter(engineFactory, capturedFilter);
+                var player = new PlaylistPlayer(effectiveFactory, fxOptions, includeRetroInSuffix,
                         suppressHoldAtEnd, exitOnNavBoundary, err, mediaKeys, mutedChannels);
                 if (sequenceLoader != null)
                     player.setSequenceLoader(sequenceLoader);

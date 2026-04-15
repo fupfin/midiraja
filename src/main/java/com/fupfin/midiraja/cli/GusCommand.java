@@ -17,15 +17,11 @@ import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
-import picocli.CommandLine.Spec;
 
 import com.fupfin.midiraja.MidirajaCommand;
-import com.fupfin.midiraja.dsp.*;
 import com.fupfin.midiraja.io.AppLogger;
-import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.gus.GusSynthProvider;
 
 @Command(name = "patch", aliases = { "gus", "pat",
@@ -34,18 +30,11 @@ import com.fupfin.midiraja.midi.gus.GusSynthProvider;
                 "The patch directory is optional. If omitted, FreePats is downloaded automatically.",
                 "  midra patch song.mid",
                 "  midra patch ~/patches/eawpats song.mid" })
-public class GusCommand implements Callable<Integer>
+public class GusCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
-    @Spec
-    @Nullable
-    private CommandSpec spec;
-
     @ParentCommand
     @Nullable
     private MidirajaCommand parent;
-
-    @Mixin
-    private FxOptions fxOptions = new FxOptions();
 
     @Mixin
     private CommonOptions common = new CommonOptions();
@@ -91,47 +80,21 @@ public class GusCommand implements Callable<Integer>
     {
         AppLogger.configure(common.logLevel.orElse(null));
         var p = Objects.requireNonNull(parent);
-        String audioLib = AudioLibResolver.resolve();
-        NativeAudioEngine audio = new NativeAudioEngine(audioLib);
-        audio.init(44100, 2, 4096);
-        if (common != null && common.dumpWav.isPresent())
-        {
-            audio.enableDump(common.dumpWav.get());
-        }
-
-        AudioProcessor pipeline = new FloatToShortSink(audio);
-        pipeline = common.buildDspChain(pipeline);
-        pipeline = Objects.requireNonNull(fxOptions).wrapWithFloatConversion(pipeline, common);
+        var np = NativeAudioPipeline.build(2, common, fxOptions);
 
         var patchDir = patchDir();
-        var provider = new GusSynthProvider(pipeline,
+        var provider = new GusSynthProvider(np.pipeline(),
                 patchDir != null ? patchDir.getAbsolutePath() : null);
-        var masterGain = Objects.requireNonNull(fxOptions).masterGain;
+        var masterGain = fxOptions.masterGain;
         if (masterGain != null)
             provider.setMasterGain(masterGain);
 
-        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
-        runner.setFxOptions(fxOptions);
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode(), fxOptions);
+        runner.setSpectrumFilter(np.spectrumFilter());
         runner.setIncludeRetroInSuffix(true);
         return runner.run(provider, true, Optional.empty(),
                 Optional.ofNullable(patchDir).map(File::getPath), files(),
                 Objects.requireNonNull(common), originalArgs());
     }
 
-    private List<String> originalArgs()
-    {
-        var rawArgs = Objects.requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(this::resolveToken).collect(java.util.stream.Collectors.toList());
-    }
-
-    private String resolveToken(String token)
-    {
-        if (!token.startsWith("-"))
-        {
-            var f = new java.io.File(token);
-            if (f.exists())
-                return f.getAbsolutePath();
-        }
-        return token;
-    }
 }

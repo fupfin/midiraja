@@ -14,15 +14,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import java.util.stream.Collectors;
 
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
-import picocli.CommandLine.Spec;
 
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.io.AppLogger;
@@ -38,12 +35,8 @@ import com.fupfin.midiraja.midi.TsfSynthProvider;
                 "The SoundFont path is optional. If omitted, the bundled FluidR3 GM SF3 is used.",
                 "  midra soundfont song.mid",
                 "  midra soundfont ~/soundfonts/FluidR3_GM.sf2 song.mid" })
-public class TsfCommand implements Callable<Integer>
+public class TsfCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
-    @Spec
-    @Nullable
-    private CommandSpec spec;
-
     @ParentCommand
     @Nullable
     private MidirajaCommand parent;
@@ -54,9 +47,6 @@ public class TsfCommand implements Callable<Integer>
 
     @Parameters(index = "1..*", arity = "0..*", description = "MIDI files, directories, or .m3u playlists to play.")
     private List<File> moreFiles = new ArrayList<>();
-
-    @Mixin
-    private final FxOptions fxOptions = new FxOptions();
 
     @Mixin
     private final CommonOptions common = new CommonOptions();
@@ -125,32 +115,16 @@ public class TsfCommand implements Callable<Integer>
             return 1;
         }
 
-        var pipeline = FmSynthOptions.buildStereoFmPipeline(common, fxOptions);
+        var fmPipeline = FmSynthOptions.buildStereoFmPipeline(common, fxOptions);
 
         var bridge = new FFMTsfNativeBridge();
-        var provider = new TsfSynthProvider(bridge, pipeline, common.retroMode.orElse(null));
+        var provider = new TsfSynthProvider(bridge, fmPipeline.pipeline(), common.retroMode.orElse(null));
         if (fxOptions.masterGain != null)
             provider.setMasterGain(fxOptions.masterGain);
 
-        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
-        runner.setFxOptions(fxOptions);
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode(), fxOptions);
+        runner.setSpectrumFilter(fmPipeline.spectrumFilter());
         return runner.run(provider, true, Optional.empty(), Optional.of(sfPath), files(), common, originalArgs());
     }
 
-    private List<String> originalArgs()
-    {
-        var rawArgs = java.util.Objects.requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(this::absoluteIfExists).collect(Collectors.toList());
-    }
-
-    private String absoluteIfExists(String token)
-    {
-        if (!token.startsWith("-"))
-        {
-            var f = new java.io.File(token);
-            if (f.exists())
-                return f.getAbsolutePath();
-        }
-        return token;
-    }
 }

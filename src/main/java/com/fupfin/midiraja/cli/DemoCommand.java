@@ -44,16 +44,13 @@ import com.fupfin.midiraja.midi.psg.PsgSynthProvider;
 import com.fupfin.midiraja.ui.Theme;
 
 @Command(name = "demo", description = "Play the curated demo playlist showcasing all synthesis engines.", mixinStandardHelpOptions = true)
-public class DemoCommand implements Callable<Integer>
+public class DemoCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
     @ParentCommand
     private @Nullable MidirajaCommand parent;
 
     @Mixin
     private CommonOptions common = new CommonOptions();
-
-    @Mixin
-    private FxOptions fxOptions = new FxOptions();
 
     @Override
     public Integer call() throws Exception
@@ -117,8 +114,8 @@ public class DemoCommand implements Callable<Integer>
                     break;
                 }
 
-                PlaybackRunner runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
-                runner.setFxOptions(fxOptions);
+                PlaybackRunner runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(),
+                        p.isInTestMode(), fxOptions);
                 runner.setSuppressAltScreenRestore(true);
                 runner.setSuppressHoldAtEnd(true);
                 runner.setExitOnNavBoundary(true);

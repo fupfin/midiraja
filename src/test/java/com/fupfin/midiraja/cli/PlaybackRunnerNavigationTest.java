@@ -28,7 +28,7 @@ class PlaybackRunnerNavigationTest
 
     private PlaybackRunner runner()
     {
-        return new PlaybackRunner(nullStream, nullStream, null, true);
+        return new PlaybackRunner(nullStream, nullStream, null, true, new FxOptions());
     }
 
     // ── buildUI ────────────────────────────────────────────────────────────────

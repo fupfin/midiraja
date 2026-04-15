@@ -9,9 +9,6 @@ package com.fupfin.midiraja.cli;
 
 import picocli.CommandLine.Option;
 
-import com.fupfin.midiraja.dsp.AudioProcessor;
-import com.fupfin.midiraja.dsp.FloatToShortSink;
-import com.fupfin.midiraja.midi.NativeAudioEngine;
 
 /**
  * Shared FM-synthesizer options mixed into OplCommand and OpnCommand.
@@ -26,19 +23,10 @@ public class FmSynthOptions
             "--chips" }, defaultValue = "4", description = "Number of chips to emulate (default: 4). More chips = more polyphony.")
     public int chips = 4;
 
-    /** Builds the stereo FM synth audio pipeline (audio engine + DSP chain). */
-    static AudioProcessor buildStereoFmPipeline(CommonOptions common, FxOptions fxOptions)
+    /** Builds the stereo FM synth audio pipeline (audio engine + DSP chain + spectrum filter). */
+    static NativeAudioPipeline buildStereoFmPipeline(CommonOptions common, FxOptions fxOptions)
             throws Exception
     {
-        var audio = new NativeAudioEngine(AudioLibResolver.resolve());
-        audio.init(44100, 2, 4096);
-        if (common.dumpWav.isPresent())
-        {
-            audio.enableDump(common.dumpWav.get());
-        }
-        AudioProcessor pipeline = new FloatToShortSink(audio);
-        pipeline = common.buildDspChain(pipeline);
-        pipeline = fxOptions.wrapWithFloatConversion(pipeline, common);
-        return pipeline;
+        return NativeAudioPipeline.build(2, common, fxOptions);
     }
 }

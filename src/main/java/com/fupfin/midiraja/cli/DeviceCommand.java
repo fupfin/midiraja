@@ -88,7 +88,7 @@ public class DeviceCommand implements Callable<Integer>
             }
         }
 
-        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false);
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false, new FxOptions());
         return runner.run(provider, false, portQuery, Optional.empty(), files, common, originalArgs());
     }
 

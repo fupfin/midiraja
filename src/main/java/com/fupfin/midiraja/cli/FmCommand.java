@@ -18,11 +18,9 @@ import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
-import picocli.CommandLine.Spec;
 
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.io.AppLogger;
@@ -54,7 +52,7 @@ import com.fupfin.midiraja.midi.OpnMidiSynthProvider;
                 "OPN names: opn, opn2, opna, genesis, pc98  (default when using 'fm')", "",
                 "OPL Emulator IDs: 0=Nuked OPL3 v1.8, 1=Nuked v1.7.4, 5=ESFMu, 6=MAME OPL2, 7=YMFM OPL2, 8=YMFM OPL3",
                 "OPN Emulator IDs: 0=MAME YM2612, 1=Nuked YM3438, 2=GENS, 3=YMFM OPN2, 4=NP2 OPNA, 5=MAME YM2608, 6=YMFM OPNA" })
-public class FmCommand implements Callable<Integer>
+public class FmCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
     private static final Set<String> OPL_NAMES = Set.of("opl", "opl2", "opl3", "adlib");
     private static final Set<String> OPN_NAMES = Set.of("opn", "opn2", "opna", "genesis", "pc98");
@@ -66,10 +64,6 @@ public class FmCommand implements Callable<Integer>
         ALL_ENGINE_NAMES.addAll(OPL_NAMES);
         ALL_ENGINE_NAMES.addAll(OPN_NAMES);
     }
-
-    @Spec
-    @Nullable
-    private CommandSpec spec;
 
     @ParentCommand
     @Nullable
@@ -84,9 +78,6 @@ public class FmCommand implements Callable<Integer>
 
     @Mixin
     private final FmSynthOptions fmOptions = new FmSynthOptions();
-
-    @Mixin
-    private final FxOptions fxOptions = new FxOptions();
 
     @Mixin
     private final CommonOptions common = new CommonOptions();
@@ -152,16 +143,16 @@ public class FmCommand implements Callable<Integer>
         AppLogger.configure(common.logLevel.orElse(null));
         var p = requireNonNull(parent);
         var files = effectiveFiles();
-        var pipeline = FmSynthOptions.buildStereoFmPipeline(common, fxOptions);
-        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
-        runner.setFxOptions(fxOptions);
+        var fmPipeline = FmSynthOptions.buildStereoFmPipeline(common, fxOptions);
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode(), fxOptions);
+        runner.setSpectrumFilter(fmPipeline.spectrumFilter());
         // OPL/OPN: retroMode is shown as dacMode in the port name ([AMIGA] etc.), not in suffix
 
         if (isOpl())
         {
-            return callOpl(pipeline, runner, files);
+            return callOpl(fmPipeline.pipeline(), runner, files);
         }
-        return callOpn(pipeline, runner, files);
+        return callOpn(fmPipeline.pipeline(), runner, files);
     }
 
     private Integer callOpl(com.fupfin.midiraja.dsp.AudioProcessor pipeline, PlaybackRunner runner,
@@ -195,20 +186,4 @@ public class FmCommand implements Callable<Integer>
                 common, originalArgs());
     }
 
-    private List<String> originalArgs()
-    {
-        var rawArgs = requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(this::absoluteIfExists).collect(java.util.stream.Collectors.toList());
-    }
-
-    private String absoluteIfExists(String token)
-    {
-        if (!token.startsWith("-"))
-        {
-            var f = new java.io.File(token);
-            if (f.exists())
-                return f.getAbsolutePath();
-        }
-        return token;
-    }
 }

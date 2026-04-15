@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.fupfin.midiraja.cli.FxOptions;
 import com.fupfin.midiraja.io.MockTerminalIO;
 import com.fupfin.midiraja.io.TerminalIO.TerminalKey;
 import com.fupfin.midiraja.midi.MidiOutProvider;
@@ -118,7 +119,7 @@ class PlaybackRunnerTest
     {
         File midiFile = createTestMidi(tempDir);
         MockMidiProvider provider = new MockMidiProvider();
-        PlaybackRunner runner = new PlaybackRunner(new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true);
+        PlaybackRunner runner = new PlaybackRunner(new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true, new FxOptions());
 
         // Inject the 'q' key to force the loop to exit early
         mockIO.injectKey(TerminalKey.QUIT);
@@ -138,7 +139,7 @@ class PlaybackRunnerTest
     void buildUI_quiet_returnsDumbUI_evenWhenMiniRequested()
     {
         var runner = new PlaybackRunner(
-                new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true);
+                new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true, new FxOptions());
         var uiOpts = new UiModeOptions();
         uiOpts.miniMode = true;
 
@@ -152,7 +153,7 @@ class PlaybackRunnerTest
     void testRunnerHandlesNoFiles() throws Exception
     {
         MockMidiProvider provider = new MockMidiProvider();
-        PlaybackRunner runner = new PlaybackRunner(new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true);
+        PlaybackRunner runner = new PlaybackRunner(new PrintStream(outBytes), new PrintStream(errBytes), mockIO, true, new FxOptions());
 
         int exitCode = runner.run(provider, true, Optional.empty(), Optional.empty(), new ArrayList<>(), common,
                 List.of());

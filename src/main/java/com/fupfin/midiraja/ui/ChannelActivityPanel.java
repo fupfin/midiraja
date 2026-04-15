@@ -87,7 +87,8 @@ public class ChannelActivityPanel implements Panel
     };
 
     private LayoutConstraints constraints = new LayoutConstraints(80, 16, false, false);
-    private final double[] channelLevels = new double[16];
+    private final double[] midiLevels = new double[16];
+    private final double[] spectrumLevels = new double[16];
     private final int[] channelPrograms = new int[16];
     private Mode mode = Mode.MIDI;
 
@@ -120,20 +121,15 @@ public class ChannelActivityPanel implements Panel
     @Override
     public void onChannelActivity(int channel, int velocity)
     {
-        if (mode == Mode.MIDI && channel >= 0 && channel < 16)
-        {
-            channelLevels[channel] = max(channelLevels[channel], velocity / 127.0);
-        }
+        if (channel >= 0 && channel < 16)
+            midiLevels[channel] = max(midiLevels[channel], velocity / 127.0);
     }
 
     @Override
     public void onSpectrumUpdate(float[] levels)
     {
-        if (mode == Mode.SPECTRUM)
-        {
-            for (int i = 0; i < 16; i++)
-                channelLevels[i] = max(channelLevels[i], levels[i]);
-        }
+        for (int i = 0; i < 16; i++)
+            spectrumLevels[i] = max(spectrumLevels[i], levels[i]);
     }
 
     public void updatePrograms(int[] programs)
@@ -166,10 +162,9 @@ public class ChannelActivityPanel implements Panel
         if (constraints.height() <= 0)
             return;
 
+        double[] levels = mode == Mode.SPECTRUM ? spectrumLevels : midiLevels;
         for (int i = 0; i < 16; i++)
-        {
-            channelLevels[i] = max(0, channelLevels[i] - 0.05);
-        }
+            levels[i] = max(0, levels[i] - 0.05);
 
         int w = constraints.width();
         int h = constraints.height();
@@ -219,7 +214,7 @@ public class ChannelActivityPanel implements Panel
                     // Format: "C01:[███··]"
                     // CXX: (4 static) + brackets from ProgressBar (2 static) = 6 static
                     int maxMeter = max(2, colWidth - 6);
-                    int meterLen = (int) (channelLevels[ch] * maxMeter);
+                    int meterLen = (int) (levels[ch] * maxMeter);
 
                     String meter = ProgressBar.render(meterLen, maxMeter,
                             ProgressBar.Style.DOTTED_BACKGROUND, true, trailColor);
@@ -240,7 +235,7 @@ public class ChannelActivityPanel implements Panel
                     // instName (8) + ": " (2) + brackets (2) = 12 static
                     int staticLen = 12;
                     int maxMeter = max(2, colWidth - staticLen);
-                    int meterLen = (int) (channelLevels[ch] * maxMeter);
+                    int meterLen = (int) (levels[ch] * maxMeter);
 
                     String meter = ProgressBar.render(meterLen, maxMeter,
                             ProgressBar.Style.DOTTED_BACKGROUND, true, trailColor);

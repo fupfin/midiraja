@@ -26,6 +26,7 @@ import picocli.CommandLine.Spec;
 import com.fupfin.midiraja.MidirajaCommand;
 import com.fupfin.midiraja.dsp.AudioProcessor;
 import com.fupfin.midiraja.dsp.FloatToShortSink;
+import com.fupfin.midiraja.dsp.SpectrumAnalyzerFilter;
 import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.FFMMuntNativeBridge;
 import com.fupfin.midiraja.midi.MuntSynthProvider;
@@ -70,12 +71,14 @@ public class MuntCommand implements Callable<Integer>
             audio.enableDump(common.dumpWav.get());
         }
         AudioProcessor pipeline = new FloatToShortSink(audio);
-        pipeline = common.buildDspChain(pipeline);
+        var spectrumFilter = new SpectrumAnalyzerFilter(pipeline);
+        pipeline = common.buildDspChain(spectrumFilter);
 
         var bridge = new FFMMuntNativeBridge();
         var provider = new MuntSynthProvider(bridge, pipeline);
 
-        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode(), new FxOptions());
+        runner.setSpectrumFilter(spectrumFilter);
         return runner.run(provider, true, Optional.empty(), Optional.of(romDir.getPath()), files,
                 common, originalArgs());
     }

@@ -21,17 +21,12 @@ import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
-import picocli.CommandLine.Spec;
 
 import com.fupfin.midiraja.MidirajaCommand;
-import com.fupfin.midiraja.dsp.AudioProcessor;
-import com.fupfin.midiraja.dsp.FloatToShortSink;
 import com.fupfin.midiraja.io.AppLogger;
-import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.beep.BeepSynthProvider;
 
 /**
@@ -41,20 +36,13 @@ import com.fupfin.midiraja.midi.beep.BeepSynthProvider;
         "1bit" }, mixinStandardHelpOptions = true, description = "1-bit digital logic synthesizer (Apple II / PC Speaker style).", footer = {
                 "",
                 "Experience the extreme limitations of 1980s computer audio via 1-bit logic gates." })
-public class BeepCommand implements Callable<Integer>
+public class BeepCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
-    @Spec
-    @Nullable
-    private CommandSpec spec;
-
     @ParentCommand
     private @Nullable MidirajaCommand parent;
 
     @Mixin
     private final CommonOptions common = new CommonOptions();
-
-    @Mixin
-    private FxOptions fxOptions = new FxOptions();
 
     @Option(names = { "--synth" }, defaultValue = "square", description = "Synthesis generation algorithm:\n"
             + "  'fm'     (Yamaha-like Phase/Frequency Modulation using smooth sine waves)\n"
@@ -97,27 +85,18 @@ public class BeepCommand implements Callable<Integer>
         }
 
         var p = requireNonNull(parent);
-        String audioLib = AudioLibResolver.resolve();
-        NativeAudioEngine audio = new NativeAudioEngine(audioLib);
-        audio.init(44100, 1, 4096);
-        if (common.dumpWav.isPresent())
-        {
-            audio.enableDump(common.dumpWav.get());
-        }
-        AudioProcessor pipeline = new FloatToShortSink(audio, 1);
-        pipeline = common.buildDspChain(pipeline);
-        pipeline = fxOptions.wrapWithFloatConversion(pipeline, common);
+        var np = NativeAudioPipeline.build(1, common, fxOptions);
 
         // Map user's 1~6 quality level exponentially (1 -> 1x, 2 -> 2x, 3 -> 4x, ..., 6 -> 32x)
         int clampedLevel = max(1, min(6, qualityLevel));
         int actualOversample = 1 << (clampedLevel - 1);
 
-        var provider = new BeepSynthProvider(pipeline, voices,
+        var provider = new BeepSynthProvider(np.pipeline(), voices,
                 fmRatio, fmIndex, actualOversample, mux.toLowerCase(ROOT),
                 synth.toLowerCase(ROOT));
 
-        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
-        runner.setFxOptions(fxOptions);
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode(), fxOptions);
+        runner.setSpectrumFilter(np.spectrumFilter());
         int result = runner.run(provider, true, Optional.empty(), Optional.empty(), files,
                 requireNonNull(common), originalArgs());
 
@@ -125,20 +104,4 @@ public class BeepCommand implements Callable<Integer>
         return result;
     }
 
-    private List<String> originalArgs()
-    {
-        var rawArgs = requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(this::resolveToken).collect(java.util.stream.Collectors.toList());
-    }
-
-    private String resolveToken(String token)
-    {
-        if (!token.startsWith("-"))
-        {
-            var f = new java.io.File(token);
-            if (f.exists())
-                return f.getAbsolutePath();
-        }
-        return token;
-    }
 }

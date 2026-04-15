@@ -24,15 +24,11 @@ import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
-import picocli.CommandLine.Spec;
 
 import com.fupfin.midiraja.MidirajaCommand;
-import com.fupfin.midiraja.dsp.AudioProcessor;
-import com.fupfin.midiraja.dsp.FloatToShortSink;
 import com.fupfin.midiraja.dsp.SpectrumAnalyzerFilter;
 import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.export.vgm.ChipHandlers;
@@ -44,14 +40,13 @@ import com.fupfin.midiraja.export.vgm.Ym2612VgmExporter;
 import com.fupfin.midiraja.format.MusicFormatLoader;
 import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.FFMOpnMidiNativeBridge;
-import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.vgm.FFMLibvgmBridge;
 import com.fupfin.midiraja.midi.vgm.LibvgmPlaybackEngine;
 import com.fupfin.midiraja.midi.vgm.LibvgmSynthProvider;
 
 @Command(name = "vgm", aliases = {
         "chiptune" }, mixinStandardHelpOptions = true, description = "VGM/VGZ direct playback or MIDI → VGM → libvgm synthesis.")
-public class VgmCommand implements Callable<Integer>
+public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
     static final class ChipSpecOptions
     {
@@ -64,10 +59,6 @@ public class VgmCommand implements Callable<Integer>
         String chips;
     }
 
-    @Spec
-    @Nullable
-    private CommandSpec spec;
-
     @ParentCommand
     @Nullable
     private MidirajaCommand parent;
@@ -77,9 +68,6 @@ public class VgmCommand implements Callable<Integer>
 
     @ArgGroup(exclusive = true, multiplicity = "0..1")
     ChipSpecOptions chipSpec = new ChipSpecOptions();
-
-    @Mixin
-    private FxOptions fxOptions = new FxOptions();
 
     @Mixin
     private final CommonOptions common = new CommonOptions();
@@ -134,26 +122,18 @@ public class VgmCommand implements Callable<Integer>
         AppLogger.configure(common.logLevel.orElse(null));
         var p = requireNonNull(parent);
 
-        String audioLib = AudioLibResolver.resolve();
-        var audio = new NativeAudioEngine(audioLib);
-        audio.init(44100, 2, 4096);
-        if (common.dumpWav.isPresent())
-            audio.enableDump(common.dumpWav.get());
-
-        AudioProcessor pipeline = new FloatToShortSink(audio, 2);
-        var spectrumFilter = new SpectrumAnalyzerFilter(pipeline);
-        pipeline = common.buildDspChain(spectrumFilter);
-        pipeline = fxOptions.wrapWithFloatConversion(pipeline, common);
+        var np = NativeAudioPipeline.build(2, common, fxOptions);
+        var spectrumFilter = np.spectrumFilter();
 
         var bridge = new FFMLibvgmBridge();
-        var provider = new LibvgmSynthProvider(bridge, pipeline);
+        var provider = new LibvgmSynthProvider(bridge, np.pipeline());
         if (fxOptions.masterGain != null)
             provider.setMasterGain(fxOptions.masterGain);
 
-        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false,
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false, fxOptions,
                 (seq, prov, ctx, pip, shutdown, speed, startTime) ->
                         buildEngine(seq, provider, ctx, spectrumFilter));
-        runner.setFxOptions(fxOptions);
+        runner.setSpectrumFilter(spectrumFilter);
         runner.setSequenceLoader(file -> loadSequenceAndPrimeProvider(file, provider));
 
         return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common,
@@ -199,20 +179,4 @@ public class VgmCommand implements Callable<Integer>
         return sequence;
     }
 
-    private List<String> originalArgs()
-    {
-        var rawArgs = requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(this::resolveToken).collect(Collectors.toList());
-    }
-
-    private String resolveToken(String token)
-    {
-        if (!token.startsWith("-"))
-        {
-            var f = new File(token);
-            if (f.exists())
-                return f.getAbsolutePath();
-        }
-        return token;
-    }
 }

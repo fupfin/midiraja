@@ -26,8 +26,6 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 import com.fupfin.midiraja.cli.*;
-import com.fupfin.midiraja.dsp.AudioProcessor;
-import com.fupfin.midiraja.dsp.FloatToShortSink;
 import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.io.TerminalIO;
 import com.fupfin.midiraja.midi.AdlMidiSynthProvider;
@@ -37,7 +35,6 @@ import com.fupfin.midiraja.midi.FFMTsfNativeBridge;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.MidiPort;
 import com.fupfin.midiraja.midi.MidiProviderFactory;
-import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.OpnMidiSynthProvider;
 import com.fupfin.midiraja.midi.TsfSynthProvider;
 import com.fupfin.midiraja.midi.beep.BeepSynthProvider;
@@ -72,6 +69,9 @@ public class MidirajaCommand implements Callable<Integer>
 
     @Mixin
     private final CommonOptions common = new CommonOptions();
+
+    @Mixin
+    private final FxOptions fxOptions = new FxOptions();
 
     @Spec
     @Nullable
@@ -309,7 +309,7 @@ public class MidirajaCommand implements Callable<Integer>
                         files, common);
                 case EngineSelector.Choice.Port p ->
                 {
-                    var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
+                    var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode, new FxOptions());
                     yield runner.run(MidiProviderFactory.createProvider(), false,
                             Optional.of(String.valueOf(p.portIndex())), Optional.empty(), files,
                             common, originalArgs());
@@ -321,7 +321,7 @@ public class MidirajaCommand implements Callable<Integer>
             resolvedProvider = MidiProviderFactory.createProvider();
         }
 
-        var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
+        var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode, new FxOptions());
         return runner.run(resolvedProvider, provider != null && isTestMode, port, Optional.empty(),
                 files, common, originalArgs());
     }
@@ -329,17 +329,16 @@ public class MidirajaCommand implements Callable<Integer>
     private int runBuiltinEngine(String engine, List<File> files, CommonOptions common)
             throws Exception
     {
-        String audioLib = AudioLibResolver.resolve();
-        var audio = new NativeAudioEngine(audioLib);
         Optional<String> soundbankArg = Optional.empty();
         MidiOutProvider builtinProvider;
+        NativeAudioPipeline np;
 
         switch (engine)
         {
             case "patch" ->
             {
-                AudioProcessor pipeline = initAndPipeline(audio, 2);
-                builtinProvider = new GusSynthProvider(pipeline, null);
+                np = NativeAudioPipeline.build(2, common, fxOptions);
+                builtinProvider = new GusSynthProvider(np.pipeline(), null);
             }
             case "soundfont" ->
             {
@@ -350,33 +349,33 @@ public class MidirajaCommand implements Callable<Integer>
                             + "Run 'midra soundfont --help' for details.");
                     return 1;
                 }
-                AudioProcessor pipeline = initAndPipeline(audio, 2);
-                builtinProvider = new TsfSynthProvider(new FFMTsfNativeBridge(), pipeline, null);
+                np = NativeAudioPipeline.build(2, common, fxOptions);
+                builtinProvider = new TsfSynthProvider(new FFMTsfNativeBridge(), np.pipeline(), null);
                 soundbankArg = Optional.of(sfPath);
             }
             case "opl" ->
             {
-                AudioProcessor pipeline = initAndPipeline(audio, 2);
-                builtinProvider = new AdlMidiSynthProvider(new FFMAdlMidiNativeBridge(), pipeline,
+                np = NativeAudioPipeline.build(2, common, fxOptions);
+                builtinProvider = new AdlMidiSynthProvider(new FFMAdlMidiNativeBridge(), np.pipeline(),
                         0, 4, null);
                 soundbankArg = Optional.of("bank:0");
             }
             case "opn" ->
             {
-                AudioProcessor pipeline = initAndPipeline(audio, 2);
-                builtinProvider = new OpnMidiSynthProvider(new FFMOpnMidiNativeBridge(), pipeline,
+                np = NativeAudioPipeline.build(2, common, fxOptions);
+                builtinProvider = new OpnMidiSynthProvider(new FFMOpnMidiNativeBridge(), np.pipeline(),
                         0, 4, null);
                 soundbankArg = Optional.of("");
             }
             case "1bit" ->
             {
-                AudioProcessor pipeline = initAndPipeline(audio, 1);
-                builtinProvider = new BeepSynthProvider(pipeline, 2, 2.0, 2.0, 1, "dsd", "square");
+                np = NativeAudioPipeline.build(1, common, fxOptions);
+                builtinProvider = new BeepSynthProvider(np.pipeline(), 2, 2.0, 2.0, 1, "dsd", "square");
             }
             case "psg" ->
             {
-                AudioProcessor pipeline = initAndPipeline(audio, 1);
-                builtinProvider = new PsgSynthProvider(pipeline, 4, 5.0, 25.0, false, false);
+                np = NativeAudioPipeline.build(1, common, fxOptions);
+                builtinProvider = new PsgSynthProvider(np.pipeline(), 4, 5.0, 25.0, false, false);
             }
             default ->
             {
@@ -385,15 +384,8 @@ public class MidirajaCommand implements Callable<Integer>
             }
         }
 
-        var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode);
+        var runner = new PlaybackRunner(stdOut, stdErr, terminalIO, isTestMode, fxOptions);
+        runner.setSpectrumFilter(np.spectrumFilter());
         return runner.run(builtinProvider, true, Optional.empty(), soundbankArg, files, common, originalArgs());
-    }
-
-    /** Initialises the native audio engine and wires it to a {@link FloatToShortSink} pipeline. */
-    private static AudioProcessor initAndPipeline(NativeAudioEngine audio, int channels)
-            throws Exception
-    {
-        audio.init(44100, channels, 4096);
-        return new FloatToShortSink(audio, channels);
     }
 }

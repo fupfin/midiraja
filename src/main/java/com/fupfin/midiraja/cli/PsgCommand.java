@@ -11,27 +11,18 @@ import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
-import picocli.CommandLine.Spec;
 
 import com.fupfin.midiraja.MidirajaCommand;
-import com.fupfin.midiraja.dsp.AudioProcessor;
-import com.fupfin.midiraja.dsp.FloatToShortSink;
 import com.fupfin.midiraja.io.AppLogger;
-import com.fupfin.midiraja.midi.NativeAudioEngine;
 import com.fupfin.midiraja.midi.psg.PsgSynthProvider;
 
 @Command(name = "psg", aliases = { "ay",
         "msx" }, mixinStandardHelpOptions = true, description = "PSG chiptune (MSX / ZX Spectrum / Atari ST).")
-public class PsgCommand implements Callable<Integer>
+public class PsgCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
-    @Spec
-    @Nullable
-    private CommandSpec spec;
-
     @ParentCommand
     @Nullable
     private MidirajaCommand parent;
@@ -60,9 +51,6 @@ public class PsgCommand implements Callable<Integer>
     private boolean smooth = false;
 
     @Mixin
-    private FxOptions fxOptions = new FxOptions();
-
-    @Mixin
     private final CommonOptions common = new CommonOptions();
 
     @Override
@@ -79,43 +67,17 @@ public class PsgCommand implements Callable<Integer>
             finalChips = 2;
         }
 
-        String audioLib = AudioLibResolver.resolve();
-        var audio = new NativeAudioEngine(audioLib);
-        audio.init(44100, 1, 4096);
-        if (common != null && common.dumpWav.isPresent())
-        {
-            audio.enableDump(common.dumpWav.get());
-        }
+        var np = NativeAudioPipeline.build(1, common, fxOptions);
 
-        AudioProcessor pipeline = new FloatToShortSink(audio, 1);
-        pipeline = common.buildDspChain(pipeline);
-        pipeline = fxOptions.wrapWithFloatConversion(pipeline, common);
-
-        var provider = new PsgSynthProvider(pipeline, finalChips, vibratoDepth, dutySweep, useScc,
-                smooth, common.retroMode.orElse(null));
+        var provider = new PsgSynthProvider(np.pipeline(), finalChips, vibratoDepth, dutySweep,
+                useScc, smooth, common.retroMode.orElse(null));
         if (fxOptions.masterGain != null)
             provider.setMasterGain(fxOptions.masterGain);
 
-        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false);
-        runner.setFxOptions(fxOptions);
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false, fxOptions);
+        runner.setSpectrumFilter(np.spectrumFilter());
         // retroMode is already shown as [X] in port name; don't duplicate in suffix
         return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common, originalArgs());
     }
 
-    private List<String> originalArgs()
-    {
-        var rawArgs = java.util.Objects.requireNonNull(spec).commandLine().getParseResult().originalArgs();
-        return rawArgs.stream().map(this::resolveToken).collect(java.util.stream.Collectors.toList());
-    }
-
-    private String resolveToken(String token)
-    {
-        if (!token.startsWith("-"))
-        {
-            var f = new java.io.File(token);
-            if (f.exists())
-                return f.getAbsolutePath();
-        }
-        return token;
-    }
 }

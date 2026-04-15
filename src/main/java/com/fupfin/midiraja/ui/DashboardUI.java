@@ -32,6 +32,7 @@ public class DashboardUI implements PlaybackUI
     private final TitledPanel titledPlaylistPanel = new TitledPanel("PLAYLIST", rawPlaylistPanel);
 
     private final DashboardLayoutManager layoutManager = new DashboardLayoutManager();
+    private ChannelActivityPanel.Mode meterMode = ChannelActivityPanel.Mode.MIDI;
 
     private @org.jspecify.annotations.Nullable String extractCopyright(Sequence seq)
     {
@@ -77,7 +78,8 @@ public class DashboardUI implements PlaybackUI
 
         if (engine.isSpectrumMode())
         {
-            rawChannelPanel.setMode(ChannelActivityPanel.Mode.SPECTRUM);
+            meterMode = ChannelActivityPanel.Mode.SPECTRUM;
+            rawChannelPanel.setMode(meterMode);
             channelPanel.setTitle("SPECTRUM");
         }
 
@@ -185,6 +187,14 @@ public class DashboardUI implements PlaybackUI
         }
     }
 
+    private void toggleMeterMode()
+    {
+        meterMode = (meterMode == ChannelActivityPanel.Mode.MIDI) ? ChannelActivityPanel.Mode.SPECTRUM
+                : ChannelActivityPanel.Mode.MIDI;
+        rawChannelPanel.setMode(meterMode);
+        channelPanel.setTitle(meterMode == ChannelActivityPanel.Mode.MIDI ? "MIDI CHANNELS" : "SPECTRUM");
+    }
+
     private void recalculateLayout(int width, int height, int listSize)
     {
         Map<DashboardLayoutManager.PanelId, LayoutConstraints> layout = layoutManager.calculateLayout(width, height,
@@ -202,7 +212,15 @@ public class DashboardUI implements PlaybackUI
     @Override
     public void runInputLoop(PlaybackCommands engine)
     {
-        InputLoopRunner.run(engine, InputHandler::handleCommonInput);
+        InputLoopRunner.run(engine, this::handleInput);
+    }
+
+    private void handleInput(PlaybackCommands engine, TerminalIO.TerminalKey key)
+    {
+        if (key == TerminalIO.TerminalKey.TOGGLE_METER_MODE)
+            toggleMeterMode();
+        else
+            InputHandler.handleCommonInput(engine, key);
     }
 
     @Override

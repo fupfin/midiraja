@@ -17,6 +17,7 @@ import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 import javax.sound.midi.*;
 
+import com.fupfin.midiraja.dsp.SpectrumAnalyzerFilter;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.ui.PlaybackEventListener;
 import com.fupfin.midiraja.ui.PlaybackUI;
@@ -65,6 +66,9 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     private String filterDescription = "";
     private String portSuffix = "";
+
+    @SuppressWarnings("NullAway")
+    private volatile SpectrumAnalyzerFilter spectrumFilter = null;
 
     private volatile boolean loopEnabled = false;
     private volatile boolean shuffleEnabled = false;
@@ -124,6 +128,19 @@ public class MidiPlaybackEngine implements PlaybackEngine
     public void setShuffleCallback(java.util.function.Consumer<Boolean> cb)
     {
         shuffleCallback = cb;
+    }
+
+    public void setSpectrumFilter(SpectrumAnalyzerFilter filter)
+    {
+        this.spectrumFilter = filter;
+    }
+
+    private void fireSpectrumLevels()
+    {
+        if (spectrumFilter == null)
+            return;
+        float[] lv = spectrumFilter.getLevels();
+        listeners.forEach(l -> l.onSpectrumUpdate(lv));
     }
 
     public void setFilterDescription(String desc)
@@ -392,6 +409,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
             long finalMicros = currentMicroseconds.get();
             listeners.forEach(l -> l.onTick(finalMicros));
+            fireSpectrumLevels();
 
             eventIndex++;
 
@@ -492,6 +510,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
             long nowMicros = (currentNanos - startTimeNanos) / 1000;
             currentMicroseconds.set(nowMicros);
             listeners.forEach(l -> l.onTick(nowMicros));
+            fireSpectrumLevels();
             long remainingMs = (targetNanos - currentNanos) / 1_000_000L;
             if (remainingMs > 1)
                 clock.sleepMillis(min(remainingMs - 1, PLAYBACK_POLL_MS));

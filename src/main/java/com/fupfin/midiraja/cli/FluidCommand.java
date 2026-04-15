@@ -63,7 +63,7 @@ public class FluidCommand implements Callable<Integer>
 
         var provider = new FluidSynthProvider(driver.orElse(null));
 
-        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode());
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), p.isInTestMode(), new FxOptions());
         return runner.run(provider, true, Optional.empty(), Optional.of(soundfont.getPath()), files,
                 common, originalArgs());
     }
