@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.4.0a] - 2026-04-14
+
+### Added
+
+- **VGM/VGZ native playback** (`midra vgm <file>`) — plays chiptune VGM files directly via libvgm; supports FF/BW seek (←/→ or F/B), volume and speed adjustment during playback
+- **MIDI → VGM export** (`midra export vgm --system <chip>`) — converts MIDI to VGM register-stream format; supported chips: SN76489 (PSG), AY-3-8910, YM2413 (OPLL/MSX-Music), K051649 (SCC), YM3812 (OPL2/AdLib), YMF262 (OPL3), YM2612/OPN2 (Sega Genesis via libOPNMIDI VGMFileDumper)
+- **Tracker format playback** — ProTracker `.mod`; format detected automatically from file extension
+- **OS media key integration** — macOS (MPRemoteCommandCenter), Linux (MPRIS2 D-Bus), Windows (SystemMediaTransportControls); play/pause, prev/next, and seek via hardware media keys
+- **`midra resume`** — interactive session history; auto-saves each playback session; resume from where you left off, bookmark favourites with `*`, delete entries in-TUI; press `R` during playback to enter the resume screen
+- **Spectrum analyzer** — 8-band stereo FFT display in LineUI and DashboardUI
+- **`midra midi-info <file>`** — prints MIDI file metadata (title, tempo, track count, duration)
+- **`--quiet`** — suppresses TUI output for scripting
+- **`--compress`** — priority-based DSP compressor in the signal chain
+- **`--log LEVEL`** — unified log level flag (WARN/INFO/DEBUG/TRACE); replaces `--verbose`/`--debug`
+- **Amiga Paula DAC filter** (`--retro amiga/a500/a1200`) — models the low-pass characteristic of the Amiga 500 and 1200 audio outputs
+- **`--retro-drive`** — adjustable PWM drive gain for PC speaker and Apple II retro modes
+
+### Changed
+
+- **PC speaker / Apple II retro modes** now use 4× oversampled cone simulation instead of a plain integrator, suppressing step-rate aliasing harmonics
+- **SCC alias suppression** — 14 kHz post-render LP filter applied after libvgm render to reduce wavetable step aliasing
+- **FM MIDI→VGM conversion** uses 3-dimensional OPL patch mapping (timbre × note-range × envelope) and a 2-pass ensemble-aware GM program assignment
+- **UI**: `Tr: off` shown (dimmed) for engines that do not support transpose (e.g. VGM playback); previously showed `+0`
+- **NowPlayingPanel** redesigned — Vol/Tempo/Trans consolidated, Effects line added, MIDI copyright row added
+- **Loop and shuffle** can be toggled live with `L`/`S` keys; icons shown in PLAYLIST panel header
+- **Port name** now includes chip prefix, emulator in parentheses, and ROM version for MT-32
+
+### Fixed
+
+- **VGM FF/BW**: progress bar snapped back after seek — `playLoop()` wall-clock base is now rebased on each seek so `currentMicroseconds` stays consistent
+- **Native binary** (`midra vgm`): `MissingForeignRegistrationError` on startup — two missing FFM descriptors for `vgm_create` and `vgm_get_duration_us` added to `reachability-metadata.json`
+- **OPL2/OPL3 pitch**: note frequency calculation was 12 octaves too low — corrected
+- **YM2413 (OPLL) pitch**: frequency formula was 1024× too high — corrected
+- **FM carrier pitch**: carriers with MULT ≠ 1 produced wrong pitch — corrected
+- **VGM loop**: files with loop points repeated indefinitely, preventing playlist advancement — `loopCount` set to 1
+- **SCC staircase aliasing**: program-dependent waveforms suppress step-rate aliasing for notes above E5
+- **Shuffle**: toggling shuffle mid-playlist only reshuffled remaining tracks instead of the full playlist
+- **Ctrl+C**: terminal not fully restored (cursor hidden, alt screen active) — fixed by routing Ctrl+C through normal QUIT path with ISIG disabled
+
 ## [0.3.5] - 2026-03-18
 
 ### Added

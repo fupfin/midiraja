@@ -280,7 +280,17 @@ These engines are baked directly into the Midiraja app. They require **absolutel
 * **How to use it:** `midra mt32 ~/my_rom_folder/ monkey_island.mid`
 * **🎛️ DSP Effects:** All standard effects are supported — `--tube`, `--chorus`, `--reverb`, EQ, LPF/HPF.
 
-#### 7. VGM Chiptune Playback (`vgm`)
+#### 7. Amiga MOD Playback
+
+Midiraja plays Amiga ProTracker `.mod` files by converting them to MIDI and routing through any available synthesis engine. Instrument samples in the MOD file are matched to General MIDI programs by name; unmatched channels are assigned to plausible orchestral roles automatically.
+
+* **How to use it:** `midra song.mod` (any synthesis engine works)
+
+**Supported formats:** `.mod` (ProTracker, 4–32 channels, M.K./FLT4/FLT8/xCHN tags)
+
+---
+
+#### 8. VGM Chiptune Playback (`vgm`)
 
 Midiraja plays VGM/VGZ (Video Game Music) files — the standard format for preserving retro game music as chip register dumps. The `midra vgm` command uses **native libvgm emulation** to render 40+ chip types with perfect accuracy (lossless). All DSP effects (`--retro`, `--reverb`, `--eq`, etc.) apply on top of the libvgm output.
 

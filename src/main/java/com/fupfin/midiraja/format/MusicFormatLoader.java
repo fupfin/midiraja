@@ -12,23 +12,24 @@ import java.util.Locale;
 import java.util.Set;
 import javax.sound.midi.Sequence;
 
-import com.fupfin.midiraja.format.it.ItFileDetector;
-import com.fupfin.midiraja.format.it.ItParser;
 import com.fupfin.midiraja.format.mod.ModFileDetector;
 import com.fupfin.midiraja.format.mod.ModParser;
 import com.fupfin.midiraja.format.mod.ModToMidiConverter;
-import com.fupfin.midiraja.format.s3m.S3mFileDetector;
-import com.fupfin.midiraja.format.s3m.S3mParser;
-import com.fupfin.midiraja.format.tracker.TrackerToMidiConverter;
 import com.fupfin.midiraja.format.vgm.VgmFileDetector;
 import com.fupfin.midiraja.format.vgm.VgmParser;
 import com.fupfin.midiraja.format.vgm.VgmToMidiConverter;
-import com.fupfin.midiraja.format.xm.XmFileDetector;
-import com.fupfin.midiraja.format.xm.XmParser;
 import com.fupfin.midiraja.midi.MidiUtils;
 
 /**
  * Single entry point for loading any supported music file format into a MIDI {@link Sequence}.
+ *
+ * <p>
+ * Supported formats: MIDI (.mid/.midi), VGM/VGZ, and Amiga ProTracker MOD.
+ *
+ * <p>
+ * S3M, XM, and IT are intentionally not supported. Those formats are built around
+ * specific PCM samples and instrument envelopes that have no meaningful MIDI equivalent;
+ * accurate playback requires a dedicated module renderer such as libopenmpt.
  *
  * <p>
  * To add a new format: add its detector/parser/converter here and extend
@@ -49,17 +50,10 @@ public final class MusicFormatLoader
      */
     public static Sequence load(File file, Set<Integer> mutedChannels) throws Exception
     {
-        var tracker = new TrackerToMidiConverter(mutedChannels);
         if (VgmFileDetector.isVgmFile(file))
             return new VgmToMidiConverter(mutedChannels).convert(new VgmParser().parse(file));
         if (ModFileDetector.isModFile(file))
             return new ModToMidiConverter(mutedChannels).convert(new ModParser().parse(file));
-        if (S3mFileDetector.isS3mFile(file))
-            return tracker.convert(new S3mParser().parse(file));
-        if (XmFileDetector.isXmFile(file))
-            return tracker.convert(new XmParser().parse(file));
-        if (ItFileDetector.isItFile(file))
-            return tracker.convert(new ItParser().parse(file));
         return MidiUtils.loadSequence(file);
     }
 
@@ -72,7 +66,6 @@ public final class MusicFormatLoader
         String name = fileName.toLowerCase(Locale.ROOT);
         return name.endsWith(".mid") || name.endsWith(".midi")
                 || name.endsWith(".vgm") || name.endsWith(".vgz")
-                || name.endsWith(".mod") || name.endsWith(".s3m")
-                || name.endsWith(".xm") || name.endsWith(".it");
+                || name.endsWith(".mod");
     }
 }

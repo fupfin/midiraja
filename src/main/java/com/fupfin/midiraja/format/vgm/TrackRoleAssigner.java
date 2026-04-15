@@ -39,7 +39,7 @@ public final class TrackRoleAssigner
 {
 
     private static final int DRUM_CHANNEL = 9;
-    private static final int CHANNELS = 15;
+    private static final int CHANNELS = 16;
     /** 2 measures at PPQ=480, 4/4 time, 120 BPM = 2 × 4 × 480 = 3840 ticks. */
     static final int SEGMENT_TICKS = 3840;
     private static final int BASS_THRESHOLD = 50;

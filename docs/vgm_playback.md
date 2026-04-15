@@ -161,7 +161,7 @@ All timestamps and sample counts use libvgm's internal precision (typically PCM 
 
 ## MIDI → VGM Conversion Path
 
-Midiraja can convert MIDI (and MOD/XM/etc.) files to VGM format in memory, then play via libvgm. This lets you audition how a composition would sound on classic hardware, using either the `--system` shorthand or the explicit `--chips` flag.
+Midiraja can convert MIDI and MOD files to VGM format in memory, then play via libvgm. This lets you audition how a composition would sound on classic hardware, using either the `--system` shorthand or the explicit `--chips` flag.
 
 ### Chip Selection
 
@@ -256,7 +256,7 @@ The following chips are planned but not yet implemented. Each entry describes th
 
 ```
 MusicFormatLoader.load()
-├─ if MIDI/MOD/etc. (non-VGM input):
+├─ if MIDI/MOD (non-VGM input):
 │  ├─ load as Sequence
 │  ├─ resolve ChipSpec (--system or --chips)
 │  ├─ CompositeVgmExporter → byte[] VGM data
