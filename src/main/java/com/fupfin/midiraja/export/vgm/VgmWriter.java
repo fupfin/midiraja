@@ -47,6 +47,8 @@ public final class VgmWriter implements AutoCloseable
     static final int DMG_CLOCK = 4_194_304;
     static final int HUC6280_CLOCK = 3_579_545;
     static final int NES_APU_CLOCK = 1_789_773;
+    static final int MSM6258_CLOCK = 8_000_000;
+    static final int MSM6258_SAMPLE_RATE = 15_625; // clock / 512 divider
     static final int VGM_SAMPLE_RATE = 44100;
 
     // ── Header sizes ──────────────────────────────────────────────────────────
@@ -92,7 +94,7 @@ public final class VgmWriter implements AutoCloseable
     private boolean needsV170Header()
     {
         return hasScc() || chips.contains(ChipType.DMG) || chips.contains(ChipType.HUC6280)
-                || chips.contains(ChipType.NES_APU);
+                || chips.contains(ChipType.NES_APU) || chips.contains(ChipType.MSM6258);
     }
 
     private int headerSize()
@@ -250,6 +252,130 @@ public final class VgmWriter implements AutoCloseable
         buf.write(0xB4);
         buf.write(reg & 0xFF);
         buf.write(data & 0xFF);
+    }
+
+    /** OKIM6258 (MSM6258) register write (command 0xB7). */
+    public void writeMsm6258(int reg, int data)
+    {
+        buf.write(0xB7);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /**
+     * VGM PCM data block (command 0x67 0x66, types 0x00-0x3F).
+     *
+     * <p>
+     * Unlike ROM data blocks (0x80-0xBF), PCM bank blocks do NOT have an 8-byte prefix.
+     * The {@code dblkLen} field equals {@code data.length} directly.
+     *
+     * @param type
+     *            PCM bank type (0x00-0x3F); 0x04 = OKIM6258 PCM data
+     * @param data
+     *            raw PCM bytes (OKI ADPCM nibble stream for type 0x04)
+     */
+    public void writePcmDataBlock(int type, byte[] data)
+    {
+        int len = data.length;
+        buf.write(0x67);
+        buf.write(0x66);
+        buf.write(type & 0xFF);
+        buf.write(len & 0xFF);
+        buf.write((len >> 8) & 0xFF);
+        buf.write((len >> 16) & 0xFF);
+        buf.write((len >> 24) & 0xFF);
+        buf.writeBytes(data);
+    }
+
+    /**
+     * DAC stream setup (command 0x90).
+     *
+     * @param streamId
+     *            stream identifier (0-based)
+     * @param chipType
+     *            VGM chip-type constant; 0x17 = OKIM6258
+     * @param port
+     *            chip port (0 for OKIM6258)
+     * @param reg
+     *            register to write stream data to (0x01 for OKIM6258 control/data)
+     */
+    public void writeDacStreamSetup(int streamId, int chipType, int port, int reg)
+    {
+        buf.write(0x90);
+        buf.write(streamId & 0xFF);
+        buf.write(chipType & 0xFF);
+        buf.write(port & 0xFF);
+        buf.write(reg & 0xFF);
+    }
+
+    /**
+     * DAC stream data bank assignment (command 0x91).
+     *
+     * @param streamId
+     *            stream identifier
+     * @param bankType
+     *            PCM bank type; 0x04 = OKIM6258 PCM
+     * @param step
+     *            step size within data block (1 for byte-per-step)
+     * @param mask
+     *            data mask applied to each byte before sending (0xFF = pass-through)
+     */
+    public void writeDacStreamData(int streamId, int bankType, int step, int mask)
+    {
+        buf.write(0x91);
+        buf.write(streamId & 0xFF);
+        buf.write(bankType & 0xFF);
+        buf.write(step & 0xFF);
+        buf.write(mask & 0xFF);
+    }
+
+    /**
+     * DAC stream playback frequency (command 0x92).
+     *
+     * @param streamId
+     *            stream identifier
+     * @param freq
+     *            playback rate in Hz (e.g. {@link #MSM6258_SAMPLE_RATE})
+     */
+    public void writeDacStreamFrequency(int streamId, int freq)
+    {
+        buf.write(0x92);
+        buf.write(streamId & 0xFF);
+        buf.write(freq & 0xFF);
+        buf.write((freq >> 8) & 0xFF);
+        buf.write((freq >> 16) & 0xFF);
+        buf.write((freq >> 24) & 0xFF);
+    }
+
+    /**
+     * DAC stream stop (command 0x94).
+     *
+     * @param streamId
+     *            stream identifier to stop
+     */
+    public void writeDacStreamStop(int streamId)
+    {
+        buf.write(0x94);
+        buf.write(streamId & 0xFF);
+    }
+
+    /**
+     * DAC stream play single block (command 0x95).
+     *
+     * @param streamId
+     *            stream identifier
+     * @param blockIdx
+     *            0-based index into the PCM data block bank
+     * @param flags
+     *            playback flags (0x00 = play once, no loop)
+     */
+    public void writeDacStreamPlayBlock(int streamId, int blockIdx, int flags)
+    {
+        buf.write(0x95);
+        buf.write(streamId & 0xFF);
+        buf.write(blockIdx & 0xFF);
+        buf.write((blockIdx >> 8) & 0xFF);
+        buf.write(flags & 0xFF);
     }
 
     /**
@@ -434,6 +560,13 @@ public final class VgmWriter implements AutoCloseable
         // NES APU (RP2A03) clock at 0x84 — requires v1.70 header (0xC0 bytes)
         if (chips.contains(ChipType.NES_APU))
             int32Le(data, 0x84, NES_APU_CLOCK);
+
+        // OKIM6258 (MSM6258) clock at 0x90; flags at 0x94 — requires v1.70 header (0xC0 bytes)
+        if (chips.contains(ChipType.MSM6258))
+        {
+            int32Le(data, 0x90, MSM6258_CLOCK);
+            data[0x94] = 0x02; // /512 divider (bit 1), 10-bit output (bit 2 = 0)
+        }
     }
 
     /**

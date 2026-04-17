@@ -83,5 +83,13 @@ public enum ChipType
      * NES APU (RP2A03) — 2 pulse channels, 1 triangle channel, 1 noise channel,
      * clock 1,789,773 Hz. VGM header offset 0x84 (requires v1.70 header).
      */
-    NES_APU
+    NES_APU,
+
+    /**
+     * OKI MSM6258 ADPCM — 1-channel 4-bit streaming ADPCM, 8 MHz clock / 512 divider = 15,625 Hz.
+     * Used for percussion on the Sharp X68000. No internal ROM; data is streamed via the VGM
+     * DAC stream mechanism (PCM data block type 0x04). VGM header offset 0x90 (clock),
+     * 0x94 (flags: 0x02 = /512 divider, 10-bit output). Requires v1.70 header.
+     */
+    MSM6258
 }

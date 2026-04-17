@@ -34,7 +34,7 @@ public final class ChipHandlers
             entry("megadrive",  List.of(ChipType.YM2612, ChipType.SN76489)),
             entry("adlib",      List.of(ChipType.YM3812)),
             entry("pc98",       List.of(ChipType.YM2608)),
-            entry("x68000",     List.of(ChipType.YM2151)),
+            entry("x68000",     List.of(ChipType.YM2151, ChipType.MSM6258)),
             entry("neogeo",     List.of(ChipType.YM2610)),
             entry("pc88",       List.of(ChipType.YM2203)),
             entry("neogeo-b",   List.of(ChipType.YM2610B)),
@@ -94,6 +94,7 @@ public final class ChipHandlers
                 case DMG -> new DmgHandler();
                 case HUC6280 -> new HuC6280Handler();
                 case NES_APU -> new NesApuHandler();
+                case MSM6258 -> new Msm6258Handler();
             });
         }
         return handlers;

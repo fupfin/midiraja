@@ -177,7 +177,7 @@ Midiraja can convert MIDI and MOD files to VGM format in memory, then play via l
 | `megadrive` / `genesis` | YM2612 + SN76489 | Sega Genesis: 5 FM + 1 FM percussion + 3 PSG tone voices. **Default.** |
 | `adlib` | YM3812 (OPL2) | AdLib: 9 FM voices, 2-op |
 | `pc98` | YM2608 (OPNA) | PC-98: 6 FM + 2 SSG voices + ADPCM-A native rhythm (6 built-in percussion samples) |
-| `x68000` | YM2151 (OPM) | Sharp X68000: 8 FM voices; no percussion (ADPCM chip not yet supported) |
+| `x68000` | YM2151 (OPM) + OKI MSM6258 | Sharp X68000: 8 FM voices + PCM percussion (7 synthetic OKI ADPCM drum samples) |
 | `neogeo` | YM2610 (OPNB) | Neo Geo: 4 FM + 2 SSG voices + ADPCM-A native rhythm (6 built-in percussion samples) |
 | `neogeo-b` | YM2610B (OPNB extended) | Neo Geo MVS: 6 FM + 2 SSG voices + ADPCM-A native rhythm (6 built-in percussion samples) |
 | `pc88` | YM2203 (OPN) | PC-88: 3 FM + 2 SSG voices; no percussion |
@@ -209,10 +209,10 @@ MIDI channel 9 (percussion) is always routed to the single handler with the high
 
 | Priority | Meaning | Handlers |
 |----------|---------|---------|
-| 0 | No percussion support | SCC, YM2151, YM2203, HuC6280 |
+| 0 | No percussion support | SCC, YM2151 (standalone), YM2203, HuC6280 |
 | 1 | PSG noise channel (limited) | AY-3-8910, SN76489, DMG (CH4 noise), NES APU (CH4 noise) |
 | 2 | FM synthesis patches | YM2413, OPL3, YM2612, YM3812 |
-| 3 | ADPCM native rhythm | YM2608 (ADPCM-A, 6 channels), YM2610 (ADPCM-A, 6 channels), YM2610B (ADPCM-A, 6 channels) |
+| 3 | ADPCM native rhythm / PCM streaming | YM2608 (ADPCM-A, 6 channels), YM2610 (ADPCM-A, 6 channels), YM2610B (ADPCM-A, 6 channels), MSM6258 (7 synthetic OKI ADPCM drum samples) |
 
 When multiple handlers share the same maximum priority, the first one in the handler list wins. The `megadrive`/`genesis` preset places YM2612 (priority 2) before SN76489 (priority 1), so percussion goes to YM2612.
 
@@ -234,7 +234,8 @@ When multiple handlers share the same maximum priority, the first one in the han
 | SN76489 | PSG | 3 tone | PSG noise (priority 1) | Noise channel for drums; used in Mega Drive `megadrive`/`genesis` preset |
 | YM3812 (OPL2) | FM | 9 melodic + 4 drum round-robin | FM synthesis (priority 2) | AdLib `adlib` preset; OPL3 subset, single bank only |
 | YM2608 (OPNA) | FM + SSG + ADPCM-A | 8 melodic (6 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | PC-98 `pc98` preset; ADPCM-A ROM is internal to libvgm (no VGM data block needed); SSG via embedded `Ay8910Handler` |
-| YM2151 (OPM) | FM | 8 melodic | None (priority 0) | X68000 `x68000` preset; ADPCM percussion chip not yet supported |
+| YM2151 (OPM) | FM | 8 melodic | None alone (priority 0); MSM6258 wins when paired (priority 3) | X68000 `x68000` preset; paired with MSM6258 for PCM percussion |
+| OKI MSM6258 | ADPCM streaming | 0 melodic (percussion only) | PCM streaming (priority 3) | X68000 `x68000` preset; 8 MHz clock / 512 divider = 15,625 Hz; 7 synthetic OKI ADPCM drum samples embedded as VGM PCM data blocks (type 0x04); triggered via DAC stream commands (0x90–0x95); VGM header clock at 0x90, flags 0x02 at 0x94 |
 | YM2610 (OPNB) | FM + SSG + ADPCM-A | 6 melodic (4 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | Neo Geo `neogeo` preset; ADPCM-A ROM loaded via VGM data block type `0x82` (`ym2610_adpcm_a.bin`); SSG via embedded `Ay8910Handler`; ADPCM-B not yet supported |
 | YM2610B (OPNB extended) | FM + SSG + ADPCM-A | 8 melodic (6 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | Neo Geo MVS `neogeo-b` preset; same VGM commands as YM2610 (`0x58`/`0x59`); bit 31 set in header clock field at `0x4C` activates YM2610B mode in libvgm; shares same `ym2610_adpcm_a.bin` ROM |
 | YM2203 (OPN) | FM + SSG | 5 melodic (3 FM + 2 SSG) | None (priority 0) | PC-88 `pc88` preset; single-port VGM command `0x55`; SSG via embedded `Ay8910Handler`; `chAddr = slot` directly (0,1,2) |
@@ -255,9 +256,19 @@ MusicFormatLoader.load()
    └─ vgm_open_file(ctx, path)
 ```
 
-Each handler (`Ay8910Handler`, `Ym2413Handler`, `SccHandler`, `Opl3Handler`, `Ym2612Handler`, `Sn76489Handler`, `Ym3812Handler`, `Ym2608Handler`, `Ym2151Handler`, `Ym2610Handler`, `Ym2610BHandler`, `Ym2203Handler`, `DmgHandler`, `HuC6280Handler`, `NesApuHandler`) translates MIDI note-on/note-off/CC events into the target chip's register writes, generating valid VGM data.
+Each handler (`Ay8910Handler`, `Ym2413Handler`, `SccHandler`, `Opl3Handler`, `Ym2612Handler`, `Sn76489Handler`, `Ym3812Handler`, `Ym2608Handler`, `Ym2151Handler`, `Ym2610Handler`, `Ym2610BHandler`, `Ym2203Handler`, `DmgHandler`, `HuC6280Handler`, `NesApuHandler`, `Msm6258Handler`) translates MIDI note-on/note-off/CC events into the target chip's register writes, generating valid VGM data.
 
 `Ym2610Handler` embeds a VGM ROM data block (type `0x82`, command `0x67 0x66`) at the start of the stream containing the 8192-byte ADPCM-A ROM (`ym2610_adpcm_a.bin`, identical to `fmopn_2608rom.h`). The block uses the ROM data block format: an 8-byte prefix `[romTotalSize:4LE][startOffset:4LE]` followed by the ROM payload, so `dblkLen = 8200`. This block must precede any ADPCM-A register writes so that VGM players can load the ROM into the emulated chip before samples are triggered. `Ym2608Handler` does **not** embed a data block because YM2608's ADPCM-A ROM is hardcoded inside libvgm (`fmopn_2608rom.h`).
+
+`Msm6258Handler` (used in the `x68000` preset alongside `Ym2151Handler`) embeds 7 PCM data blocks (type `0x04`, command `0x67 0x66 0x04`) during `initSilence()`, one for each synthetic drum sample. Unlike ROM data blocks (types `0x80`–`0xBF`), PCM bank blocks (types `0x00`–`0x3F`) use no 8-byte prefix — the payload is raw ADPCM data. The MSM6258 has no internal ROM; it streams ADPCM data directly via the VGM DAC stream mechanism:
+
+- **0x90** — Set up stream (streamId=0, chipType=0x17 OKIM6258, port=0, reg=0x01)
+- **0x91** — Assign data bank (bankType=0x04, step=1, mask=0xFF)
+- **0x92** — Set playback frequency (15,625 Hz = clock 8,000,000 / divider 512)
+- **0x94** — Stop stream
+- **0x95** — Play single block (streamId=0, blockIdx=0–6, flags=0)
+
+Drum samples are synthetic OKI ADPCM waveforms generated at class load time by `OkiAdpcmCodec` (algorithm from `ext/libvgm/emu/cores/okim6258.c`). GM note mapping: 35/36 → block 0 (bass drum), 38/40 → block 1 (snare), 49/51/52/53/55/57/59 → block 2 (crash/cymbal), 42/44 → block 3 (closed hi-hat), 41/43/45/47/48/50 → block 4 (tom), 37/39 → block 5 (rim shot), 46 → block 6 (open hi-hat).
 
 **Key design points:**
 
