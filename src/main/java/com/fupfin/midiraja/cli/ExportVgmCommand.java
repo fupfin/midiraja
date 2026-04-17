@@ -31,7 +31,7 @@ public class ExportVgmCommand implements Callable<Integer>
 {
     static final class ChipSpecOptions
     {
-        @Option(names = "--system", description = "Named chip preset: zxspectrum, fmpac, msx, msx-scc, sb16, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, pc-engine, nes")
+        @Option(names = "--system", description = "Named chip preset: zxspectrum, msx, msx-scc, sb16, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, pc-engine, nes")
         @Nullable
         String system;
 

@@ -26,7 +26,6 @@ public final class ChipHandlers
     /** Named presets: system name → ordered chip list. */
     public static final Map<String, List<ChipType>> PRESETS = Map.ofEntries(
             entry("zxspectrum", List.of(ChipType.AY8910, ChipType.AY8910)),
-            entry("fmpac",      List.of(ChipType.YM2413)),
             entry("msx",        List.of(ChipType.YM2413, ChipType.AY8910)),
             entry("msx-scc",    List.of(ChipType.SCCI, ChipType.AY8910)),
             entry("sb16",       List.of(ChipType.OPL3)),

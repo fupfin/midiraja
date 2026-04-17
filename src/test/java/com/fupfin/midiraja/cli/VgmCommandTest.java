@@ -69,14 +69,6 @@ class VgmCommandTest
     }
 
     @Test
-    void system_fmpac_returnsYm2413()
-    {
-        VgmCommand cmd = new VgmCommand();
-        cmd.chipSpec.system = "fmpac";
-        assertEquals(List.of(ChipType.YM2413), cmd.resolveChipSpec().chips());
-    }
-
-    @Test
     void system_msx_returnsYm2413PlusAy8910()
     {
         VgmCommand cmd = new VgmCommand();
@@ -116,9 +108,6 @@ class VgmCommandTest
         VgmCommand cmd = new VgmCommand();
         cmd.chipSpec.system = "ZXSPECTRUM";
         assertDoesNotThrow(() -> cmd.resolveChipSpec(), "System name lookup should be case-insensitive");
-
-        cmd.chipSpec.system = "FMPAC";
-        assertDoesNotThrow(() -> cmd.resolveChipSpec());
 
         cmd.chipSpec.system = "MSX";
         assertDoesNotThrow(() -> cmd.resolveChipSpec());

@@ -48,7 +48,7 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
     static final class ChipSpecOptions
     {
-        @Option(names = "--system", description = "System preset: zxspectrum, fmpac, msx, msx-scc, sb16, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, pc-engine, nes. Default: megadrive.")
+        @Option(names = "--system", description = "System preset: zxspectrum, msx, msx-scc, sb16, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, pc-engine, nes. Default: megadrive.")
         @Nullable
         String system;
 
