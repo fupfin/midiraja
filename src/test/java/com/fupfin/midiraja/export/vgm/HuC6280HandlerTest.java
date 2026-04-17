@@ -59,16 +59,17 @@ class HuC6280HandlerTest
     }
 
     @Test
-    void slotCount_is6()
+    void slotCount_is5()
     {
-        assertEquals(6, new HuC6280Handler().slotCount());
+        // Channel 5 is reserved for DDA PCM percussion; only 0-4 are melodic
+        assertEquals(5, new HuC6280Handler().slotCount());
     }
 
     @Test
-    void percussionPriority_is0()
+    void percussionPriority_is3()
     {
-        // HuC6280 has no hardware noise channel suitable for percussion
-        assertEquals(0, new HuC6280Handler().percussionPriority());
+        // PCM > FM (2) > PSG noise (1)
+        assertEquals(3, new HuC6280Handler().percussionPriority());
     }
 
     // ── Header validation ─────────────────────────────────────────────────────
@@ -140,7 +141,7 @@ class HuC6280HandlerTest
         byte[] data = out.toByteArray();
 
         List<int[]> writes = findHucWrites(data, 0xC0);
-        // For each of 6 channels: channel select (reg 0x00) followed by control disable (reg 0x04, bit7=0)
+        // For each of 5 melodic channels: channel select (reg 0x00) followed by control disable (reg 0x04, bit7=0)
         // Count how many times channel select + control=0 appears
         long disabledCount = 0;
         for (int i = 0; i < writes.size() - 1; i++)
@@ -149,7 +150,7 @@ class HuC6280HandlerTest
                     && (writes.get(i + 1)[1] & 0x80) == 0)
                 disabledCount++;
         }
-        assertTrue(disabledCount >= 6, "initSilence must disable all 6 channels (found " + disabledCount + ")");
+        assertTrue(disabledCount >= 5, "initSilence must disable 5 melodic channels (found " + disabledCount + ")");
     }
 
     @Test
@@ -162,10 +163,11 @@ class HuC6280HandlerTest
         byte[] data = out.toByteArray();
 
         List<int[]> writes = findHucWrites(data, 0xC0);
-        // Count reg 0x06 (wave data) writes — should be at least 6 * 32 = 192
+        // Count reg 0x06 (wave data) writes — should be at least 5 * 32 = 160
+        // (channel 5 is DDA-only and does not receive wavetable writes)
         long waveDataWrites = writes.stream().filter(w -> w[0] == 0x06).count();
-        assertTrue(waveDataWrites >= 6 * 32,
-                "initSilence must write 32 wave samples per channel (found " + waveDataWrites + ")");
+        assertTrue(waveDataWrites >= 5 * 32,
+                "initSilence must write 32 wave samples per melodic channel (found " + waveDataWrites + ")");
     }
 
     @Test
@@ -283,25 +285,25 @@ class HuC6280HandlerTest
     // ── Polyphony ─────────────────────────────────────────────────────────────
 
     @Test
-    void sixSimultaneousNotes_allChannelsUsed() throws Exception
+    void fiveSimultaneousNotes_allMelodicChannelsUsed() throws Exception
     {
         var seq = new Sequence(Sequence.PPQ, 480);
         Track track = seq.createTrack();
-        // 6 simultaneous notes on 6 different MIDI channels
-        for (int ch = 0; ch < 6; ch++)
+        // 5 simultaneous notes — one per melodic slot (channel 5 is DDA-only)
+        for (int ch = 0; ch < 5; ch++)
             track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, ch, 60 + ch, 80), 0));
         var out = new ByteArrayOutputStream();
         composite().export(seq, out);
         byte[] data = out.toByteArray();
 
         List<int[]> writes = findHucWrites(data, 0xC0);
-        // All 6 HuC channels (0-5) must have been selected at least once after header
-        boolean[] channelUsed = new boolean[6];
+        // All 5 melodic HuC channels (0-4) must have been selected at least once for note-on
+        boolean[] channelUsed = new boolean[5];
         for (var w : writes)
-            if (w[0] == 0x00 && w[1] < 6)
+            if (w[0] == 0x00 && w[1] < 5)
                 channelUsed[w[1]] = true;
-        for (int ch = 0; ch < 6; ch++)
-            assertTrue(channelUsed[ch], "Channel " + ch + " must be used for 6-note polyphony");
+        for (int ch = 0; ch < 5; ch++)
+            assertTrue(channelUsed[ch], "Channel " + ch + " must be used for 5-note polyphony");
     }
 
     @Test
@@ -309,7 +311,7 @@ class HuC6280HandlerTest
     {
         var seq = new Sequence(Sequence.PPQ, 480);
         Track track = seq.createTrack();
-        for (int i = 0; i < 8; i++) // more than 6 slots
+        for (int i = 0; i < 8; i++) // more than 5 melodic slots
             track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60 + i, 80), 0));
         var out = new ByteArrayOutputStream();
         assertDoesNotThrow(() -> composite().export(seq, out));
