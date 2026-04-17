@@ -22,19 +22,16 @@ import picocli.CommandLine.Parameters;
 
 import com.fupfin.midiraja.export.vgm.ChipHandlers;
 import com.fupfin.midiraja.export.vgm.ChipSpec;
-import com.fupfin.midiraja.export.vgm.ChipType;
 import com.fupfin.midiraja.export.vgm.CompositeVgmExporter;
 import com.fupfin.midiraja.export.vgm.RoutingMode;
-import com.fupfin.midiraja.export.vgm.Ym2612VgmExporter;
 import com.fupfin.midiraja.format.MusicFormatLoader;
-import com.fupfin.midiraja.midi.FFMOpnMidiNativeBridge;
 
 @Command(name = "vgm", mixinStandardHelpOptions = true, description = "Convert a music file to VGM format.")
 public class ExportVgmCommand implements Callable<Integer>
 {
     static final class ChipSpecOptions
     {
-        @Option(names = "--system", description = "Named chip preset: ay8910, ym2413, msx, msx-scc, opl3")
+        @Option(names = "--system", description = "Named chip preset: zxspectrum, fmpac, msx, msx-scc, sb16, genesis, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, dmg, pce, huc6280, nes, nesapu")
         @Nullable
         String system;
 
@@ -84,14 +81,7 @@ public class ExportVgmCommand implements Callable<Integer>
     private void exportTo(Sequence sequence, OutputStream out) throws Exception
     {
         var spec = resolveChipSpec();
-        if (spec.chips().contains(ChipType.YM2612))
-        {
-            out.write(new Ym2612VgmExporter(new FFMOpnMidiNativeBridge()).export(sequence));
-        }
-        else
-        {
-            new CompositeVgmExporter(ChipHandlers.create(spec), spec.mode()).export(sequence, out);
-        }
+        new CompositeVgmExporter(ChipHandlers.create(spec), spec.mode()).export(sequence, out);
     }
 
     ChipSpec resolveChipSpec()

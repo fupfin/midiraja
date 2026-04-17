@@ -62,9 +62,9 @@ final class Opl3Handler implements ChipHandler
     }
 
     @Override
-    public boolean supportsRhythm()
+    public int percussionPriority()
     {
-        return true;
+        return 2; // FM rhythm mode
     }
 
     @Override
@@ -84,7 +84,10 @@ final class Opl3Handler implements ChipHandler
                 ? drumPatch(note)
                 : WOPL_BANK.melodicPatch(program);
         writePatch(localSlot, patch, velocity, w);
-        int freqNote = (localSlot >= MELODIC_SLOTS) ? patch.percussionKeyNumber() : note;
+        int freqNote = (localSlot >= MELODIC_SLOTS)
+                ? (patch.percussionKeyNumber() > 0 ? patch.percussionKeyNumber() : note)
+                        + patch.noteOffset()
+                : note + patch.noteOffset();
         writeFreqKeyOn(localSlot, freqNote, w);
     }
 
@@ -103,6 +106,8 @@ final class Opl3Handler implements ChipHandler
     @Override
     public void handlePercussion(int note, int velocity, VgmWriter w)
     {
+        if (velocity == 0)
+            return;
         int slot = MELODIC_SLOTS + drumRoundRobin;
         drumRoundRobin = (drumRoundRobin + 1) % DRUM_SLOTS;
         startNote(slot, note, velocity, 0, w);
@@ -122,7 +127,7 @@ final class Opl3Handler implements ChipHandler
         int modSLRR = patch.modulator().susrel();
         int modWS = patch.modulator().wave();
         int carAVEKM = patch.carrier().avekf();
-        int carKSLTL = (patch.carrier().ksltl() & 0xC0) | ((127 - velocity) * 40 / 127);
+        int carKSLTL = (patch.carrier().ksltl() & 0xC0) | scaleTl(patch.carrier().ksltl() & 0x3F, velocity);
         int carARDR = patch.carrier().atdec();
         int carSLRR = patch.carrier().susrel();
         int carWS = patch.carrier().wave();
@@ -204,5 +209,32 @@ final class Opl3Handler implements ChipHandler
         {
             return WOPL_BANK.melodicPatch(0);
         }
+    }
+
+    /**
+     * Scales carrier total-level by velocity using the same logarithmic formula as
+     * libADLMIDI's {@code opnModel_genericVolume}.
+     *
+     * <p>
+     * OPL3 TL is 6-bit (0 = loudest, 63 = most attenuated); the KSL bits in the upper 2 bits of
+     * {@code ksltl} must be extracted and preserved by the caller.
+     */
+    static int scaleTl(int tl, int velocity)
+    {
+        final double c1 = 11.541560327111707;
+        final double c2 = 160.1379199767093;
+        final long minVolume = 1_108_075L; // 8725 * 127
+        long vol = (long) velocity * 127L * 127L * 127L;
+        int volume;
+        if (vol > minVolume)
+        {
+            double lv = Math.log((double) vol);
+            volume = Math.clamp((int) (lv * c1 - c2) * 2, 0, 127);
+        }
+        else
+        {
+            volume = 0;
+        }
+        return Math.clamp(63 - volume * (63 - (tl & 63)) / 127, 0, 63);
     }
 }

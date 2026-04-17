@@ -7,6 +7,8 @@
 
 package com.fupfin.midiraja.export.vgm;
 
+import static java.util.Map.entry;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -22,14 +24,26 @@ import java.util.Map;
 public final class ChipHandlers
 {
     /** Named presets: system name → ordered chip list. */
-    public static final Map<String, List<ChipType>> PRESETS = Map.of(
-            "zxspectrum", List.of(ChipType.AY8910, ChipType.AY8910),
-            "fmpac",      List.of(ChipType.YM2413),
-            "msx",        List.of(ChipType.YM2413, ChipType.AY8910),
-            "msx-scc",    List.of(ChipType.SCCI, ChipType.AY8910),
-            "sb16",       List.of(ChipType.OPL3),
-            "genesis",    List.of(ChipType.YM2612),
-            "megadrive",  List.of(ChipType.YM2612)
+    public static final Map<String, List<ChipType>> PRESETS = Map.ofEntries(
+            entry("zxspectrum", List.of(ChipType.AY8910, ChipType.AY8910)),
+            entry("fmpac",      List.of(ChipType.YM2413)),
+            entry("msx",        List.of(ChipType.YM2413, ChipType.AY8910)),
+            entry("msx-scc",    List.of(ChipType.SCCI, ChipType.AY8910)),
+            entry("sb16",       List.of(ChipType.OPL3)),
+            entry("genesis",    List.of(ChipType.YM2612, ChipType.SN76489)),
+            entry("megadrive",  List.of(ChipType.YM2612, ChipType.SN76489)),
+            entry("adlib",      List.of(ChipType.YM3812)),
+            entry("pc98",       List.of(ChipType.YM2608)),
+            entry("x68000",     List.of(ChipType.YM2151)),
+            entry("neogeo",     List.of(ChipType.YM2610)),
+            entry("pc88",       List.of(ChipType.YM2203)),
+            entry("neogeo-b",   List.of(ChipType.YM2610B)),
+            entry("gameboy",    List.of(ChipType.DMG)),
+            entry("dmg",        List.of(ChipType.DMG)),
+            entry("pce",        List.of(ChipType.HUC6280)),
+            entry("huc6280",    List.of(ChipType.HUC6280)),
+            entry("nes",        List.of(ChipType.NES_APU)),
+            entry("nesapu",     List.of(ChipType.NES_APU))
     );
 
     private ChipHandlers()
@@ -69,10 +83,17 @@ public final class ChipHandlers
                 case SCC -> new SccHandler();
                 case SCCI -> new SccHandler(true);
                 case OPL3 -> new Opl3Handler();
-                case SN76489 -> throw new UnsupportedOperationException(
-                    "SN76489 handler not yet implemented");
-                case YM2612 -> throw new UnsupportedOperationException(
-                    "YM2612 requires Ym2612VgmExporter, not CompositeVgmExporter");
+                case SN76489 -> new Sn76489Handler();
+                case YM2612 -> new Ym2612Handler();
+                case YM3812 -> new Ym3812Handler();
+                case YM2608 -> new Ym2608Handler();
+                case YM2151 -> new Ym2151Handler();
+                case YM2610 -> new Ym2610Handler();
+                case YM2203 -> new Ym2203Handler();
+                case YM2610B -> new Ym2610BHandler();
+                case DMG -> new DmgHandler();
+                case HUC6280 -> new HuC6280Handler();
+                case NES_APU -> new NesApuHandler();
             });
         }
         return handlers;

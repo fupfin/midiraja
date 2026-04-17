@@ -53,11 +53,11 @@ class VgmCommandTest
     // ── Chip spec resolution — presets ───────────────────────────────────────
 
     @Test
-    void noChipSpec_defaultsToZxSpectrumDualAy8910()
+    void noChipSpec_defaultsToMegadriveYm2612Sn76489()
     {
         VgmCommand cmd = new VgmCommand();
-        assertEquals(List.of(ChipType.AY8910, ChipType.AY8910), cmd.resolveChipSpec().chips(),
-                "Default chip list should be dual AY8910 (zxspectrum)");
+        assertEquals(List.of(ChipType.YM2612, ChipType.SN76489), cmd.resolveChipSpec().chips(),
+                "Default chip list should be YM2612 + SN76489 (megadrive)");
     }
 
     @Test
@@ -93,19 +93,19 @@ class VgmCommandTest
     }
 
     @Test
-    void system_genesis_returnsYm2612()
+    void system_genesis_returnsYm2612AndSn76489()
     {
         VgmCommand cmd = new VgmCommand();
         cmd.chipSpec.system = "genesis";
-        assertEquals(List.of(ChipType.YM2612), cmd.resolveChipSpec().chips());
+        assertEquals(List.of(ChipType.YM2612, ChipType.SN76489), cmd.resolveChipSpec().chips());
     }
 
     @Test
-    void system_megadrive_returnsYm2612()
+    void system_megadrive_returnsYm2612AndSn76489()
     {
         VgmCommand cmd = new VgmCommand();
         cmd.chipSpec.system = "megadrive";
-        assertEquals(List.of(ChipType.YM2612), cmd.resolveChipSpec().chips());
+        assertEquals(List.of(ChipType.YM2612, ChipType.SN76489), cmd.resolveChipSpec().chips());
     }
 
 

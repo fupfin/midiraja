@@ -18,6 +18,8 @@ final class Ym2413Handler implements ChipHandler
 {
     private static final int SLOTS = 9;
     private boolean rhythmMode = false;
+    private int rhythmReg = 0; // current value of register 0x0E
+    private final int[] vol = new int[5]; // per-instrument attenuation: 0=loud, 15=silent
 
     @Override
     public ChipType chipType()
@@ -32,9 +34,9 @@ final class Ym2413Handler implements ChipHandler
     }
 
     @Override
-    public boolean supportsRhythm()
+    public int percussionPriority()
     {
-        return true;
+        return 2; // FM rhythm mode
     }
 
     @Override
@@ -68,18 +70,53 @@ final class Ym2413Handler implements ChipHandler
     @Override
     public void handlePercussion(int note, int velocity, VgmWriter w)
     {
-        if (!rhythmMode)
-        {
-            rhythmMode = true;
-            w.writeYm2413(0x0E, 0x20); // enable rhythm mode
-        }
         int bit = rhythmBit(note);
         if (bit < 0)
             return;
-        int vol = 15 - (int) Math.round(velocity * 15.0 / 127.0);
-        if (bit == 4) // Bass drum uses registers 0x36
-            w.writeYm2413(0x36, (vol << 4) | vol);
-        w.writeYm2413(0x0E, 0x20 | (1 << bit));
+        if (!rhythmMode && velocity > 0)
+        {
+            rhythmMode = true;
+            rhythmReg = 0x20;
+            w.writeYm2413(0x0E, rhythmReg);
+        }
+        if (!rhythmMode)
+            return;
+        int mask = 1 << bit;
+        if (velocity > 0)
+        {
+            vol[bit] = 15 - (int) Math.round(velocity * 15.0 / 127.0);
+            writeRhythmVolume(bit, w);
+            if ((rhythmReg & mask) != 0) // clear for rising-edge retrigger
+                w.writeYm2413(0x0E, rhythmReg & ~mask);
+            rhythmReg |= mask;
+            w.writeYm2413(0x0E, rhythmReg);
+        }
+        else
+        {
+            rhythmReg &= ~mask;
+            w.writeYm2413(0x0E, rhythmReg);
+        }
+    }
+
+    /**
+     * Writes the volume register(s) for the given rhythm bit.
+     *
+     * <p>
+     * YM2413 rhythm volume layout:
+     * <ul>
+     *   <li>0x36: BD — both nibbles equal: {@code (vol[4] << 4) | vol[4]}</li>
+     *   <li>0x37: HH (upper nibble) + SD (lower nibble)</li>
+     *   <li>0x38: TOM (upper nibble) + CYM (lower nibble)</li>
+     * </ul>
+     */
+    private void writeRhythmVolume(int bit, VgmWriter w)
+    {
+        switch (bit)
+        {
+            case 4 -> w.writeYm2413(0x36, (vol[4] << 4) | vol[4]);
+            case 0, 3 -> w.writeYm2413(0x37, (vol[0] << 4) | vol[3]); // HH(upper) | SD(lower)
+            case 2, 1 -> w.writeYm2413(0x38, (vol[2] << 4) | vol[1]); // TOM(upper) | CYM(lower)
+        }
     }
 
     private static int[] computeFnumBlock(int note)

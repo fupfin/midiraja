@@ -52,10 +52,12 @@ public final class WoplBankReader
      * @param percussionKeyNumber MIDI note number to use for frequency when playing a percussion
      *            patch (0 for melodic patches). libADLMIDI stores the tuned note here rather than
      *            using the incoming MIDI note directly.
+     * @param noteOffset Semitone offset added to the playing note (or percussionKeyNumber). Used
+     *            to fine-tune patches that are stored at a non-standard pitch.
      * @param modulator Modulator operator parameters
      * @param carrier Carrier operator parameters
      */
-    public record Patch(String name, int fbConn, int percussionKeyNumber,
+    public record Patch(String name, int fbConn, int percussionKeyNumber, int noteOffset,
             Operator modulator, Operator carrier)
     {
     }
@@ -224,7 +226,7 @@ public final class WoplBankReader
             int percussionKeyNumber = data[insOffset + 38] & 0xFF;
             int fbConn = data[insOffset + 40] & 0xFF;
 
-            patches[i] = new Patch(name, fbConn, percussionKeyNumber, mod1, car1);
+            patches[i] = new Patch(name, fbConn, percussionKeyNumber, noteOffset1, mod1, car1);
         }
     }
 

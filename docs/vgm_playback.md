@@ -169,11 +169,21 @@ Midiraja can convert MIDI and MOD files to VGM format in memory, then play via l
 
 | Preset | Chip(s) | Notes |
 |--------|---------|-------|
-| `ay8910` | AY-3-8910 | Default; 3-voice PSG |
-| `ym2413` | YM2413 (OPLL) | 9 FM voices or 6 FM + rhythm |
-| `msx` | AY-3-8910 + YM2413 | Combined PSG + FM (MSX2 profile) |
-| `msx-scc` | AY-3-8910 + SCC + YM2413 | Full MSX combo with wavetable SCC |
-| `opl3` | YMF262 (OPL3) | 18 FM voices, 4-op support |
+| `zxspectrum` | AY-3-8910 × 2 | ZX Spectrum: dual PSG |
+| `fmpac` | YM2413 (OPLL) | MSX FM-PAC: 9 FM voices or 6 FM + rhythm |
+| `msx` | YM2413 + AY-3-8910 | MSX2: FM + PSG combined |
+| `msx-scc` | SCC + AY-3-8910 | MSX with wavetable SCC |
+| `sb16` | YMF262 (OPL3) | Sound Blaster 16: 18 FM voices, 4-op support |
+| `megadrive` / `genesis` | YM2612 + SN76489 | Sega Genesis: 5 FM + 1 FM percussion + 3 PSG tone voices. **Default.** |
+| `adlib` | YM3812 (OPL2) | AdLib: 9 FM voices, 2-op |
+| `pc98` | YM2608 (OPNA) | PC-98: 6 FM + 2 SSG voices + ADPCM-A native rhythm (6 built-in percussion samples) |
+| `x68000` | YM2151 (OPM) | Sharp X68000: 8 FM voices; no percussion (ADPCM chip not yet supported) |
+| `neogeo` | YM2610 (OPNB) | Neo Geo: 4 FM + 2 SSG voices + ADPCM-A native rhythm (6 built-in percussion samples) |
+| `neogeo-b` | YM2610B (OPNB extended) | Neo Geo MVS: 6 FM + 2 SSG voices + ADPCM-A native rhythm (6 built-in percussion samples) |
+| `pc88` | YM2203 (OPN) | PC-88: 3 FM + 2 SSG voices; no percussion |
+| `gameboy` / `dmg` | DMG (LR35902 APU) | Game Boy: 2 pulse + 1 wave melody voices, CH4 noise percussion |
+| `pce` / `huc6280` | HuC6280 (PC Engine PSG) | PC Engine / TurboGrafx-16: 6 wavetable voices |
+| `nes` / `nesapu` | NES APU (RP2A03) | NES: 2 pulse + 1 triangle melody voices, CH4 noise percussion |
 
 Passing an unrecognised value prints the valid choices.
 
@@ -187,11 +197,24 @@ The `--chips` flag accepts one or more chip names with a separator that also det
 | `,` | `ay8910,ym2413` | CHANNEL | Same as `+` |
 | `>` | `scc>ay8910` | SEQUENTIAL | Fill first chip before spilling to next |
 
-When `--chips` and `--system` are both absent the preset `ay8910` is used.
+When `--chips` and `--system` are both absent the preset `megadrive` is used.
 
 ### PSG-Preferred Routing
 
 When AY-3-8910 is present alongside other chips, **GM programs 112–127** (sound-effects / percussive timbres such as TinkBell, Gunshot, Bird Tweet) are always routed to the AY-3-8910 first, regardless of which chip the round-robin or fill-first algorithm would otherwise select. This reflects the historical convention that PSG chips handle noise-based sound effects better than FM synthesis.
+
+### Percussion Routing
+
+MIDI channel 9 (percussion) is always routed to the single handler with the highest `percussionPriority()` weight. When no chip supports percussion, channel 9 events are silently dropped.
+
+| Priority | Meaning | Handlers |
+|----------|---------|---------|
+| 0 | No percussion support | SCC, YM2151, YM2203, HuC6280 |
+| 1 | PSG noise channel (limited) | AY-3-8910, SN76489, DMG (CH4 noise), NES APU (CH4 noise) |
+| 2 | FM synthesis patches | YM2413, OPL3, YM2612, YM3812 |
+| 3 | ADPCM native rhythm | YM2608 (ADPCM-A, 6 channels), YM2610 (ADPCM-A, 6 channels), YM2610B (ADPCM-A, 6 channels) |
+
+When multiple handlers share the same maximum priority, the first one in the handler list wins. The `megadrive`/`genesis` preset places YM2612 (priority 2) before SN76489 (priority 1), so percussion goes to YM2612.
 
 ### Voice Allocation
 
@@ -201,56 +224,23 @@ When AY-3-8910 is present alongside other chips, **GM programs 112–127** (soun
 
 ### Supported Chips for MIDI → VGM Export
 
-| Chip | Type | Voices | Notes |
-|------|------|--------|-------|
-| AY-3-8910 | PSG | 3 tone + noise | Handles noise/SFX programs by preference |
-| YM2413 (OPLL) | FM | 9 melodic or 6 + rhythm | Built-in patch ROM; user patch via CC |
-| SCC (Konami) | Wavetable | 5 | Percussion mapped to slot 4 via synthesised waveforms |
-| YMF262 (OPL3) | FM | 18 (2-op) / 6 (4-op) | Full GM patch mapping via WOPL bank |
-| YM2612 (OPN2) | FM | 6 | libOPNMIDI VGMFileDumper backend; `--system ym2612` or `genesis` |
-
-### Unsupported Chips (Future Implementation)
-
-The following chips are planned but not yet implemented. Each entry describes the intended approach.
-
-#### SN76489 — Texas Instruments PSG (Sega Master System / Game Gear)
-
-- 3 square-wave tone channels + 1 noise channel
-- Simpler than AY-3-8910 (no envelope hardware, only 4-bit volume)
-- Planned: `sn76489` preset; noise channel used for drums, tone channels for melody
-
-#### YM2151 — FM synthesis (arcade / Sharp X68000)
-
-- 8 FM channels, 4-operator OPM algorithm
-- Used in many Capcom/Konami arcade boards and the X68000 home computer
-- VGM command: `0x54`
-- Planned: `ym2151` or `x68000` preset
-
-#### OPN Family — YM2203 / YM2608 / YM2610 (PC-88, Neo Geo, etc.)
-
-- YM2203 (OPN): 3 FM + AY-3-8910 SSG
-- YM2608 (OPNA): 6 FM + SSG + ADPCM rhythm + 6-channel ADPCM; used in PC-98
-- YM2610 (OPNB): 4 FM + SSG + ADPCM; used in Neo Geo
-- Planned: `ym2203`, `opna`, `neogeo` presets respectively
-
-#### YM3812 — OPL2 (AdLib / Sound Blaster)
-
-- 9 FM channels, 2-operator; OPL2 subset of OPL3
-- Already partially covered by the OPL3 exporter, but a dedicated OPL2 target
-  would honour the 9-channel limit and exclude 4-op / stereo features
-- Planned: `opl2` or `adlib` preset
-
-#### HuC6280 — Hudson Soft PSG (PC Engine / TurboGrafx-16)
-
-- 6 wavetable channels with 32-sample waveforms; similar to SCC but stereo panning per channel
-- VGM command: `0xB9`
-- Planned: `huc6280` or `pce` preset
-
-#### Game Boy DMG — LR35902 APU
-
-- 2 pulse channels, 1 wavetable channel, 1 noise channel
-- VGM command: `0xB3` (DMG registers)
-- Planned: `dmg` or `gameboy` preset; pulse channels for melody, noise for percussion
+| Chip | Type | Voices | Percussion | Notes |
+|------|------|--------|------------|-------|
+| AY-3-8910 | PSG | 3 tone + noise | PSG noise (priority 1) | Handles noise/SFX programs by preference |
+| YM2413 (OPLL) | FM | 9 melodic or 6 + rhythm | FM rhythm mode (priority 2) | Built-in patch ROM; user patch via CC |
+| SCC (Konami) | Wavetable | 5 | None (priority 0) | No noise generator; percussion silently dropped |
+| YMF262 (OPL3) | FM | 14 melodic + 4 drum round-robin | FM synthesis (priority 2) | Full GM patch mapping via WOPL bank |
+| YM2612 (OPN2) | FM | 5 melodic + 1 percussion | FM WOPN patches (priority 2) | WOPN bank loaded from `ext/libOPNMIDI/fm_banks/gm.wopn` |
+| SN76489 | PSG | 3 tone | PSG noise (priority 1) | Noise channel for drums; used in Mega Drive `megadrive`/`genesis` preset |
+| YM3812 (OPL2) | FM | 9 melodic + 4 drum round-robin | FM synthesis (priority 2) | AdLib `adlib` preset; OPL3 subset, single bank only |
+| YM2608 (OPNA) | FM + SSG + ADPCM-A | 8 melodic (6 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | PC-98 `pc98` preset; ADPCM-A ROM is internal to libvgm (no VGM data block needed); SSG via embedded `Ay8910Handler` |
+| YM2151 (OPM) | FM | 8 melodic | None (priority 0) | X68000 `x68000` preset; ADPCM percussion chip not yet supported |
+| YM2610 (OPNB) | FM + SSG + ADPCM-A | 6 melodic (4 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | Neo Geo `neogeo` preset; ADPCM-A ROM loaded via VGM data block type `0x82` (`ym2610_adpcm_a.bin`); SSG via embedded `Ay8910Handler`; ADPCM-B not yet supported |
+| YM2610B (OPNB extended) | FM + SSG + ADPCM-A | 8 melodic (6 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | Neo Geo MVS `neogeo-b` preset; same VGM commands as YM2610 (`0x58`/`0x59`); bit 31 set in header clock field at `0x4C` activates YM2610B mode in libvgm; shares same `ym2610_adpcm_a.bin` ROM |
+| YM2203 (OPN) | FM + SSG | 5 melodic (3 FM + 2 SSG) | None (priority 0) | PC-88 `pc88` preset; single-port VGM command `0x55`; SSG via embedded `Ay8910Handler`; `chAddr = slot` directly (0,1,2) |
+| DMG (LR35902 APU) | Pulse × 2 + Wave + Noise | 3 melodic (CH1 pulse+sweep, CH2 pulse, CH3 wave) | CH4 noise (priority 1) | Game Boy `gameboy`/`dmg` preset; VGM command `0xB3`; requires v1.70 VGM header (clock at offset 0x80); wave RAM initialised with sine approximation; pulse freq `x = 2048 − round(131072 / hz)`, wave freq `x = 2048 − round(65536 / hz)` |
+| HuC6280 (PC Engine PSG) | Wavetable × 6 | 6 melodic | None (priority 0) | PC Engine `pce`/`huc6280` preset; VGM command `0xB9`; requires v1.70 VGM header (clock 3,579,545 Hz at offset 0xA4); 32-sample 5-bit unsigned wave RAM per channel; `period = round(clock / (32 × hz))` |
+| NES APU (RP2A03) | Pulse × 2 + Triangle + Noise | 3 melodic (CH1 pulse, CH2 pulse, CH3 triangle) | CH4 noise (priority 1) | NES `nes`/`nesapu` preset; VGM command `0xB4`; requires v1.70 VGM header (clock 1,789,773 Hz at offset 0x84); pulse timer `= round(clock / (16 × hz)) − 1`, triangle timer `= round(clock / (32 × hz)) − 1`; constant-volume mode (no envelope); GM noise map drives noise period index (0–15) |
 
 ### Conversion Architecture
 
@@ -265,7 +255,9 @@ MusicFormatLoader.load()
    └─ vgm_open_file(ctx, path)
 ```
 
-Each handler (`Ay8910Handler`, `Ym2413Handler`, `SccHandler`, `Opl3Handler`) translates MIDI note-on/note-off/CC events into the target chip's register writes, generating valid VGM data.
+Each handler (`Ay8910Handler`, `Ym2413Handler`, `SccHandler`, `Opl3Handler`, `Ym2612Handler`, `Sn76489Handler`, `Ym3812Handler`, `Ym2608Handler`, `Ym2151Handler`, `Ym2610Handler`, `Ym2610BHandler`, `Ym2203Handler`, `DmgHandler`, `HuC6280Handler`, `NesApuHandler`) translates MIDI note-on/note-off/CC events into the target chip's register writes, generating valid VGM data.
+
+`Ym2610Handler` embeds a VGM ROM data block (type `0x82`, command `0x67 0x66`) at the start of the stream containing the 8192-byte ADPCM-A ROM (`ym2610_adpcm_a.bin`, identical to `fmopn_2608rom.h`). The block uses the ROM data block format: an 8-byte prefix `[romTotalSize:4LE][startOffset:4LE]` followed by the ROM payload, so `dblkLen = 8200`. This block must precede any ADPCM-A register writes so that VGM players can load the ROM into the emulated chip before samples are triggered. `Ym2608Handler` does **not** embed a data block because YM2608's ADPCM-A ROM is hardcoded inside libvgm (`fmopn_2608rom.h`).
 
 **Key design points:**
 
@@ -359,10 +351,10 @@ libvgm supports emulation of the following sound chips. Midiraja exposes all of 
 
 | Chip | Type | Notes |
 |------|------|-------|
-| Game Boy DMG | 2 pulse + 1 wave + 1 noise | Original Game Boy |
-| NES APU | 2 pulse + 1 triangle + 1 noise + DMC | Nintendo Entertainment System |
+| Game Boy DMG | 2 pulse + 1 wave + 1 noise | Original Game Boy; `gameboy`/`dmg` preset |
+| NES APU | 2 pulse + 1 triangle + 1 noise + DMC | Nintendo Entertainment System; `nes`/`nesapu` preset |
 | SNES SPC700 | 8-channel ADPCM sampler | Super NES |
-| HuC6280 | 6-channel wavetable + stereo | PC Engine / TurboGrafx-16 |
+| HuC6280 | 6-channel wavetable + stereo | PC Engine / TurboGrafx-16; `pce`/`huc6280` preset |
 
 ### DOS & PC
 

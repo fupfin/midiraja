@@ -17,12 +17,12 @@ import org.junit.jupiter.api.Test;
 
 class SccHandlerTest
 {
-    // ── supportsRhythm ────────────────────────────────────────────────────────
+    // ── percussionPriority ────────────────────────────────────────────────────
 
     @Test
-    void supportsRhythm_returnsFalse()
+    void percussionPriority_returnsZero()
     {
-        assertFalse(new SccHandler().supportsRhythm());
+        assertEquals(0, new SccHandler().percussionPriority());
     }
 
     // ── slotCount ─────────────────────────────────────────────────────────────

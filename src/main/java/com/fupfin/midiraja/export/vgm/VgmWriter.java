@@ -37,7 +37,16 @@ public final class VgmWriter implements AutoCloseable
     static final int K051649_CLOCK = 3_579_545;
     /** K051649 clock with bit 31 set → activates K052539 (SCC-I) {@code mode_plus} in libvgm. */
     static final int K051649_CLOCK_SCCI = K051649_CLOCK | 0x80000000;
+    static final int YM2612_CLOCK = 7_670_454;
     static final int YMF262_CLOCK = 14_318_180;
+    static final int YM3812_CLOCK = 3_579_545;
+    static final int YM2608_CLOCK = 7_987_200;
+    static final int YM2151_CLOCK = 4_000_000;
+    static final int YM2610_CLOCK = 8_000_000;
+    static final int YM2203_CLOCK = 3_993_600;
+    static final int DMG_CLOCK = 4_194_304;
+    static final int HUC6280_CLOCK = 3_579_545;
+    static final int NES_APU_CLOCK = 1_789_773;
     static final int VGM_SAMPLE_RATE = 44100;
 
     // ── Header sizes ──────────────────────────────────────────────────────────
@@ -80,11 +89,17 @@ public final class VgmWriter implements AutoCloseable
         return chips.contains(ChipType.SCC) || chips.contains(ChipType.SCCI);
     }
 
+    private boolean needsV170Header()
+    {
+        return hasScc() || chips.contains(ChipType.DMG) || chips.contains(ChipType.HUC6280)
+                || chips.contains(ChipType.NES_APU);
+    }
+
     private int headerSize()
     {
         if (isVersion150())
             return HEADER_SIZE_V150;
-        if (hasScc())
+        if (needsV170Header())
             return HEADER_SIZE_V170;
         return HEADER_SIZE_V161;
     }
@@ -118,6 +133,14 @@ public final class VgmWriter implements AutoCloseable
     public void writePsg2(int data)
     {
         buf.write(0x30);
+        buf.write(data & 0xFF);
+    }
+
+    /** YM2612 (OPN2) port 0 or port 1 register write (command 0x52 / 0x53). */
+    public void writeYm2612(int port, int reg, int data)
+    {
+        buf.write(port == 0 ? 0x52 : 0x53);
+        buf.write(reg & 0xFF);
         buf.write(data & 0xFF);
     }
 
@@ -163,6 +186,112 @@ public final class VgmWriter implements AutoCloseable
         buf.write(0x5F);
         buf.write(reg & 0xFF);
         buf.write(data & 0xFF);
+    }
+
+    /** YM3812 (OPL2) register write (command 0x5A). */
+    public void writeOpl2(int reg, int data)
+    {
+        buf.write(0x5A);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /** YM2608 (OPNA) port 0 or port 1 register write (command 0x56 / 0x57). */
+    public void writeOpna(int port, int reg, int data)
+    {
+        buf.write(port == 0 ? 0x56 : 0x57);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /** YM2151 (OPM) register write (command 0x54). */
+    public void writeOpm(int reg, int data)
+    {
+        buf.write(0x54);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /** YM2610 (OPNB) port 0 or port 1 register write (command 0x58 / 0x59). */
+    public void writeYm2610(int port, int reg, int data)
+    {
+        buf.write(port == 0 ? 0x58 : 0x59);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /** YM2203 (OPN) register write (command 0x55). */
+    public void writeOpn(int reg, int data)
+    {
+        buf.write(0x55);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /** Game Boy DMG (LR35902) APU register write (command 0xB3). */
+    public void writeDmg(int reg, int data)
+    {
+        buf.write(0xB3);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /** HuC6280 (PC Engine PSG) register write (command 0xB9). */
+    public void writeHuC(int reg, int data)
+    {
+        buf.write(0xB9);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /** NES APU (RP2A03) register write (command 0xB4). */
+    public void writeNes(int reg, int data)
+    {
+        buf.write(0xB4);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /**
+     * VGM ROM data block (command 0x67 0x66, types 0x80-0xBF).
+     *
+     * <p>
+     * ROM data blocks require an 8-byte prefix before the ROM payload:
+     * {@code [romTotalSize:4LE][startOffset:4LE]}. The {@code dblkLen} field in the VGM
+     * stream equals {@code 8 + data.length}. The libvgm {@code Cmd_DataBlock} handler reads
+     * the prefix to determine the total ROM size and the byte offset to write {@code data} into.
+     *
+     * @param type
+     *            data block type (0x80-0xBF); e.g. 0x82 = YM2610 ADPCM-A ROM
+     * @param romTotalSize
+     *            full size of the target ROM (bytes); usually equals {@code data.length} for a
+     *            single full-ROM write
+     * @param startOffset
+     *            byte offset within the ROM at which {@code data} should be written (0 for a
+     *            full-ROM write)
+     * @param data
+     *            ROM bytes to write
+     */
+    public void writeRomDataBlock(int type, int romTotalSize, int startOffset, byte[] data)
+    {
+        int dblkLen = 8 + data.length;
+        buf.write(0x67);
+        buf.write(0x66);
+        buf.write(type & 0xFF);
+        buf.write(dblkLen & 0xFF);
+        buf.write((dblkLen >> 8) & 0xFF);
+        buf.write((dblkLen >> 16) & 0xFF);
+        buf.write((dblkLen >> 24) & 0xFF);
+        // 8-byte ROM prefix: [romTotalSize:4LE][startOffset:4LE]
+        buf.write(romTotalSize & 0xFF);
+        buf.write((romTotalSize >> 8) & 0xFF);
+        buf.write((romTotalSize >> 16) & 0xFF);
+        buf.write((romTotalSize >> 24) & 0xFF);
+        buf.write(startOffset & 0xFF);
+        buf.write((startOffset >> 8) & 0xFF);
+        buf.write((startOffset >> 16) & 0xFF);
+        buf.write((startOffset >> 24) & 0xFF);
+        buf.writeBytes(data);
     }
 
     /**
@@ -217,12 +346,16 @@ public final class VgmWriter implements AutoCloseable
         int32Le(data, 0x04, data.length - 4);
 
         // Version at 0x08
-        int version = isVersion150() ? VERSION_150 : hasScc() ? VERSION_170 : VERSION_161;
+        int version = isVersion150() ? VERSION_150 : needsV170Header() ? VERSION_170 : VERSION_161;
         int32Le(data, 0x08, version);
 
         // SN76489 clock at 0x0C
         if (chips.contains(ChipType.SN76489))
             int32Le(data, 0x0C, SN76489_CLOCK);
+
+        // YM2612 clock at 0x2C
+        if (chips.contains(ChipType.YM2612))
+            int32Le(data, 0x2C, YM2612_CLOCK);
 
         // YM2413 clock at 0x10
         if (chips.contains(ChipType.YM2413))
@@ -253,6 +386,28 @@ public final class VgmWriter implements AutoCloseable
             if (chips.contains(ChipType.OPL3))
                 int32Le(data, 0x5C, YMF262_CLOCK);
 
+            // YM3812 (OPL2) clock at 0x50
+            if (chips.contains(ChipType.YM3812))
+                int32Le(data, 0x50, YM3812_CLOCK);
+
+            // YM2608 (OPNA) clock at 0x48
+            if (chips.contains(ChipType.YM2608))
+                int32Le(data, 0x48, YM2608_CLOCK);
+
+            // YM2151 (OPM) clock at 0x30
+            if (chips.contains(ChipType.YM2151))
+                int32Le(data, 0x30, YM2151_CLOCK);
+
+            // YM2610 (OPNB) clock at 0x4C; YM2610B uses same offset with bit 31 set
+            if (chips.contains(ChipType.YM2610B))
+                int32Le(data, 0x4C, YM2610_CLOCK | 0x80000000);
+            else if (chips.contains(ChipType.YM2610))
+                int32Le(data, 0x4C, YM2610_CLOCK);
+
+            // YM2203 (OPN) clock at 0x44
+            if (chips.contains(ChipType.YM2203))
+                int32Le(data, 0x44, YM2203_CLOCK);
+
             // AY-3-8910: first chip at 0x74; if two present, second at 0x78 with dual-chip flag
             long ayCount = chips.stream().filter(c -> c == ChipType.AY8910).count();
             if (ayCount >= 1)
@@ -267,6 +422,18 @@ public final class VgmWriter implements AutoCloseable
             int32Le(data, 0x9C, K051649_CLOCK_SCCI);
         else if (chips.contains(ChipType.SCC))
             int32Le(data, 0x9C, K051649_CLOCK);
+
+        // DMG (Game Boy) clock at 0x80 — requires v1.70 header (0xC0 bytes)
+        if (chips.contains(ChipType.DMG))
+            int32Le(data, 0x80, DMG_CLOCK);
+
+        // HuC6280 (PC Engine) clock at 0xA4 — requires v1.70 header (0xC0 bytes)
+        if (chips.contains(ChipType.HUC6280))
+            int32Le(data, 0xA4, HUC6280_CLOCK);
+
+        // NES APU (RP2A03) clock at 0x84 — requires v1.70 header (0xC0 bytes)
+        if (chips.contains(ChipType.NES_APU))
+            int32Le(data, 0x84, NES_APU_CLOCK);
     }
 
     /**

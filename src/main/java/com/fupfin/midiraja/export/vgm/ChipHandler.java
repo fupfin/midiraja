@@ -24,10 +24,18 @@ interface ChipHandler
     int slotCount();
 
     /**
-     * Returns {@code true} if this handler can process MIDI channel 9 (percussion).
-     * When multiple handlers support rhythm, the first one in the handler list wins.
+     * Returns the percussion quality level for this handler.
+     *
+     * <ul>
+     * <li>0 – no percussion support (e.g. SCC wave channel)</li>
+     * <li>1 – PSG noise channel (low quality, e.g. AY-3-8910, SN76489)</li>
+     * <li>2 – FM synthesis percussion (good quality, e.g. YM2413 rhythm, OPL3, YM2612)</li>
+     * <li>3 – PCM sample playback (excellent quality, reserved for future use)</li>
+     * </ul>
+     *
+     * When multiple handlers have the same maximum priority, the first one in the handler list wins.
      */
-    boolean supportsRhythm();
+    int percussionPriority();
 
     /** Writes initial silence (key-off / mute) state for all chip registers. */
     void initSilence(VgmWriter w);
@@ -51,8 +59,8 @@ interface ChipHandler
     void silenceSlot(int localSlot, VgmWriter w);
 
     /**
-     * Triggers a percussion hit.  Only called when {@link #supportsRhythm()} is {@code true}.
-     * Handlers that return {@code false} from {@link #supportsRhythm()} may rely on this default
+     * Triggers a percussion hit.  Only called when {@link #percussionPriority()} {@code > 0}.
+     * Handlers that return {@code 0} from {@link #percussionPriority()} may rely on this default
      * no-op.
      *
      * @param note
@@ -81,7 +89,7 @@ interface ChipHandler
     {
         for (int slot = 0; slot < slotCount(); slot++)
             silenceSlot(slot, w);
-        if (supportsRhythm())
+        if (percussionPriority() > 0)
             handlePercussion(0, 0, w);
     }
 }

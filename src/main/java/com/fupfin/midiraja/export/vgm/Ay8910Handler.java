@@ -11,10 +11,11 @@ package com.fupfin.midiraja.export.vgm;
  * {@link ChipHandler} for one AY-3-8910 chip (3 tone channels + shared noise).
  *
  * <p>
- * Slot 2 (the last slot) is reserved for percussion noise. The chip index (0 or 1) selects
- * which VGM write method is used ({@code writeAy} vs {@code writeAy2}).
+ * Slot 2 (the last slot) is reserved for percussion noise. The chip index selects which VGM
+ * write method is used: 0 → {@code writeAy}, 1 → {@code writeAy2}, 2 → YM2610 embedded SSG
+ * ({@code writeYm2610(0, ...)}).
  */
-final class Ay8910Handler implements ChipHandler
+class Ay8910Handler implements ChipHandler
 {
     private static final int SLOTS = 3;
     private static final int NOISE_SLOT = 2; // local index of the percussion slot
@@ -40,12 +41,37 @@ final class Ay8910Handler implements ChipHandler
      */
     private static final double PERCUSSION_AMP_SCALE = 7.0 / 15.0;
 
-    private final int chipIndex; // 0 = primary AY, 1 = secondary AY
+    private final int chipIndex; // 0 = primary AY, 1 = secondary AY, 2 = YM2610 embedded SSG
+    private final int ssgClock;
     private int mixer = 0x3F; // matches initSilence chip state (all bits set = mute all)
 
     Ay8910Handler(int chipIndex)
     {
+        this(chipIndex, VgmWriter.AY8910_CLOCK);
+    }
+
+    private Ay8910Handler(int chipIndex, int ssgClock)
+    {
         this.chipIndex = chipIndex;
+        this.ssgClock = ssgClock;
+    }
+
+    /** Returns an {@link Ay8910Handler} configured for the SSG section embedded in YM2608. */
+    static Ay8910Handler forYm2608Ssg()
+    {
+        return new Ay8910Handler(3, VgmWriter.YM2608_CLOCK / 4);
+    }
+
+    /** Returns an {@link Ay8910Handler} configured for the SSG section embedded in YM2610. */
+    static Ay8910Handler forYm2610Ssg()
+    {
+        return new Ay8910Handler(2, VgmWriter.YM2610_CLOCK / 4);
+    }
+
+    /** Returns an {@link Ay8910Handler} configured for the SSG section embedded in YM2203. */
+    static Ay8910Handler forYm2203Ssg()
+    {
+        return new Ay8910Handler(4, VgmWriter.YM2203_CLOCK / 4);
     }
 
     @Override
@@ -61,9 +87,9 @@ final class Ay8910Handler implements ChipHandler
     }
 
     @Override
-    public boolean supportsRhythm()
+    public int percussionPriority()
     {
-        return true;
+        return 1; // PSG noise channel
     }
 
     @Override
@@ -78,7 +104,7 @@ final class Ay8910Handler implements ChipHandler
     public void startNote(int localSlot, int note, int velocity, int program, VgmWriter w)
     {
         double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-        int tp = (int) Math.round(VgmWriter.AY8910_CLOCK / (16.0 * freq));
+        int tp = (int) Math.round(ssgClock / (16.0 * freq));
         tp = Math.clamp(tp, 1, 4095);
         writeReg(w, localSlot * 2, tp & 0xFF);
         writeReg(w, localSlot * 2 + 1, (tp >> 8) & 0x0F);
@@ -136,8 +162,14 @@ final class Ay8910Handler implements ChipHandler
     {
         if (chipIndex == 0)
             w.writeAy(reg, data);
-        else
+        else if (chipIndex == 1)
             w.writeAy2(reg, data);
+        else if (chipIndex == 2)
+            w.writeYm2610(0, reg, data); // YM2610 embedded SSG: port 0, same register map
+        else if (chipIndex == 3)
+            w.writeOpna(0, reg, data);   // YM2608 embedded SSG: port 0, same register map
+        else
+            w.writeOpn(reg, data);       // YM2203 embedded SSG: single-port, same register map
     }
 
     private static int drumNoisePeriod(int note)

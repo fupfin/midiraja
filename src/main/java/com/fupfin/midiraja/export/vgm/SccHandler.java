@@ -75,10 +75,10 @@ final class SccHandler implements ChipHandler
     }
 
     @Override
-    public boolean supportsRhythm()
+    public int percussionPriority()
     {
         // SCC has no noise generator — percussion should be handled by an accompanying PSG (AY8910).
-        return false;
+        return 0;
     }
 
     @Override

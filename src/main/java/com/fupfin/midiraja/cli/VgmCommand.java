@@ -36,10 +36,8 @@ import com.fupfin.midiraja.export.vgm.ChipSpec;
 import com.fupfin.midiraja.export.vgm.ChipType;
 import com.fupfin.midiraja.export.vgm.CompositeVgmExporter;
 import com.fupfin.midiraja.export.vgm.RoutingMode;
-import com.fupfin.midiraja.export.vgm.Ym2612VgmExporter;
 import com.fupfin.midiraja.format.MusicFormatLoader;
 import com.fupfin.midiraja.io.AppLogger;
-import com.fupfin.midiraja.midi.FFMOpnMidiNativeBridge;
 import com.fupfin.midiraja.midi.vgm.FFMLibvgmBridge;
 import com.fupfin.midiraja.midi.vgm.LibvgmPlaybackEngine;
 import com.fupfin.midiraja.midi.vgm.LibvgmSynthProvider;
@@ -50,7 +48,7 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
     static final class ChipSpecOptions
     {
-        @Option(names = "--system", description = "System preset: zxspectrum, fmpac, msx, msx-scc, sb16, genesis, megadrive. Default: zxspectrum.")
+        @Option(names = "--system", description = "System preset: zxspectrum, fmpac, msx, msx-scc, sb16, genesis, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, dmg, pce, huc6280, nes, nesapu. Default: megadrive.")
         @Nullable
         String system;
 
@@ -90,7 +88,7 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
     {
         if (chipSpec.chips != null)
             return ChipHandlers.parseChips(chipSpec.chips);
-        String sys = chipSpec.system != null ? chipSpec.system.toLowerCase(Locale.ROOT) : "zxspectrum";
+        String sys = chipSpec.system != null ? chipSpec.system.toLowerCase(Locale.ROOT) : "megadrive";
         var chips = ChipHandlers.PRESETS.get(sys);
         if (chips == null)
             throw new IllegalArgumentException(
@@ -165,17 +163,9 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
         chipLabel = spec.chips().stream()
                 .map(ChipType::name)
                 .collect(Collectors.joining(", "));
-        if (spec.chips().contains(ChipType.YM2612))
-        {
-            byte[] vgmBytes = new Ym2612VgmExporter(new FFMOpnMidiNativeBridge()).export(sequence);
-            provider.loadVgmData(vgmBytes);
-        }
-        else
-        {
-            var vgmBytes = new ByteArrayOutputStream();
-            new CompositeVgmExporter(ChipHandlers.create(spec), spec.mode()).export(sequence, vgmBytes);
-            provider.loadVgmData(vgmBytes.toByteArray());
-        }
+        var vgmBytes = new ByteArrayOutputStream();
+        new CompositeVgmExporter(ChipHandlers.create(spec), spec.mode()).export(sequence, vgmBytes);
+        provider.loadVgmData(vgmBytes.toByteArray());
         return sequence;
     }
 

@@ -175,6 +175,78 @@ class Ym2413VgmExporterTest
     }
 
     @Test
+    void percussion_noteOff_clearsKeyOnBit() throws Exception
+    {
+        var seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 36, 100), 0));
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_OFF, 9, 36, 0), 480));
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // After note-off, 0x0E must be written with bass drum bit (bit4) cleared
+        List<int[]> writes = findYm2413Writes(data, 0x40);
+        // Find the last 0x0E write — should NOT have bit4 set
+        var lastRhythm = writes.stream()
+                .filter(w -> w[0] == 0x0E)
+                .reduce((a, b) -> b); // last one
+        assertTrue(lastRhythm.isPresent(), "Expected 0x0E writes for percussion");
+        assertEquals(0x20, lastRhythm.get()[1] & 0xFF,
+                "After note-off, 0x0E must equal 0x20 (rhythm enabled, no key-on bits)");
+    }
+
+    @Test
+    void percussion_retrigger_producesRisingEdge() throws Exception
+    {
+        // Two consecutive bass drum hits without a note-off between them must each trigger
+        var seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 36, 100), 0));
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 36, 100), 480));
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        // For a rising edge on the second hit, 0x0E must be written with bit4=0 before bit4=1
+        List<int[]> writes = findYm2413Writes(data, 0x40);
+        List<int[]> rhythmWrites = writes.stream().filter(w -> w[0] == 0x0E).toList();
+        // Expect at least 3 writes: initial set, clear, set-again
+        assertTrue(rhythmWrites.size() >= 3,
+                "Retrigger requires at least 3 0x0E writes (set, clear, set); got " + rhythmWrites.size());
+    }
+
+    @Test
+    void percussion_snare_writesVolume0x37() throws Exception
+    {
+        var seq = new Sequence(Sequence.PPQ, 480);
+        seq.createTrack().add(
+                new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 38, 100), 0));
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        List<int[]> writes = findYm2413Writes(data, 0x40);
+        boolean found0x37 = writes.stream().anyMatch(w -> w[0] == 0x37);
+        assertTrue(found0x37, "Snare drum note must write volume register 0x37");
+    }
+
+    @Test
+    void percussion_cymbal_writesVolume0x38() throws Exception
+    {
+        var seq = new Sequence(Sequence.PPQ, 480);
+        seq.createTrack().add(
+                new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 9, 49, 100), 0));
+        var out = new ByteArrayOutputStream();
+        composite().export(seq, out);
+        byte[] data = out.toByteArray();
+
+        List<int[]> writes = findYm2413Writes(data, 0x40);
+        boolean found0x38 = writes.stream().anyMatch(w -> w[0] == 0x38);
+        assertTrue(found0x38, "Cymbal note must write volume register 0x38");
+    }
+
+    @Test
     void voiceStealing_doesNotCrash() throws Exception
     {
         var seq = new Sequence(Sequence.PPQ, 480);

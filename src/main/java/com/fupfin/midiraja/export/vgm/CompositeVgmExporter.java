@@ -20,6 +20,8 @@ import javax.sound.midi.Sequence;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Converts a MIDI {@link Sequence} to VGM using an arbitrary combination of {@link ChipHandler}s.
  *
@@ -29,8 +31,8 @@ import javax.sound.midi.Track;
  * in the handler list. Voice stealing evicts the last handler's highest-indexed active slot first.
  *
  * <p>
- * MIDI channel 9 (percussion) is routed to the first handler that reports
- * {@link ChipHandler#supportsRhythm()}.
+ * MIDI channel 9 (percussion) is routed to the handler with the highest
+ * {@link ChipHandler#percussionPriority()} value.
  */
 public final class CompositeVgmExporter
 {
@@ -177,14 +179,23 @@ public final class CompositeVgmExporter
         private final int[] chanSlot; // MIDI channel for each global slot
         private final boolean[] active; // whether each global slot is playing
         private final int[] program = new int[16]; // per MIDI channel GM program
+        private final int[] cc7 = new int[16];    // MIDI CC7 volume (0-127, default 127)
+        private final int[] cc11 = new int[16];   // MIDI CC11 expression (0-127, default 127)
         // CHANNEL mode: handler index assigned to each MIDI channel (-1 = unassigned)
         private final int[] chanHandler = new int[16];
         private int nextHandlerRoundRobin = 0; // round-robin counter for CHANNEL mode
+        /** Handler with highest percussionPriority(), or null if none. */
+        @Nullable
+        private final ChipHandler percussionHandler;
 
         CompositeState(List<ChipHandler> handlers, RoutingMode mode)
         {
             this.handlers = handlers;
             this.mode = mode;
+            percussionHandler = handlers.stream()
+                    .max(Comparator.comparingInt(ChipHandler::percussionPriority))
+                    .filter(h -> h.percussionPriority() > 0)
+                    .orElse(null);
             handlerOffset = new int[handlers.size()];
             int offset = 0;
             for (int i = 0; i < handlers.size(); i++)
@@ -199,6 +210,8 @@ public final class CompositeVgmExporter
             Arrays.fill(noteSlot, -1);
             Arrays.fill(chanSlot, -1);
             Arrays.fill(chanHandler, -1);
+            Arrays.fill(cc7, 127);
+            Arrays.fill(cc11, 127);
         }
 
         void initSilence(VgmWriter w)
@@ -223,6 +236,11 @@ public final class CompositeVgmExporter
             switch (status)
             {
                 case ShortMessage.PROGRAM_CHANGE -> program[midiCh] = d1;
+                case ShortMessage.CONTROL_CHANGE ->
+                {
+                    if (d1 == 7) cc7[midiCh] = d2;
+                    else if (d1 == 11) cc11[midiCh] = d2;
+                }
                 case ShortMessage.NOTE_ON ->
                 {
                     if (d2 > 0)
@@ -238,15 +256,8 @@ public final class CompositeVgmExporter
         {
             if (midiCh == 9)
             {
-                // Route percussion to first handler that supports rhythm
-                for (var handler : handlers)
-                {
-                    if (handler.supportsRhythm())
-                    {
-                        handler.handlePercussion(note, velocity, w);
-                        return;
-                    }
-                }
+                if (percussionHandler != null)
+                    percussionHandler.handlePercussion(note, velocity, w);
                 return;
             }
 
@@ -256,9 +267,12 @@ public final class CompositeVgmExporter
             chanSlot[globalSlot] = midiCh;
             active[globalSlot] = true;
 
+            // Scale velocity by CC7 (volume) and CC11 (expression)
+            int effectiveVelocity = (int) ((long) velocity * cc7[midiCh] * cc11[midiCh] / (127L * 127));
+
             int[] handlerAndLocal = handlerAndLocal(globalSlot);
             handlers.get(handlerAndLocal[0]).startNote(
-                    handlerAndLocal[1], note, velocity, program[midiCh], w);
+                    handlerAndLocal[1], note, effectiveVelocity, program[midiCh], w);
         }
 
         /**
@@ -369,14 +383,8 @@ public final class CompositeVgmExporter
         {
             if (midiCh == 9)
             {
-                for (var handler : handlers)
-                {
-                    if (handler.supportsRhythm())
-                    {
-                        handler.handlePercussion(note, 0, w);
-                        return;
-                    }
-                }
+                if (percussionHandler != null)
+                    percussionHandler.handlePercussion(note, 0, w);
                 return;
             }
             for (int g = 0; g < totalSlots; g++)
