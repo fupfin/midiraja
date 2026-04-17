@@ -346,12 +346,4 @@ class NesApuHandlerTest
         assertEquals(ChipType.NES_APU, chips.get(0));
     }
 
-    @Test
-    void preset_nesapu_returnsNesApuChip()
-    {
-        var chips = ChipHandlers.PRESETS.get("nesapu");
-        assertNotNull(chips);
-        assertEquals(1, chips.size());
-        assertEquals(ChipType.NES_APU, chips.get(0));
-    }
 }

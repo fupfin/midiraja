@@ -93,14 +93,6 @@ class VgmCommandTest
     }
 
     @Test
-    void system_genesis_returnsYm2612AndSn76489()
-    {
-        VgmCommand cmd = new VgmCommand();
-        cmd.chipSpec.system = "genesis";
-        assertEquals(List.of(ChipType.YM2612, ChipType.SN76489), cmd.resolveChipSpec().chips());
-    }
-
-    @Test
     void system_megadrive_returnsYm2612AndSn76489()
     {
         VgmCommand cmd = new VgmCommand();

@@ -30,7 +30,6 @@ public final class ChipHandlers
             entry("msx",        List.of(ChipType.YM2413, ChipType.AY8910)),
             entry("msx-scc",    List.of(ChipType.SCCI, ChipType.AY8910)),
             entry("sb16",       List.of(ChipType.OPL3)),
-            entry("genesis",    List.of(ChipType.YM2612, ChipType.SN76489)),
             entry("megadrive",  List.of(ChipType.YM2612, ChipType.SN76489)),
             entry("adlib",      List.of(ChipType.YM3812)),
             entry("pc98",       List.of(ChipType.YM2608)),
@@ -39,11 +38,8 @@ public final class ChipHandlers
             entry("pc88",       List.of(ChipType.YM2203)),
             entry("neogeo-b",   List.of(ChipType.YM2610B)),
             entry("gameboy",    List.of(ChipType.DMG)),
-            entry("dmg",        List.of(ChipType.DMG)),
-            entry("pce",        List.of(ChipType.HUC6280)),
-            entry("huc6280",    List.of(ChipType.HUC6280)),
-            entry("nes",        List.of(ChipType.NES_APU)),
-            entry("nesapu",     List.of(ChipType.NES_APU))
+            entry("pc-engine",  List.of(ChipType.HUC6280)),
+            entry("nes",        List.of(ChipType.NES_APU))
     );
 
     private ChipHandlers()

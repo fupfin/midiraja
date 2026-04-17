@@ -31,11 +31,11 @@ public class ExportVgmCommand implements Callable<Integer>
 {
     static final class ChipSpecOptions
     {
-        @Option(names = "--system", description = "Named chip preset: zxspectrum, fmpac, msx, msx-scc, sb16, genesis, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, dmg, pce, huc6280, nes, nesapu")
+        @Option(names = "--system", description = "Named chip preset: zxspectrum, fmpac, msx, msx-scc, sb16, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, pc-engine, nes")
         @Nullable
         String system;
 
-        @Option(names = "--chips", description = "Chip combination, e.g. ay8910+ym2413, ay8910,ym2413, scc>ay8910 or opl3. Separators: '+' or ',' = CHANNEL mode (round-robin by MIDI channel); '>' = SEQUENTIAL mode (fill first chip before second).")
+        @Option(names = "--chips", description = "Chip combination. Available chips: ay8910, ym2413, scc, scci, opl3, sn76489, ym2612, ym3812, ym2608, ym2151, ym2610, ym2610b, ym2203, dmg, huc6280, nes_apu, msm6258. Separators: '+' or ',' = CHANNEL mode (round-robin by MIDI channel); '>' = SEQUENTIAL mode (fill first chip before second). E.g. ay8910+ym2413 or scc>ay8910.")
         @Nullable
         String chips;
     }

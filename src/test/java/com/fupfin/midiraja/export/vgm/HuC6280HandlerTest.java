@@ -23,7 +23,7 @@ class HuC6280HandlerTest
 {
     private static CompositeVgmExporter composite()
     {
-        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("pce")));
+        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("pc-engine")));
     }
 
     private static int readInt32Le(byte[] data, int offset)
@@ -321,18 +321,9 @@ class HuC6280HandlerTest
     // ── Presets ───────────────────────────────────────────────────────────────
 
     @Test
-    void preset_pce_returnsDmgChip()
+    void preset_pcEngine_returnsHuc6280Chip()
     {
-        var chips = ChipHandlers.PRESETS.get("pce");
-        assertNotNull(chips);
-        assertEquals(1, chips.size());
-        assertEquals(ChipType.HUC6280, chips.get(0));
-    }
-
-    @Test
-    void preset_huc6280_returnsDmgChip()
-    {
-        var chips = ChipHandlers.PRESETS.get("huc6280");
+        var chips = ChipHandlers.PRESETS.get("pc-engine");
         assertNotNull(chips);
         assertEquals(1, chips.size());
         assertEquals(ChipType.HUC6280, chips.get(0));
