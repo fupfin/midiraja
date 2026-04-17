@@ -9,21 +9,23 @@ package com.fupfin.midiraja.export.vgm;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Path;
 import java.util.Arrays;
 
 /**
- * {@link ChipHandler} for YM2610 (OPNB) — 6 melodic FM channels + ADPCM-A native percussion.
+ * {@link ChipHandler} for YM2610 (OPNB) — 4 melodic FM channels + ADPCM-A native percussion.
  *
  * <p>
- * YM2610 uses the same OPN 4-operator FM engine as YM2612. Channels 0-2 are on port 0 and
- * channels 3-5 are on port 1. VGM commands are 0x58 (port 0) and 0x59 (port 1), and the
- * clock is 8,000,000 Hz (Neo Geo standard). The SSG section of the chip is not modelled here.
+ * YM2610 uses the same OPN 4-operator FM engine as YM2612. The chip has 4 FM channels:
+ * slots 0-1 → port 0 channels 1-2, slots 2-3 → port 1 channels 1-2 (channel 0 on each port
+ * is reserved for ADPCM-B/DeltaT in the real hardware). VGM commands are 0x58 (port 0) and
+ * 0x59 (port 1), and the clock is 8,000,000 Hz (Neo Geo standard). The SSG section
+ * (AY-3-8910 compatible, 3 tone + noise, registers 0x00-0x0F via port 0) is handled by an
+ * embedded {@link Ay8910Handler}.
  *
  * <p>
- * Percussion uses the ADPCM-A rhythm section: a 6-channel playback unit backed by an 8 KB
- * internal ROM ({@code ym2610_adpcm_a.bin}) with fixed samples for Bass Drum, Snare, Top
- * Cymbal, Hi-Hat, Tom Tom, and Rim Shot. The ROM data block is embedded in the VGM stream
+ * Percussion uses the ADPCM-A rhythm section: a 6-channel playback unit backed by an external
+ * ROM ({@code ym2610_adpcm_a.bin} from the classpath) with fixed samples for Bass Drum, Snare,
+ * Top Cymbal, Hi-Hat, Tom Tom, and Rim Shot. The ROM data block is embedded in the VGM stream
  * during {@link #initSilence} so that players can load it into the emulated chip.
  *
  * <p>
@@ -38,14 +40,11 @@ import java.util.Arrays;
  *   <li>0x28+ch — per-channel end address high (always 0)
  * </ul>
  */
-final class Ym2610Handler implements ChipHandler
+final class Ym2610Handler extends AbstractOpnHandler
 {
     private static final int SLOTS = 4; // YM2610 has 4 FM channels (YM2610B has 6)
     private final Ay8910Handler ssg = Ay8910Handler.forYm2610Ssg();
-    /** Hardware slot offsets within a port for operators S1, S3, S2, S4. */
-    private static final int[] OP_SLOT_OFFSETS = { 0, 4, 8, 12 };
 
-    private static final WopnBankReader WOPN_BANK = loadWopnBank();
     private static final byte[] ADPCM_A_ROM = loadAdpcmRom();
 
     /**
@@ -90,18 +89,6 @@ final class Ym2610Handler implements ChipHandler
         return m;
     }
 
-    private static WopnBankReader loadWopnBank()
-    {
-        try
-        {
-            return WopnBankReader.load(Path.of("ext/libOPNMIDI/fm_banks/gm.wopn"));
-        }
-        catch (IOException e)
-        {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     private static byte[] loadAdpcmRom()
     {
         try (var in = Ym2610Handler.class.getResourceAsStream("ym2610_adpcm_a.bin"))
@@ -114,6 +101,11 @@ final class Ym2610Handler implements ChipHandler
         {
             throw new UncheckedIOException(e);
         }
+    }
+
+    Ym2610Handler()
+    {
+        super(SLOTS);
     }
 
     @Override
@@ -160,10 +152,10 @@ final class Ym2610Handler implements ChipHandler
 
         // FM section init
         // Set LFO frequency as specified by the bank (bit 3 = enable, bits 2-0 = frequency)
-        w.writeYm2610(0, 0x22, WOPN_BANK.lfoFreq());
+        w.writeYm2610(0, 0x22, wopnBank().lfoFreq());
         // Channel 3 normal mode (disable CSM / 3-slot special mode)
         w.writeYm2610(0, 0x27, 0x00);
-        // Key-off all 6 FM channels (ch_addr: ch 0-2 → 0-2, ch 3-5 → 4-6)
+        // Key-off all FM channels
         for (int slot = 0; slot < SLOTS; slot++)
             w.writeYm2610(0, 0x28, chAddr(slot));
         // SSG section init (registers 0x00-0x0F via port 0)
@@ -178,9 +170,7 @@ final class Ym2610Handler implements ChipHandler
             ssg.startNote(localSlot - SLOTS, note, velocity, program, w);
             return;
         }
-        WopnBankReader.Patch patch = WOPN_BANK.melodicPatch(program);
-        writePatch(localSlot, patch, velocity, w);
-        writeFreqKeyOn(localSlot, note + patch.noteOffset(), w);
+        super.startNote(localSlot, note, velocity, program, w);
     }
 
     @Override
@@ -191,7 +181,30 @@ final class Ym2610Handler implements ChipHandler
             ssg.silenceSlot(localSlot - SLOTS, w);
             return;
         }
-        w.writeYm2610(0, 0x28, chAddr(localSlot)); // FM key-off
+        super.silenceSlot(localSlot, w);
+    }
+
+    @Override
+    public void updatePitch(int localSlot, int note, int pitchBend, int bendRangeSemitones,
+            VgmWriter w)
+    {
+        if (localSlot >= SLOTS)
+        {
+            ssg.updatePitch(localSlot - SLOTS, note, pitchBend, bendRangeSemitones, w);
+            return;
+        }
+        super.updatePitch(localSlot, note, pitchBend, bendRangeSemitones, w);
+    }
+
+    @Override
+    public void updateVolume(int localSlot, int velocity, VgmWriter w)
+    {
+        if (localSlot >= SLOTS)
+        {
+            ssg.updateVolume(localSlot - SLOTS, velocity, w);
+            return;
+        }
+        super.updateVolume(localSlot, velocity, w);
     }
 
     @Override
@@ -217,54 +230,33 @@ final class Ym2610Handler implements ChipHandler
         w.writeYm2610(1, 0x00, 1 << ch); // ADPCM-A key-on on port 1
     }
 
-    private void writePatch(int slot, WopnBankReader.Patch patch, int velocity, VgmWriter w)
+    @Override
+    void writeFm(int port, int reg, int data, VgmWriter w)
     {
-        // YM2610 FM channels: port 0 ch 1-2 (slots 0-1), port 1 ch 1-2 (slots 2-3)
-        // Ch 0 on each port is not FM in YM2610 (only in YM2610B)
-        int port = slot < 2 ? 0 : 1;
-        int ch = (slot % 2) + 1; // 0→1, 1→2, 2→1, 3→2
-        int alg = patch.fbalg() & 0x07;
-
-        for (int l = 0; l < 4; l++)
-        {
-            WopnBankReader.Operator op = patch.operators()[l];
-            int regOff = ch + OP_SLOT_OFFSETS[l];
-            int tl = Ym2612Handler.isCarrier(alg, l) ? Ym2612Handler.scaleTl(op.level(), velocity) : op.level();
-            w.writeYm2610(port, 0x30 + regOff, op.dtfm());
-            w.writeYm2610(port, 0x40 + regOff, tl);
-            w.writeYm2610(port, 0x50 + regOff, op.rsatk());
-            w.writeYm2610(port, 0x60 + regOff, op.amdecay1());
-            w.writeYm2610(port, 0x70 + regOff, op.decay2());
-            w.writeYm2610(port, 0x80 + regOff, op.susrel());
-            w.writeYm2610(port, 0x90 + regOff, op.ssgeg());
-        }
-
-        // Feedback + algorithm
-        w.writeYm2610(port, 0xB0 + ch, patch.fbalg() & 0x3F);
-        // Enable left + right output; apply LFO sensitivity
-        w.writeYm2610(port, 0xB4 + ch, 0xC0 | (patch.lfosens() & 0x37));
+        w.writeYm2610(port, reg, data);
     }
 
-    private void writeFreqKeyOn(int slot, int note, VgmWriter w)
+    @Override
+    int fmClock()
     {
-        double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-        int block = Math.clamp(note / 12 - 1, 0, 7);
-        int fnum = (int) Math.round(freq * 144.0 * (1 << (21 - block)) / VgmWriter.YM2610_CLOCK);
-        fnum = Math.clamp(fnum, 0, 0x7FF);
-
-        int port = slot < 2 ? 0 : 1;
-        int ch = (slot % 2) + 1;
-
-        // Write FnumHi+block before FnumLo (hardware requirement)
-        w.writeYm2610(port, 0xA4 + ch, (block << 3) | (fnum >> 8));
-        w.writeYm2610(port, 0xA0 + ch, fnum & 0xFF);
-        // Key-on all four operator slots
-        w.writeYm2610(0, 0x28, (0xF << 4) | chAddr(slot));
+        return VgmWriter.YM2610_CLOCK;
     }
 
-    /** Returns the key-on ch_addr for a given slot (0-3). YM2610 FM: ch_addr 1,2 (port 0) and 5,6 (port 1). */
-    private static int chAddr(int slot)
+    @Override
+    int chAddr(int slot)
     {
         return slot < 2 ? slot + 1 : slot + 3; // → 1, 2, 5, 6
+    }
+
+    @Override
+    int portOf(int slot)
+    {
+        return slot < 2 ? 0 : 1;
+    }
+
+    @Override
+    int chOf(int slot)
+    {
+        return (slot % 2) + 1; // 0→1, 1→2, 2→1, 3→2
     }
 }

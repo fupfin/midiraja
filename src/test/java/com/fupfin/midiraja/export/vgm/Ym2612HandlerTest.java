@@ -225,6 +225,68 @@ class Ym2612HandlerTest
         assertEquals(127, Ym2612Handler.scaleTl(127, 0));
     }
 
+    // ── updatePitch ───────────────────────────────────────────────────────────
+
+    @Test
+    void updatePitch_changesFrequencyRegistersWithoutKeyOff() throws Exception
+    {
+        var handler = new Ym2612Handler();
+        var out = new ByteArrayOutputStream();
+        try (var w = new VgmWriter(out, CHIPS))
+        {
+            handler.startNote(0, 69, 100, 0, w); // A4 = 440 Hz
+        }
+        byte[] vgmBefore = out.toByteArray();
+        int freqWritesBefore = (int) ym2612Writes(vgmBefore).stream()
+                .filter(wr -> wr[1] == 0xA0 || wr[1] == 0xA4).count();
+
+        out = new ByteArrayOutputStream();
+        try (var w = new VgmWriter(out, CHIPS))
+        {
+            handler.startNote(0, 69, 100, 0, w);
+            handler.updatePitch(0, 69, 8192 + 4096, 2, w); // ~1 semitone up
+        }
+        byte[] vgmAfter = out.toByteArray();
+        List<int[]> writesAfter = ym2612Writes(vgmAfter);
+
+        // Should have frequency registers written (A0/A4) again after updatePitch
+        long freqWritesAfter = writesAfter.stream()
+                .filter(wr -> wr[1] == 0xA0 || wr[1] == 0xA4).count();
+        assertTrue(freqWritesAfter > freqWritesBefore,
+                "updatePitch must emit additional frequency register writes");
+
+        // Must NOT emit a key-on via reg 0x28 with slot bits set (no retrigger)
+        long extraKeyOns = writesAfter.stream()
+                .filter(wr -> wr[0] == 0 && wr[1] == 0x28 && (wr[2] & 0xF0) != 0)
+                .count();
+        // One key-on from startNote is fine; extra from updatePitch would be bad
+        assertEquals(1, extraKeyOns,
+                "updatePitch must not retrigger the envelope (only one key-on expected)");
+    }
+
+    @Test
+    void updateVolume_changesTlRegistersWithoutKeyOff() throws Exception
+    {
+        var handler = new Ym2612Handler();
+        var out = new ByteArrayOutputStream();
+        try (var w = new VgmWriter(out, CHIPS))
+        {
+            handler.startNote(0, 69, 127, 0, w);
+            handler.updateVolume(0, 64, w); // half velocity
+        }
+        byte[] vgm = out.toByteArray();
+        List<int[]> writes = ym2612Writes(vgm);
+
+        // TL register is at 0x40+regOff; should have writes at reg 0x40-0x4F
+        boolean hasTlWrite = writes.stream().anyMatch(wr -> wr[1] >= 0x40 && wr[1] <= 0x4F);
+        assertTrue(hasTlWrite, "updateVolume must write TL carrier registers (0x40+)");
+
+        // Still no second key-on
+        long keyOns = writes.stream()
+                .filter(wr -> wr[0] == 0 && wr[1] == 0x28 && (wr[2] & 0xF0) != 0).count();
+        assertEquals(1, keyOns, "updateVolume must not retrigger the envelope");
+    }
+
     // ── Helper: extract YM2612 writes from VGM bytes ──────────────────────────
 
     /** Returns [port, reg, data] tuples for YM2612 commands (0x52/0x53) in the VGM body. */

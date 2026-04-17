@@ -7,9 +7,6 @@
 
 package com.fupfin.midiraja.export.vgm;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Path;
 import java.util.Arrays;
 
 /**
@@ -39,14 +36,10 @@ import java.util.Arrays;
  *   <li>0x38+ch — per-channel end address high (always 0)
  * </ul>
  */
-final class Ym2608Handler implements ChipHandler
+final class Ym2608Handler extends AbstractOpnHandler
 {
     private static final int SLOTS = 6;
     private final Ay8910Handler ssg = Ay8910Handler.forYm2608Ssg();
-    /** Hardware slot offsets within a port for operators S1, S3, S2, S4. */
-    private static final int[] OP_SLOT_OFFSETS = { 0, 4, 8, 12 };
-
-    private static final WopnBankReader WOPN_BANK = loadWopnBank();
 
     /**
      * Per-channel ADPCM-A ROM address table: {startLow, startHigh, endLow, endHigh}.
@@ -90,16 +83,9 @@ final class Ym2608Handler implements ChipHandler
         return m;
     }
 
-    private static WopnBankReader loadWopnBank()
+    Ym2608Handler()
     {
-        try
-        {
-            return WopnBankReader.load(Path.of("ext/libOPNMIDI/fm_banks/gm.wopn"));
-        }
-        catch (IOException e)
-        {
-            throw new UncheckedIOException(e);
-        }
+        super(SLOTS);
     }
 
     @Override
@@ -141,7 +127,7 @@ final class Ym2608Handler implements ChipHandler
 
         // FM section init
         // Set LFO frequency as specified by the bank (bit 3 = enable, bits 2-0 = frequency)
-        w.writeOpna(0, 0x22, WOPN_BANK.lfoFreq());
+        w.writeOpna(0, 0x22, wopnBank().lfoFreq());
         // Channel 3 normal mode (disable CSM / 3-slot special mode)
         w.writeOpna(0, 0x27, 0x00);
         // Key-off all 6 FM channels (ch_addr: ch 0-2 → 0-2, ch 3-5 → 4-6)
@@ -159,9 +145,7 @@ final class Ym2608Handler implements ChipHandler
             ssg.startNote(localSlot - SLOTS, note, velocity, program, w);
             return;
         }
-        WopnBankReader.Patch patch = WOPN_BANK.melodicPatch(program);
-        writePatch(localSlot, patch, velocity, w);
-        writeFreqKeyOn(localSlot, note + patch.noteOffset(), w);
+        super.startNote(localSlot, note, velocity, program, w);
     }
 
     @Override
@@ -172,7 +156,30 @@ final class Ym2608Handler implements ChipHandler
             ssg.silenceSlot(localSlot - SLOTS, w);
             return;
         }
-        w.writeOpna(0, 0x28, chAddr(localSlot)); // FM key-off
+        super.silenceSlot(localSlot, w);
+    }
+
+    @Override
+    public void updatePitch(int localSlot, int note, int pitchBend, int bendRangeSemitones,
+            VgmWriter w)
+    {
+        if (localSlot >= SLOTS)
+        {
+            ssg.updatePitch(localSlot - SLOTS, note, pitchBend, bendRangeSemitones, w);
+            return;
+        }
+        super.updatePitch(localSlot, note, pitchBend, bendRangeSemitones, w);
+    }
+
+    @Override
+    public void updateVolume(int localSlot, int velocity, VgmWriter w)
+    {
+        if (localSlot >= SLOTS)
+        {
+            ssg.updateVolume(localSlot - SLOTS, velocity, w);
+            return;
+        }
+        super.updateVolume(localSlot, velocity, w);
     }
 
     @Override
@@ -198,52 +205,33 @@ final class Ym2608Handler implements ChipHandler
         w.writeOpna(0, 0x10, 1 << ch);
     }
 
-    private void writePatch(int slot, WopnBankReader.Patch patch, int velocity, VgmWriter w)
+    @Override
+    void writeFm(int port, int reg, int data, VgmWriter w)
     {
-        int port = slot < 3 ? 0 : 1;
-        int ch = slot < 3 ? slot : slot - 3;
-        int alg = patch.fbalg() & 0x07;
-
-        for (int l = 0; l < 4; l++)
-        {
-            WopnBankReader.Operator op = patch.operators()[l];
-            int regOff = ch + OP_SLOT_OFFSETS[l];
-            int tl = Ym2612Handler.isCarrier(alg, l) ? Ym2612Handler.scaleTl(op.level(), velocity) : op.level();
-            w.writeOpna(port, 0x30 + regOff, op.dtfm());
-            w.writeOpna(port, 0x40 + regOff, tl);
-            w.writeOpna(port, 0x50 + regOff, op.rsatk());
-            w.writeOpna(port, 0x60 + regOff, op.amdecay1());
-            w.writeOpna(port, 0x70 + regOff, op.decay2());
-            w.writeOpna(port, 0x80 + regOff, op.susrel());
-            w.writeOpna(port, 0x90 + regOff, op.ssgeg());
-        }
-
-        // Feedback + algorithm
-        w.writeOpna(port, 0xB0 + ch, patch.fbalg() & 0x3F);
-        // Enable left + right output; apply LFO sensitivity
-        w.writeOpna(port, 0xB4 + ch, 0xC0 | (patch.lfosens() & 0x37));
+        w.writeOpna(port, reg, data);
     }
 
-    private void writeFreqKeyOn(int slot, int note, VgmWriter w)
+    @Override
+    int fmClock()
     {
-        double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-        int block = Math.clamp(note / 12 - 1, 0, 7);
-        int fnum = (int) Math.round(freq * 144.0 * (1 << (21 - block)) / VgmWriter.YM2608_CLOCK);
-        fnum = Math.clamp(fnum, 0, 0x7FF);
-
-        int port = slot < 3 ? 0 : 1;
-        int ch = slot < 3 ? slot : slot - 3;
-
-        // Write FnumHi+block before FnumLo (hardware requirement)
-        w.writeOpna(port, 0xA4 + ch, (block << 3) | (fnum >> 8));
-        w.writeOpna(port, 0xA0 + ch, fnum & 0xFF);
-        // Key-on all four operator slots
-        w.writeOpna(0, 0x28, (0xF << 4) | chAddr(slot));
+        return VgmWriter.YM2608_CLOCK;
     }
 
-    /** Returns the key-on ch_addr for a given slot (0-5). */
-    private static int chAddr(int slot)
+    @Override
+    int chAddr(int slot)
     {
         return slot < 3 ? slot : slot - 3 + 4;
+    }
+
+    @Override
+    int portOf(int slot)
+    {
+        return slot < 3 ? 0 : 1;
+    }
+
+    @Override
+    int chOf(int slot)
+    {
+        return slot < 3 ? slot : slot - 3;
     }
 }
