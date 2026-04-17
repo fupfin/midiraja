@@ -76,8 +76,8 @@ final class Msm6258Handler implements ChipHandler
         // Setup: stream 0 → OKIM6258, port 0, register 0x01
         w.writeDacStreamSetup(STREAM_ID, VGM_CHIP_OKIM6258, 0x00, 0x01);
 
-        // Assign PCM bank type, step=1 (byte-per-step), mask=0xFF
-        w.writeDacStreamData(STREAM_ID, PCM_BANK_OKIM6258, 0x01, 0xFF);
+        // Assign PCM bank type, stepSize=1 (one packed byte per step), stepBase=0x00 (no offset)
+        w.writeDacStreamData(STREAM_ID, PCM_BANK_OKIM6258, 0x01, 0x00);
 
         // Set playback frequency: 15,625 Hz (8 MHz / 512)
         w.writeDacStreamFrequency(STREAM_ID, VgmWriter.MSM6258_SAMPLE_RATE);
@@ -109,6 +109,12 @@ final class Msm6258Handler implements ChipHandler
         int drumIdx = note >= 0 && note < NOTE_TO_DRUM.length ? NOTE_TO_DRUM[note] : -1;
         if (drumIdx < 0)
             return; // unmapped GM percussion note — ignore
+        // Reset ADPCM decoder state to (signal=-2, step=0) before each hit.
+        // OkiAdpcmCodec.encode() assumes this exact initial state; a mismatch caused by a
+        // previous sample's leftover state produces a brief onset artifact.
+        w.writeDacStreamStop(STREAM_ID);
+        w.writeMsm6258(0x00, 0x00); // STOP: resets signal=-2, step=0 (MAME/libvgm okim6258.c)
+        w.writeMsm6258(0x00, 0x02); // PLAY: arm decoder for incoming data
         w.writeDacStreamPlayBlock(STREAM_ID, drumIdx, 0x00);
     }
 

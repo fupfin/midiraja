@@ -33,7 +33,7 @@ final class Opl3Handler extends AbstractOplHandler
     @Override
     public int slotCount()
     {
-        return totalSlots; // 18
+        return melodicSlots; // 14 — drum slots are internal, not visible to CompositeVgmExporter
     }
 
     @Override
@@ -64,7 +64,7 @@ final class Opl3Handler extends AbstractOplHandler
     @Override
     int fbConnFlags()
     {
-        return 0x30; // OPL3 stereo L+R
+        return 0xC0; // OPL3 stereo: bit 7 = RIGHT, bit 6 = LEFT
     }
 
     /**

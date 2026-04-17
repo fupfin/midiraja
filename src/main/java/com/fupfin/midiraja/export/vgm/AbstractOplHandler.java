@@ -74,7 +74,7 @@ abstract class AbstractOplHandler implements ChipHandler
 
     /**
      * Returns the bitmask OR-ed into the feedback/connection (0xC0+ch) register.
-     * OPL3 returns {@code 0x30} (stereo L+R); OPL2 returns {@code 0x00}.
+     * OPL3 returns {@code 0xC0} (bit 7 = RIGHT, bit 6 = LEFT); OPL2 returns {@code 0x00}.
      */
     abstract int fbConnFlags();
 
@@ -148,6 +148,10 @@ abstract class AbstractOplHandler implements ChipHandler
             return;
         int slot = melodicSlots + drumRoundRobin;
         drumRoundRobin = (drumRoundRobin + 1) % DRUM_SLOTS;
+        // Key-off before key-on: OPL requires the key-on bit to transition 1→0→1
+        // to restart the ADSR envelope. Without this, the same slot produces no
+        // new attack after the first 4 hits cycle back through.
+        silenceSlot(slot, w);
         startNote(slot, note, velocity, 0, w);
     }
 

@@ -18,7 +18,7 @@ package com.fupfin.midiraja.export.vgm;
  *   <li>Signal update: {@code signal = ((diff << 8) + (signal * 245)) >> 8}, clamped to [-2048, 2047]
  *   <li>Step update: {@code step += {-1,-1,-1,-1,2,4,6,8}[nibble & 7]}, clamped to [0, 48]
  *   <li>Initial encoder state: signal = -2, step = 0
- *   <li>Nibble packing: low nibble first (b3..b0 in bits 3..0 of first byte)
+ *   <li>Output format: packed — two nibbles per byte, low nibble first, then high nibble
  * </ul>
  */
 final class OkiAdpcmCodec
@@ -43,12 +43,14 @@ final class OkiAdpcmCodec
      * Encodes 12-bit signed PCM samples (range [-2048, 2047]) to OKI 4-bit ADPCM bytes.
      *
      * <p>
-     * Nibble packing is low-nibble-first. Input values outside [-2048, 2047] are clamped.
-     * For an odd number of input samples, the high nibble of the last output byte is zero.
+     * Output format is <em>packed</em>: two nibbles per byte, low nibble first, then high nibble.
+     * This matches the stream format expected by the MSM6258 chip emulator in libvgm/MAME, which
+     * alternates between bits 3..0 and bits 7..4 of each byte using an internal {@code nibble_shift}
+     * variable. Input values outside [-2048, 2047] are clamped.
      *
      * @param pcm
      *            12-bit signed PCM samples (use range [-2048, 2047])
-     * @return ADPCM-encoded bytes; length = {@code (pcm.length + 1) / 2}
+     * @return ADPCM-encoded bytes; length equals {@code (pcm.length + 1) / 2}
      */
     static byte[] encode(short[] pcm)
     {
@@ -57,14 +59,13 @@ final class OkiAdpcmCodec
         byte[] out = new byte[(pcm.length + 1) / 2];
         int signal = -2;
         int step = 0;
-        boolean lowNibble = true;
         int outIdx = 0;
+        boolean lowNibble = true;
 
-        for (short s : pcm)
+        for (int i = 0; i < pcm.length; i++)
         {
-            int target = Math.clamp((int) s, -2048, 2047);
+            int target = Math.clamp((int) pcm[i], -2048, 2047);
             int nibble = bestNibble(signal, step, target);
-
             if (lowNibble)
                 out[outIdx] = (byte) (nibble & 0x0F);
             else
@@ -153,60 +154,70 @@ final class OkiAdpcmCodec
         return pcm;
     }
 
-    /** Snare: white-noise burst mixed with a 200 Hz tone, fast decay. */
+    /**
+     * Snare: two decaying sine waves — no noise.
+     *
+     * <p>
+     * OKI ADPCM cannot faithfully reproduce broadband noise; attempts result in tearing artifacts.
+     * Instead: a fast-decaying high-frequency sine (380 Hz, ~11 ms) creates the initial snap/crack,
+     * and a slower-decaying low-frequency sine (220 Hz, ~36 ms) provides the body ring.
+     */
     private static short[] snare()
     {
-        int n = (int) (0.15 * SAMPLE_RATE); // 150 ms = 2344 samples
+        int n = (int) (0.08 * SAMPLE_RATE); // 80 ms = 1250 samples
         short[] pcm = new short[n];
-        long rng = 0x5A3D1337L;
         for (int i = 0; i < n; i++)
         {
             double t = (double) i / SAMPLE_RATE;
-            rng = rng * 1103515245L + 12345L;
-            double noise = ((rng >>> 32) & 0xFFF) / 2047.5 - 1.0;
-            double tone = Math.sin(2 * Math.PI * 200 * t);
-            double env = Math.exp(-t * 20);
-            pcm[i] = (short) Math.clamp((int) (env * 1700 * (0.75 * noise + 0.25 * tone)), -2048, 2047);
+            double snap = Math.sin(2 * Math.PI * 380 * t); // snap/crack transient
+            double body = Math.sin(2 * Math.PI * 220 * t); // body ring
+            double snapEnv = Math.exp(-t * 90); // ~11 ms → provides the "crack"
+            double bodyEnv = Math.exp(-t * 28); // ~36 ms → body ring
+            // Normalize by theoretical peak (1.0 + 0.65 = 1.65) to prevent ADPCM clipping artifacts
+            double sample = (snapEnv * snap + bodyEnv * 0.65 * body) / 1.65;
+            pcm[i] = (short) Math.clamp((int) (1700 * sample), -2048, 2047);
         }
         return pcm;
     }
 
-    /** Crash / cymbal: high-pass filtered noise with slow decay. */
+    /** Crash / cymbal: three non-harmonic sines (230/390/570 Hz) with slow decay — no noise. */
     private static short[] cymbal()
     {
-        int n = (int) (0.30 * SAMPLE_RATE); // 300 ms = 4688 samples
+        int n = (int) (0.25 * SAMPLE_RATE); // 250 ms = 3906 samples
         short[] pcm = new short[n];
-        long rng = 0x1337BEEFL;
-        double prev = 0;
         for (int i = 0; i < n; i++)
         {
             double t = (double) i / SAMPLE_RATE;
-            rng = rng * 1103515245L + 12345L;
-            double raw = ((rng >>> 32) & 0xFFF) / 2047.5 - 1.0;
-            double hp = (raw - prev) * 0.5; // one-pole high-pass; *0.5 keeps range in [-1, 1]
-            prev = raw;
-            double env = Math.exp(-t * 8);
-            pcm[i] = (short) Math.clamp((int) (env * 1400 * hp), -2048, 2047);
+            double s1 = Math.sin(2 * Math.PI * 230 * t);
+            double s2 = Math.sin(2 * Math.PI * 390 * t);
+            double s3 = Math.sin(2 * Math.PI * 570 * t);
+            double env = Math.exp(-t * 10);
+            double sample = env * (s1 + 0.7 * s2 + 0.4 * s3) / 2.1;
+            pcm[i] = (short) Math.clamp((int) (1500 * sample), -2048, 2047);
         }
         return pcm;
     }
 
-    /** Closed hi-hat: very short high-pass noise burst with extremely fast decay. */
+    /**
+     * Closed hi-hat: two non-harmonic sines (450 Hz + 760 Hz) with very fast decay — no noise.
+     *
+     * <p>
+     * OKI ADPCM cannot faithfully reproduce broadband noise; attempts result in tearing artifacts.
+     * Instead: two high-frequency inharmonic sines with extremely fast decay (~8 ms) create a
+     * sharp metallic tick without requiring noise.
+     */
     private static short[] closedHiHat()
     {
-        int n = (int) (0.05 * SAMPLE_RATE); // 50 ms = 781 samples
+        int n = (int) (0.04 * SAMPLE_RATE); // 40 ms = 625 samples
         short[] pcm = new short[n];
-        long rng = 0xABCD1234L;
-        double prev = 0;
         for (int i = 0; i < n; i++)
         {
             double t = (double) i / SAMPLE_RATE;
-            rng = rng * 1103515245L + 12345L;
-            double raw = ((rng >>> 32) & 0xFFF) / 2047.5 - 1.0;
-            double hp = (raw - prev) * 0.5; // *0.5 keeps range in [-1, 1]
-            prev = raw;
-            double env = Math.exp(-t * 70);
-            pcm[i] = (short) Math.clamp((int) (env * 1800 * hp), -2048, 2047);
+            double s1 = Math.sin(2 * Math.PI * 450 * t);
+            double s2 = Math.sin(2 * Math.PI * 760 * t);
+            double env = Math.exp(-t * 120); // ~8 ms → sharp metallic tick
+            double sample = env * (0.6 * s1 + 0.5 * s2) / 1.1;
+            pcm[i] = (short) Math.clamp((int) (1700 * sample), -2048, 2047);
         }
         return pcm;
     }
@@ -229,40 +240,44 @@ final class OkiAdpcmCodec
         return pcm;
     }
 
-    /** Rim shot: sharp noise transient with very fast exponential decay. */
+    /** Rim shot: two non-harmonic sines (320 Hz + 540 Hz) with fast decay — no noise. */
     private static short[] rimShot()
     {
-        int n = (int) (0.08 * SAMPLE_RATE); // 80 ms = 1250 samples
+        int n = (int) (0.05 * SAMPLE_RATE); // 50 ms = 781 samples
         short[] pcm = new short[n];
-        long rng = 0xFEDCBA98L;
         for (int i = 0; i < n; i++)
         {
             double t = (double) i / SAMPLE_RATE;
-            rng = rng * 1103515245L + 12345L;
-            double noise = ((rng >>> 32) & 0xFFF) / 2047.5 - 1.0;
-            // env peak at i<4: 1.5 → amplitude 1300 keeps peak ≤ 1950 < 2047
-            double env = Math.exp(-t * 45) * (i < 4 ? 1.5 : 1.0);
-            pcm[i] = (short) Math.clamp((int) (env * 1300 * noise), -2048, 2047);
+            double s1 = Math.sin(2 * Math.PI * 320 * t);
+            double s2 = Math.sin(2 * Math.PI * 540 * t);
+            double env = Math.exp(-t * 60);
+            double sample = env * (0.7 * s1 + 0.55 * s2) / 1.25;
+            pcm[i] = (short) Math.clamp((int) (1700 * sample), -2048, 2047);
         }
         return pcm;
     }
 
-    /** Open hi-hat: high-pass filtered noise with moderate decay (~200 ms). */
+    /**
+     * Open hi-hat: three non-harmonic sines (420/710/970 Hz) with moderate decay — no noise.
+     *
+     * <p>
+     * OKI ADPCM cannot faithfully reproduce broadband noise; attempts result in tearing artifacts.
+     * Instead: three inharmonic sines with moderate decay (~90 ms) create an open metallic shimmer
+     * without requiring noise, and ADPCM can track all frequencies cleanly.
+     */
     private static short[] openHiHat()
     {
-        int n = (int) (0.20 * SAMPLE_RATE); // 200 ms = 3125 samples
+        int n = (int) (0.18 * SAMPLE_RATE); // 180 ms = 2812 samples
         short[] pcm = new short[n];
-        long rng = 0x98765432L;
-        double prev = 0;
         for (int i = 0; i < n; i++)
         {
             double t = (double) i / SAMPLE_RATE;
-            rng = rng * 1103515245L + 12345L;
-            double raw = ((rng >>> 32) & 0xFFF) / 2047.5 - 1.0;
-            double hp = (raw - prev) * 0.5; // *0.5 keeps range in [-1, 1]
-            prev = raw;
-            double env = Math.exp(-t * 11);
-            pcm[i] = (short) Math.clamp((int) (env * 1600 * hp), -2048, 2047);
+            double s1 = Math.sin(2 * Math.PI * 420 * t);
+            double s2 = Math.sin(2 * Math.PI * 710 * t);
+            double s3 = Math.sin(2 * Math.PI * 970 * t);
+            double env = Math.exp(-t * 11); // ~90 ms → open shimmer
+            double sample = env * (s1 + 0.7 * s2 + 0.4 * s3) / 2.1;
+            pcm[i] = (short) Math.clamp((int) (1500 * sample), -2048, 2047);
         }
         return pcm;
     }

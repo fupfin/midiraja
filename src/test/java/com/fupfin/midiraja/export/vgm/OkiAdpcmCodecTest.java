@@ -22,9 +22,9 @@ class OkiAdpcmCodecTest
     }
 
     @Test
-    void encode_singleSilentSample_correctOutputLength()
+    void encode_singleSample_oneOutputByte()
     {
-        // One sample → one byte (low nibble used, high nibble = 0)
+        // 1 sample → 1 byte (low nibble used, high nibble zero-padded)
         short[] pcm = { 0 };
         byte[] result = OkiAdpcmCodec.encode(pcm);
         assertEquals(1, result.length);
@@ -33,6 +33,7 @@ class OkiAdpcmCodecTest
     @Test
     void encode_twoSamples_oneOutputByte()
     {
+        // 2 samples packed into 1 byte (low nibble = sample 0, high nibble = sample 1)
         short[] pcm = { 0, 0 };
         byte[] result = OkiAdpcmCodec.encode(pcm);
         assertEquals(1, result.length);
@@ -41,9 +42,37 @@ class OkiAdpcmCodecTest
     @Test
     void encode_threeSamples_twoOutputBytes()
     {
+        // 3 samples: first byte holds samples 0 and 1; second byte holds sample 2 (high nibble zero-padded)
         short[] pcm = { 0, 0, 0 };
         byte[] result = OkiAdpcmCodec.encode(pcm);
         assertEquals(2, result.length);
+    }
+
+    @Test
+    void encode_evenSamples_halfOutputBytes()
+    {
+        // n even samples → n/2 bytes
+        short[] pcm = new short[100];
+        byte[] result = OkiAdpcmCodec.encode(pcm);
+        assertEquals(50, result.length);
+    }
+
+    @Test
+    void encode_packedLowNibbleFirst()
+    {
+        // Two non-silent samples: low nibble of output byte = first sample's nibble,
+        // high nibble = second sample's nibble. Both nibbles must be independently non-zero
+        // for a signal that drives step index upward.
+        int n = 100;
+        short[] pcm = new short[n];
+        for (int i = 0; i < n; i++)
+            pcm[i] = (short) (1000 * Math.sin(2 * Math.PI * 200.0 * i / OkiAdpcmCodec.SAMPLE_RATE));
+        byte[] result = OkiAdpcmCodec.encode(pcm);
+        // At least some bytes should have a non-zero high nibble (both nibbles used)
+        boolean anyHighNibble = false;
+        for (byte b : result)
+            if ((b & 0xF0) != 0) { anyHighNibble = true; break; }
+        assertTrue(anyHighNibble, "Packed format must use the high nibble of output bytes");
     }
 
     @Test
@@ -56,7 +85,7 @@ class OkiAdpcmCodecTest
             pcm[i] = (short) (1000 * Math.sin(2 * Math.PI * 100.0 * i / OkiAdpcmCodec.SAMPLE_RATE));
 
         byte[] adpcm = OkiAdpcmCodec.encode(pcm);
-        // Encoded length must be ceil(n/2)
+        // Packed format: ceil(n / 2) bytes
         assertEquals((n + 1) / 2, adpcm.length);
 
         // Decode and measure error on steady-state portion (skip first ~10 ms transient)
@@ -86,6 +115,7 @@ class OkiAdpcmCodecTest
     }
 
     // ── Minimal ADPCM decoder (mirrors OkiAdpcmCodec algorithm) ──────────────
+    // Input: packed format — two nibbles per byte, low nibble first, then high nibble
 
     private static short[] decode(byte[] adpcm, int sampleCount)
     {
@@ -96,17 +126,17 @@ class OkiAdpcmCodecTest
         short[] out = new short[sampleCount];
         int signal = -2;
         int step = 0;
-        int outIdx = 0;
-        for (int byteIdx = 0; byteIdx < adpcm.length && outIdx < sampleCount; byteIdx++)
+        int sampleIdx = 0;
+        for (int i = 0; i < adpcm.length && sampleIdx < sampleCount; i++)
         {
-            int b = adpcm[byteIdx] & 0xFF;
-            for (int nibbleShift = 0; nibbleShift < 8 && outIdx < sampleCount; nibbleShift += 4)
+            // low nibble first, then high nibble
+            for (int shift = 0; shift <= 4 && sampleIdx < sampleCount; shift += 4)
             {
-                int nibble = (b >> nibbleShift) & 0x0F;
+                int nibble = (adpcm[i] >> shift) & 0x0F;
                 int diff = diffLookup[step * 16 + nibble];
                 signal = Math.clamp(((diff << 8) + (signal * 245)) >> 8, -2048, 2047);
                 step = Math.clamp(step + indexShift[nibble & 7], 0, 48);
-                out[outIdx++] = (short) signal;
+                out[sampleIdx++] = (short) signal;
             }
         }
         return out;

@@ -315,18 +315,18 @@ public final class VgmWriter implements AutoCloseable
      *            stream identifier
      * @param bankType
      *            PCM bank type; 0x04 = OKIM6258 PCM
-     * @param step
-     *            step size within data block (1 for byte-per-step)
-     * @param mask
-     *            data mask applied to each byte before sending (0xFF = pass-through)
+     * @param stepSize
+     *            number of bytes to advance per sample (1 for normal mono data)
+     * @param stepBase
+     *            byte offset into each block before reading (0 for normal; 0/1 for L/R interleaved)
      */
-    public void writeDacStreamData(int streamId, int bankType, int step, int mask)
+    public void writeDacStreamData(int streamId, int bankType, int stepSize, int stepBase)
     {
         buf.write(0x91);
         buf.write(streamId & 0xFF);
         buf.write(bankType & 0xFF);
-        buf.write(step & 0xFF);
-        buf.write(mask & 0xFF);
+        buf.write(stepSize & 0xFF);
+        buf.write(stepBase & 0xFF);
     }
 
     /**
