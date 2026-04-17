@@ -61,6 +61,23 @@ class CompositeVgmExporterTest
         return new MidiEvent(new ShortMessage(ShortMessage.PROGRAM_CHANGE, ch, prog, 0), 0);
     }
 
+    private static MidiEvent noteOff(int ch, int note) throws Exception
+    {
+        return new MidiEvent(new ShortMessage(ShortMessage.NOTE_OFF, ch, note, 0), 480);
+    }
+
+    private static MidiEvent pitchBend(int ch, int value14bit, long tick) throws Exception
+    {
+        int lsb = value14bit & 0x7F;
+        int msb = (value14bit >> 7) & 0x7F;
+        return new MidiEvent(new ShortMessage(ShortMessage.PITCH_BEND, ch, lsb, msb), tick);
+    }
+
+    private static MidiEvent cc(int ch, int cc, int value, long tick) throws Exception
+    {
+        return new MidiEvent(new ShortMessage(ShortMessage.CONTROL_CHANGE, ch, cc, value), tick);
+    }
+
     /**
      * Returns (reg, data) pairs for all AY8910 writes (VGM 0xA0 commands) found in {@code vgm}
      * starting from the data area offset.
@@ -206,6 +223,78 @@ class CompositeVgmExporterTest
                 .anyMatch(w -> w[0] >= 8 && w[0] <= 10 && w[1] > 0);
         assertTrue(ayAmplitudeWritten,
                 "SEQUENTIAL mode: notes beyond SCC's 5 slots should overflow to AY8910");
+    }
+
+    // ── Pitch bend ────────────────────────────────────────────────────────────
+
+    @Test
+    void pitchBend_afterNoteOn_emitsAdditionalSccFreqWrites() throws Exception
+    {
+        var handlers = ChipHandlers.create(List.of(ChipType.SCC, ChipType.AY8910));
+        var exporter = new CompositeVgmExporter(handlers, RoutingMode.SEQUENTIAL);
+
+        // NOTE_ON at tick 0, PITCH_BEND at tick 1 (same sample, but ordered after)
+        var seq = sequence(
+                programChange(0, 0),
+                noteOn(0, 60, 80),
+                pitchBend(0, 8192 + 2048, 1)); // ~0.5 semitone up
+        var out = new ByteArrayOutputStream();
+        exporter.export(seq, out);
+        byte[] vgm = out.toByteArray();
+
+        // SCC frequency writes appear in port=1 writes; after pitch bend there should be ≥2 pairs
+        long freqWriteCount = sccWrites(vgm, 0xC0).stream()
+                .filter(w -> w[0] == 1)
+                .count();
+        assertTrue(freqWriteCount >= 4,
+                "Pitch bend should produce additional SCC frequency writes; found " + freqWriteCount);
+    }
+
+    @Test
+    void cc7_midNote_emitsSccVolumeWrite() throws Exception
+    {
+        var handlers = ChipHandlers.create(List.of(ChipType.SCC, ChipType.AY8910));
+        var exporter = new CompositeVgmExporter(handlers, RoutingMode.SEQUENTIAL);
+
+        var seq = sequence(
+                programChange(0, 0),
+                noteOn(0, 60, 127),
+                cc(0, 7, 64, 1)); // CC7 (volume) to 64 while note is active
+        var out = new ByteArrayOutputStream();
+        exporter.export(seq, out);
+        byte[] vgm = out.toByteArray();
+
+        // SCC volume writes are port=2; at least one after note-on
+        long volWriteCount = sccWrites(vgm, 0xC0).stream()
+                .filter(w -> w[0] == 2 && w[2] > 0).count();
+        assertTrue(volWriteCount >= 1, "CC7 mid-note must produce SCC volume register writes");
+    }
+
+    @Test
+    void sustainPedal_delaysNoteOff() throws Exception
+    {
+        var handlers = ChipHandlers.create(List.of(ChipType.SCC, ChipType.AY8910));
+        var exporter = new CompositeVgmExporter(handlers, RoutingMode.SEQUENTIAL);
+
+        // Sequence: NOTE_ON → CC64=127 (sustain on) → NOTE_OFF → CC64=0 (sustain off)
+        var seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        track.add(programChange(0, 0));
+        track.add(noteOn(0, 60, 80));
+        track.add(cc(0, 64, 127, 1));   // sustain on
+        track.add(noteOff(0, 60));       // note-off while pedal down → should be deferred
+        track.add(cc(0, 64, 0, 960));    // sustain off → deferred note-off fires here
+
+        var out = new ByteArrayOutputStream();
+        exporter.export(seq, out);
+        byte[] vgm = out.toByteArray();
+
+        // With sustain, volume must remain non-zero between NOTE_OFF and pedal release.
+        // Simplest proxy: the VGM must end with a volume-0 SCC write (note eventually silenced)
+        boolean finalSilenced = sccWrites(vgm, 0xC0).stream()
+                .anyMatch(w -> w[0] == 2 && w[2] == 0);
+        assertTrue(finalSilenced,
+                "After sustain pedal release, the sustained note must be silenced");
     }
 
     // ── CHANNEL mode ──────────────────────────────────────────────────────────

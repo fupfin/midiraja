@@ -133,6 +133,18 @@ final class SccHandler implements ChipHandler
     }
 
     @Override
+    public void updatePitch(int localSlot, int note, int pitchBend, int bendRangeSemitones,
+            VgmWriter w)
+    {
+        double effNote = ChipHandler.bentNote(note, pitchBend, bendRangeSemitones);
+        double freq = 440.0 * Math.pow(2.0, (effNote - 69) / 12.0);
+        int divider = Math.clamp(
+                (int) Math.round(VgmWriter.K051649_CLOCK / (16.0 * freq)) - 1, 0, 0xFFF);
+        w.writeScc(1, localSlot * 2, divider & 0xFF);
+        w.writeScc(1, localSlot * 2 + 1, (divider >> 8) & 0x0F);
+    }
+
+    @Override
     public void silenceSlot(int localSlot, VgmWriter w)
     {
         // Volume: port 2, reg = slot index

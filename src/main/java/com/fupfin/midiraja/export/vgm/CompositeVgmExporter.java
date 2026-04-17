@@ -181,6 +181,13 @@ public final class CompositeVgmExporter
         private final int[] program = new int[16]; // per MIDI channel GM program
         private final int[] cc7 = new int[16];    // MIDI CC7 volume (0-127, default 127)
         private final int[] cc11 = new int[16];   // MIDI CC11 expression (0-127, default 127)
+        private final int[] pitchBend = new int[16];    // 14-bit pitch bend (0–16383, center 8192)
+        private final int[] bendRange = new int[16];    // bend range in semitones (1–24, default 2)
+        private final int[] rpnMsb = new int[16];       // RPN MSB accumulator; 0x7F = null RPN
+        private final int[] rpnLsb = new int[16];       // RPN LSB accumulator
+        private int[] slotVelocity;                     // original unscaled velocity per global slot
+        private final boolean[] sustainActive = new boolean[16]; // CC64 sustain pedal state
+        private boolean[] sustainedSlots;               // slots held open by sustain pedal
         // CHANNEL mode: handler index assigned to each MIDI channel (-1 = unassigned)
         private final int[] chanHandler = new int[16];
         private int nextHandlerRoundRobin = 0; // round-robin counter for CHANNEL mode
@@ -212,6 +219,12 @@ public final class CompositeVgmExporter
             Arrays.fill(chanHandler, -1);
             Arrays.fill(cc7, 127);
             Arrays.fill(cc11, 127);
+            Arrays.fill(pitchBend, 8192);
+            Arrays.fill(bendRange, 2);
+            Arrays.fill(rpnMsb, 0x7F);
+            Arrays.fill(rpnLsb, 0x7F);
+            slotVelocity = new int[totalSlots];
+            sustainedSlots = new boolean[totalSlots];
         }
 
         void initSilence(VgmWriter w)
@@ -236,10 +249,34 @@ public final class CompositeVgmExporter
             switch (status)
             {
                 case ShortMessage.PROGRAM_CHANGE -> program[midiCh] = d1;
+                case ShortMessage.PITCH_BEND ->
+                {
+                    int bend = (d2 << 7) | d1; // 14-bit: d1=LSB, d2=MSB
+                    pitchBend[midiCh] = bend;
+                    for (int g = 0; g < totalSlots; g++)
+                        if (active[g] && chanSlot[g] == midiCh)
+                        {
+                            int[] hl = handlerAndLocal(g);
+                            handlers.get(hl[0]).updatePitch(
+                                    hl[1], noteSlot[g], bend, bendRange[midiCh], w);
+                        }
+                }
                 case ShortMessage.CONTROL_CHANGE ->
                 {
-                    if (d1 == 7) cc7[midiCh] = d2;
-                    else if (d1 == 11) cc11[midiCh] = d2;
+                    switch (d1)
+                    {
+                        case 7 -> { cc7[midiCh] = d2; applyVolumeToChannel(midiCh, w); }
+                        case 11 -> { cc11[midiCh] = d2; applyVolumeToChannel(midiCh, w); }
+                        case 64 -> handleSustain(midiCh, d2, w);
+                        case 100 -> rpnLsb[midiCh] = d2;
+                        case 101 -> rpnMsb[midiCh] = d2;
+                        case 6 ->
+                        {
+                            if (rpnMsb[midiCh] == 0 && rpnLsb[midiCh] == 0) // RPN 0 = pitch bend range
+                                bendRange[midiCh] = Math.clamp(d2, 1, 24);
+                        }
+                        default -> { }
+                    }
                 }
                 case ShortMessage.NOTE_ON ->
                 {
@@ -266,6 +303,7 @@ public final class CompositeVgmExporter
             noteSlot[globalSlot] = note;
             chanSlot[globalSlot] = midiCh;
             active[globalSlot] = true;
+            slotVelocity[globalSlot] = velocity; // remember for mid-note volume updates
 
             // Scale velocity by CC7 (volume) and CC11 (expression)
             int effectiveVelocity = (int) ((long) velocity * cc7[midiCh] * cc11[midiCh] / (127L * 127));
@@ -273,6 +311,9 @@ public final class CompositeVgmExporter
             int[] handlerAndLocal = handlerAndLocal(globalSlot);
             handlers.get(handlerAndLocal[0]).startNote(
                     handlerAndLocal[1], note, effectiveVelocity, program[midiCh], w);
+            if (pitchBend[midiCh] != 8192)
+                handlers.get(handlerAndLocal[0]).updatePitch(
+                        handlerAndLocal[1], note, pitchBend[midiCh], bendRange[midiCh], w);
         }
 
         /**
@@ -391,6 +432,11 @@ public final class CompositeVgmExporter
             {
                 if (active[g] && noteSlot[g] == note && chanSlot[g] == midiCh)
                 {
+                    if (sustainActive[midiCh])
+                    {
+                        sustainedSlots[g] = true; // defer note-off until pedal released
+                        return;
+                    }
                     silenceGlobalSlot(g, w);
                     active[g] = false;
                     noteSlot[g] = -1;
@@ -402,8 +448,39 @@ public final class CompositeVgmExporter
 
         private void silenceGlobalSlot(int globalSlot, VgmWriter w)
         {
+            sustainedSlots[globalSlot] = false;
             int[] hl = handlerAndLocal(globalSlot);
             handlers.get(hl[0]).silenceSlot(hl[1], w);
+        }
+
+        private void applyVolumeToChannel(int midiCh, VgmWriter w)
+        {
+            for (int g = 0; g < totalSlots; g++)
+                if (active[g] && chanSlot[g] == midiCh)
+                {
+                    int eff = (int) ((long) slotVelocity[g] * cc7[midiCh] * cc11[midiCh]
+                            / (127L * 127));
+                    int[] hl = handlerAndLocal(g);
+                    handlers.get(hl[0]).updateVolume(hl[1], eff, w);
+                }
+        }
+
+        private void handleSustain(int midiCh, int value, VgmWriter w)
+        {
+            boolean active64 = value >= 64;
+            if (!active64 && sustainActive[midiCh])
+            {
+                // Pedal released — send deferred note-offs
+                for (int g = 0; g < totalSlots; g++)
+                    if (sustainedSlots[g] && chanSlot[g] == midiCh)
+                    {
+                        silenceGlobalSlot(g, w);
+                        active[g] = false;
+                        noteSlot[g] = -1;
+                        chanSlot[g] = -1;
+                    }
+            }
+            sustainActive[midiCh] = active64;
         }
 
         private int findFreeSlot()

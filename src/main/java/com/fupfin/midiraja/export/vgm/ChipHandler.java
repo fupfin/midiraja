@@ -75,6 +75,49 @@ interface ChipHandler
     }
 
     /**
+     * Updates pitch for an active note without key-off/key-on retrigger.
+     *
+     * <p>
+     * Called when a MIDI PITCH_BEND message arrives while this slot is active.
+     * Implementations should recalculate frequency registers in place; they must
+     * <em>not</em> key-off and key-on the channel (that would restart the envelope).
+     *
+     * @param localSlot
+     *            the local slot index within this handler
+     * @param note
+     *            the original MIDI note number (without handler-internal noteOffset applied)
+     * @param pitchBend
+     *            14-bit MIDI pitch bend value (0–16383, 8192 = no bend)
+     * @param bendRangeSemitones
+     *            pitch bend range in semitones (1–24, typically 2)
+     * @param w
+     *            the VGM writer
+     */
+    default void updatePitch(int localSlot, int note, int pitchBend, int bendRangeSemitones,
+            VgmWriter w)
+    {
+    }
+
+    /**
+     * Updates volume for an active note (e.g., from mid-note CC7 or CC11 changes).
+     *
+     * <p>
+     * Only called for melodic slots; percussion volume is not updated mid-hit.
+     * Implementations should update carrier total-level registers in place without
+     * retriggering the envelope.
+     *
+     * @param localSlot
+     *            the local slot index within this handler
+     * @param velocity
+     *            new effective velocity (0–127, already scaled by CC7 and CC11)
+     * @param w
+     *            the VGM writer
+     */
+    default void updateVolume(int localSlot, int velocity, VgmWriter w)
+    {
+    }
+
+    /**
      * Writes a final all-notes-off for every output this chip controls, including any percussion
      * channel not managed by the melody slot pool.  Called once after all MIDI events have been
      * processed so that notes with missing NOTE_OFF events do not sustain into silence.
@@ -91,5 +134,21 @@ interface ChipHandler
             silenceSlot(slot, w);
         if (percussionPriority() > 0)
             handlePercussion(0, 0, w);
+    }
+
+    /**
+     * Calculates the fractional MIDI note number after applying pitch bend.
+     *
+     * @param note
+     *            original MIDI note number
+     * @param pitchBend
+     *            14-bit pitch bend value (0–16383, 8192 = center)
+     * @param bendRangeSemitones
+     *            maximum bend in semitones (1–24)
+     * @return note offset as a floating-point value for frequency calculation
+     */
+    static double bentNote(int note, int pitchBend, int bendRangeSemitones)
+    {
+        return note + (pitchBend - 8192) * bendRangeSemitones / 8192.0;
     }
 }

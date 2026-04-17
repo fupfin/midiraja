@@ -125,6 +125,17 @@ class Ay8910Handler implements ChipHandler
     }
 
     @Override
+    public void updatePitch(int localSlot, int note, int pitchBend, int bendRangeSemitones,
+            VgmWriter w)
+    {
+        double effNote = ChipHandler.bentNote(note, pitchBend, bendRangeSemitones);
+        double freq = 440.0 * Math.pow(2.0, (effNote - 69) / 12.0);
+        int tp = Math.clamp((int) Math.round(ssgClock / (16.0 * freq)), 1, 4095);
+        writeReg(w, localSlot * 2, tp & 0xFF);
+        writeReg(w, localSlot * 2 + 1, (tp >> 8) & 0x0F);
+    }
+
+    @Override
     public void finalSilence(VgmWriter w)
     {
         // Zero all three channels (including the noise slot outside the melody pool)

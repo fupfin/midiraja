@@ -32,8 +32,6 @@ import java.nio.file.Path;
 final class Ym2151Handler implements ChipHandler
 {
     private static final int SLOTS = 8;
-    /** Slot reserved for percussion (channel 7). Excluded from melodic slotCount. */
-    private static final int PERC_SLOT = SLOTS - 1;
 
     /**
      * Maps MIDI note % 12 to OPM KC note nibble.
@@ -43,6 +41,9 @@ final class Ym2151Handler implements ChipHandler
 
     /** Operator layout within a channel: slot order for reg offset per-operator. */
     private static final int[] OP_OFFSETS = { 0, 8, 16, 24 };
+
+    /** Cached patch per slot for mid-note updatePitch/updateVolume. */
+    private final WopnBankReader.Patch[] slotPatch = new WopnBankReader.Patch[SLOTS];
 
     private static final WopnBankReader WOPN_BANK = loadWopnBank();
 
@@ -67,7 +68,7 @@ final class Ym2151Handler implements ChipHandler
     @Override
     public int slotCount()
     {
-        return SLOTS - 1; // slot 7 reserved for percussion
+        return SLOTS;
     }
 
     @Override
@@ -88,6 +89,7 @@ final class Ym2151Handler implements ChipHandler
     public void startNote(int localSlot, int note, int velocity, int program, VgmWriter w)
     {
         WopnBankReader.Patch patch = WOPN_BANK.melodicPatch(program);
+        slotPatch[localSlot] = patch;
         writePatch(localSlot, patch, velocity, w);
         writeKeyOn(localSlot, note + patch.noteOffset(), w);
     }
@@ -97,6 +99,43 @@ final class Ym2151Handler implements ChipHandler
     {
         w.writeOpm(0x08, localSlot); // key-off: opMask=0
     }
+
+    @Override
+    public void updatePitch(int localSlot, int note, int pitchBend, int bendRangeSemitones,
+            VgmWriter w)
+    {
+        WopnBankReader.Patch patch = slotPatch[localSlot];
+        if (patch == null)
+            return;
+        double effNote = ChipHandler.bentNote(note + patch.noteOffset(), pitchBend,
+                bendRangeSemitones);
+        int baseNote = (int) Math.floor(effNote);
+        int octave = Math.clamp(baseNote / 12 - 1, 0, 7);
+        int kc = (octave << 4) | NOTE_TO_KC[baseNote % 12];
+        int kf = (int) ((effNote - baseNote) * 64) & 0x3F;
+        w.writeOpm(0x28 + localSlot, kc);
+        w.writeOpm(0x30 + localSlot, kf << 2); // KF in bits 7-2
+    }
+
+    @Override
+    public void updateVolume(int localSlot, int velocity, VgmWriter w)
+    {
+        WopnBankReader.Patch patch = slotPatch[localSlot];
+        if (patch == null)
+            return;
+        int alg = patch.fbalg() & 0x07;
+        for (int l = 0; l < 4; l++)
+        {
+            if (!Ym2612Handler.isCarrier(alg, l))
+                continue;
+            WopnBankReader.Operator op = patch.operators()[l];
+            int regOff = OP_OFFSETS[l] + localSlot;
+            w.writeOpm(0x60 + regOff, scaleTl(op.level(), velocity) & 0x7F);
+        }
+    }
+
+    /** Slot used for FM-patch percussion when YM2151 is the sole handler (no MSM6258). */
+    private static final int PERC_SLOT = SLOTS - 1;
 
     @Override
     public void handlePercussion(int note, int velocity, VgmWriter w)
@@ -154,7 +193,7 @@ final class Ym2151Handler implements ChipHandler
 
     private void writeKeyOn(int slot, int note, VgmWriter w)
     {
-        int octave = Math.clamp(note / 12, 0, 7);
+        int octave = Math.clamp(note / 12 - 1, 0, 7);
         int kc = (octave << 4) | NOTE_TO_KC[note % 12];
         w.writeOpm(0x28 + slot, kc);        // KC: octave + note code
         w.writeOpm(0x30 + slot, 0);          // KF: no fine pitch offset

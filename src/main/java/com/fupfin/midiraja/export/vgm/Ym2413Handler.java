@@ -20,6 +20,7 @@ final class Ym2413Handler implements ChipHandler
     private boolean rhythmMode = false;
     private int rhythmReg = 0; // current value of register 0x0E
     private final int[] vol = new int[5]; // per-instrument attenuation: 0=loud, 15=silent
+    private final int[] slotInstrument = new int[SLOTS]; // cached instrument index per slot
 
     @Override
     public ChipType chipType()
@@ -53,6 +54,7 @@ final class Ym2413Handler implements ChipHandler
     public void startNote(int localSlot, int note, int velocity, int program, VgmWriter w)
     {
         int instrument = Ym2413PatchMap.lookup(program);
+        slotInstrument[localSlot] = instrument;
         int vol = 15 - (int) Math.round(velocity * 15.0 / 127.0);
 
         int[] fb = computeFnumBlock(note);
@@ -65,6 +67,23 @@ final class Ym2413Handler implements ChipHandler
     public void silenceSlot(int localSlot, VgmWriter w)
     {
         w.writeYm2413(0x20 + localSlot, 0); // key off + clear freq
+    }
+
+    @Override
+    public void updatePitch(int localSlot, int note, int pitchBend, int bendRangeSemitones,
+            VgmWriter w)
+    {
+        double effNote = ChipHandler.bentNote(note, pitchBend, bendRangeSemitones);
+        int[] fb = computeFnumBlock(effNote);
+        w.writeYm2413(0x10 + localSlot, fb[0] & 0xFF);
+        w.writeYm2413(0x20 + localSlot, 0x10 | (fb[1] << 1) | ((fb[0] >> 8) & 0x01)); // key-on preserved
+    }
+
+    @Override
+    public void updateVolume(int localSlot, int velocity, VgmWriter w)
+    {
+        int newVol = 15 - (int) Math.round(velocity * 15.0 / 127.0);
+        w.writeYm2413(0x30 + localSlot, (slotInstrument[localSlot] << 4) | newVol);
     }
 
     @Override
@@ -121,8 +140,13 @@ final class Ym2413Handler implements ChipHandler
 
     private static int[] computeFnumBlock(int note)
     {
+        return computeFnumBlock((double) note);
+    }
+
+    private static int[] computeFnumBlock(double note)
+    {
         double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-        int block = Math.clamp(note / 12 - 1, 0, 7);
+        int block = Math.clamp((int) note / 12 - 1, 0, 7);
         int fnum = (int) Math.round(freq * 72.0 * (1L << (19 - block)) / VgmWriter.YM2413_CLOCK);
         fnum = Math.clamp(fnum, 0, 0x1FF);
         return new int[] { fnum, block };

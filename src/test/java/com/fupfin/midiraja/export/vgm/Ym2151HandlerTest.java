@@ -23,7 +23,7 @@ class Ym2151HandlerTest
 {
     private static CompositeVgmExporter composite()
     {
-        return new CompositeVgmExporter(ChipHandlers.create(ChipHandlers.PRESETS.get("x68000")));
+        return new CompositeVgmExporter(ChipHandlers.create(List.of(ChipType.YM2151)));
     }
 
     private static int readInt32Le(byte[] data, int offset)
@@ -189,6 +189,63 @@ class Ym2151HandlerTest
         List<int[]> writes = findOpmWrites(data, 0x80);
         boolean keyOn = writes.stream().anyMatch(w -> w[0] == 0x08 && (w[1] >> 3) == 0xF);
         assertTrue(keyOn, "Percussion note on drum ch9 should produce key-on (reg 0x08, opMask=0xF)");
+    }
+
+    // ── updatePitch ───────────────────────────────────────────────────────────
+
+    @Test
+    void updatePitch_changesKcKfWithoutKeyOff() throws Exception
+    {
+        var handler = new Ym2151Handler();
+        var chips = List.of(ChipType.YM2151);
+        var out = new ByteArrayOutputStream();
+        try (var w = new VgmWriter(out, chips))
+        {
+            handler.startNote(0, 69, 100, 0, w); // A4
+        }
+        List<int[]> before = findOpmWrites(out.toByteArray(), 0x80);
+        int kcCountBefore = (int) before.stream().filter(wr -> wr[0] == 0x28).count();
+
+        out = new ByteArrayOutputStream();
+        try (var w = new VgmWriter(out, chips))
+        {
+            handler.startNote(0, 69, 100, 0, w);
+            handler.updatePitch(0, 69, 8192 + 4096, 2, w); // ~1 semitone up
+        }
+        List<int[]> after = findOpmWrites(out.toByteArray(), 0x80);
+
+        // Additional KC write (reg 0x28) from updatePitch
+        int kcCountAfter = (int) after.stream().filter(wr -> wr[0] == 0x28).count();
+        assertTrue(kcCountAfter > kcCountBefore,
+                "updatePitch must write KC register (0x28) again");
+
+        // Must not emit a second key-on (reg 0x08, opMask=0xF)
+        long extraKeyOns = after.stream()
+                .filter(wr -> wr[0] == 0x08 && (wr[1] >> 3) == 0xF).count();
+        assertEquals(1, extraKeyOns,
+                "updatePitch must not retrigger the envelope (only one key-on)");
+    }
+
+    @Test
+    void updateVolume_changesTlWithoutKeyOff() throws Exception
+    {
+        var handler = new Ym2151Handler();
+        var chips = List.of(ChipType.YM2151);
+        var out = new ByteArrayOutputStream();
+        try (var w = new VgmWriter(out, chips))
+        {
+            handler.startNote(0, 69, 127, 0, w);
+            handler.updateVolume(0, 64, w);
+        }
+        List<int[]> writes = findOpmWrites(out.toByteArray(), 0x80);
+
+        // TL register base is 0x60; operators at offsets 0, 8, 16, 24 + slot
+        boolean hasTlWrite = writes.stream().anyMatch(wr -> wr[0] >= 0x60 && wr[0] <= 0x77);
+        assertTrue(hasTlWrite, "updateVolume must write OPM TL registers (0x60+)");
+
+        // No second key-on
+        long keyOns = writes.stream().filter(wr -> wr[0] == 0x08 && (wr[1] >> 3) == 0xF).count();
+        assertEquals(1, keyOns, "updateVolume must not retrigger the envelope");
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
