@@ -7,10 +7,6 @@
 
 package com.fupfin.midiraja.export.vgm;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Path;
-
 /**
  * {@link ChipHandler} for YMF262 (OPL3) — 14 melodic FM channels + 4 drum round-robin slots.
  *
@@ -19,35 +15,14 @@ import java.nio.file.Path;
  * Drum slots 14-17 → bank 1 channels 5-8. Each channel uses a 2-operator FM patch from the
  * libADLMIDI WOPL bank file.
  */
-final class Opl3Handler implements ChipHandler
+final class Opl3Handler extends AbstractOplHandler
 {
     private static final int MELODIC_SLOTS = 14;
-    private static final int DRUM_SLOTS = 4;
-    static final int TOTAL_SLOTS = MELODIC_SLOTS + DRUM_SLOTS;
 
-    private static final int[] CH_TO_MOD_OFF = {
-            0x00, 0x01, 0x02, 0x08, 0x09, 0x0A, 0x10, 0x11, 0x12
-    };
-    private static final int[] CH_TO_CAR_OFF = {
-            0x03, 0x04, 0x05, 0x0B, 0x0C, 0x0D, 0x13, 0x14, 0x15
-    };
-
-    private static final WoplBankReader WOPL_BANK = loadWoplBank();
-
-    private static WoplBankReader loadWoplBank()
+    Opl3Handler()
     {
-        try
-        {
-            return WoplBankReader.load(
-                Path.of("ext/libADLMIDI/fm_banks/wopl_files/fatman-2op.wopl"));
-        }
-        catch (IOException e)
-        {
-            throw new UncheckedIOException(e);
-        }
+        super(MELODIC_SLOTS);
     }
-
-    private int drumRoundRobin = 0;
 
     @Override
     public ChipType chipType()
@@ -58,13 +33,7 @@ final class Opl3Handler implements ChipHandler
     @Override
     public int slotCount()
     {
-        return TOTAL_SLOTS;
-    }
-
-    @Override
-    public int percussionPriority()
-    {
-        return 2; // FM rhythm mode
+        return totalSlots; // 18
     }
 
     @Override
@@ -78,112 +47,24 @@ final class Opl3Handler implements ChipHandler
     }
 
     @Override
-    public void startNote(int localSlot, int note, int velocity, int program, VgmWriter w)
+    void writeOpl(int bank, int reg, int data, VgmWriter w)
     {
-        WoplBankReader.Patch patch = (localSlot >= MELODIC_SLOTS)
-                ? drumPatch(note)
-                : WOPL_BANK.melodicPatch(program);
-        writePatch(localSlot, patch, velocity, w);
-        int freqNote = (localSlot >= MELODIC_SLOTS)
-                ? (patch.percussionKeyNumber() > 0 ? patch.percussionKeyNumber() : note)
-                        + patch.noteOffset()
-                : note + patch.noteOffset();
-        writeFreqKeyOn(localSlot, freqNote, w);
+        if (bank == 0)
+            w.writeOpl3(reg, data);
+        else
+            w.writeOpl3Bank1(reg, data);
     }
 
     @Override
-    public void silenceSlot(int localSlot, VgmWriter w)
+    int channelBankIndex(int slot)
     {
-        int bankSlot = bankAndChannelIndex(localSlot);
-        int bank = bankSlot >> 8;
-        int ch = bankSlot & 0xFF;
-        if (bank == 0)
-            w.writeOpl3(0xB0 + ch, 0);
-        else
-            w.writeOpl3Bank1(0xB0 + ch, 0);
+        return bankAndChannelIndex(slot);
     }
 
     @Override
-    public void handlePercussion(int note, int velocity, VgmWriter w)
+    int fbConnFlags()
     {
-        if (velocity == 0)
-            return;
-        int slot = MELODIC_SLOTS + drumRoundRobin;
-        drumRoundRobin = (drumRoundRobin + 1) % DRUM_SLOTS;
-        startNote(slot, note, velocity, 0, w);
-    }
-
-    private void writePatch(int slot, WoplBankReader.Patch patch, int velocity, VgmWriter w)
-    {
-        int bankSlot = bankAndChannelIndex(slot);
-        int bank = bankSlot >> 8;
-        int ch = bankSlot & 0xFF;
-        int modOff = CH_TO_MOD_OFF[ch];
-        int carOff = CH_TO_CAR_OFF[ch];
-
-        int modAVEKM = patch.modulator().avekf();
-        int modKSLTL = patch.modulator().ksltl();
-        int modARDR = patch.modulator().atdec();
-        int modSLRR = patch.modulator().susrel();
-        int modWS = patch.modulator().wave();
-        int carAVEKM = patch.carrier().avekf();
-        int carKSLTL = (patch.carrier().ksltl() & 0xC0) | scaleTl(patch.carrier().ksltl() & 0x3F, velocity);
-        int carARDR = patch.carrier().atdec();
-        int carSLRR = patch.carrier().susrel();
-        int carWS = patch.carrier().wave();
-        int fbcnt = patch.fbConn();
-
-        if (bank == 0)
-        {
-            w.writeOpl3(0x20 + modOff, modAVEKM);
-            w.writeOpl3(0x40 + modOff, modKSLTL);
-            w.writeOpl3(0x60 + modOff, modARDR);
-            w.writeOpl3(0x80 + modOff, modSLRR);
-            w.writeOpl3(0xE0 + modOff, modWS);
-            w.writeOpl3(0x20 + carOff, carAVEKM);
-            w.writeOpl3(0x40 + carOff, carKSLTL);
-            w.writeOpl3(0x60 + carOff, carARDR);
-            w.writeOpl3(0x80 + carOff, carSLRR);
-            w.writeOpl3(0xE0 + carOff, carWS);
-            w.writeOpl3(0xC0 + ch, fbcnt | 0x30);
-        }
-        else
-        {
-            w.writeOpl3Bank1(0x20 + modOff, modAVEKM);
-            w.writeOpl3Bank1(0x40 + modOff, modKSLTL);
-            w.writeOpl3Bank1(0x60 + modOff, modARDR);
-            w.writeOpl3Bank1(0x80 + modOff, modSLRR);
-            w.writeOpl3Bank1(0xE0 + modOff, modWS);
-            w.writeOpl3Bank1(0x20 + carOff, carAVEKM);
-            w.writeOpl3Bank1(0x40 + carOff, carKSLTL);
-            w.writeOpl3Bank1(0x60 + carOff, carARDR);
-            w.writeOpl3Bank1(0x80 + carOff, carSLRR);
-            w.writeOpl3Bank1(0xE0 + carOff, carWS);
-            w.writeOpl3Bank1(0xC0 + ch, fbcnt | 0x30);
-        }
-    }
-
-    private void writeFreqKeyOn(int slot, int note, VgmWriter w)
-    {
-        double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-        int block = Math.clamp(note / 12 - 1, 0, 7);
-        int fnum = (int) Math.round(freq * (1L << (20 - block)) / 49716.0);
-        fnum = Math.clamp(fnum, 0, 0x3FF);
-
-        int bankSlot = bankAndChannelIndex(slot);
-        int bank = bankSlot >> 8;
-        int ch = bankSlot & 0xFF;
-
-        if (bank == 0)
-        {
-            w.writeOpl3(0xA0 + ch, fnum & 0xFF);
-            w.writeOpl3(0xB0 + ch, 0x20 | (block << 2) | ((fnum >> 8) & 0x03));
-        }
-        else
-        {
-            w.writeOpl3Bank1(0xA0 + ch, fnum & 0xFF);
-            w.writeOpl3Bank1(0xB0 + ch, 0x20 | (block << 2) | ((fnum >> 8) & 0x03));
-        }
+        return 0x30; // OPL3 stereo L+R
     }
 
     /**
@@ -197,44 +78,5 @@ final class Opl3Handler implements ChipHandler
         if (slot < MELODIC_SLOTS)
             return (1 << 8) | (slot - 9);
         return (1 << 8) | (slot - MELODIC_SLOTS + 5);
-    }
-
-    private static WoplBankReader.Patch drumPatch(int note)
-    {
-        try
-        {
-            return WOPL_BANK.percussionPatch(note);
-        }
-        catch (IllegalArgumentException e)
-        {
-            return WOPL_BANK.melodicPatch(0);
-        }
-    }
-
-    /**
-     * Scales carrier total-level by velocity using the same logarithmic formula as
-     * libADLMIDI's {@code opnModel_genericVolume}.
-     *
-     * <p>
-     * OPL3 TL is 6-bit (0 = loudest, 63 = most attenuated); the KSL bits in the upper 2 bits of
-     * {@code ksltl} must be extracted and preserved by the caller.
-     */
-    static int scaleTl(int tl, int velocity)
-    {
-        final double c1 = 11.541560327111707;
-        final double c2 = 160.1379199767093;
-        final long minVolume = 1_108_075L; // 8725 * 127
-        long vol = (long) velocity * 127L * 127L * 127L;
-        int volume;
-        if (vol > minVolume)
-        {
-            double lv = Math.log((double) vol);
-            volume = Math.clamp((int) (lv * c1 - c2) * 2, 0, 127);
-        }
-        else
-        {
-            volume = 0;
-        }
-        return Math.clamp(63 - volume * (63 - (tl & 63)) / 127, 0, 63);
     }
 }
