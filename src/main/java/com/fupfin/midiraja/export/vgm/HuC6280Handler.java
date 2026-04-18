@@ -7,8 +7,8 @@
 
 package com.fupfin.midiraja.export.vgm;
 
+import java.io.IOException;
 import java.util.Arrays;
-import java.util.Random;
 
 /**
  * {@link ChipHandler} for the HuC6280 (PC Engine PSG).
@@ -35,7 +35,7 @@ import java.util.Random;
  *
  * <p>
  * DDA percussion: channel 5 is configured in DDA mode ({@code REG_CONTROL} bit 6 = 1). Seven
- * synthetic 5-bit unsigned PCM drum samples (values 0–31, center = 16) are embedded as PCM data
+ * 5-bit unsigned PCM drum samples (values 0–31, center = 16) derived from FluidR3_GM.sf3 are embedded as PCM data
  * blocks (type {@code 0x05}) at {@link #initSilence} time, then triggered via DAC stream play-block
  * commands ({@code 0x95}) on each percussion hit.
  *
@@ -71,8 +71,8 @@ final class HuC6280Handler implements ChipHandler
      * Array is indexed by MIDI note number (0-127).
      */
     private static final int[] NOTE_TO_DRUM = buildNoteMap();
-    /** Pre-generated 5-bit PCM drum samples (values 0-31 stored as bytes). */
-    private static final byte[][] DRUM_SAMPLES = generateDrumSamples();
+    /** 5-bit PCM drum samples loaded from classpath resources (values 0-31 stored as bytes). */
+    private static final byte[][] DRUM_SAMPLES = loadDrumSamples();
 
     /** 32-sample 5-bit unsigned sine wave approximation (values 0-31). */
     private static final int[] SINE_WAVE = {
@@ -228,154 +228,31 @@ final class HuC6280Handler implements ChipHandler
         return map;
     }
 
-    // ── 5-bit PCM drum sample generators ─────────────────────────────────────
-    //
-    // Values are 5-bit unsigned (range 0-31, center/silence = 16).
-    // Amplitude 14 gives headroom: [16-14, 16+14] = [2, 30].
-
-    private static byte[][] generateDrumSamples()
-    {
-        return new byte[][] {
-                bassDrum(),
-                snare(),
-                cymbal(),
-                closedHiHat(),
-                tom(),
-                rimShot(),
-                openHiHat()
-        };
-    }
-
-    /** Encodes a double sample in [-1, 1] to a 5-bit unsigned byte (center=16). */
-    private static byte pcm5(double sample, double amplitude)
-    {
-        return (byte) Math.clamp(16 + (int) Math.round(sample * amplitude), 0, 31);
-    }
-
     /**
-     * Bass drum: low-frequency sine sweep (80 Hz → 20 Hz) with punchy decay + brief noise attack.
+     * Loads 5-bit PCM drum samples from classpath resources.
+     *
+     * <p>
+     * Resources are generated from FluidR3_GM.sf3 by
+     * {@code scripts/extract_drum_samples.py}.
      */
-    private static byte[] bassDrum()
+    private static byte[][] loadDrumSamples()
     {
-        var rng = new Random(0x1A2B3C4DL);
-        int n = (int) (0.20 * PCM_RATE);
-        byte[] pcm = new byte[n];
-        double phase = 0;
-        for (int i = 0; i < n; i++)
+        byte[][] samples = new byte[7][];
+        for (int i = 0; i < 7; i++)
         {
-            double t = (double) i / PCM_RATE;
-            double freq = 80 * Math.pow(20.0 / 80.0, t / 0.20);
-            phase += 2 * Math.PI * freq / PCM_RATE;
-            double toneEnv = Math.exp(-t * 10) * (1 + 2 * Math.exp(-t * 40)) / 3.0;
-            double tone = Math.sin(phase) * toneEnv;
-            double noise = (rng.nextDouble() * 2.0 - 1.0) * Math.exp(-t * 150) * 0.25;
-            pcm[i] = pcm5(Math.clamp(tone + noise, -1.0, 1.0), 14.0);
+            String name = "huc6280_drum_" + i + ".bin";
+            try (var in = HuC6280Handler.class.getResourceAsStream(name))
+            {
+                if (in == null)
+                    throw new IllegalStateException(name + " not found in classpath;"
+                            + " run: python3 scripts/extract_drum_samples.py");
+                samples[i] = in.readAllBytes();
+            }
+            catch (IOException e)
+            {
+                throw new IllegalStateException("Failed to load " + name, e);
+            }
         }
-        return pcm;
-    }
-
-    /** Snare: 380 Hz snap + 220 Hz body + noise buzz. */
-    private static byte[] snare()
-    {
-        var rng = new Random(0x5E6F7A8BL);
-        int n = (int) (0.10 * PCM_RATE);
-        byte[] pcm = new byte[n];
-        for (int i = 0; i < n; i++)
-        {
-            double t = (double) i / PCM_RATE;
-            double snap = Math.sin(2 * Math.PI * 380 * t) * Math.exp(-t * 90);
-            double body = Math.sin(2 * Math.PI * 220 * t) * Math.exp(-t * 28) * 0.5;
-            double buzz = (rng.nextDouble() * 2.0 - 1.0) * Math.exp(-t * 22) * 0.8;
-            double sample = Math.clamp((snap + body + buzz) / 2.3, -1.0, 1.0);
-            pcm[i] = pcm5(sample, 14.0);
-        }
-        return pcm;
-    }
-
-    /** Crash / cymbal: broadband noise with slow decay + slight inharmonic tonal coloring. */
-    private static byte[] cymbal()
-    {
-        var rng = new Random(0x9C0D1E2FL);
-        int n = (int) (0.30 * PCM_RATE);
-        byte[] pcm = new byte[n];
-        for (int i = 0; i < n; i++)
-        {
-            double t = (double) i / PCM_RATE;
-            double env = Math.exp(-t * 9);
-            double noise = (rng.nextDouble() * 2.0 - 1.0) * 0.75;
-            double tones = (Math.sin(2 * Math.PI * 230 * t)
-                    + 0.6 * Math.sin(2 * Math.PI * 390 * t)) * 0.25 / 1.6;
-            pcm[i] = pcm5(Math.clamp(env * (noise + tones), -1.0, 1.0), 14.0);
-        }
-        return pcm;
-    }
-
-    /** Closed hi-hat: short noise burst (~8 ms). */
-    private static byte[] closedHiHat()
-    {
-        var rng = new Random(0x3F4A5B6CL);
-        int n = (int) (0.04 * PCM_RATE);
-        byte[] pcm = new byte[n];
-        for (int i = 0; i < n; i++)
-        {
-            double t = (double) i / PCM_RATE;
-            double env = Math.exp(-t * 180);
-            double noise = rng.nextDouble() * 2.0 - 1.0;
-            pcm[i] = pcm5(noise * env, 14.0);
-        }
-        return pcm;
-    }
-
-    /** Tom: mid-frequency sine sweep (150 Hz → 60 Hz) with moderate decay. */
-    private static byte[] tom()
-    {
-        int n = (int) (0.20 * PCM_RATE);
-        byte[] pcm = new byte[n];
-        double phase = 0;
-        for (int i = 0; i < n; i++)
-        {
-            double t = (double) i / PCM_RATE;
-            double freq = 150 * Math.pow(60.0 / 150.0, t / 0.20);
-            phase += 2 * Math.PI * freq / PCM_RATE;
-            double env = Math.exp(-t * 14) * (1 + Math.exp(-t * 30)) / 2.0;
-            pcm[i] = pcm5(Math.sin(phase) * env, 14.0);
-        }
-        return pcm;
-    }
-
-    /** Rim shot: noise burst + inharmonic sines (320/540 Hz) with fast decay. */
-    private static byte[] rimShot()
-    {
-        var rng = new Random(0x7D8E9FA0L);
-        int n = (int) (0.05 * PCM_RATE);
-        byte[] pcm = new byte[n];
-        for (int i = 0; i < n; i++)
-        {
-            double t = (double) i / PCM_RATE;
-            double env = Math.exp(-t * 60);
-            double tones = (0.6 * Math.sin(2 * Math.PI * 320 * t)
-                    + 0.45 * Math.sin(2 * Math.PI * 540 * t)) / 1.05;
-            double noise = (rng.nextDouble() * 2.0 - 1.0) * 0.4;
-            pcm[i] = pcm5(Math.clamp(env * (tones + noise), -1.0, 1.0), 14.0);
-        }
-        return pcm;
-    }
-
-    /** Open hi-hat: broadband noise with moderate decay (~90 ms). */
-    private static byte[] openHiHat()
-    {
-        var rng = new Random(0xB1C2D3E4L);
-        int n = (int) (0.20 * PCM_RATE);
-        byte[] pcm = new byte[n];
-        for (int i = 0; i < n; i++)
-        {
-            double t = (double) i / PCM_RATE;
-            double env = Math.exp(-t * 10);
-            double noise = rng.nextDouble() * 2.0 - 1.0;
-            double shimmer = (Math.sin(2 * Math.PI * 420 * t)
-                    + 0.5 * Math.sin(2 * Math.PI * 710 * t)) * 0.2 / 1.5;
-            pcm[i] = pcm5(Math.clamp(env * (noise * 0.85 + shimmer), -1.0, 1.0), 14.0);
-        }
-        return pcm;
+        return samples;
     }
 }

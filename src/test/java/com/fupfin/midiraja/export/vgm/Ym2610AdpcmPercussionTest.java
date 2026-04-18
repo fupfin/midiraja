@@ -67,9 +67,9 @@ class Ym2610AdpcmPercussionTest
         assertTrue(blockOffset >= 0, "VGM data block type 0x82 not found");
 
         // Structure: 0x67 0x66 type(1) dblkLen(4LE) [romTotalSize(4LE) startOfs(4LE)] data[romLen]
-        // dblkLen = 8 (prefix) + 8960 (ROM repacked to 256-byte-aligned layout) = 8968
+        // dblkLen = 8 (prefix) + 24064 (FluidR3_GM-derived ROM, 6 OKI ADPCM samples, 256-byte aligned) = 24072
         int dblkLen = readInt32Le(data, blockOffset + 3);
-        assertEquals(8968, dblkLen, "ADPCM-A ROM data block dblkLen must be 8968 (8-byte prefix + 8960 ROM)");
+        assertEquals(24072, dblkLen, "ADPCM-A ROM data block dblkLen must be 24072 (8-byte prefix + 24064 ROM)");
     }
 
     @Test
@@ -83,7 +83,7 @@ class Ym2610AdpcmPercussionTest
         // skip: 0x67(1) 0x66(1) type(1) dblkLen(4) romTotalSize(4) startOfs(4) = 15 bytes
         int romStart = blockOffset + 15;
         boolean hasNonZero = false;
-        for (int i = romStart; i < romStart + 8960 && i < data.length; i++)
+        for (int i = romStart; i < romStart + 24064 && i < data.length; i++)
         {
             if (data[i] != 0)
             {
@@ -126,55 +126,55 @@ class Ym2610AdpcmPercussionTest
     @Test
     void initSilence_ch1StartAddrLow() throws Exception
     {
-        // ch1 Snare: packed at 0x0200 (256-byte aligned) → start low = 0x0200 >> 8 = 0x02
+        // ch1 Snare: packed at 0x0A00 (256-byte aligned) → start low = 0x0A00 >> 8 = 0x0A
         boolean found = findOpnbPort1Writes(exportToBytes(emptySeq()), 0x80).stream()
-                .anyMatch(w -> w[0] == 0x11 && w[1] == 0x02);
-        assertTrue(found, "ch1 Snare start low (port-1 reg 0x11) must be 0x02");
+                .anyMatch(w -> w[0] == 0x11 && w[1] == 0x0A);
+        assertTrue(found, "ch1 Snare start low (port-1 reg 0x11) must be 0x0A");
     }
 
     @Test
     void initSilence_ch2StartAddrLow() throws Exception
     {
-        // ch2 Top Cymbal: packed at 0x0500 (256-byte aligned) → start low = 0x0500 >> 8 = 0x05
+        // ch2 Top Cymbal: packed at 0x1400 (256-byte aligned) → start low = 0x1400 >> 8 = 0x14
         boolean found = findOpnbPort1Writes(exportToBytes(emptySeq()), 0x80).stream()
-                .anyMatch(w -> w[0] == 0x12 && w[1] == 0x05);
-        assertTrue(found, "ch2 Top Cymbal start low (port-1 reg 0x12) must be 0x05");
+                .anyMatch(w -> w[0] == 0x12 && w[1] == 0x14);
+        assertTrue(found, "ch2 Top Cymbal start low (port-1 reg 0x12) must be 0x14");
     }
 
     @Test
     void initSilence_ch3StartAddrLow() throws Exception
     {
-        // ch3 High Hat: packed at 0x1D00 (256-byte aligned) → start low = 0x1D00 >> 8 = 0x1D
+        // ch3 High Hat: packed at 0x4200 (256-byte aligned) → start low = 0x4200 >> 8 = 0x42
         boolean found = findOpnbPort1Writes(exportToBytes(emptySeq()), 0x80).stream()
-                .anyMatch(w -> w[0] == 0x13 && w[1] == 0x1D);
-        assertTrue(found, "ch3 High Hat start low (port-1 reg 0x13) must be 0x1D");
+                .anyMatch(w -> w[0] == 0x13 && w[1] == 0x42);
+        assertTrue(found, "ch3 High Hat start low (port-1 reg 0x13) must be 0x42");
     }
 
     @Test
     void initSilence_ch4StartAddrLow() throws Exception
     {
-        // ch4 Tom Tom: packed at 0x1F00 (256-byte aligned) → start low = 0x1F00 >> 8 = 0x1F
+        // ch4 Tom Tom: packed at 0x4900 (256-byte aligned) → start low = 0x4900 >> 8 = 0x49
         boolean found = findOpnbPort1Writes(exportToBytes(emptySeq()), 0x80).stream()
-                .anyMatch(w -> w[0] == 0x14 && w[1] == 0x1F);
-        assertTrue(found, "ch4 Tom Tom start low (port-1 reg 0x14) must be 0x1F");
+                .anyMatch(w -> w[0] == 0x14 && w[1] == 0x49);
+        assertTrue(found, "ch4 Tom Tom start low (port-1 reg 0x14) must be 0x49");
     }
 
     @Test
     void initSilence_ch5StartAddrLow() throws Exception
     {
-        // ch5 Rim Shot: packed at 0x2200 (256-byte aligned) → start low = 0x2200 >> 8 = 0x22
+        // ch5 Rim Shot: packed at 0x5600 (256-byte aligned) → start low = 0x5600 >> 8 = 0x56
         boolean found = findOpnbPort1Writes(exportToBytes(emptySeq()), 0x80).stream()
-                .anyMatch(w -> w[0] == 0x15 && w[1] == 0x22);
-        assertTrue(found, "ch5 Rim Shot start low (port-1 reg 0x15) must be 0x22");
+                .anyMatch(w -> w[0] == 0x15 && w[1] == 0x56);
+        assertTrue(found, "ch5 Rim Shot start low (port-1 reg 0x15) must be 0x56");
     }
 
     @Test
     void initSilence_ch2EndAddrLow() throws Exception
     {
-        // ch2 Top Cymbal end: packed data ends at 0x1C3F → end low = 0x1C3F >> 8 = 0x1C
+        // ch2 Top Cymbal end: packed data ends at 0x41FF → end low = 0x41FF >> 8 = 0x41
         boolean found = findOpnbPort1Writes(exportToBytes(emptySeq()), 0x80).stream()
-                .anyMatch(w -> w[0] == 0x22 && w[1] == 0x1C);
-        assertTrue(found, "ch2 Top Cymbal end low (port-1 reg 0x22) must be 0x1C");
+                .anyMatch(w -> w[0] == 0x22 && w[1] == 0x41);
+        assertTrue(found, "ch2 Top Cymbal end low (port-1 reg 0x22) must be 0x41");
     }
 
     // ── Group 3: GM note → ADPCM channel mapping (spec by example) ────────────

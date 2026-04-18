@@ -176,14 +176,14 @@ Midiraja can convert MIDI and MOD files to VGM format in memory, then play via l
 | `megadrive` | YM2612 + SN76489 | Sega Genesis / Mega Drive: 5 FM + 1 FM percussion + 3 PSG tone voices. **Default.** |
 | `adlib` | YM3812 (OPL2) | AdLib: 9 FM voices, 2-op |
 | `pc98` | YM2608 (OPNA) | PC-98: 6 FM + 2 SSG voices + ADPCM-A native rhythm (6 built-in percussion samples) |
-| `x68000` | YM2151 (OPM) + OKI MSM6258 | Sharp X68000: 8 FM voices + PCM percussion (7 synthetic OKI ADPCM drum samples) |
+| `x68000` | YM2151 (OPM) + OKI MSM6258 | Sharp X68000: 8 FM voices + PCM percussion (7 OKI ADPCM drum samples derived from FluidR3_GM.sf3) |
 | `neogeo` | YM2610 (OPNB) | Neo Geo: 4 FM + 2 SSG voices + ADPCM-A native rhythm (6 built-in percussion samples) |
 | `neogeo-b` | YM2610B (OPNB extended) | Neo Geo MVS: 6 FM + 2 SSG voices + ADPCM-A native rhythm (6 built-in percussion samples) |
 | `pc88` | YM2203 (OPN) | PC-88: 3 FM + 2 SSG voices; no percussion |
 | `gameboy` | DMG (LR35902 APU) | Game Boy: 2 pulse + 1 wave melody voices, CH4 noise percussion |
-| `pc-engine` | HuC6280 (PC Engine PSG) | PC Engine / TurboGrafx-16: 5 wavetable melody voices + CH5 DDA PCM percussion |
+| `pc-engine` | HuC6280 (PC Engine PSG) | PC Engine / TurboGrafx-16: 5 wavetable melody voices + CH5 DDA PCM percussion (7 FluidR3_GM.sf3-derived 5-bit PCM drum samples) |
 | `nes` | NES APU (RP2A03) | NES: 2 pulse + 1 triangle melody voices, CH4 noise percussion |
-| `fm-towns` | YM3812 (OPL2) + Ricoh RF5C68 | FM Towns: 9 OPL2 melody voices + RF5C68 PCM percussion (7 synthetic 8-bit signed PCM drum samples) |
+| `fm-towns` | YM3812 (OPL2) + Ricoh RF5C68 | FM Towns: 9 OPL2 melody voices + RF5C68 PCM percussion (7 FluidR3_GM.sf3-derived 8-bit signed PCM drum samples) |
 
 Passing an unrecognised value prints the valid choices.
 
@@ -212,9 +212,40 @@ MIDI channel 9 (percussion) is always routed to the single handler with the high
 | 0 | No percussion support | SCC, YM2151 (standalone), YM2203 |
 | 1 | PSG noise channel (limited) | AY-3-8910, SN76489, DMG (CH4 noise), NES APU (CH4 noise) |
 | 2 | FM synthesis patches | YM2413, OPL3, YM2612, YM3812 |
-| 3 | ADPCM native rhythm / PCM streaming | YM2608 (ADPCM-A, 6 channels), YM2610 (ADPCM-A, 6 channels), YM2610B (ADPCM-A, 6 channels), MSM6258 (7 synthetic OKI ADPCM drum samples), HuC6280 (CH5 DDA PCM, 7 synthetic drum samples), RF5C68 (7 synthetic 8-bit signed PCM drum samples) |
+| 3 | ADPCM native rhythm / PCM streaming | YM2608 (ADPCM-A, 6 channels; hardware ROM from libvgm), YM2610 (ADPCM-A, 6 channels; FluidR3_GM.sf3-derived ROM), YM2610B (ADPCM-A, 6 channels; same FluidR3_GM.sf3-derived ROM as YM2610), MSM6258 (7 FluidR3_GM.sf3-derived OKI ADPCM drum samples), HuC6280 (CH5 DDA PCM, 7 FluidR3_GM.sf3-derived 5-bit PCM drum samples), RF5C68 (7 FluidR3_GM.sf3-derived 8-bit signed PCM drum samples) |
 
 When multiple handlers share the same maximum priority, the first one in the handler list wins. The `megadrive` preset places YM2612 (priority 2) before SN76489 (priority 1), so percussion goes to YM2612.
+
+### Percussion Sample Generation
+
+For chips without hardware-defined percussion sounds, Midiraja embeds custom samples derived from the **FluidR3_GM.sf3** soundfont. The extraction script `scripts/extract_drum_samples.py` reads the soundfont, isolates each GM drum instrument, resamples it to the target chip's sample rate, and encodes it in the chip-specific PCM format. The generated `.bin` files are stored as classpath resources under `src/main/resources/com/fupfin/midiraja/export/vgm/` and loaded at class initialization time.
+
+| Chip | Target format | Drum types | Resource files |
+|------|--------------|---------|----------------|
+| OKI MSM6258 (X68000) | 4-bit OKI ADPCM at 15,625 Hz | 7 | `msm6258_drum_0.bin`–`msm6258_drum_6.bin` |
+| HuC6280 (PC Engine) | 5-bit unsigned PCM at 22,050 Hz | 7 | `huc6280_drum_0.bin`–`huc6280_drum_6.bin` |
+| Ricoh RF5C68 (FM Towns) | 8-bit sign-magnitude PCM at 16,000 Hz | 7 | `rf5c68_drum_0.bin`–`rf5c68_drum_6.bin` |
+| YM2610 ADPCM-A (Neo Geo) | YM2610 ADPCM-A codec, 6-channel ROM | 6 | `ym2610_adpcm_a.bin` |
+
+**Drum type index mapping (shared across all chips):**
+
+| Index | Type | GM notes |
+|-------|------|---------|
+| 0 | Bass drum | 35, 36 |
+| 1 | Snare | 38, 40 |
+| 2 | Crash / cymbal | 49, 51, 52, 53, 55, 57, 59 |
+| 3 | Closed hi-hat | 42, 44 |
+| 4 | Tom | 41, 43, 45, 47, 48, 50 |
+| 5 | Rim shot | 37, 39 |
+| 6 | Open hi-hat | 46 (MSM6258, HuC6280, RF5C68 only) |
+
+The YM2610 ADPCM-A ROM packs 6 channels (indices 0–5) contiguously; GM note 46 (open hi-hat) maps to the cymbal channel (index 2) for YM2610. **YM2608** is the sole exception: its ADPCM-A ROM is the **original hardware ROM** hardcoded in libvgm (`ext/libvgm/emu/cores/fmopn_2608rom.h`, derived from real chip output); it does **not** use FluidR3-derived samples and embeds no VGM data block.
+
+To regenerate the resource files after updating FluidR3_GM.sf3 or the extraction script:
+
+```bash
+python3 scripts/extract_drum_samples.py
+```
 
 ### Voice Allocation
 
@@ -235,14 +266,14 @@ When multiple handlers share the same maximum priority, the first one in the han
 | YM3812 (OPL2) | FM | 9 melodic + 4 drum round-robin | FM synthesis (priority 2) | AdLib `adlib` preset; OPL3 subset, single bank only |
 | YM2608 (OPNA) | FM + SSG + ADPCM-A | 8 melodic (6 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | PC-98 `pc98` preset; ADPCM-A ROM is internal to libvgm (no VGM data block needed); SSG via embedded `Ay8910Handler` |
 | YM2151 (OPM) | FM | 8 melodic | None alone (priority 0); MSM6258 wins when paired (priority 3) | X68000 `x68000` preset; paired with MSM6258 for PCM percussion |
-| OKI MSM6258 | ADPCM streaming | 0 melodic (percussion only) | PCM streaming (priority 3) | X68000 `x68000` preset; 8 MHz clock / 512 divider = 15,625 Hz; 7 synthetic OKI ADPCM drum samples embedded as VGM PCM data blocks (type 0x04); triggered via DAC stream commands (0x90–0x95); VGM header clock at 0x90, flags `0x06` at 0x94 (libvgm layout: bits 0–1 = divider index 2 → /512; bit 2 = 1 → 4-bit ADPCM; bit 3 = 0 → 10-bit output) |
-| YM2610 (OPNB) | FM + SSG + ADPCM-A | 6 melodic (4 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | Neo Geo `neogeo` preset; ADPCM-A ROM loaded via VGM data block type `0x82` (`ym2610_adpcm_a.bin`); SSG via embedded `Ay8910Handler`; ADPCM-B not yet supported |
-| YM2610B (OPNB extended) | FM + SSG + ADPCM-A | 8 melodic (6 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | Neo Geo MVS `neogeo-b` preset; same VGM commands as YM2610 (`0x58`/`0x59`); bit 31 set in header clock field at `0x4C` activates YM2610B mode in libvgm; shares same `ym2610_adpcm_a.bin` ROM |
+| OKI MSM6258 | ADPCM streaming | 0 melodic (percussion only) | PCM streaming (priority 3) | X68000 `x68000` preset; 8 MHz clock / 512 divider = 15,625 Hz; 7 FluidR3_GM.sf3-derived OKI ADPCM drum samples embedded as VGM PCM data blocks (type 0x04); triggered via DAC stream commands (0x90–0x95); VGM header clock at 0x90, flags `0x06` at 0x94 (libvgm layout: bits 0–1 = divider index 2 → /512; bit 2 = 1 → 4-bit ADPCM; bit 3 = 0 → 10-bit output) |
+| YM2610 (OPNB) | FM + SSG + ADPCM-A | 6 melodic (4 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | Neo Geo `neogeo` preset; ADPCM-A ROM loaded via VGM data block type `0x82` (`ym2610_adpcm_a.bin`; FluidR3_GM.sf3-derived, 24,064 bytes); SSG via embedded `Ay8910Handler`; ADPCM-B not yet supported |
+| YM2610B (OPNB extended) | FM + SSG + ADPCM-A | 8 melodic (6 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | Neo Geo MVS `neogeo-b` preset; same VGM commands as YM2610 (`0x58`/`0x59`); bit 31 set in header clock field at `0x4C` activates YM2610B mode in libvgm; shares same FluidR3_GM.sf3-derived `ym2610_adpcm_a.bin` ROM |
 | YM2203 (OPN) | FM + SSG | 5 melodic (3 FM + 2 SSG) | None (priority 0) | PC-88 `pc88` preset; single-port VGM command `0x55`; SSG via embedded `Ay8910Handler`; `chAddr = slot` directly (0,1,2) |
 | DMG (LR35902 APU) | Pulse × 2 + Wave + Noise | 3 melodic (CH1 pulse+sweep, CH2 pulse, CH3 wave) | CH4 noise (priority 1) | Game Boy `gameboy` preset; VGM command `0xB3`; requires v1.70 VGM header (clock at offset 0x80); wave RAM initialised with sine approximation; pulse freq `x = 2048 − round(131072 / hz)`, wave freq `x = 2048 − round(65536 / hz)` |
-| HuC6280 (PC Engine PSG) | Wavetable × 5 + DDA PCM | 5 melodic | CH5 DDA PCM (priority 3); 7 synthetic drum samples via VGM DAC stream | PC Engine `pc-engine` preset; VGM command `0xB9`; requires v1.70 VGM header (clock 3,579,545 Hz at offset 0xA4); 32-sample 5-bit unsigned wave RAM per channel; `period = round(clock / (32 × hz))`; PCM bank type `0x05`, DAC stream `pp=5` selects CH5 |
+| HuC6280 (PC Engine PSG) | Wavetable × 5 + DDA PCM | 5 melodic | CH5 DDA PCM (priority 3); 7 FluidR3_GM.sf3-derived 5-bit PCM drum samples via VGM DAC stream | PC Engine `pc-engine` preset; VGM command `0xB9`; requires v1.70 VGM header (clock 3,579,545 Hz at offset 0xA4); 32-sample 5-bit unsigned wave RAM per channel; `period = round(clock / (32 × hz))`; PCM bank type `0x05`, DAC stream `pp=5` selects CH5 |
 | NES APU (RP2A03) | Pulse × 2 + Triangle + Noise | 3 melodic (CH1 pulse, CH2 pulse, CH3 triangle) | CH4 noise (priority 1) | NES `nes` preset; VGM command `0xB4`; requires v1.70 VGM header (clock 1,789,773 Hz at offset 0x84); pulse timer `= round(clock / (16 × hz)) − 1`, triangle timer `= round(clock / (32 × hz)) − 1`; constant-volume mode (no envelope); GM noise map drives noise period index (0–15) |
-| Ricoh RF5C68 | 8-channel 8-bit sign-magnitude PCM | 0 melodic (percussion only) | Direct register writes (priority 3); 7 synthetic drum samples loaded into wave RAM | FM Towns `fm-towns` preset (paired with YM3812); VGM command `0xB0`; clock 12,500,000 Hz at VGM header offset 0x40 (v1.61 header); RAM data block type `0xC0` (16-bit addressing) writes samples directly into RF5C68 wave RAM; 8-bit sign-magnitude PCM (bit 7 = sign, bits 6–0 = magnitude; 0xFF = end-of-sample marker) at 16,000 Hz; 7 synthetic samples (bassDrum, snare, cymbal, closedHiHat, tom, rimShot, openHiHat); same GM note mapping as MSM6258/HuC6280 |
+| Ricoh RF5C68 | 8-channel 8-bit sign-magnitude PCM | 0 melodic (percussion only) | Direct register writes (priority 3); 7 FluidR3_GM.sf3-derived drum samples loaded into wave RAM | FM Towns `fm-towns` preset (paired with YM3812); VGM command `0xB0`; clock 12,500,000 Hz at VGM header offset 0x40 (v1.61 header); RAM data block type `0xC0` (16-bit addressing) writes samples directly into RF5C68 wave RAM; 8-bit sign-magnitude PCM (bit 7 = sign, bits 6–0 = magnitude; 0xFF = end-of-sample marker) at 16,000 Hz; 7 FluidR3_GM.sf3-derived samples (bassDrum, snare, cymbal, closedHiHat, tom, rimShot, openHiHat; classpath resources `rf5c68_drum_0.bin`–`rf5c68_drum_6.bin`); same GM note mapping as MSM6258/HuC6280 |
 
 ### Conversion Architecture
 
@@ -259,9 +290,9 @@ MusicFormatLoader.load()
 
 Each handler (`Ay8910Handler`, `Ym2413Handler`, `SccHandler`, `Opl3Handler`, `Ym2612Handler`, `Sn76489Handler`, `Ym3812Handler`, `Ym2608Handler`, `Ym2151Handler`, `Ym2610Handler`, `Ym2610BHandler`, `Ym2203Handler`, `DmgHandler`, `HuC6280Handler`, `NesApuHandler`, `Msm6258Handler`, `Rf5c68Handler`) translates MIDI note-on/note-off/CC events into the target chip's register writes, generating valid VGM data.
 
-`Ym2610Handler` embeds a VGM ROM data block (type `0x82`, command `0x67 0x66`) at the start of the stream containing the 8192-byte ADPCM-A ROM (`ym2610_adpcm_a.bin`, identical to `fmopn_2608rom.h`). The block uses the ROM data block format: an 8-byte prefix `[romTotalSize:4LE][startOffset:4LE]` followed by the ROM payload, so `dblkLen = 8200`. This block must precede any ADPCM-A register writes so that VGM players can load the ROM into the emulated chip before samples are triggered. `Ym2608Handler` does **not** embed a data block because YM2608's ADPCM-A ROM is hardcoded inside libvgm (`fmopn_2608rom.h`).
+`Ym2610Handler` embeds a VGM ROM data block (type `0x82`, command `0x67 0x66`) at the start of the stream containing the 24,064-byte ADPCM-A ROM (`ym2610_adpcm_a.bin`). Unlike `ym2608_adpcm_a.bin` which is copied from the hardware-verified ROM in libvgm (`fmopn_2608rom.h`), `ym2610_adpcm_a.bin` contains six FluidR3_GM.sf3-derived drum samples encoded in the YM2610 ADPCM-A codec by `scripts/extract_drum_samples.py`. The block uses the ROM data block format: an 8-byte prefix `[romTotalSize:4LE][startOffset:4LE]` followed by the ROM payload, so `dblkLen = 24072`. This block must precede any ADPCM-A register writes so that VGM players can load the ROM into the emulated chip before samples are triggered. `Ym2608Handler` does **not** embed a data block because YM2608's ADPCM-A ROM is hardcoded inside libvgm (`fmopn_2608rom.h`).
 
-`Msm6258Handler` (used in the `x68000` preset alongside `Ym2151Handler`) embeds 7 PCM data blocks (type `0x04`, command `0x67 0x66 0x04`) during `initSilence()`, one for each synthetic drum sample. Unlike ROM data blocks (types `0x80`–`0xBF`), PCM bank blocks (types `0x00`–`0x3F`) use no 8-byte prefix — the payload is raw ADPCM data. The MSM6258 has no internal ROM; it streams ADPCM data directly via the VGM DAC stream mechanism:
+`Msm6258Handler` (used in the `x68000` preset alongside `Ym2151Handler`) embeds 7 PCM data blocks (type `0x04`, command `0x67 0x66 0x04`) during `initSilence()`, one per drum sample. Unlike ROM data blocks (types `0x80`–`0xBF`), PCM bank blocks (types `0x00`–`0x3F`) use no 8-byte prefix — the payload is raw ADPCM data. The MSM6258 has no internal ROM; it streams ADPCM data directly via the VGM DAC stream mechanism:
 
 - **0x90** — Set up stream (streamId=0, chipType=0x17 OKIM6258, port=0, reg=0x01)
 - **0x91** — Assign data bank (bankType=0x04, stepSize=1, stepBase=0x00)
@@ -269,7 +300,7 @@ Each handler (`Ay8910Handler`, `Ym2413Handler`, `SccHandler`, `Opl3Handler`, `Ym
 - **0x94** — Stop stream
 - **0x95** — Play single block (streamId=0, blockIdx=0–6, flags=0)
 
-Drum samples are synthetic OKI ADPCM waveforms generated at class load time by `OkiAdpcmCodec` (algorithm from `ext/libvgm/emu/cores/okim6258.c`). GM note mapping: 35/36 → block 0 (bass drum), 38/40 → block 1 (snare), 49/51/52/53/55/57/59 → block 2 (crash/cymbal), 42/44 → block 3 (closed hi-hat), 41/43/45/47/48/50 → block 4 (tom), 37/39 → block 5 (rim shot), 46 → block 6 (open hi-hat).
+Seven drum samples derived from FluidR3_GM.sf3 are stored as classpath resources (`msm6258_drum_0.bin`–`msm6258_drum_6.bin`) and loaded at class initialization. The OKI ADPCM algorithm follows `ext/libvgm/emu/cores/okim6258.c` (low nibble first; step shifts `[-1,-1,-1,-1, 2,4,6,8]`; leaky integrator accumulator). See `scripts/extract_drum_samples.py` for the extraction and encoding details. GM note mapping: 35/36 → block 0 (bass drum), 38/40 → block 1 (snare), 49/51/52/53/55/57/59 → block 2 (crash/cymbal), 42/44 → block 3 (closed hi-hat), 41/43/45/47/48/50 → block 4 (tom), 37/39 → block 5 (rim shot), 46 → block 6 (open hi-hat).
 
 `Rf5c68Handler` (used in the `fm-towns` preset alongside `Ym3812Handler`) uploads all 7 drum samples in a single RAM data block (type `0xC0`, command `0x67 0x66 0xC0`) during `initSilence()`. Type `0xC0` uses 16-bit addressing (`[startAddr:2LE]` prefix, `len = 2 + dataLen`) and is routed by libvgm's `Cmd_DataBlock` directly to `cDev->romWrite`, writing into the RF5C68's actual wave RAM — unlike PCM bank types `0x00`–`0x3F` which only fill an internal DAC streaming buffer. Unlike DAC streaming chips (MSM6258, HuC6280), the RF5C68 is driven exclusively via direct register writes (`0xB0`). Samples use 8-bit **sign-magnitude** encoding (bit 7 = 1 → positive, bit 7 = 0 → negative; `0xFF` is the hardware end-of-sample marker and forbidden as audio; silence = `0x80`) at 16,000 Hz.
 
