@@ -116,6 +116,18 @@ task downloadFluidR3Sf3(type: Exec) {
     commandLine 'curl', '-L', url, '-o', destFile.absolutePath
 }
 
+task extractDrumSamples(type: Exec) {
+    description = 'Extracts and encodes drum samples from FluidR3_GM.sf3 into classpath resources.'
+    dependsOn downloadFluidR3Sf3
+    def sf3File = file("${buildDir}/soundfonts/FluidR3_GM.sf3")
+    def script = file("scripts/extract_drum_samples.py")
+    def resourceDir = file("src/main/resources/com/fupfin/midiraja/export/vgm")
+    inputs.files(sf3File, script)
+    outputs.files((0..6).collect { i -> new File(resourceDir, "rf5c68_drum_${i}.bin") } +
+                  (0..6).collect { i -> new File(resourceDir, "msm6258_drum_${i}.bin") })
+    commandLine 'python3', script.absolutePath
+}
+
 dependencies {
     implementation 'org.jspecify:jspecify:1.0.0'
     implementation 'info.picocli:picocli:4.7.5'

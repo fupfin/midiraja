@@ -38,7 +38,8 @@ public final class ChipHandlers
             entry("neogeo-b",   List.of(ChipType.YM2610B)),
             entry("gameboy",    List.of(ChipType.DMG)),
             entry("pc-engine",  List.of(ChipType.HUC6280)),
-            entry("nes",        List.of(ChipType.NES_APU))
+            entry("nes",        List.of(ChipType.NES_APU)),
+            entry("fm-towns",   List.of(ChipType.YM3812, ChipType.RF5C68))
     );
 
     private ChipHandlers()
@@ -90,6 +91,7 @@ public final class ChipHandlers
                 case HUC6280 -> new HuC6280Handler();
                 case NES_APU -> new NesApuHandler();
                 case MSM6258 -> new Msm6258Handler();
+                case RF5C68 -> new Rf5c68Handler();
             });
         }
         return handlers;

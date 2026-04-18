@@ -49,6 +49,8 @@ public final class VgmWriter implements AutoCloseable
     static final int NES_APU_CLOCK = 1_789_773;
     static final int MSM6258_CLOCK = 8_000_000;
     static final int MSM6258_SAMPLE_RATE = 15_625; // clock / 512 divider
+    static final int RF5C68_CLOCK = 12_500_000;
+    static final int RF5C68_SAMPLE_RATE = 16_000;
     static final int VGM_SAMPLE_RATE = 44100;
 
     // ── Header sizes ──────────────────────────────────────────────────────────
@@ -260,6 +262,46 @@ public final class VgmWriter implements AutoCloseable
         buf.write(0xB7);
         buf.write(reg & 0xFF);
         buf.write(data & 0xFF);
+    }
+
+    /** Ricoh RF5C68 PCM register write (command 0xB0). */
+    public void writeRf5c68(int reg, int data)
+    {
+        buf.write(0xB0);
+        buf.write(reg & 0xFF);
+        buf.write(data & 0xFF);
+    }
+
+    /**
+     * RF5C68 wave RAM data block (command 0x67 0x66 0xC0, 16-bit addressing).
+     *
+     * <p>
+     * Writes data directly into the RF5C68 chip's wave RAM at the given start address.
+     * libvgm routes type 0xC0 to {@code cDev->romWrite}, which updates the chip's
+     * actual wave RAM — unlike type 0x01 which only fills an internal DAC streaming buffer.
+     *
+     * <p>
+     * Format: {@code [0x67][0x66][0xC0][len:4LE][startAddr:2LE][data...]},
+     * where {@code len = 2 + data.length}.
+     *
+     * @param startAddr
+     *            byte address in RF5C68 wave RAM (0x0000–0xFFFF)
+     * @param data
+     *            raw sign-magnitude PCM bytes to write into wave RAM
+     */
+    public void writeRf5c68Ram(int startAddr, byte[] data)
+    {
+        int len = 2 + data.length;
+        buf.write(0x67);
+        buf.write(0x66);
+        buf.write(0xC0);
+        buf.write(len & 0xFF);
+        buf.write((len >> 8) & 0xFF);
+        buf.write((len >> 16) & 0xFF);
+        buf.write((len >> 24) & 0xFF);
+        buf.write(startAddr & 0xFF);
+        buf.write((startAddr >> 8) & 0xFF);
+        buf.writeBytes(data);
     }
 
     /**
@@ -530,6 +572,10 @@ public final class VgmWriter implements AutoCloseable
             else if (chips.contains(ChipType.YM2610))
                 int32Le(data, 0x4C, YM2610_CLOCK);
 
+            // RF5C68 PCM clock at 0x40
+            if (chips.contains(ChipType.RF5C68))
+                int32Le(data, 0x40, RF5C68_CLOCK);
+
             // YM2203 (OPN) clock at 0x44
             if (chips.contains(ChipType.YM2203))
                 int32Le(data, 0x44, YM2203_CLOCK);
@@ -565,7 +611,10 @@ public final class VgmWriter implements AutoCloseable
         if (chips.contains(ChipType.MSM6258))
         {
             int32Le(data, 0x90, MSM6258_CLOCK);
-            data[0x94] = 0x02; // /512 divider (bit 1), 10-bit output (bit 2 = 0)
+            // libvgm flag layout (bits 0-1 = divider index, bit2 = ADPCM type, bit3 = output bits):
+            //   dividers[] = {1024, 768, 512, 512} → index 2 (bits 1-0 = 0b10) → /512 = 15 625 Hz
+            //   bit2 = 1 → MSM6258_ADPCM_4B; bit3 = 0 → 10-bit output
+            data[0x94] = 0x06;
         }
     }
 

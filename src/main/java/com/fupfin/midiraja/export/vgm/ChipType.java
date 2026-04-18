@@ -91,5 +91,13 @@ public enum ChipType
      * DAC stream mechanism (PCM data block type 0x04). VGM header offset 0x90 (clock),
      * 0x94 (flags: 0x02 = /512 divider, 10-bit output). Requires v1.70 header.
      */
-    MSM6258
+    MSM6258,
+
+    /**
+     * Ricoh RF5C68 PCM — 8-channel 8-bit signed PCM, 12.5 MHz clock.
+     * Used for PCM percussion on the FM Towns. Data is streamed via the VGM DAC stream
+     * mechanism (PCM data block type 0x06, chip type 0x05). VGM header offset 0x40 (clock).
+     * Requires v1.61 header.
+     */
+    RF5C68
 }

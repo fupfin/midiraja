@@ -183,6 +183,7 @@ Midiraja can convert MIDI and MOD files to VGM format in memory, then play via l
 | `gameboy` | DMG (LR35902 APU) | Game Boy: 2 pulse + 1 wave melody voices, CH4 noise percussion |
 | `pc-engine` | HuC6280 (PC Engine PSG) | PC Engine / TurboGrafx-16: 5 wavetable melody voices + CH5 DDA PCM percussion |
 | `nes` | NES APU (RP2A03) | NES: 2 pulse + 1 triangle melody voices, CH4 noise percussion |
+| `fm-towns` | YM3812 (OPL2) + Ricoh RF5C68 | FM Towns: 9 OPL2 melody voices + RF5C68 PCM percussion (7 synthetic 8-bit signed PCM drum samples) |
 
 Passing an unrecognised value prints the valid choices.
 
@@ -211,7 +212,7 @@ MIDI channel 9 (percussion) is always routed to the single handler with the high
 | 0 | No percussion support | SCC, YM2151 (standalone), YM2203 |
 | 1 | PSG noise channel (limited) | AY-3-8910, SN76489, DMG (CH4 noise), NES APU (CH4 noise) |
 | 2 | FM synthesis patches | YM2413, OPL3, YM2612, YM3812 |
-| 3 | ADPCM native rhythm / PCM streaming | YM2608 (ADPCM-A, 6 channels), YM2610 (ADPCM-A, 6 channels), YM2610B (ADPCM-A, 6 channels), MSM6258 (7 synthetic OKI ADPCM drum samples), HuC6280 (CH5 DDA PCM, 7 synthetic drum samples) |
+| 3 | ADPCM native rhythm / PCM streaming | YM2608 (ADPCM-A, 6 channels), YM2610 (ADPCM-A, 6 channels), YM2610B (ADPCM-A, 6 channels), MSM6258 (7 synthetic OKI ADPCM drum samples), HuC6280 (CH5 DDA PCM, 7 synthetic drum samples), RF5C68 (7 synthetic 8-bit signed PCM drum samples) |
 
 When multiple handlers share the same maximum priority, the first one in the handler list wins. The `megadrive` preset places YM2612 (priority 2) before SN76489 (priority 1), so percussion goes to YM2612.
 
@@ -234,13 +235,14 @@ When multiple handlers share the same maximum priority, the first one in the han
 | YM3812 (OPL2) | FM | 9 melodic + 4 drum round-robin | FM synthesis (priority 2) | AdLib `adlib` preset; OPL3 subset, single bank only |
 | YM2608 (OPNA) | FM + SSG + ADPCM-A | 8 melodic (6 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | PC-98 `pc98` preset; ADPCM-A ROM is internal to libvgm (no VGM data block needed); SSG via embedded `Ay8910Handler` |
 | YM2151 (OPM) | FM | 8 melodic | None alone (priority 0); MSM6258 wins when paired (priority 3) | X68000 `x68000` preset; paired with MSM6258 for PCM percussion |
-| OKI MSM6258 | ADPCM streaming | 0 melodic (percussion only) | PCM streaming (priority 3) | X68000 `x68000` preset; 8 MHz clock / 512 divider = 15,625 Hz; 7 synthetic OKI ADPCM drum samples embedded as VGM PCM data blocks (type 0x04); triggered via DAC stream commands (0x90–0x95); VGM header clock at 0x90, flags 0x02 at 0x94 |
+| OKI MSM6258 | ADPCM streaming | 0 melodic (percussion only) | PCM streaming (priority 3) | X68000 `x68000` preset; 8 MHz clock / 512 divider = 15,625 Hz; 7 synthetic OKI ADPCM drum samples embedded as VGM PCM data blocks (type 0x04); triggered via DAC stream commands (0x90–0x95); VGM header clock at 0x90, flags `0x06` at 0x94 (libvgm layout: bits 0–1 = divider index 2 → /512; bit 2 = 1 → 4-bit ADPCM; bit 3 = 0 → 10-bit output) |
 | YM2610 (OPNB) | FM + SSG + ADPCM-A | 6 melodic (4 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | Neo Geo `neogeo` preset; ADPCM-A ROM loaded via VGM data block type `0x82` (`ym2610_adpcm_a.bin`); SSG via embedded `Ay8910Handler`; ADPCM-B not yet supported |
 | YM2610B (OPNB extended) | FM + SSG + ADPCM-A | 8 melodic (6 FM + 2 SSG) | ADPCM-A native rhythm (priority 3) | Neo Geo MVS `neogeo-b` preset; same VGM commands as YM2610 (`0x58`/`0x59`); bit 31 set in header clock field at `0x4C` activates YM2610B mode in libvgm; shares same `ym2610_adpcm_a.bin` ROM |
 | YM2203 (OPN) | FM + SSG | 5 melodic (3 FM + 2 SSG) | None (priority 0) | PC-88 `pc88` preset; single-port VGM command `0x55`; SSG via embedded `Ay8910Handler`; `chAddr = slot` directly (0,1,2) |
 | DMG (LR35902 APU) | Pulse × 2 + Wave + Noise | 3 melodic (CH1 pulse+sweep, CH2 pulse, CH3 wave) | CH4 noise (priority 1) | Game Boy `gameboy` preset; VGM command `0xB3`; requires v1.70 VGM header (clock at offset 0x80); wave RAM initialised with sine approximation; pulse freq `x = 2048 − round(131072 / hz)`, wave freq `x = 2048 − round(65536 / hz)` |
 | HuC6280 (PC Engine PSG) | Wavetable × 5 + DDA PCM | 5 melodic | CH5 DDA PCM (priority 3); 7 synthetic drum samples via VGM DAC stream | PC Engine `pc-engine` preset; VGM command `0xB9`; requires v1.70 VGM header (clock 3,579,545 Hz at offset 0xA4); 32-sample 5-bit unsigned wave RAM per channel; `period = round(clock / (32 × hz))`; PCM bank type `0x05`, DAC stream `pp=5` selects CH5 |
 | NES APU (RP2A03) | Pulse × 2 + Triangle + Noise | 3 melodic (CH1 pulse, CH2 pulse, CH3 triangle) | CH4 noise (priority 1) | NES `nes` preset; VGM command `0xB4`; requires v1.70 VGM header (clock 1,789,773 Hz at offset 0x84); pulse timer `= round(clock / (16 × hz)) − 1`, triangle timer `= round(clock / (32 × hz)) − 1`; constant-volume mode (no envelope); GM noise map drives noise period index (0–15) |
+| Ricoh RF5C68 | 8-channel 8-bit sign-magnitude PCM | 0 melodic (percussion only) | Direct register writes (priority 3); 7 synthetic drum samples loaded into wave RAM | FM Towns `fm-towns` preset (paired with YM3812); VGM command `0xB0`; clock 12,500,000 Hz at VGM header offset 0x40 (v1.61 header); RAM data block type `0xC0` (16-bit addressing) writes samples directly into RF5C68 wave RAM; 8-bit sign-magnitude PCM (bit 7 = sign, bits 6–0 = magnitude; 0xFF = end-of-sample marker) at 16,000 Hz; 7 synthetic samples (bassDrum, snare, cymbal, closedHiHat, tom, rimShot, openHiHat); same GM note mapping as MSM6258/HuC6280 |
 
 ### Conversion Architecture
 
@@ -255,19 +257,34 @@ MusicFormatLoader.load()
    └─ vgm_open_file(ctx, path)
 ```
 
-Each handler (`Ay8910Handler`, `Ym2413Handler`, `SccHandler`, `Opl3Handler`, `Ym2612Handler`, `Sn76489Handler`, `Ym3812Handler`, `Ym2608Handler`, `Ym2151Handler`, `Ym2610Handler`, `Ym2610BHandler`, `Ym2203Handler`, `DmgHandler`, `HuC6280Handler`, `NesApuHandler`, `Msm6258Handler`) translates MIDI note-on/note-off/CC events into the target chip's register writes, generating valid VGM data.
+Each handler (`Ay8910Handler`, `Ym2413Handler`, `SccHandler`, `Opl3Handler`, `Ym2612Handler`, `Sn76489Handler`, `Ym3812Handler`, `Ym2608Handler`, `Ym2151Handler`, `Ym2610Handler`, `Ym2610BHandler`, `Ym2203Handler`, `DmgHandler`, `HuC6280Handler`, `NesApuHandler`, `Msm6258Handler`, `Rf5c68Handler`) translates MIDI note-on/note-off/CC events into the target chip's register writes, generating valid VGM data.
 
 `Ym2610Handler` embeds a VGM ROM data block (type `0x82`, command `0x67 0x66`) at the start of the stream containing the 8192-byte ADPCM-A ROM (`ym2610_adpcm_a.bin`, identical to `fmopn_2608rom.h`). The block uses the ROM data block format: an 8-byte prefix `[romTotalSize:4LE][startOffset:4LE]` followed by the ROM payload, so `dblkLen = 8200`. This block must precede any ADPCM-A register writes so that VGM players can load the ROM into the emulated chip before samples are triggered. `Ym2608Handler` does **not** embed a data block because YM2608's ADPCM-A ROM is hardcoded inside libvgm (`fmopn_2608rom.h`).
 
 `Msm6258Handler` (used in the `x68000` preset alongside `Ym2151Handler`) embeds 7 PCM data blocks (type `0x04`, command `0x67 0x66 0x04`) during `initSilence()`, one for each synthetic drum sample. Unlike ROM data blocks (types `0x80`–`0xBF`), PCM bank blocks (types `0x00`–`0x3F`) use no 8-byte prefix — the payload is raw ADPCM data. The MSM6258 has no internal ROM; it streams ADPCM data directly via the VGM DAC stream mechanism:
 
 - **0x90** — Set up stream (streamId=0, chipType=0x17 OKIM6258, port=0, reg=0x01)
-- **0x91** — Assign data bank (bankType=0x04, step=1, mask=0xFF)
-- **0x92** — Set playback frequency (15,625 Hz = clock 8,000,000 / divider 512)
+- **0x91** — Assign data bank (bankType=0x04, stepSize=1, stepBase=0x00)
+- **0x92** — Set playback frequency (7,812 Hz = sample rate 15,625 / 2; each packed byte holds 2 nibbles so byte-feed rate is half the sample rate)
 - **0x94** — Stop stream
 - **0x95** — Play single block (streamId=0, blockIdx=0–6, flags=0)
 
 Drum samples are synthetic OKI ADPCM waveforms generated at class load time by `OkiAdpcmCodec` (algorithm from `ext/libvgm/emu/cores/okim6258.c`). GM note mapping: 35/36 → block 0 (bass drum), 38/40 → block 1 (snare), 49/51/52/53/55/57/59 → block 2 (crash/cymbal), 42/44 → block 3 (closed hi-hat), 41/43/45/47/48/50 → block 4 (tom), 37/39 → block 5 (rim shot), 46 → block 6 (open hi-hat).
+
+`Rf5c68Handler` (used in the `fm-towns` preset alongside `Ym3812Handler`) uploads all 7 drum samples in a single RAM data block (type `0xC0`, command `0x67 0x66 0xC0`) during `initSilence()`. Type `0xC0` uses 16-bit addressing (`[startAddr:2LE]` prefix, `len = 2 + dataLen`) and is routed by libvgm's `Cmd_DataBlock` directly to `cDev->romWrite`, writing into the RF5C68's actual wave RAM — unlike PCM bank types `0x00`–`0x3F` which only fill an internal DAC streaming buffer. Unlike DAC streaming chips (MSM6258, HuC6280), the RF5C68 is driven exclusively via direct register writes (`0xB0`). Samples use 8-bit **sign-magnitude** encoding (bit 7 = 1 → positive, bit 7 = 0 → negative; `0xFF` is the hardware end-of-sample marker and forbidden as audio; silence = `0x80`) at 16,000 Hz.
+
+Wave RAM layout: 7 samples each padded to a 256-byte boundary (required because the ST start register encodes addresses as `reg × 256`), followed by a 2-byte silent-loop stub `[0x80, 0xFF]`. All channels set their loop address (LSL/LSH) to point to this stub, giving one-shot playback with silent looping after the sample ends.
+
+The `initSilence()` sequence:
+
+- Write RAM data block (type `0xC0`, startAddr=0) to load all samples into wave RAM
+- `[0xB0, 0x07, 0x80]` — enable chip (reg 0x07 bit 7 = 1; bit 6 = 0 → wbank-select mode)
+- `[0xB0, 0x08, 0xFF]` — disable all channels (inverted: bit N = 1 means disabled)
+- For each channel 0–6: `[0xB0, 0x07, 0xC0|ch]` → channel-select; then set ENV, PAN, FDL/FDH (frequency step), LSL/LSH (silent-loop address), ST (sample start = byte_offset/256)
+
+On note-on: disable the channel (`[0xB0, 0x08, X]` with bit set) to reset its address to the sample start, then immediately re-enable it (`[0xB0, 0x08, X]` with bit clear) to begin playback — allows clean retriggering. On note-off: disable the channel.
+
+The RF5C68 clock (12,500,000 Hz) is patched at VGM header offset **0x40**, which falls within the v1.61 header range (0x80 bytes) — no v1.70 extension is required. GM note mapping is identical to MSM6258 and HuC6280.
 
 **Key design points:**
 

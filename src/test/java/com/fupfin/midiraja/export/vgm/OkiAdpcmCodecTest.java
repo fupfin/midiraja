@@ -99,21 +99,6 @@ class OkiAdpcmCodecTest
         assertTrue(avgErr < 204, "Average ADPCM round-trip error too large: " + avgErr);
     }
 
-    @Test
-    void generateDrumSamples_returns7Arrays()
-    {
-        byte[][] samples = OkiAdpcmCodec.generateDrumSamples();
-        assertEquals(OkiAdpcmCodec.DRUM_COUNT, samples.length);
-    }
-
-    @Test
-    void generateDrumSamples_allNonEmpty()
-    {
-        byte[][] samples = OkiAdpcmCodec.generateDrumSamples();
-        for (int i = 0; i < samples.length; i++)
-            assertTrue(samples[i].length > 0, "Drum sample " + i + " must not be empty");
-    }
-
     // ── Minimal ADPCM decoder (mirrors OkiAdpcmCodec algorithm) ──────────────
     // Input: packed format — two nibbles per byte, low nibble first, then high nibble
 

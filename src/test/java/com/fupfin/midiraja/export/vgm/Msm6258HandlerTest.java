@@ -80,7 +80,8 @@ class Msm6258HandlerTest
     void export_msm6258FlagsSet() throws Exception
     {
         byte[] data = export(emptySeq());
-        assertEquals(0x02, data[0x94] & 0xFF);
+        // libvgm flag layout: bits 0-1 = divider index (2 = /512 → 15625 Hz), bit2 = ADPCM type (1 = 4-bit)
+        assertEquals(0x06, data[0x94] & 0xFF);
     }
 
     // ── initSilence structure ─────────────────────────────────────────────────
@@ -99,9 +100,11 @@ class Msm6258HandlerTest
     {
         byte[] data = export(emptySeq());
         List<int[]> cmds = parseCommands(data);
+        // Each packed byte holds 2 nibbles (2 samples); byte-feed rate = sample_rate / 2
+        int expectedFreq = VgmWriter.MSM6258_SAMPLE_RATE / 2;
         boolean found = cmds.stream().anyMatch(c -> c[0] == 0x92
-                && readInt32Le(data, c[1] + 2) == VgmWriter.MSM6258_SAMPLE_RATE);
-        assertTrue(found, "Expected 0x92 command with 15625 Hz frequency");
+                && readInt32Le(data, c[1] + 2) == expectedFreq);
+        assertTrue(found, "Expected 0x92 command with " + expectedFreq + " Hz frequency");
     }
 
     @Test
