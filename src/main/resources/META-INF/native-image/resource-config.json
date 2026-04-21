@@ -1,7 +1,8 @@
 {
   "resources":{
     "includes":[
-      {"pattern":"META-INF/services/javax.sound.midi.spi.MidiDeviceProvider"}
+      {"pattern":"META-INF/services/javax.sound.midi.spi.MidiDeviceProvider"},
+      {"pattern":"opm/.*\\.bin"}
     ]
   }
 }

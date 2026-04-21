@@ -41,7 +41,7 @@ public final class VgmWriter implements AutoCloseable
     static final int YMF262_CLOCK = 14_318_180;
     static final int YM3812_CLOCK = 3_579_545;
     static final int YM2608_CLOCK = 7_987_200;
-    static final int YM2151_CLOCK = 4_000_000;
+    static final int YM2151_CLOCK = 3_579_545;
     static final int YM2610_CLOCK = 8_000_000;
     static final int YM2203_CLOCK = 3_993_600;
     static final int DMG_CLOCK = 4_194_304;

@@ -109,13 +109,24 @@ class Ym2151HandlerTest
         composite().export(seq, out);
         byte[] data = out.toByteArray();
 
-        for (int i = 0x80; i < data.length; i++)
+        // Walk the VGM command stream properly so that data bytes inside valid 0x54
+        // commands are not mistaken for command bytes.
+        for (int i = 0x80; i < data.length; )
         {
             int cmd = data[i] & 0xFF;
+            if (cmd == 0x66)
+                break; // end of data
             // YM2612 commands: 0x52/0x53; OPL3 commands: 0x5E/0x5F
             assertFalse(cmd == 0x52 || cmd == 0x53 || cmd == 0x5E || cmd == 0x5F,
                     "YM2151 must use 0x54 commands only, found unexpected command: 0x"
                             + Integer.toHexString(cmd) + " at offset " + i);
+            // Advance by command length:
+            // 3-byte chip-write commands: 0x50-0x5F
+            // 3-byte wait: 0x61
+            // 1-byte short wait: 0x62/0x63/0x70-0x7F
+            if (cmd >= 0x50 && cmd <= 0x5F) i += 3;
+            else if (cmd == 0x61) i += 3;
+            else i += 1;
         }
     }
 

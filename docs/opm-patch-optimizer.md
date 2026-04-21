@@ -1,95 +1,212 @@
 # OPM Patch Optimizer
 
-OPN `.wopn` 뱅크를 출발점으로, FluidSynth(SF2)를 레퍼런스 삼아 OPM(YM2151) FM 패치를
-자동 최적화하여 GM 128 악기 뱅크를 생성하는 오프라인 도구.
+Offline tool that automatically optimises GM 128-instrument OPM (YM2151) FM patches,
+starting from a `.wopn` (OPN) bank and using Differential Evolution to search the
+FM parameter space.
 
 ---
 
-## 배경
+## Background
 
-OPM(YM2151)과 OPN(YM2203/YM2612)은 4-op FM 구조가 거의 동일하므로, libOPNMIDI의 `.wopn`
-뱅크를 OPM 레지스터 포맷으로 변환하면 GM 128 악기의 출발점 패치를 바로 얻을 수 있다.
-여기서 FluidSynth로 렌더링한 SF2 오디오를 레퍼런스로 삼아, 유사도가 높아지는 방향으로
-FM 파라미터를 반복 최적화한다. `BeepSynthProvider`의 God Table 생성과 동일한 오프라인
-최적화 패턴이다.
+OPM (YM2151) and OPN (YM2203/YM2612) share an almost identical 4-op FM structure,
+so libOPNMIDI's `.wopn` bank provides a warm-start set of 128 GM patches after a
+straightforward register conversion (DT2 = 0 for all operators).
+
+The optimiser then searches for OPM-specific parameters — primarily DT1 (fine detune
+between operators) and LFO — that improve harmonic richness while keeping the tonal
+character close to the WOPN source.
 
 ---
 
-## 파이프라인
+## Pipeline
 
 ```
-.wopn 뱅크 (OPN GM 패치)
-        ↓ OPN → OPM 파라미터 변환 (DT2=0)
-초기 OPM 패치 세트 (128 악기)
+.wopn bank (OPN GM patches)
+        ↓  OPN → OPM parameter conversion (DT2=0)
+Initial OPM patch set (128 instruments)
         ↓
-┌─────────────────────────────────────┐
-│  최적화 루프 (악기별)                 │
-│                                     │
-│  FluidSynth → 레퍼런스 PCM           │
-│  ymfm YM2151 → 후보 PCM             │
-│          ↓                          │
-│    유사도 점수 계산                   │
-│          ↓                          │
-│  파라미터 변이 (CMA-ES / DE)         │
-│          ↓                          │
-│    수렴 판정 → 다음 악기             │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│  Optimisation loop (per instrument)      │
+│                                          │
+│  WOPN-OPM reference render (fixed)       │
+│  DE candidate render (YM2151 via ymfm)   │
+│           ↓                              │
+│    Audio-domain fitness                  │
+│           ↓                              │
+│  Parameter mutation (Differential Evo.)  │
+│           ↓                              │
+│    Convergence check → next instrument   │
+└──────────────────────────────────────────┘
         ↓
-최적화된 OPM 뱅크 (.wopm 또는 JSON)
+opm_gm.bin (52 bytes/patch binary bank)
 ```
 
 ---
 
-## 유사도 점수
+## Fitness Function History
 
-복합 점수 = α·MFCC거리 + β·스펙트럼엔벨로프 + γ·RMS엔벨로프
+### v1 — FluidSynth SF2 reference + MFCC (abandoned)
 
-| 지표 | 역할 | 가중치 (초기값) |
-|------|------|----------------|
-| **MFCC 거리** | 음색(timbre) 유사도 — 청각적으로 가장 자연스러움 | α = 0.5 |
-| **스펙트럼 엔벨로프** | 배음 구조 비교 | β = 0.3 |
-| **RMS 엔벨로프** | Attack/Decay/Sustain/Release 형태 매칭 | γ = 0.2 |
-
-여러 음정(C3, C4, C5 등)에서 측정한 점수를 평균하여 음역대 전반에 걸친 품질을 보장한다.
+**Reference**: FluidSynth sample-based rendering.
+**Fitness**: MFCC distance + spectral envelope + RMS envelope.
+**Result**: "Toy sound" — FM synthesis cannot converge toward sample-based audio.
+The MFCC landscape is too noisy; DE found parameter combinations that scored well
+numerically but sounded wrong perceptually.
 
 ---
 
-## 최적화 알고리즘
+### v2 — FluidSynth SF2 reference + CLAP audio embedding
 
-**CMA-ES** (Covariance Matrix Adaptation Evolution Strategy) 또는 **차분 진화(Differential
-Evolution)**를 사용한다. FM 파라미터 공간은 비볼록(non-convex)이고 불연속적이므로
-기울기 기반 방법은 적합하지 않다.
-
-최적화 대상 파라미터 (연속값으로 정규화 후 처리):
-- 각 op별: TL, AR, D1R, D2R, RR, SL, MUL, DT, DT2, KS, AM (44 파라미터)
-- 채널 공통: Algorithm (0–7), Feedback (0–7)
-
-Algorithm과 MUL은 이산값이므로 별도로 그리드 탐색하거나 반올림 처리한다.
+**Reference**: FluidSynth audio embedded via `laion/clap-htsat-unfused`.
+**Fitness**: α·CLAP cosine distance + γ·RMS envelope + β·spectral richness.
+**Weights**: α=0.60, γ=0.20, β=0.20.
+**Result**: Still "toy sound". CLAP embeds both timbre and recording conditions;
+FM patches that sound clean in isolation are mapped far from wet SF2 samples.
+The fundamental problem (sample-vs-FM) persists regardless of the embedding space.
 
 ---
 
-## 도전 과제
+### v3 — OPM-rendered WOPN reference + ADSR locked from WOPN + carrier DT1 penalty
 
-- **FM 파라미터 공간의 불연속성** — Algorithm, MUL 등 이산 파라미터의 작은 변화가 음색을
-  급격하게 바꾼다. 이산 파라미터는 후보군을 별도로 탐색하는 것이 효과적이다.
-- **Strings / Choir 계열** — 긴 어택과 느린 진폭 변조가 특징인 패드 음색은 FM으로 근사하기
-  어렵다. 목표치를 낮추거나 별도 전략(예: LFO AM 활용)이 필요하다.
-- **최적화 시간** — 128 악기 × 여러 음정 × 수천 세대 반복 → 오프라인 배치 실행 필수.
-  병렬화(악기별 독립 실행)로 시간을 단축한다.
-- **주관적 품질** — MFCC 점수가 높아도 귀에 어색한 경우가 있다. 자동 최적화 후 사람이
-  검토·미세 조정하는 단계를 두는 것이 현실적이다.
+**Backup**: `scripts/gen_opm_bank_v3_wopn_adsr_carrier_penalty.py`
+**Bank snapshot**: `ext/opm_gm_bank/opm_gm.bin.v3_wopn_adsr_carrier_penalty`
+
+**Key changes from v2**:
+- Reference is the **WOPN patch rendered through OPM** (not FluidSynth).
+  Avoids the sample-vs-FM imitation problem entirely.
+- **ADSR locked**: KS, AR, AM, D1R, D2R, D1L, RR are taken directly from the WOPN
+  warm-start and are not part of the DE search space. This preserves the attack
+  character of the WOPN bank (solving the "weak attack / dull sound" problem on X68000).
+- **DE vector reduced** from 48 → 16 integers: `[ALG, FB, PMS, AMS, (DT1, MUL, TL)×4]`.
+- **GAMMA (RMS envelope cosine distance) removed**: with ADSR fixed, every candidate
+  produces the same envelope shape as the reference — GAMMA always ≈ 0 and contributes
+  no gradient.
+- **`_carrier_param_penalty()`**: parameter-space penalty that discourages DT1 ≠ 0 and
+  MUL ≠ 1 on carrier operators, added to prevent pitch drift/dissonance on sustained notes.
+
+**Fitness**:
+```
+fitness = ALPHA(0.70) × log-mel spectral distance  (from OPM-rendered WOPN reference)
+        + DELTA(0.10) × absolute level distance     (carrier TL drift prevention)
+        − BETA(0.20)  × harmonic richness reward    (upper-mel energy bonus)
+        + carrier_param_penalty(p)                  (parameter-space heuristic)
+```
+
+**Known limitation**: FM synthesis is highly nonlinear — a small parameter change can
+produce a completely different sound. The `_carrier_param_penalty()` evaluates parameters
+directly rather than rendered audio, which is philosophically inconsistent with the
+audio-based fitness. DT1=1 on a carrier might be perfectly acceptable for some instruments,
+but the rule penalises it unconditionally. A better approach would be to detect pitch
+stability directly in the rendered audio (e.g., fundamental frequency drift measurement).
 
 ---
 
-## 구현 계획
+### v4 — ALG locked + carrier MUL and DT1 locked
 
-| 단계 | 내용 |
-|------|------|
-| 1 | `.wopn` 파서 + OPN→OPM 파라미터 변환기 |
-| 2 | ymfm YM2151 렌더러 래퍼 (Java FFM 또는 standalone C 도구) |
-| 3 | FluidSynth 레퍼런스 렌더러 (기존 FFMFluidSynthBridge 활용 가능) |
-| 4 | MFCC / 스펙트럼 유사도 계산기 |
-| 5 | CMA-ES / DE 최적화 루프 |
-| 6 | 결과 뱅크 직렬화 (`.wopm` 또는 JSON → 최종 OPM 레지스터 테이블) |
+**Key changes from v3**:
+- **ALG locked from WOPN**: algorithm is not part of the DE search space.
+- **Carrier MUL locked to WOPN value**: instead of ±1 window, carrier MUL is fixed exactly.
+  Modulator MUL uses ±1 window. DE vector reduced from 11 to effectively fewer free variables
+  depending on carrier count per ALG.
+- **Carrier DT1 locked to WOPN value**: DT1 on carriers causes output pitch deviation (DT1=5
+  on a carrier can shift pitch by hundreds of cents). Only modulator DT1 is free (0–7).
+- **TL locked from WOPN**: removed from search space (DELTA level-distance term no longer needed).
 
-단계 1–4는 독립적으로 구현·검증 가능하며, 단계 5는 단계 1–4가 완성된 후 조립한다.
+**Observations that drove the change (2026-04-20)**:
+
+1. *Bass volume loss*: AcousticBass (prog 32) moved from ALG=2 (2-carrier parallel) to
+   ALG=0 (serial chain) with MUL=8 on the first modulator. In a serial chain, the FM
+   modulation index β becomes extremely large at low notes, suppressing the fundamental
+   via the Bessel J₀ factor → significantly lower perceived bass volume vs YM2612 reference.
+   Fix: lock ALG from WOPN.
+
+2. *Melody pitch 1–2 octaves too high (first)*: ±1 MUL constraint applied uniformly to all
+   operators allowed carrier MUL to shift by 1 (e.g. 1→2 = +1 octave, 2→4 = +2 octaves).
+   Fix: carrier MUL locked exactly to WOPN value; only modulator MUL uses ±1 window.
+   Carriers are identified per ALG using the standard OPM carrier mask.
+
+3. *Melody pitch still too high (second)*: Even with carrier MUL locked, DE changed carrier
+   DT1 values (e.g. JazzGuitar OP4 carrier: DT1 WOPN=0 → DE=5). OPM DT1 values 4–7 are
+   large negative fine-detune; at certain notes this becomes hundreds of cents of deviation.
+   Fix: carrier DT1 also locked to WOPN value.
+
+ALG is a structural design decision of the WOPN patch author encoding carrier/modulator
+topology. DE has no musical knowledge and should not override it.
+
+**Fitness** (same as v3, DELTA term removed):
+```
+fitness = ALPHA(0.70) × log-mel spectral distance  (from OPM-rendered WOPN reference)
+        − BETA(0.20)  × harmonic richness reward    (upper-mel energy bonus)
+        + HPS pitch penalty                         (audio-domain carrier pitch stability)
+```
+
+---
+
+### v4 implementation bugs fixed (2026-04-21)
+
+Two crashes were encountered when running the v4 full 128-instrument generation.
+Both manifested as the same exception at program 125 ("* Helicopter") after all other
+instruments had completed:
+
+```
+ValueError: One of the integrality constraints does not have any possible integer
+values between the lower/upper bounds.
+```
+
+#### Bug 1 — carrier bounds lower == upper rejected by scipy
+
+**Root cause**: When locking a carrier parameter (DT1 or MUL) to its WOPN value `v`,
+the bounds were set to `(v, v)`. `scipy.differential_evolution` validates integer-
+constrained parameters by checking `ceil(lower) <= floor(upper)`; for `lower == upper`
+this is satisfied mathematically, but scipy rejected it in the version used.
+
+**Fix**: Use a narrow float range `(v - 0.4, v + 0.4)` with `integrality=False`.
+`int(round(x))` in the decode step rounds back to `v` for any value in that range,
+so the parameter is still effectively locked.
+
+#### Bug 2 — modulator MUL upper bound clipped to 8 (OPM MUL is 4-bit, 0–15)
+
+**Root cause**: The bounds for modulator MUL used `min(8, op['MUL'] + 1)`. This was
+copied from earlier code that assumed MUL was limited to 0–8. OPM MUL is a 4-bit field
+(0–15). Program 125 ("* Helicopter") has modulator operators with MUL=15:
+
+```
+lower = max(0, 15 - 1) = 14
+upper = min(8, 15 + 1) = 8   ← lower > upper → ValueError
+```
+
+This caused a crash in every run because the parallel workers reach program 125
+deterministically at roughly the same time.
+
+**Fix**: Change `min(8, op['MUL'] + 1)` to `min(15, op['MUL'] + 1)`.
+
+#### Final bounds code (v4, after fixes)
+
+```python
+op_bounds = []
+op_integrality = []
+for op, is_carrier in zip(wopn_ops, carriers):
+    if is_carrier:
+        # scipy rejects lower==upper for integer constraints.
+        # Use narrow float range; int(round(x)) still locks to the same integer.
+        op_bounds += [(op['DT1'] - 0.4, op['DT1'] + 0.4),
+                      (op['MUL'] - 0.4, op['MUL'] + 0.4)]
+        op_integrality += [False, False]
+    else:
+        op_bounds += [(0, 7),
+                      (max(0, op['MUL'] - 1), min(15, op['MUL'] + 1))]
+        op_integrality += [True, True]
+```
+
+---
+
+## Challenges
+
+- **FM parameter space discontinuity** — ALG, MUL, and DT1 are discrete; small changes
+  can cause large timbre jumps. The search landscape is highly non-convex.
+- **Strings / Choir / Pad** — Long attacks and slow amplitude modulation are hard to
+  approximate with FM. Separate strategies (LFO AM, longer envelopes) may be needed.
+- **Optimisation time** — 128 instruments × 3 notes × hundreds of generations → offline
+  batch execution with per-instrument parallelism.
+- **Subjective quality** — A good fitness score does not guarantee a good-sounding patch.
+  Human review and manual fine-tuning after automated optimisation is recommended.
