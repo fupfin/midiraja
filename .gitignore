@@ -61,3 +61,4 @@ docs/complexity-analysis.md
 docs/superpowers/
 .sdkmanrc
 .aider*
+__pycache__/
