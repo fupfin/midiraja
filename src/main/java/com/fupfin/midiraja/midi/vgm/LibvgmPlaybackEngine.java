@@ -7,6 +7,9 @@
 
 package com.fupfin.midiraja.midi.vgm;
 
+import static java.lang.Math.max;
+
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -15,7 +18,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
+import javax.sound.midi.MetaMessage;
+import javax.sound.midi.MidiEvent;
+import javax.sound.midi.MidiMessage;
 import javax.sound.midi.Sequence;
+import javax.sound.midi.ShortMessage;
 
 import com.fupfin.midiraja.dsp.SpectrumAnalyzerFilter;
 import com.fupfin.midiraja.engine.PlaybackEngine;
@@ -36,6 +44,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
 {
     private static final int STARTUP_DELAY_MS = 500;
     private static final int POLL_MS = 50;
+    private static final int DEFAULT_US_PER_QUARTER = 500_000;
 
     private final LibvgmSynthProvider provider;
     private final Sequence sequence;
@@ -70,6 +79,10 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     private volatile Consumer<Boolean> shuffleCallback = null;
     @SuppressWarnings("NullAway")
     private volatile SpectrumAnalyzerFilter spectrumFilter = null;
+    private final List<TimedMidiEvent> timedMidiEvents;
+    private final int[] channelPrograms = new int[16];
+    private int midiEventCursor = 0;
+    private long midiCursorUs = 0;
 
     public LibvgmPlaybackEngine(Sequence sequence, LibvgmSynthProvider provider,
             PlaylistContext context)
@@ -77,6 +90,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
         this.sequence = sequence;
         this.provider = provider;
         this.context = context;
+        this.timedMidiEvents = buildTimedMidiEvents(sequence);
     }
 
     // ── PlaybackEngine lifecycle ──────────────────────────────────────────────
@@ -196,7 +210,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public int[] getChannelPrograms()
     {
-        return new int[16];
+        return channelPrograms;
     }
 
     @Override
@@ -268,7 +282,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public boolean isSpectrumMode()
     {
-        return spectrumFilter != null;
+        return spectrumFilter != null && timedMidiEvents.isEmpty();
     }
 
     @Override
@@ -388,6 +402,110 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
         listeners.forEach(l -> l.onSpectrumUpdate(lv));
     }
 
+    /** Visible for tests: advances MIDI channel/program visualization up to target time. */
+    void updateMidiVisualization(long targetUs)
+    {
+        if (timedMidiEvents.isEmpty())
+            return;
+        if (targetUs < midiCursorUs)
+            resetMidiVisualization(targetUs);
+        while (midiEventCursor < timedMidiEvents.size()
+                && timedMidiEvents.get(midiEventCursor).microseconds() <= targetUs)
+        {
+            applyMidiVisualizationEvent(timedMidiEvents.get(midiEventCursor).message(), true);
+            midiEventCursor++;
+        }
+        midiCursorUs = targetUs;
+    }
+
+    private void resetMidiVisualization(long targetUs)
+    {
+        Arrays.fill(channelPrograms, 0);
+        midiEventCursor = 0;
+        while (midiEventCursor < timedMidiEvents.size()
+                && timedMidiEvents.get(midiEventCursor).microseconds() < targetUs)
+        {
+            applyMidiVisualizationEvent(timedMidiEvents.get(midiEventCursor).message(), false);
+            midiEventCursor++;
+        }
+        midiCursorUs = targetUs;
+    }
+
+    private void applyMidiVisualizationEvent(MidiMessage message, boolean emitChannelActivity)
+    {
+        if (!(message instanceof ShortMessage sm))
+            return;
+        int channel = sm.getChannel();
+        if (sm.getCommand() == ShortMessage.PROGRAM_CHANGE)
+            channelPrograms[channel] = sm.getData1() & 0x7F;
+        if (emitChannelActivity && sm.getCommand() == ShortMessage.NOTE_ON && sm.getData2() > 0)
+        {
+            int velocity = sm.getData2() & 0x7F;
+            listeners.forEach(l -> l.onChannelActivity(channel, velocity));
+        }
+    }
+
+    private record TimedMidiEvent(long microseconds, MidiMessage message)
+    {
+    }
+
+    static List<TimedMidiEvent> buildTimedMidiEvents(Sequence sequence)
+    {
+        List<MidiEvent> events = Arrays.stream(sequence.getTracks())
+                .flatMap(track -> IntStream.range(0, track.size()).mapToObj(track::get))
+                .sorted(java.util.Comparator.comparingLong(MidiEvent::getTick))
+                .toList();
+        if (events.isEmpty())
+            return List.of();
+
+        if (sequence.getDivisionType() == Sequence.PPQ)
+            return buildPpqTimedEvents(sequence, events);
+        return buildSmpteTimedEvents(sequence, events);
+    }
+
+    private static List<TimedMidiEvent> buildPpqTimedEvents(Sequence sequence, List<MidiEvent> events)
+    {
+        long currentUs = 0;
+        long lastTick = 0;
+        int usPerQuarter = DEFAULT_US_PER_QUARTER;
+        int resolution = sequence.getResolution();
+        var out = new java.util.ArrayList<TimedMidiEvent>(events.size());
+
+        for (MidiEvent event : events)
+        {
+            long tick = event.getTick();
+            currentUs += (tick - lastTick) * usPerQuarter / resolution;
+            out.add(new TimedMidiEvent(currentUs, event.getMessage()));
+            lastTick = tick;
+
+            int tempo = tempoUsPerQuarter(event.getMessage());
+            if (tempo > 0)
+                usPerQuarter = tempo;
+        }
+        return out;
+    }
+
+    private static List<TimedMidiEvent> buildSmpteTimedEvents(Sequence sequence, List<MidiEvent> events)
+    {
+        double ticksPerSecond = sequence.getDivisionType() * sequence.getResolution();
+        double usPerTick = 1_000_000.0 / max(1.0, ticksPerSecond);
+        var out = new java.util.ArrayList<TimedMidiEvent>(events.size());
+        for (MidiEvent event : events)
+            out.add(new TimedMidiEvent((long) (event.getTick() * usPerTick), event.getMessage()));
+        return out;
+    }
+
+    private static int tempoUsPerQuarter(MidiMessage message)
+    {
+        if (!(message instanceof MetaMessage meta) || meta.getType() != 0x51)
+            return -1;
+        byte[] data = meta.getData();
+        if (data.length < 3)
+            return -1;
+        int us = ((data[0] & 0xFF) << 16) | ((data[1] & 0xFF) << 8) | (data[2] & 0xFF);
+        return us > 0 ? us : -1;
+    }
+
     private Boolean runRenderLoopTask(PlaybackUI ui) throws Exception
     {
         ui.runRenderLoop(this);
@@ -442,6 +560,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
                 }
                 // Rebase: choose startMs so that (epoch - startMs - pausedMs) * 1000 == seekedUs
                 startMs = epoch - pausedMs - seekedUs / 1000L;
+                resetMidiVisualization(seekedUs);
             }
 
             boolean curPaused = isPaused.get();
@@ -463,6 +582,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
                 currentMicroseconds.set(elapsed);
                 long us = elapsed;
                 listeners.forEach(l -> l.onTick(us));
+                updateMidiVisualization(us);
                 fireSpectrumLevels();
             }
 
@@ -483,6 +603,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
             currentMicroseconds.set(total);
         long us = currentMicroseconds.get();
         listeners.forEach(l -> l.onTick(us));
+        updateMidiVisualization(us);
 
         try
         {
