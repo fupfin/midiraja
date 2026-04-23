@@ -473,7 +473,7 @@ public class PlaybackRunner
         if (quietMode)
             return new UIResult(new DumbUI(true), false);
         if (uiOpts.classicMode)
-            return new UIResult(new DumbUI(false), false);
+            return new UIResult(new DumbUI(false, isInteractive), false);
         if (uiOpts.miniMode)
             return new UIResult(new LineUI(), false);
         if (uiOpts.fullMode)

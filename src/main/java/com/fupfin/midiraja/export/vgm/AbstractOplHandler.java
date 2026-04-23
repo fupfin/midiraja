@@ -33,14 +33,14 @@ abstract class AbstractOplHandler implements ChipHandler
     };
 
     private static final int DRUM_SLOTS = 4;
-    private static final WoplBankReader WOPL_BANK = loadWoplBank();
 
     private static WoplBankReader loadWoplBank()
     {
+        Path path = FmBankOverride.oplBankPath()
+                .orElse(Path.of("ext/libADLMIDI/fm_banks/wopl_files/fatman-2op.wopl"));
         try
         {
-            return WoplBankReader.load(
-                    Path.of("ext/libADLMIDI/fm_banks/wopl_files/fatman-2op.wopl"));
+            return WoplBankReader.load(path);
         }
         catch (IOException e)
         {
@@ -50,6 +50,7 @@ abstract class AbstractOplHandler implements ChipHandler
 
     protected final int melodicSlots;
     protected final int totalSlots;
+    private final WoplBankReader woplBank;
     private int drumRoundRobin = 0;
     private final WoplBankReader.Patch[] slotPatch;
 
@@ -57,6 +58,7 @@ abstract class AbstractOplHandler implements ChipHandler
     {
         this.melodicSlots = melodicSlots;
         this.totalSlots = melodicSlots + DRUM_SLOTS;
+        this.woplBank = loadWoplBank();
         this.slotPatch = new WoplBankReader.Patch[totalSlots];
     }
 
@@ -89,7 +91,7 @@ abstract class AbstractOplHandler implements ChipHandler
     {
         WoplBankReader.Patch patch = (localSlot >= melodicSlots)
                 ? drumPatch(note)
-                : WOPL_BANK.melodicPatch(program);
+                : woplBank.melodicPatch(program);
         slotPatch[localSlot] = patch;
         writePatch(localSlot, patch, velocity, w);
         int freqNote = (localSlot >= melodicSlots)
@@ -192,15 +194,15 @@ abstract class AbstractOplHandler implements ChipHandler
         writeOpl(bank, 0xB0 + ch, 0x20 | (block << 2) | ((fnum >> 8) & 0x03), w);
     }
 
-    private static WoplBankReader.Patch drumPatch(int note)
+    private WoplBankReader.Patch drumPatch(int note)
     {
         try
         {
-            return WOPL_BANK.percussionPatch(note);
+            return woplBank.percussionPatch(note);
         }
         catch (IllegalArgumentException e)
         {
-            return WOPL_BANK.melodicPatch(0);
+            return woplBank.melodicPatch(0);
         }
     }
 

@@ -29,13 +29,13 @@ abstract class AbstractOpnHandler implements ChipHandler
     /** Hardware slot offsets within a port for operators S1, S3, S2, S4. */
     static final int[] OP_SLOT_OFFSETS = { 0, 4, 8, 12 };
 
-    private static final WopnBankReader WOPN_BANK = loadWopnBank();
-
     private static WopnBankReader loadWopnBank()
     {
+        Path path = FmBankOverride.opnBankPath()
+                .orElse(Path.of("ext/libOPNMIDI/fm_banks/gm.wopn"));
         try
         {
-            return WopnBankReader.load(Path.of("ext/libOPNMIDI/fm_banks/gm.wopn"));
+            return WopnBankReader.load(path);
         }
         catch (IOException e)
         {
@@ -44,11 +44,13 @@ abstract class AbstractOpnHandler implements ChipHandler
     }
 
     protected final int fmSlots;
+    private final WopnBankReader wopnBank;
     private final WopnBankReader.Patch[] slotPatch;
 
     AbstractOpnHandler(int fmSlots)
     {
         this.fmSlots = fmSlots;
+        this.wopnBank = loadWopnBank();
         this.slotPatch = new WopnBankReader.Patch[fmSlots];
     }
 
@@ -74,15 +76,15 @@ abstract class AbstractOpnHandler implements ChipHandler
     abstract int chOf(int slot);
 
     /** Exposes the shared WOPN bank so subclasses (e.g. for LFO init) can read it. */
-    static WopnBankReader wopnBank()
+    final WopnBankReader wopnBank()
     {
-        return WOPN_BANK;
+        return wopnBank;
     }
 
     @Override
     public void startNote(int localSlot, int note, int velocity, int program, VgmWriter w)
     {
-        startNoteWithPatch(localSlot, WOPN_BANK.melodicPatch(program), note, velocity, w);
+        startNoteWithPatch(localSlot, wopnBank.melodicPatch(program), note, velocity, w);
     }
 
     /**

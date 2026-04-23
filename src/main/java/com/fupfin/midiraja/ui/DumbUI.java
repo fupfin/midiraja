@@ -22,16 +22,23 @@ import com.fupfin.midiraja.io.TerminalIO;
 public class DumbUI implements PlaybackUI
 {
     private final boolean quiet;
+    private final boolean inputEnabled;
     private boolean headerPrinted = false;
 
     public DumbUI()
     {
-        this(false);
+        this(false, false);
     }
 
     public DumbUI(boolean quiet)
     {
+        this(quiet, false);
+    }
+
+    public DumbUI(boolean quiet, boolean inputEnabled)
+    {
         this.quiet = quiet;
+        this.inputEnabled = inputEnabled;
     }
 
     @Override
@@ -106,7 +113,13 @@ public class DumbUI implements PlaybackUI
     @Override
     public void runInputLoop(PlaybackCommands engine)
     {
-        // No input handling in dumb mode
+        if (inputEnabled)
+        {
+            InputLoopRunner.run(engine, InputHandler::handleCommonInput);
+            return;
+        }
+
+        // Non-interactive dumb mode: wait for playback to finish.
         try
         {
             while (engine.isPlaying())

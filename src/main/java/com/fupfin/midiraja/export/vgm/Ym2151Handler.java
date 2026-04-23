@@ -10,6 +10,8 @@ package com.fupfin.midiraja.export.vgm;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * {@link ChipHandler} for YM2151 (OPM) — 7 melodic FM channels + 1 percussion FM channel.
@@ -50,8 +52,7 @@ final class Ym2151Handler implements ChipHandler
 
     /** Cached patch per slot for mid-note updatePitch/updateVolume. */
     private final OpmBankReader.Patch[] slotPatch = new OpmBankReader.Patch[SLOTS];
-
-    private static final OpmBankReader OPM_BANK = loadOpmBank();
+    private final OpmBankReader opmBank = loadOpmBank();
 
     /**
      * Loads the OPM GM bank from {@code /opm/opm_gm.bin} on the classpath
@@ -60,6 +61,19 @@ final class Ym2151Handler implements ChipHandler
      */
     private static OpmBankReader loadOpmBank()
     {
+        var override = FmBankOverride.opmBankPath();
+        if (override.isPresent())
+        {
+            Path path = override.get();
+            try
+            {
+                return OpmBankReader.load(Files.readAllBytes(path));
+            }
+            catch (IOException e)
+            {
+                throw new UncheckedIOException(e);
+            }
+        }
         try (InputStream in = Ym2151Handler.class.getResourceAsStream("/opm/opm_gm.bin"))
         {
             if (in == null)
@@ -102,7 +116,7 @@ final class Ym2151Handler implements ChipHandler
     @Override
     public void startNote(int localSlot, int note, int velocity, int program, VgmWriter w)
     {
-        OpmBankReader.Patch patch = OPM_BANK.melodicPatch(program);
+        OpmBankReader.Patch patch = opmBank.melodicPatch(program);
         slotPatch[localSlot] = patch;
         writePatch(localSlot, patch, w);
         writeKeyOn(localSlot, note + patch.noteOffset(), w);
@@ -151,7 +165,7 @@ final class Ym2151Handler implements ChipHandler
         OpmBankReader.Patch patch;
         try
         {
-            patch = OPM_BANK.percussionPatch(note);
+            patch = opmBank.percussionPatch(note);
         }
         catch (IllegalArgumentException e)
         {

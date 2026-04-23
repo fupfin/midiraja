@@ -35,6 +35,7 @@ import com.fupfin.midiraja.export.vgm.ChipHandlers;
 import com.fupfin.midiraja.export.vgm.ChipSpec;
 import com.fupfin.midiraja.export.vgm.ChipType;
 import com.fupfin.midiraja.export.vgm.CompositeVgmExporter;
+import com.fupfin.midiraja.export.vgm.FmBankOverride;
 import com.fupfin.midiraja.export.vgm.RoutingMode;
 import com.fupfin.midiraja.format.MusicFormatLoader;
 import com.fupfin.midiraja.io.AppLogger;
@@ -66,6 +67,11 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
 
     @ArgGroup(exclusive = true, multiplicity = "0..1")
     ChipSpecOptions chipSpec = new ChipSpecOptions();
+
+    @Option(names = "--bank", description = "FM bank override for VGM export path. "
+            + "Single path by extension: .wopl(OPL), .wopn(OPN), .bin(OPM). "
+            + "Or typed list: opl:/path.wopl,opn:/path.wopn,opm:/path.bin")
+    private Optional<String> bank = Optional.empty();
 
     @Mixin
     private final CommonOptions common = new CommonOptions();
@@ -118,24 +124,31 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
     public Integer call() throws Exception
     {
         AppLogger.configure(common.logLevel.orElse(null));
+        FmBankOverride.apply(bank.orElse(""));
         var p = requireNonNull(parent);
+        try
+        {
+            var np = NativeAudioPipeline.build(2, common, fxOptions);
+            var spectrumFilter = np.spectrumFilter();
 
-        var np = NativeAudioPipeline.build(2, common, fxOptions);
-        var spectrumFilter = np.spectrumFilter();
+            var bridge = new FFMLibvgmBridge();
+            var provider = new LibvgmSynthProvider(bridge, np.pipeline());
+            if (fxOptions.masterGain != null)
+                provider.setMasterGain(fxOptions.masterGain);
 
-        var bridge = new FFMLibvgmBridge();
-        var provider = new LibvgmSynthProvider(bridge, np.pipeline());
-        if (fxOptions.masterGain != null)
-            provider.setMasterGain(fxOptions.masterGain);
+            var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false, fxOptions,
+                    (seq, prov, ctx, pip, shutdown, speed, startTime) ->
+                            buildEngine(seq, provider, ctx, spectrumFilter));
+            runner.setSpectrumFilter(spectrumFilter);
+            runner.setSequenceLoader(file -> loadSequenceAndPrimeProvider(file, provider));
 
-        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false, fxOptions,
-                (seq, prov, ctx, pip, shutdown, speed, startTime) ->
-                        buildEngine(seq, provider, ctx, spectrumFilter));
-        runner.setSpectrumFilter(spectrumFilter);
-        runner.setSequenceLoader(file -> loadSequenceAndPrimeProvider(file, provider));
-
-        return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common,
-                originalArgs());
+            return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common,
+                    originalArgs());
+        }
+        finally
+        {
+            FmBankOverride.clear();
+        }
     }
 
     private LibvgmPlaybackEngine buildEngine(Sequence seq, LibvgmSynthProvider provider,

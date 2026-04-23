@@ -34,7 +34,7 @@ final class Ym2610BHandler implements ChipHandler
     /** Hardware slot offsets within a port for operators S1, S3, S2, S4. */
     private static final int[] OP_SLOT_OFFSETS = { 0, 4, 8, 12 };
 
-    private static final WopnBankReader WOPN_BANK = loadWopnBank();
+    private final WopnBankReader wopnBank = loadWopnBank();
     private static final byte[] ADPCM_A_ROM = loadAdpcmRom();
 
     /**
@@ -74,9 +74,11 @@ final class Ym2610BHandler implements ChipHandler
 
     private static WopnBankReader loadWopnBank()
     {
+        Path path = FmBankOverride.opnBankPath()
+                .orElse(Path.of("ext/libOPNMIDI/fm_banks/gm.wopn"));
         try
         {
-            return WopnBankReader.load(Path.of("ext/libOPNMIDI/fm_banks/gm.wopn"));
+            return WopnBankReader.load(path);
         }
         catch (IOException e)
         {
@@ -138,7 +140,7 @@ final class Ym2610BHandler implements ChipHandler
         }
 
         // FM section init
-        w.writeYm2610(0, 0x22, WOPN_BANK.lfoFreq());
+        w.writeYm2610(0, 0x22, wopnBank.lfoFreq());
         w.writeYm2610(0, 0x27, 0x00);
         // Key-off all 6 FM channels
         for (int slot = 0; slot < SLOTS; slot++)
@@ -155,7 +157,7 @@ final class Ym2610BHandler implements ChipHandler
             ssg.startNote(localSlot - SLOTS, note, velocity, program, w);
             return;
         }
-        WopnBankReader.Patch patch = WOPN_BANK.melodicPatch(program);
+        WopnBankReader.Patch patch = wopnBank.melodicPatch(program);
         writePatch(localSlot, patch, velocity, w);
         writeFreqKeyOn(localSlot, note + patch.noteOffset(), w);
     }

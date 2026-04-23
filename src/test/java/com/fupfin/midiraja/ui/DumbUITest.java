@@ -17,6 +17,7 @@ import com.fupfin.midiraja.engine.PlaybackState;
 import com.fupfin.midiraja.engine.PlaylistContext;
 import com.fupfin.midiraja.io.MockTerminalIO;
 import com.fupfin.midiraja.io.TerminalIO;
+import com.fupfin.midiraja.io.TerminalIO.TerminalKey;
 import com.fupfin.midiraja.midi.MidiPort;
 
 class DumbUITest
@@ -155,5 +156,18 @@ class DumbUITest
         var mockIO = new MockTerminalIO();
         ScopedValue.where(TerminalIO.CONTEXT, mockIO).run(() -> new DumbUI(true).runInputLoop(cmds));
         assertEquals("", mockIO.getOutput());
+    }
+
+    @Test
+    void runInputLoop_inputEnabled_mapsQuitToRequestStop() throws Exception
+    {
+        var cmds = new RecordingCommands();
+        cmds.stopAfter(1);
+        var mockIO = new MockTerminalIO();
+        mockIO.injectKey(TerminalKey.QUIT);
+
+        ScopedValue.where(TerminalIO.CONTEXT, mockIO).run(() -> new DumbUI(false, true).runInputLoop(cmds));
+
+        assertTrue(cmds.calls.contains("requestStop:QUIT_ALL"));
     }
 }

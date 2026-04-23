@@ -23,6 +23,7 @@ import picocli.CommandLine.Parameters;
 import com.fupfin.midiraja.export.vgm.ChipHandlers;
 import com.fupfin.midiraja.export.vgm.ChipSpec;
 import com.fupfin.midiraja.export.vgm.CompositeVgmExporter;
+import com.fupfin.midiraja.export.vgm.FmBankOverride;
 import com.fupfin.midiraja.export.vgm.RoutingMode;
 import com.fupfin.midiraja.format.MusicFormatLoader;
 
@@ -50,32 +51,46 @@ public class ExportVgmCommand implements Callable<Integer>
     @Nullable
     private File output;
 
+    @Option(names = "--bank", description = "FM bank override. "
+            + "Single path by extension: .wopl(OPL), .wopn(OPN), .bin(OPM). "
+            + "Or typed list: opl:/path.wopl,opn:/path.wopn,opm:/path.bin")
+    @Nullable
+    private String bank;
+
     @Override
     public Integer call() throws Exception
     {
+        FmBankOverride.apply(bank == null ? "" : bank);
         Sequence sequence;
         try
         {
-            sequence = MusicFormatLoader.load(input, java.util.Set.of());
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException("Failed to load: " + input, e);
-        }
-
-        if (output != null)
-        {
-            try (var out = new FileOutputStream(output))
+            try
             {
-                exportTo(sequence, out);
+                sequence = MusicFormatLoader.load(input, java.util.Set.of());
             }
-            System.out.println("Exported: " + output);
+            catch (Exception e)
+            {
+                throw new RuntimeException("Failed to load: " + input, e);
+            }
+
+            if (output != null)
+            {
+                try (var out = new FileOutputStream(output))
+                {
+                    exportTo(sequence, out);
+                }
+                System.out.println("Exported: " + output);
+            }
+            else
+            {
+                exportTo(sequence, System.out);
+            }
+            return 0;
         }
-        else
+        finally
         {
-            exportTo(sequence, System.out);
+            FmBankOverride.clear();
         }
-        return 0;
     }
 
     private void exportTo(Sequence sequence, OutputStream out) throws Exception
