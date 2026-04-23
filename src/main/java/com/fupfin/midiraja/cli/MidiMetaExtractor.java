@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Objects;
 import javax.sound.midi.*;
 
+import com.fupfin.midiraja.midi.MidiTiming;
 import com.fupfin.midiraja.midi.MidiUtils;
 
 /**
@@ -43,7 +44,8 @@ public class MidiMetaExtractor
     /** Extracts metadata from an already-loaded sequence. */
     public MidiMeta extractFromSequence(Sequence seq)
     {
-        long duration = seq.getMicrosecondLength();
+        long duration = MidiTiming.computeMicroseconds(
+                MidiTiming.sortedEventsWithoutEndOfTrack(seq), seq.getResolution());
         String title = Objects.requireNonNullElse(MidiUtils.extractSequenceTitle(seq), "");
         String copyright = extractFirst(seq, 0x02);
         String lyrics = extractLyrics(seq);

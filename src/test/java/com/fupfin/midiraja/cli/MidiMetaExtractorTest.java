@@ -52,6 +52,23 @@ class MidiMetaExtractorTest
     }
 
     @Test
+    void durationIgnoresTrailingEndOfTrackGap() throws Exception
+    {
+        Sequence s = new Sequence(Sequence.PPQ, 480);
+        Track t = s.createTrack();
+        var text = new MetaMessage();
+        text.setMessage(0x01, new byte[] {}, 0);
+        t.add(new MidiEvent(text, 960L)); // 1.0s at 120 BPM, PPQ=480
+
+        var eot = new MetaMessage();
+        eot.setMessage(0x2F, new byte[] {}, 0);
+        t.add(new MidiEvent(eot, 268_435_455L)); // malformed trailing EOT gap
+
+        MidiMeta meta = extractor.extractFromSequence(s);
+        assertEquals(1_000_000L, meta.durationMicroseconds());
+    }
+
+    @Test
     void copyrightExtracted() throws Exception
     {
         Sequence s = seq(480);

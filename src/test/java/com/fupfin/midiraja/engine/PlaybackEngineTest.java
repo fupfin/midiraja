@@ -273,6 +273,23 @@ class PlaybackEngineTest
     }
 
     @Test
+    void getTotalMicroseconds_ignoresTrailingEndOfTrackGap() throws Exception
+    {
+        Sequence seq = new Sequence(Sequence.PPQ, 480);
+        Track track = seq.createTrack();
+        var pad = new MetaMessage(0x01, new byte[] {}, 0);
+        track.add(new MidiEvent(pad, 960L)); // 1.0s at 120 BPM
+        var eot = new MetaMessage(0x2F, new byte[] {}, 0);
+        track.add(new MidiEvent(eot, 268_435_455L));
+
+        PlaybackEngine engine = new MidiPlaybackEngine(
+                seq, mockProvider, ctx(), testPipeline(mockProvider), () -> false,
+                1.0, Optional.empty());
+
+        assertEquals(1_000_000L, engine.getTotalMicroseconds());
+    }
+
+    @Test
     void testTransposeAdjustment()
     {
         PlaybackEngine engine = new MidiPlaybackEngine(

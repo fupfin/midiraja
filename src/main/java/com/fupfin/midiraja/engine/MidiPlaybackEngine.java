@@ -14,11 +14,11 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.function.BooleanSupplier;
-import java.util.stream.IntStream;
 import javax.sound.midi.*;
 
 import com.fupfin.midiraja.dsp.SpectrumAnalyzerFilter;
 import com.fupfin.midiraja.midi.MidiOutProvider;
+import com.fupfin.midiraja.midi.MidiTiming;
 import com.fupfin.midiraja.ui.PlaybackEventListener;
 import com.fupfin.midiraja.ui.PlaybackUI;
 
@@ -170,6 +170,8 @@ public class MidiPlaybackEngine implements PlaybackEngine
     }
 
     private final List<MidiEvent> sortedEvents;
+    private final long totalMicroseconds;
+    private final long playbackEndTick;
     private final int resolution;
     private final PlaylistContext context;
     private final int[] channelPrograms = new int[16];
@@ -207,10 +209,9 @@ public class MidiPlaybackEngine implements PlaybackEngine
         this.context = context;
         this.loopEnabled = context.loop();
         this.shuffleEnabled = context.shuffle();
-        this.sortedEvents = Arrays.stream(sequence.getTracks())
-                .flatMap(track -> IntStream.range(0, track.size()).mapToObj(track::get))
-                .sorted(Comparator.comparingLong(MidiEvent::getTick))
-                .toList();
+        this.sortedEvents = MidiTiming.sortedEventsWithoutEndOfTrack(sequence);
+        this.totalMicroseconds = MidiTiming.computeMicroseconds(sortedEvents, resolution);
+        this.playbackEndTick = sortedEvents.isEmpty() ? 0L : sortedEvents.get(sortedEvents.size() - 1).getTick();
         startTimeMicroseconds.ifPresent(us -> this.seekTarget.set(getTickForTime(us)));
     }
 
@@ -651,7 +652,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     public long getTotalMicroseconds()
     {
-        return sequence.getMicrosecondLength();
+        return totalMicroseconds;
     }
 
     public int[] getChannelPrograms()
@@ -831,7 +832,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 ticksToNanos = tickDurationNanos(60_000_000.0f / mspqn, 1.0, resolution);
             }
         }
-        return sequence.getTickLength();
+        return playbackEndTick;
     }
 
 }
