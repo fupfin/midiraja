@@ -48,7 +48,14 @@ src/main/c/miniaudio/*.so
 ### OS X ###
 .DS_Store
 
-bin/
+# ======================
+# AI Context Management
+# ======================
+memory-bank.md
+memory-bank/
+graphify-out/cache/
+graphify-out/manifest.json
+graphify-out/cost.json
 
 # Git worktrees
 .worktrees/
@@ -62,3 +69,5 @@ docs/superpowers/
 .sdkmanrc
 .aider*
 __pycache__/
+
+bin/
