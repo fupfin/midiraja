@@ -26,6 +26,8 @@ import com.fupfin.midiraja.midi.MidiUtils;
  */
 public class MidiMetaExtractor
 {
+    private record MetaTextEvent(long tick, int trackIdx, String text) {}
+
     public record MidiMeta(
             long durationMicroseconds,
             String title,
@@ -55,51 +57,21 @@ public class MidiMetaExtractor
 
     private String extractFirst(Sequence seq, int type)
     {
-        for (Track track : seq.getTracks())
+        for (var event : collectMetaTextEvents(seq, type, true))
         {
-            for (int i = 0; i < track.size(); i++)
-            {
-                if (track.get(i).getMessage() instanceof MetaMessage meta && meta.getType() == type)
-                {
-                    byte[] data = meta.getData();
-                    if (data != null && data.length > 0)
-                    {
-                        String text = new String(data, StandardCharsets.UTF_8).trim();
-                        if (!text.isEmpty())
-                            return text;
-                    }
-                }
-            }
+            if (!event.text().isEmpty())
+                return event.text();
         }
         return "";
     }
 
     private String extractLyrics(Sequence seq)
     {
-        record LyricEvent(long tick, int trackIdx, String text)
-        {
-        }
-
-        var events = new ArrayList<LyricEvent>();
-        Track[] tracks = seq.getTracks();
-        for (int t = 0; t < tracks.length; t++)
-        {
-            for (int i = 0; i < tracks[t].size(); i++)
-            {
-                MidiEvent event = tracks[t].get(i);
-                if (event.getMessage() instanceof MetaMessage meta && meta.getType() == 0x05)
-                {
-                    byte[] data = meta.getData();
-                    if (data != null && data.length > 0)
-                        events.add(new LyricEvent(event.getTick(), t,
-                                new String(data, StandardCharsets.UTF_8)));
-                }
-            }
-        }
+        var events = collectMetaTextEvents(seq, 0x05, false);
         if (events.isEmpty())
             return "";
-        events.sort(Comparator.comparingLong(LyricEvent::tick)
-                .thenComparingInt(LyricEvent::trackIdx));
+        events.sort(Comparator.comparingLong(MetaTextEvent::tick)
+                .thenComparingInt(MetaTextEvent::trackIdx));
         var sb = new StringBuilder();
         for (int i = 0; i < events.size(); i++)
         {
@@ -113,23 +85,34 @@ public class MidiMetaExtractor
     private List<String> extractInstruments(Sequence seq)
     {
         var seen = new LinkedHashSet<String>();
-        for (Track track : seq.getTracks())
+        for (var event : collectMetaTextEvents(seq, 0x07, true))
         {
-            for (int i = 0; i < track.size(); i++)
+            String name = event.text();
+            if (!name.isEmpty() && seen.stream().noneMatch(s -> s.equalsIgnoreCase(name)))
+                seen.add(name);
+        }
+        return List.copyOf(seen);
+    }
+
+    private static List<MetaTextEvent> collectMetaTextEvents(Sequence seq, int type, boolean trim)
+    {
+        var events = new ArrayList<MetaTextEvent>();
+        Track[] tracks = seq.getTracks();
+        for (int t = 0; t < tracks.length; t++)
+        {
+            for (int i = 0; i < tracks[t].size(); i++)
             {
-                if (track.get(i).getMessage() instanceof MetaMessage meta && meta.getType() == 0x07)
+                MidiEvent event = tracks[t].get(i);
+                if (event.getMessage() instanceof MetaMessage meta && meta.getType() == type)
                 {
                     byte[] data = meta.getData();
-                    if (data != null && data.length > 0)
-                    {
-                        String name = new String(data, StandardCharsets.UTF_8).trim();
-                        if (!name.isEmpty()
-                                && seen.stream().noneMatch(s -> s.equalsIgnoreCase(name)))
-                            seen.add(name);
-                    }
+                    if (data == null || data.length == 0)
+                        continue;
+                    String text = new String(data, StandardCharsets.UTF_8);
+                    events.add(new MetaTextEvent(event.getTick(), t, trim ? text.trim() : text));
                 }
             }
         }
-        return List.copyOf(seen);
+        return events;
     }
 }
