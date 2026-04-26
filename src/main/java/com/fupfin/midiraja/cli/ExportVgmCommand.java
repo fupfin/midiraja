@@ -10,7 +10,6 @@ package com.fupfin.midiraja.cli;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
-import java.util.Locale;
 import java.util.concurrent.Callable;
 import javax.sound.midi.Sequence;
 
@@ -23,8 +22,6 @@ import picocli.CommandLine.Parameters;
 import com.fupfin.midiraja.export.vgm.ChipHandlers;
 import com.fupfin.midiraja.export.vgm.ChipSpec;
 import com.fupfin.midiraja.export.vgm.CompositeVgmExporter;
-import com.fupfin.midiraja.export.vgm.FmBankOverride;
-import com.fupfin.midiraja.export.vgm.RoutingMode;
 import com.fupfin.midiraja.format.MusicFormatLoader;
 
 @Command(name = "vgm", mixinStandardHelpOptions = true, description = "Convert a music file to VGM format.")
@@ -60,39 +57,38 @@ public class ExportVgmCommand implements Callable<Integer>
     @Override
     public Integer call() throws Exception
     {
-        FmBankOverride.apply(bank == null ? "" : bank);
+        return VgmCliSupport.withBankOverride(bank, this::export);
+    }
+
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
+    private Integer export() throws Exception
+    {
         Sequence sequence;
         try
         {
-            try
-            {
-                sequence = MusicFormatLoader.load(input, java.util.Set.of());
-            }
-            catch (Exception e)
-            {
-                throw new RuntimeException("Failed to load: " + input, e);
-            }
-
-            if (output != null)
-            {
-                try (var out = new FileOutputStream(output))
-                {
-                    exportTo(sequence, out);
-                }
-                System.out.println("Exported: " + output);
-            }
-            else
-            {
-                exportTo(sequence, System.out);
-            }
-            return 0;
+            sequence = MusicFormatLoader.load(input, java.util.Set.of());
         }
-        finally
+        catch (Exception e)
         {
-            FmBankOverride.clear();
+            throw new RuntimeException("Failed to load: " + input, e);
         }
+
+        if (output != null)
+        {
+            try (var out = new FileOutputStream(output))
+            {
+                exportTo(sequence, out);
+            }
+            System.out.println("Exported: " + output);
+        }
+        else
+        {
+            exportTo(sequence, System.out);
+        }
+        return 0;
     }
 
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
     private void exportTo(Sequence sequence, OutputStream out) throws Exception
     {
         var spec = resolveChipSpec();
@@ -101,15 +97,6 @@ public class ExportVgmCommand implements Callable<Integer>
 
     ChipSpec resolveChipSpec()
     {
-        if (chipSpec.system != null)
-        {
-            var chips = ChipHandlers.PRESETS.get(chipSpec.system.toLowerCase(Locale.ROOT));
-            if (chips == null)
-                throw new IllegalArgumentException(
-                    "Unknown --system value: '" + chipSpec.system
-                            + "'. Valid values: " + ChipHandlers.PRESETS.keySet());
-            return new ChipSpec(chips, RoutingMode.SEQUENTIAL);
-        }
-        return ChipHandlers.parseChips(java.util.Objects.requireNonNull(chipSpec.chips));
+        return VgmCliSupport.resolveExportChipSpec(chipSpec.system, chipSpec.chips);
     }
 }

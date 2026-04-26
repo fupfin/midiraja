@@ -35,8 +35,6 @@ import com.fupfin.midiraja.export.vgm.ChipHandlers;
 import com.fupfin.midiraja.export.vgm.ChipSpec;
 import com.fupfin.midiraja.export.vgm.ChipType;
 import com.fupfin.midiraja.export.vgm.CompositeVgmExporter;
-import com.fupfin.midiraja.export.vgm.FmBankOverride;
-import com.fupfin.midiraja.export.vgm.RoutingMode;
 import com.fupfin.midiraja.format.MusicFormatLoader;
 import com.fupfin.midiraja.io.AppLogger;
 import com.fupfin.midiraja.midi.vgm.FFMLibvgmBridge;
@@ -92,14 +90,7 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
 
     ChipSpec resolveChipSpec()
     {
-        if (chipSpec.chips != null)
-            return ChipHandlers.parseChips(chipSpec.chips);
-        String sys = chipSpec.system != null ? chipSpec.system.toLowerCase(Locale.ROOT) : "megadrive";
-        var chips = ChipHandlers.PRESETS.get(sys);
-        if (chips == null)
-            throw new IllegalArgumentException(
-                "Unknown --system value: '" + sys + "'. Valid values: " + ChipHandlers.PRESETS.keySet());
-        return new ChipSpec(chips, RoutingMode.SEQUENTIAL);
+        return VgmCliSupport.resolvePlaybackChipSpec(chipSpec.system, chipSpec.chips);
     }
 
     // ── Validation ────────────────────────────────────────────────────────────
@@ -124,31 +115,29 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
     public Integer call() throws Exception
     {
         AppLogger.configure(common.logLevel.orElse(null));
-        FmBankOverride.apply(bank.orElse(""));
         var p = requireNonNull(parent);
-        try
-        {
-            var np = NativeAudioPipeline.build(2, common, fxOptions);
-            var spectrumFilter = np.spectrumFilter();
+        return VgmCliSupport.withBankOverride(bank.orElse(""), () -> runPlayback(p));
+    }
 
-            var bridge = new FFMLibvgmBridge();
-            var provider = new LibvgmSynthProvider(bridge, np.pipeline());
-            if (fxOptions.masterGain != null)
-                provider.setMasterGain(fxOptions.masterGain);
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
+    private Integer runPlayback(MidirajaCommand p) throws Exception
+    {
+        var np = NativeAudioPipeline.build(2, common, fxOptions);
+        var spectrumFilter = np.spectrumFilter();
 
-            var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false, fxOptions,
-                    (seq, prov, ctx, pip, shutdown, speed, startTime) ->
-                            buildEngine(seq, provider, ctx, spectrumFilter));
-            runner.setSpectrumFilter(spectrumFilter);
-            runner.setSequenceLoader(file -> loadSequenceAndPrimeProvider(file, provider));
+        var bridge = new FFMLibvgmBridge();
+        var provider = new LibvgmSynthProvider(bridge, np.pipeline());
+        if (fxOptions.masterGain != null)
+            provider.setMasterGain(fxOptions.masterGain);
 
-            return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common,
-                    originalArgs());
-        }
-        finally
-        {
-            FmBankOverride.clear();
-        }
+        var runner = new PlaybackRunner(p.getOut(), p.getErr(), p.getTerminalIO(), false, fxOptions,
+                (seq, prov, ctx, pip, shutdown, speed, startTime) ->
+                        buildEngine(seq, provider, ctx, spectrumFilter));
+        runner.setSpectrumFilter(spectrumFilter);
+        runner.setSequenceLoader(file -> loadSequenceAndPrimeProvider(file, provider));
+
+        return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common,
+                originalArgs());
     }
 
     private LibvgmPlaybackEngine buildEngine(Sequence seq, LibvgmSynthProvider provider,
@@ -161,6 +150,7 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
         return engine;
     }
 
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
     private Sequence loadSequenceAndPrimeProvider(File file, LibvgmSynthProvider provider)
             throws Exception
     {
