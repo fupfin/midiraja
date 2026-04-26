@@ -68,17 +68,17 @@ public class PlaybackRunner
     private final TerminalIO terminalIO;
     private final boolean isTestMode;
     private PlaybackStatus lastRawStatus = PlaybackStatus.FINISHED;
-    private boolean suppressAltScreenRestore = false;
-    private boolean suppressHoldAtEnd = false;
-    private boolean exitOnNavBoundary = false;
+    private boolean suppressAltScreenRestore;
+    private boolean suppressHoldAtEnd;
+    private boolean exitOnNavBoundary;
     @Nullable
-    private FxOptions fxOptions = null;
-    private boolean includeRetroInSuffix = false;
+    private FxOptions fxOptions;
+    private boolean includeRetroInSuffix;
     private java.util.Set<Integer> mutedChannels = java.util.Set.of();
     @Nullable
-    private SpectrumAnalyzerFilter spectrumFilter = null;
+    private SpectrumAnalyzerFilter spectrumFilter;
     private final PlaybackEngineFactory engineFactory;
-    private PlaylistPlayer.@Nullable SequenceLoader sequenceLoader = null;
+    private PlaylistPlayer.@Nullable SequenceLoader sequenceLoader;
 
     /**
      * Set to true for synths that own the audio pipeline (gus, psg, tsf).

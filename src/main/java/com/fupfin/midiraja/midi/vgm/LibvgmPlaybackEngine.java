@@ -25,6 +25,8 @@ import javax.sound.midi.MidiMessage;
 import javax.sound.midi.Sequence;
 import javax.sound.midi.ShortMessage;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fupfin.midiraja.dsp.SpectrumAnalyzerFilter;
 import com.fupfin.midiraja.engine.PlaybackEngine;
 import com.fupfin.midiraja.engine.PlaylistContext;
@@ -50,8 +52,8 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     private final Sequence sequence;
     private final PlaylistContext context;
 
-    private final AtomicBoolean isPlaying = new AtomicBoolean(false);
-    private final AtomicBoolean isPaused = new AtomicBoolean(false);
+    private final AtomicBoolean playing = new AtomicBoolean(false);
+    private final AtomicBoolean paused = new AtomicBoolean(false);
     private final AtomicLong currentMicroseconds = new AtomicLong(0);
     private final AtomicReference<PlaybackStatus> endStatus = new AtomicReference<>(
             PlaybackStatus.FINISHED);
@@ -67,22 +69,20 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     private final AtomicLong seekEpochMs = new AtomicLong(-1);
     private final AtomicLong seekTargetUs = new AtomicLong(0);
 
-    private volatile boolean holdAtEnd = false;
-    private volatile boolean bookmarked = false;
+    private volatile boolean holdAtEnd;
+    private volatile boolean bookmarked;
     private volatile String filterDescription = "";
     private volatile String portSuffix = "";
     private volatile String chipSuffix = "";
 
-    @SuppressWarnings("NullAway")
-    private volatile Consumer<Boolean> bookmarkCallback = null;
-    @SuppressWarnings("NullAway")
-    private volatile Consumer<Boolean> shuffleCallback = null;
-    @SuppressWarnings("NullAway")
-    private volatile SpectrumAnalyzerFilter spectrumFilter = null;
+    @Nullable
+    private volatile Consumer<Boolean> bookmarkCallback;
+    @Nullable
+    private volatile SpectrumAnalyzerFilter spectrumFilter;
     private final List<TimedMidiEvent> timedMidiEvents;
     private final int[] channelPrograms = new int[16];
-    private int midiEventCursor = 0;
-    private long midiCursorUs = 0;
+    private int midiEventCursor;
+    private long midiCursorUs;
 
     public LibvgmPlaybackEngine(Sequence sequence, LibvgmSynthProvider provider,
             PlaylistContext context)
@@ -98,7 +98,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public PlaybackStatus start(PlaybackUI ui) throws Exception
     {
-        isPlaying.set(true);
+        playing.set(true);
         endStatus.set(PlaybackStatus.FINISHED);
 
         try (var scope = StructuredTaskScope.open())
@@ -107,7 +107,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
             scope.fork(() -> runInputLoopTask(ui));
 
             playLoop();
-            isPlaying.set(false);
+            playing.set(false);
 
             scope.join();
         }
@@ -137,7 +137,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public void setInitiallyPaused()
     {
-        isPaused.set(true);
+        paused.set(true);
     }
 
     @Override
@@ -167,7 +167,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public void setShuffleCallback(Consumer<Boolean> callback)
     {
-        this.shuffleCallback = callback;
+        // libvgm playback does not expose shuffle state.
     }
 
     public void setSpectrumFilter(SpectrumAnalyzerFilter filter)
@@ -240,13 +240,13 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     @Override
     public boolean isPlaying()
     {
-        return isPlaying.get();
+        return playing.get();
     }
 
     @Override
     public boolean isPaused()
     {
-        return isPaused.get();
+        return paused.get();
     }
 
     @Override
@@ -297,7 +297,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     public void requestStop(PlaybackStatus status)
     {
         endStatus.set(status);
-        isPlaying.set(false);
+        playing.set(false);
     }
 
     @Override
@@ -352,9 +352,9 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
         boolean prev;
         do
         {
-            prev = isPaused.get();
+            prev = paused.get();
         }
-        while (!isPaused.compareAndSet(prev, !prev));
+        while (!paused.compareAndSet(prev, !prev));
 
         if (!prev)
             provider.pauseRender();
@@ -523,17 +523,17 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
     {
         // Startup delay: lets rapid NEXT/PREV skip without producing audio
         long endNs = System.nanoTime() + STARTUP_DELAY_MS * 1_000_000L;
-        while (System.nanoTime() < endNs && isPlaying.get())
+        while (System.nanoTime() < endNs && playing.get())
             Thread.sleep(10);
 
-        if (!isPlaying.get())
+        if (!playing.get())
             return;
 
         // Honour setInitiallyPaused()
-        while (isPaused.get() && isPlaying.get())
+        while (paused.get() && playing.get())
             Thread.sleep(POLL_MS);
 
-        if (!isPlaying.get())
+        if (!playing.get())
             return;
 
         provider.resumeRender();
@@ -545,7 +545,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
         // Known duration from MIDI sequence or libvgm; 0 means truly unknown
         long totalUs = getTotalMicroseconds();
 
-        while (isPlaying.get() && !provider.isDone())
+        while (playing.get() && !provider.isDone())
         {
             // Apply any pending seek: rebuild startMs so elapsed = seekTarget going forward.
             long epoch = seekEpochMs.getAndSet(-1);
@@ -563,7 +563,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
                 resetMidiVisualization(seekedUs);
             }
 
-            boolean curPaused = isPaused.get();
+            boolean curPaused = paused.get();
 
             if (curPaused && !wasPaused)
             {
@@ -594,7 +594,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
             Thread.sleep(POLL_MS);
         }
 
-        if (!isPlaying.get())
+        if (!playing.get())
             return;
 
         // Track finished naturally — broadcast final position
@@ -614,7 +614,7 @@ public class LibvgmPlaybackEngine implements PlaybackEngine
 
         if (holdAtEnd)
         {
-            while (isPlaying.get() && endStatus.get() == PlaybackStatus.FINISHED)
+            while (playing.get() && endStatus.get() == PlaybackStatus.FINISHED)
                 Thread.sleep(POLL_MS);
         }
     }

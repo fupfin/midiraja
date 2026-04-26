@@ -57,23 +57,23 @@ public class MidiPlaybackEngine implements PlaybackEngine
             "mt-32", new byte[] { (byte) 0xF0, 0x41, 0x10, 0x16, 0x12, 0x7F, 0x00, 0x00, 0x00, 0x01,
                     (byte) 0xF7 });
 
-    private final AtomicBoolean isPlaying = new AtomicBoolean(false);
-    private final AtomicBoolean isPaused = new AtomicBoolean(false);
+    private final AtomicBoolean playing = new AtomicBoolean();
+    private final AtomicBoolean paused = new AtomicBoolean();
 
-    private volatile boolean bookmarked = false;
+    private volatile boolean bookmarked;
     @SuppressWarnings("NullAway")
-    private volatile java.util.function.Consumer<Boolean> bookmarkCallback = null;
+    private volatile java.util.function.Consumer<Boolean> bookmarkCallback;
 
     private String filterDescription = "";
     private String portSuffix = "";
 
     @SuppressWarnings("NullAway")
-    private volatile SpectrumAnalyzerFilter spectrumFilter = null;
+    private volatile SpectrumAnalyzerFilter spectrumFilter;
 
-    private volatile boolean loopEnabled = false;
-    private volatile boolean shuffleEnabled = false;
+    private volatile boolean loopEnabled;
+    private volatile boolean shuffleEnabled;
     @SuppressWarnings("NullAway")
-    private volatile java.util.function.Consumer<Boolean> shuffleCallback = null;
+    private volatile java.util.function.Consumer<Boolean> shuffleCallback;
 
     private final AtomicBoolean holdAtEnd = new AtomicBoolean(false);
     private final AtomicReference<PlaybackEngine.PlaybackStatus> endStatus = new AtomicReference<>(
@@ -82,36 +82,43 @@ public class MidiPlaybackEngine implements PlaybackEngine
     private Optional<String> initialResetType = Optional.empty();
     private final MidiClock clock;
 
+    @Override
     public void setInitiallyPaused()
     {
-        this.isPaused.set(true);
+        this.paused.set(true);
     }
 
+    @Override
     public void setIgnoreSysex(boolean ignoreSysex)
     {
         pipeline.setIgnoreSysex(ignoreSysex);
     }
 
+    @Override
     public void setInitialResetType(Optional<String> resetType)
     {
         this.initialResetType = resetType;
     }
 
+    @Override
     public void setHoldAtEnd(boolean hold)
     {
         this.holdAtEnd.set(hold);
     }
 
+    @Override
     public void toggleLoop()
     {
         loopEnabled = !loopEnabled;
     }
 
+    @Override
     public boolean isLoopEnabled()
     {
         return loopEnabled;
     }
 
+    @Override
     public void toggleShuffle()
     {
         shuffleEnabled = !shuffleEnabled;
@@ -120,11 +127,13 @@ public class MidiPlaybackEngine implements PlaybackEngine
             cb.accept(shuffleEnabled);
     }
 
+    @Override
     public boolean isShuffleEnabled()
     {
         return shuffleEnabled;
     }
 
+    @Override
     public void setShuffleCallback(java.util.function.Consumer<Boolean> cb)
     {
         shuffleCallback = cb;
@@ -143,26 +152,31 @@ public class MidiPlaybackEngine implements PlaybackEngine
         listeners.forEach(l -> l.onSpectrumUpdate(lv));
     }
 
+    @Override
     public void setFilterDescription(String desc)
     {
         this.filterDescription = desc;
     }
 
+    @Override
     public String getFilterDescription()
     {
         return filterDescription;
     }
 
+    @Override
     public void setPortSuffix(String suffix)
     {
         this.portSuffix = suffix;
     }
 
+    @Override
     public String getPortSuffix()
     {
         return portSuffix;
     }
 
+    @Override
     public void firePlayOrderChanged(PlaylistContext ctx)
     {
         for (var listener : listeners)
@@ -215,6 +229,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
         startTimeMicroseconds.ifPresent(us -> this.seekTarget.set(getTickForTime(us)));
     }
 
+    @Override
     public void addPlaybackEventListener(PlaybackEventListener listener)
     {
         listeners.add(listener);
@@ -227,9 +242,10 @@ public class MidiPlaybackEngine implements PlaybackEngine
      * @return the terminal state indicating what the user requested next (e.g., NEXT, QUIT_ALL)
      */
     @SuppressWarnings({ "ThreadPriorityCheck", "NonAtomicVolatileUpdate" })
+    @Override
     public PlaybackEngine.PlaybackStatus start(PlaybackUI ui) throws Exception
     {
-        isPlaying.set(true);
+        playing.set(true);
         playbackActuallyStarted.set(false);
         endStatus.set(PlaybackEngine.PlaybackStatus.FINISHED);
 
@@ -244,7 +260,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
             }
             finally
             {
-                isPlaying.set(false);
+                playing.set(false);
                 if (playbackActuallyStarted.get())
                 {
                     provider.panic(); // Prevent dangling notes
@@ -339,7 +355,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
         double ticksToNanos = tickDurationNanos(currentBpm.get(), currentSpeed.get(), resolution);
 
         boolean endReached = false;
-        while (isPlaying.get() && (eventIndex < sortedEvents.size() || holdAtEnd.get()))
+        while (playing.get() && (eventIndex < sortedEvents.size() || holdAtEnd.get()))
         {
             if (seekTarget.get() != -1)
             {
@@ -359,14 +375,14 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 if (!endReached)
                 {
                     endReached = true;
-                    isPaused.set(true);
+                    paused.set(true);
                     currentMicroseconds.set(getTotalMicroseconds());
                     listeners.forEach(l -> l.onTick(currentMicroseconds.get()));
                     provider.panic(); // Silence the output
                 }
 
                 // Wait for seek or quit
-                while (isPlaying.get() && seekTarget.get() == -1
+                while (playing.get() && seekTarget.get() == -1
                         && endStatus.get() == PlaybackEngine.PlaybackStatus.FINISHED)
                 {
                     clock.sleepMillis(PLAYBACK_POLL_MS);
@@ -378,7 +394,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
                 break;
             }
 
-            while (isPaused.get() && isPlaying.get())
+            while (paused.get() && playing.get())
             {
                 clock.sleepMillis(PLAYBACK_POLL_MS); // Hold the playback thread
                 // If user seeks while paused, break out to let the seek logic run
@@ -400,7 +416,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
                     continue;
             }
 
-            if (seekTarget.get() != -1 || !isPlaying.get())
+            if (seekTarget.get() != -1 || !playing.get())
                 continue;
 
             processEvent(event);
@@ -419,7 +435,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
         }
 
         // Force broadcast 100% completion state before natural exit
-        if (isPlaying.get() && endStatus.get() == PlaybackEngine.PlaybackStatus.FINISHED)
+        if (playing.get() && endStatus.get() == PlaybackEngine.PlaybackStatus.FINISHED)
         {
             currentMicroseconds.set(getTotalMicroseconds());
             listeners.forEach(l -> l.onTick(currentMicroseconds.get()));
@@ -443,7 +459,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
         long endNanos = clock.nanoTime() + STARTUP_DELAY_MS * 1_000_000L;
         while (clock.nanoTime() < endNanos)
         {
-            if (!isPlaying.get())
+            if (!playing.get())
                 return false;
             clock.sleepMillis(STARTUP_POLL_MS);
         }
@@ -506,7 +522,7 @@ public class MidiPlaybackEngine implements PlaybackEngine
         long currentNanos = clock.nanoTime();
         while (currentNanos < targetNanos)
         {
-            if (seekTarget.get() != -1 || !isPlaying.get())
+            if (seekTarget.get() != -1 || !playing.get())
                 return true;
             long nowMicros = (currentNanos - startTimeNanos) / 1000;
             currentMicroseconds.set(nowMicros);
@@ -635,70 +651,83 @@ public class MidiPlaybackEngine implements PlaybackEngine
 
     // --- Engine API (For UI and External Control) ---
 
+    @Override
     public PlaylistContext getContext()
     {
         return context;
     }
 
+    @Override
     public Sequence getSequence()
     {
         return sequence;
     }
 
+    @Override
     public long getCurrentMicroseconds()
     {
         return currentMicroseconds.get();
     }
 
+    @Override
     public long getTotalMicroseconds()
     {
         return totalMicroseconds;
     }
 
+    @Override
     public int[] getChannelPrograms()
     {
         return channelPrograms;
     }
 
     @SuppressWarnings("NullAway")
+    @Override
     public float getCurrentBpm()
     {
         return currentBpm.get();
     }
 
     @SuppressWarnings("NullAway")
+    @Override
     public double getCurrentSpeed()
     {
         return currentSpeed.get();
     }
 
+    @Override
     public int getCurrentTranspose()
     {
         return pipeline.getCurrentTranspose();
     }
 
+    @Override
     public double getVolumeScale()
     {
         return pipeline.getVolumeScale();
     }
 
+    @Override
     public boolean isPlaying()
     {
-        return isPlaying.get();
+        return playing.get();
     }
 
+    @Override
     public void requestStop(PlaybackEngine.PlaybackStatus status)
     {
-        this.isPlaying.set(false);
+        this.playing.set(false);
         this.endStatus.set(status);
     }
 
+    @Override
     public void adjustVolume(double delta)
     {
         pipeline.adjustVolume(delta);
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
 
+    @Override
     public void adjustSpeed(double delta)
     {
         Double cs = currentSpeed.get();
@@ -706,21 +735,25 @@ public class MidiPlaybackEngine implements PlaybackEngine
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
 
+    @Override
     public void setBookmarked(boolean bookmarked)
     {
         this.bookmarked = bookmarked;
     }
 
+    @Override
     public boolean isBookmarked()
     {
         return bookmarked;
     }
 
+    @Override
     public void setBookmarkCallback(java.util.function.Consumer<Boolean> callback)
     {
         this.bookmarkCallback = callback;
     }
 
+    @Override
     public void fireBookmark()
     {
         bookmarked = !bookmarked;
@@ -730,16 +763,17 @@ public class MidiPlaybackEngine implements PlaybackEngine
         listeners.forEach(l -> l.onBookmarkChanged(bookmarked));
     }
 
+    @Override
     public void togglePause()
     {
-        // Atomically flip isPaused and capture the new state in a single CAS loop,
+        // Atomically flip paused and capture the new state in a single CAS loop,
         // so rapid key presses from different threads cannot observe a stale value.
         boolean prev;
         do
         {
-            prev = isPaused.get();
+            prev = paused.get();
         }
-        while (!isPaused.compareAndSet(prev, !prev));
+        while (!paused.compareAndSet(prev, !prev));
         boolean nowPaused = !prev;
         if (nowPaused)
         {
@@ -767,17 +801,20 @@ public class MidiPlaybackEngine implements PlaybackEngine
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
 
+    @Override
     public boolean isPaused()
     {
-        return isPaused.get();
+        return paused.get();
     }
 
+    @Override
     public synchronized void adjustTranspose(int delta)
     {
         pipeline.adjustTranspose(delta);
         listeners.forEach(PlaybackEventListener::onPlaybackStateChanged);
     }
 
+    @Override
     public void seekRelative(long microsecondsDelta)
     {
         if (seekTarget.get() == -1)
