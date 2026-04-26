@@ -9,7 +9,6 @@ package com.fupfin.midiraja.export.vgm;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Arrays;
 
 /**
  * {@link ChipHandler} for YM2610 (OPNB) — 4 melodic FM channels + ADPCM-A native percussion.
@@ -62,32 +61,7 @@ final class Ym2610Handler extends AbstractOpnHandler
     };
 
     /** Maps GM percussion note (0-127) to ADPCM-A channel (0-5), or -1 if unmapped. */
-    private static final int[] GM_NOTE_TO_ADPCM_CH = buildNoteMap();
-
-    private static int[] buildNoteMap()
-    {
-        int[] m = new int[128];
-        Arrays.fill(m, -1);
-        // ch0 Bass Drum
-        for (int n : new int[] { 35, 36 })
-            m[n] = 0;
-        // ch1 Snare
-        for (int n : new int[] { 38, 40 })
-            m[n] = 1;
-        // ch2 Top Cymbal (crashes, rides, splash, open HH variant)
-        for (int n : new int[] { 49, 51, 52, 53, 55, 57, 59 })
-            m[n] = 2;
-        // ch3 High Hat
-        for (int n : new int[] { 42, 44, 46 })
-            m[n] = 3;
-        // ch4 Tom Tom
-        for (int n : new int[] { 41, 43, 45, 47, 48, 50 })
-            m[n] = 4;
-        // ch5 Rim Shot / Side Stick / Hand Clap
-        for (int n : new int[] { 37, 39 })
-            m[n] = 5;
-        return m;
-    }
+    private static final int[] GM_NOTE_TO_ADPCM_CH = AdpcmARhythmSupport.buildNoteMap();
 
     private static byte[] loadAdpcmRom()
     {
@@ -129,26 +103,10 @@ final class Ym2610Handler extends AbstractOpnHandler
     @Override
     public void initSilence(VgmWriter w)
     {
-        // Embed the ADPCM-A ROM data block — must precede any ADPCM-A register writes
-        // Type 0x82 = YM2610 ADPCM-A ROM (type 0x83 would be YM2610 ADPCM-B/DeltaT)
-        w.writeRomDataBlock(0x82, ADPCM_A_ROM.length, 0, ADPCM_A_ROM);
-
-        // ADPCM-A registers are on port 1 (VGM cmd 0x59), addresses 0x00-0x2F.
-        // Port 0 addresses 0x10-0x1C are DeltaT (ADPCM-B) — do not use port 0 for ADPCM-A.
-
-        // All ADPCM-A channels off (bit 7=1 = key-off mode, bits 5-0 = channel mask 0x3F)
-        w.writeYm2610(1, 0x00, 0xBF);
-        // Master total level = max volume (0x3F; chip internally inverts this)
-        w.writeYm2610(1, 0x01, 0x3F);
-        // Per-channel start/end addresses
-        for (int c = 0; c < 6; c++)
-        {
-            int[] a = ADPCM_A_ADDRS[c];
-            w.writeYm2610(1, 0x10 + c, a[0]); // start address low
-            w.writeYm2610(1, 0x18 + c, a[1]); // start address high
-            w.writeYm2610(1, 0x20 + c, a[2]); // end address low
-            w.writeYm2610(1, 0x28 + c, a[3]); // end address high
-        }
+        var cfg = new AdpcmARhythmSupport.InitConfig(1, 0x00, 0x01, 0x10, 0x18, 0x20, 0x28,
+                ADPCM_A_ADDRS);
+        AdpcmARhythmSupport.initAdpcmAWithRom(w::writeRomDataBlock, 0x82, ADPCM_A_ROM,
+                w::writeYm2610, cfg);
 
         // FM section init
         // Set LFO frequency as specified by the bank (bit 3 = enable, bits 2-0 = frequency)
@@ -218,16 +176,8 @@ final class Ym2610Handler extends AbstractOpnHandler
     @Override
     public void handlePercussion(int note, int velocity, VgmWriter w)
     {
-        if (velocity == 0)
-            return;
-        int ch = note < 128 ? GM_NOTE_TO_ADPCM_CH[note] : -1;
-        if (ch < 0)
-            return;
-        // Per-channel: L+R enabled (bits 7-6), individual level scaled from velocity
-        int level = Math.max(1, (velocity * 31) / 127); // 1-31
-        w.writeYm2610(1, 0x08 + ch, 0xC0 | level); // ADPCM-A per-ch level on port 1
-        // Key-on: bit 7 = 0 (key-on mode), set the channel's bit
-        w.writeYm2610(1, 0x00, 1 << ch); // ADPCM-A key-on on port 1
+        AdpcmARhythmSupport.triggerPercussion(w::writeYm2610, 1, note, velocity,
+                GM_NOTE_TO_ADPCM_CH, 0x08, 0x00);
     }
 
     @Override

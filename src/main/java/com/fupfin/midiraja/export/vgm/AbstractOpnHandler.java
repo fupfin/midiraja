@@ -114,14 +114,7 @@ abstract class AbstractOpnHandler implements ChipHandler
             return;
         double effNote = ChipHandler.bentNote(note + patch.noteOffset(), pitchBend,
                 bendRangeSemitones);
-        double freq = 440.0 * Math.pow(2.0, (effNote - 69) / 12.0);
-        int block = Math.clamp((int) effNote / 12 - 1, 0, 7);
-        int fnum = (int) Math.round(freq * 144.0 * (1 << (21 - block)) / fmClock());
-        fnum = Math.clamp(fnum, 0, 0x7FF);
-        int port = portOf(localSlot);
-        int ch = chOf(localSlot);
-        writeFm(port, 0xA4 + ch, (block << 3) | (fnum >> 8), w);
-        writeFm(port, 0xA0 + ch, fnum & 0xFF, w);
+        writePitchRegs(localSlot, FmMath.opnPitchRegs(effNote, fmClock()), w);
         // No key-off/key-on — only frequency registers updated
     }
 
@@ -172,19 +165,18 @@ abstract class AbstractOpnHandler implements ChipHandler
 
     private void writeFreqKeyOn(int slot, int note, VgmWriter w)
     {
-        double freq = 440.0 * Math.pow(2.0, (note - 69) / 12.0);
-        int block = Math.clamp(note / 12 - 1, 0, 7);
-        int fnum = (int) Math.round(freq * 144.0 * (1 << (21 - block)) / fmClock());
-        fnum = Math.clamp(fnum, 0, 0x7FF);
-
-        int port = portOf(slot);
-        int ch = chOf(slot);
-
-        // Write FnumHi+block before FnumLo (hardware requirement)
-        writeFm(port, 0xA4 + ch, (block << 3) | (fnum >> 8), w);
-        writeFm(port, 0xA0 + ch, fnum & 0xFF, w);
+        writePitchRegs(slot, FmMath.opnPitchRegs(note, fmClock()), w);
         // Key-on all four operator slots; reg 0x28 is always on port 0
         writeFm(0, 0x28, (0xF << 4) | chAddr(slot), w);
+    }
+
+    private void writePitchRegs(int slot, FmMath.PitchRegs pitch, VgmWriter w)
+    {
+        int port = portOf(slot);
+        int ch = chOf(slot);
+        // Write FnumHi+block before FnumLo (hardware requirement)
+        writeFm(port, 0xA4 + ch, (pitch.block() << 3) | (pitch.fnum() >> 8), w);
+        writeFm(port, 0xA0 + ch, pitch.fnum() & 0xFF, w);
     }
 
     /**
@@ -217,20 +209,6 @@ abstract class AbstractOpnHandler implements ChipHandler
      */
     static int scaleTl(int tl, int velocity)
     {
-        final double c1 = 11.541560327111707;
-        final double c2 = 160.1379199767093;
-        final long minVolume = 1_108_075L; // 8725 * 127
-        long vol = (long) velocity * 127L * 127L * 127L;
-        int volume;
-        if (vol > minVolume)
-        {
-            double lv = Math.log((double) vol);
-            volume = Math.clamp((int) (lv * c1 - c2) * 2, 0, 127);
-        }
-        else
-        {
-            volume = 0;
-        }
-        return Math.clamp(127 - volume * (127 - (tl & 127)) / 127, 0, 127);
+        return FmMath.scaleTl(tl, velocity, 127);
     }
 }

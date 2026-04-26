@@ -216,20 +216,6 @@ abstract class AbstractOplHandler implements ChipHandler
      */
     static int scaleTl(int tl, int velocity)
     {
-        final double c1 = 11.541560327111707;
-        final double c2 = 160.1379199767093;
-        final long minVolume = 1_108_075L; // 8725 * 127
-        long vol = (long) velocity * 127L * 127L * 127L;
-        int volume;
-        if (vol > minVolume)
-        {
-            double lv = Math.log((double) vol);
-            volume = Math.clamp((int) (lv * c1 - c2) * 2, 0, 127);
-        }
-        else
-        {
-            volume = 0;
-        }
-        return Math.clamp(63 - volume * (63 - (tl & 63)) / 127, 0, 63);
+        return FmMath.scaleTl(tl, velocity, 63);
     }
 }
