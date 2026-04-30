@@ -2,9 +2,17 @@ name: Cross-Platform Build & Test
 
 on:
   push:
-    branches: [ master, main ]
+    branches:
+      - master
+      - main
+      - codex/**
   pull_request:
     branches: [ master, main ]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
