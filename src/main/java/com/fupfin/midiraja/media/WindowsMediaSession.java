@@ -64,9 +64,10 @@ public final class WindowsMediaSession implements MediaKeyIntegration
     // ── Fields ────────────────────────────────────────────────────────────────
 
     private final Arena arena;
-    private final MethodHandle smtcStart;
-    private final MethodHandle smtcUpdate;
-    private final MethodHandle smtcStop;
+    private final @Nullable MethodHandle smtcStart;
+    private final @Nullable MethodHandle smtcUpdate;
+    private final @Nullable MethodHandle smtcStop;
+    private final boolean nativeAvailable;
 
     private final ConcurrentLinkedQueue<Integer> pendingCommands = new ConcurrentLinkedQueue<>();
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -77,16 +78,35 @@ public final class WindowsMediaSession implements MediaKeyIntegration
     public WindowsMediaSession()
     {
         this.arena = Arena.ofShared();
-        var linker = Linker.nativeLinker();
-        var lib = AbstractFFMBridge.tryLoadLibrary(
-                arena, "mediakeys", "midiraja_mediakeys.dll");
-
-        smtcStart = linker.downcallHandle(
-                lib.find("windows_smtc_start").orElseThrow(), DESC_START);
-        smtcUpdate = linker.downcallHandle(
-                lib.find("windows_smtc_update").orElseThrow(), DESC_UPDATE);
-        smtcStop = linker.downcallHandle(
-                lib.find("windows_smtc_stop").orElseThrow(), DESC_STOP);
+        MethodHandle startHandle;
+        MethodHandle updateHandle;
+        MethodHandle stopHandle;
+        boolean available;
+        try
+        {
+            var linker = Linker.nativeLinker();
+            var lib = AbstractFFMBridge.tryLoadLibrary(
+                    arena, "mediakeys", "midiraja_mediakeys.dll");
+            startHandle = linker.downcallHandle(
+                    lib.find("windows_smtc_start").orElseThrow(), DESC_START);
+            updateHandle = linker.downcallHandle(
+                    lib.find("windows_smtc_update").orElseThrow(), DESC_UPDATE);
+            stopHandle = linker.downcallHandle(
+                    lib.find("windows_smtc_stop").orElseThrow(), DESC_STOP);
+            available = true;
+        }
+        catch (Throwable e)
+        {
+            startHandle = null;
+            updateHandle = null;
+            stopHandle = null;
+            available = false;
+            log.fine("Windows media key native library unavailable: " + e.getMessage());
+        }
+        smtcStart = startHandle;
+        smtcUpdate = updateHandle;
+        smtcStop = stopHandle;
+        nativeAvailable = available;
     }
 
     // ── MediaKeyIntegration ───────────────────────────────────────────────────
@@ -94,6 +114,8 @@ public final class WindowsMediaSession implements MediaKeyIntegration
     @Override
     public void start(PlaybackCommands commands)
     {
+        if (!nativeAvailable)
+            return;
         if (!started.compareAndSet(false, true))
             return;
         this.commands = commands;
@@ -104,10 +126,11 @@ public final class WindowsMediaSession implements MediaKeyIntegration
                             MethodType.methodType(void.class, WindowsMediaSession.class, int.class));
             var bound = callbackMH.bindTo(this);
             var stub = Linker.nativeLinker().upcallStub(bound, DESC_UPCALL, arena);
-            smtcStart.invokeExact(stub);
+            smtcStartOrThrow().invokeExact(stub);
         }
         catch (Throwable e)
         {
+            started.set(false);
             log.warning("WindowsMediaSession.start() failed: " + e.getMessage());
         }
     }
@@ -115,7 +138,7 @@ public final class WindowsMediaSession implements MediaKeyIntegration
     @Override
     public void drainAndUpdate(NowPlayingInfo info)
     {
-        if (!started.get())
+        if (!nativeAvailable || !started.get())
             return;
         drainQueue();
         try
@@ -124,7 +147,7 @@ public final class WindowsMediaSession implements MediaKeyIntegration
             var artistSeg = info.artist().isEmpty()
                     ? MemorySegment.NULL
                     : allocWideString(info.artist());
-            smtcUpdate.invokeExact(titleSeg, artistSeg,
+            smtcUpdateOrThrow().invokeExact(titleSeg, artistSeg,
                     info.durationMicros() * 10L, info.positionMicros() * 10L,
                     info.isPlaying() ? 1 : 0);
         }
@@ -137,12 +160,12 @@ public final class WindowsMediaSession implements MediaKeyIntegration
     @Override
     public void close()
     {
-        if (started.getAndSet(false))
+        if (nativeAvailable && started.getAndSet(false))
         {
             commands = null;
             try
             {
-                smtcStop.invokeExact();
+                smtcStopOrThrow().invokeExact();
             }
             catch (Throwable e)
             {
@@ -192,5 +215,26 @@ public final class WindowsMediaSession implements MediaKeyIntegration
         var seg = arena.allocate(bytes.length);
         MemorySegment.copy(bytes, 0, seg, JAVA_BYTE, 0, bytes.length);
         return seg;
+    }
+
+    private MethodHandle smtcStartOrThrow()
+    {
+        if (smtcStart == null)
+            throw new IllegalStateException("windows_smtc_start unavailable");
+        return smtcStart;
+    }
+
+    private MethodHandle smtcUpdateOrThrow()
+    {
+        if (smtcUpdate == null)
+            throw new IllegalStateException("windows_smtc_update unavailable");
+        return smtcUpdate;
+    }
+
+    private MethodHandle smtcStopOrThrow()
+    {
+        if (smtcStop == null)
+            throw new IllegalStateException("windows_smtc_stop unavailable");
+        return smtcStop;
     }
 }

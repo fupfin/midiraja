@@ -36,12 +36,12 @@ jobs:
         distribution: 'graalvm-community'
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Install ALSA dependencies (Linux only)
+    - name: Install Linux native build dependencies
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        # Install ALSA libs for compilation
-        sudo apt-get install -y libasound2-dev
+        # Install native deps required by src/main/c/audiolib and src/main/c/mediakeys
+        sudo apt-get install -y libasound2-dev libdbus-1-dev pkg-config
         # Attempt to load the virtual ALSA sequencer module (requires sudo)
         sudo modprobe snd-virmidi || sudo modprobe snd-dummy || echo "Kernel module load failed, relying on user-space ALSA."
 

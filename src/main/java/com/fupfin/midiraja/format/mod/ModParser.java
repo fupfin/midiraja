@@ -8,9 +8,9 @@
 package com.fupfin.midiraja.format.mod;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -50,7 +50,7 @@ public class ModParser
 
     public ModParseResult parse(File file) throws IOException
     {
-        byte[] data = new FileInputStream(file).readAllBytes();
+        byte[] data = Files.readAllBytes(file.toPath());
         return parseBytes(data);
     }
 

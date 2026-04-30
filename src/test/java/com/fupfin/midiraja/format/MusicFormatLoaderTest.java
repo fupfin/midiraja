@@ -14,6 +14,7 @@ import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Set;
 import javax.sound.midi.MidiEvent;
 import javax.sound.midi.MidiSystem;
@@ -101,17 +102,19 @@ class MusicFormatLoaderTest
     void load_modFile_returnsValidSequence(@TempDir File tmpDir) throws Exception
     {
         File modFile = new File(tmpDir, "test.mod");
-        java.nio.file.Files.write(modFile.toPath(), buildMinimalMod());
+        Files.write(modFile.toPath(), buildMinimalMod());
 
         var seq = MusicFormatLoader.load(modFile, Set.of());
         assertNotNull(seq, "load() must return a Sequence for a valid MOD file");
+        assertTrue(Files.deleteIfExists(modFile.toPath()),
+                "load() must not keep the MOD file locked after parsing");
     }
 
     @Test
     void load_vgmFile_returnsValidSequence(@TempDir File tmpDir) throws Exception
     {
         File vgmFile = new File(tmpDir, "test.vgm");
-        java.nio.file.Files.write(vgmFile.toPath(), buildMinimalVgm());
+        Files.write(vgmFile.toPath(), buildMinimalVgm());
 
         var seq = MusicFormatLoader.load(vgmFile, Set.of());
         assertNotNull(seq, "load() must return a Sequence for a valid VGM file");
