@@ -11,6 +11,12 @@ apply plugin: 'checkstyle'
 
 version = '0.4.0a'
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
 def generatedVersionDir = layout.buildDirectory.dir("generated/sources/version/java")
 
 def fallbackLibDirs = [
