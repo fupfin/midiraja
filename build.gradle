@@ -442,6 +442,16 @@ tasks.named('installDist').configure {
     dependsOn buildMiniaudioLib, buildAdlMidiLib, buildOpnMidiLib, buildTsfLib, buildMediakeysLib, buildVgmLib
 }
 
+// distZip/distTar include native artifacts from build/native-libs via distributions.main.contents.
+// Declare explicit task dependencies to satisfy Gradle 9 configuration validation.
+tasks.named('distZip').configure {
+    dependsOn buildMediakeysLib, buildVgmLib
+}
+
+tasks.named('distTar').configure {
+    dependsOn buildMediakeysLib, buildVgmLib
+}
+
 tasks.named('test').configure {
     dependsOn buildMiniaudioLib, buildAdlMidiLib, buildOpnMidiLib, buildTsfLib, buildMediakeysLib, buildVgmLib
     dependsOn checkstyleMain
