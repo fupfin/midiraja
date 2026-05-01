@@ -71,3 +71,6 @@ docs/superpowers/
 __pycache__/
 
 bin/
+
+# Local tool/runtime artifacts
+.codex/
