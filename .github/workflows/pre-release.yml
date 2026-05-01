@@ -1,0 +1,76 @@
+name: Pre-Release Package Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: "Run unit tests before packaging"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: pre-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Package on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            arch_name: linux-amd64
+          - os: macos-15
+            arch_name: darwin-arm64
+          - os: windows-2022
+            arch_name: windows-amd64
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup GraalVM (Java 25)
+      uses: graalvm/setup-graalvm@v1
+      with:
+        java-version: '25'
+        distribution: 'graalvm-community'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Install Linux native build dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libdbus-1-dev pkg-config
+        sudo modprobe snd-virmidi || sudo modprobe snd-dummy || echo "Kernel module load failed, relying on user-space ALSA."
+
+    - name: Build C/C++ Native Libraries
+      if: runner.os != 'Windows'
+      run: ./scripts/build-native-libs.sh
+
+    - name: Build JVM Classes
+      run: ./gradlew classes
+
+    - name: Run Unit Tests
+      if: ${{ inputs.run_tests }}
+      run: ./gradlew test
+
+    - name: Build Distribution Packages
+      run: ./gradlew installDist distZip distTar
+
+    - name: Compile Native Image
+      run: ./gradlew nativeCompile
+
+    - name: Upload Packaging Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: midiraja-pre-release-${{ matrix.arch_name }}
+        path: |
+          build/distributions/*.zip
+          build/distributions/*.tar
+          build/native/nativeCompile/midra
+          build/native/nativeCompile/midra.exe
