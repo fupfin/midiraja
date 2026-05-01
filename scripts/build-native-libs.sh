@@ -188,10 +188,14 @@ if [ "$OS_FAMILY" = "linux" ]; then
     if needs_rebuild "$MEDIAKEYS_LIB" "$MEDIAKEYS_SRC"; then
         echo "==> Building libmidiraja_mediakeys (Linux MPRIS2)..."
         mkdir -p "$NATIVE_LIBS/mediakeys"
-        gcc $(pkg-config --cflags --libs dbus-1) \
-            -shared -fPIC \
+        DBUS_CFLAGS="$(pkg-config --cflags dbus-1)"
+        DBUS_LIBS="$(pkg-config --libs dbus-1)"
+        gcc -shared -fPIC \
+            $DBUS_CFLAGS \
             -o "$MEDIAKEYS_LIB" \
-            "$MEDIAKEYS_SRC"
+            "$MEDIAKEYS_SRC" \
+            $DBUS_LIBS \
+            -lpthread
         echo "  → $MEDIAKEYS_LIB"
     else
         echo "==> libmidiraja_mediakeys up-to-date, skipping."
