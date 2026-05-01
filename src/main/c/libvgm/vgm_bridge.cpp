@@ -24,7 +24,7 @@
 #include <cstring>
 #include <memory>
 
-#include "player/playerA.hpp"
+#include "player/playera.hpp"
 #include "player/vgmplayer.hpp"
 #include "player/s98player.hpp"
 #include "player/droplayer.hpp"
