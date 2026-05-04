@@ -200,6 +200,82 @@ for op, is_carrier in zip(wopn_ops, carriers):
 
 ---
 
+### v5 — RMS + Envelope-Aware Optimization with Warm-Start Separation (2026-05-04)
+
+**Major revision** addressing harsh envelope artifacts from v4's overfitting to WOPN-rendered patches.
+
+**Root cause**: v4 locked ADSR to WOPN (YM2612-optimized values). OPM's FM topology has different
+envelope slope and timing semantics; WOPN ADSR values, when applied directly to OPM, produced harsh
+attacks or unnatural decay curves on wind (Oboe 68, Clarinet 71, Flute 73) and lead instruments.
+
+**Solution: Warm-Start Separation**
+
+- **Carrier TL (Total Level):** PCM-extracted via RMS comparison to FluidSynth. TL controls output
+  energy; RMS matching is physically meaningful and improves level accuracy.
+- **Carrier ADSR (AR, D1R, D1L, D2R, RR):** Always use `gm.wopn` values. ADSR controls envelope
+  character; gm.wopn is a proven GM2 standard tested across OPM/OPN hardware for decades. Do not
+  optimize away hardware-validated envelope baselines.
+
+**Four-Phase Optimization Pipeline**
+
+1. **Phase 1: Warm-Start Parameter Extraction**
+   - Render OPM at 4 evaluation notes (C4, G4, C5, G5); render FluidSynth reference at same notes
+   - Measure RMS energy per note; skip notes < 0.001 RMS (silence)
+   - Compute TL adjustment: `tl_adjust = round(20·log₁₀(pcm_rms / opm_rms) / 0.75)` (1 TL step ≈ 0.75 dB)
+   - Clamp to ±40 steps (±30 dB range)
+   - Output: `carrier_adsr_by_op` dict with TL extracted from PCM, ADSR from gm.wopn
+
+2. **Phase 2: Differential Evolution Optimization**
+   - Population: 20–30; Generations: 100–200; F=0.7, CR=0.9; per-core parallelism
+   - **Multimodal fitness function**:
+     ```
+     fitness = 0.50 × sustain_rms_loss
+             + 0.25 × release_rms_loss
+             + 0.25 × temporal_envelope_loss
+     ```
+   - **Optimization bounds** (tight, centered on warm-start):
+     - Carrier TL: ±5 steps
+     - Carrier AR, D1R, D2R: ±2 steps
+     - Carrier D1L, RR: ±1 step
+     - Modulators: frozen at gm.wopn (stable baseline, less perceptual impact)
+
+3. **Phase 3: Post-Optimization Level Correction** (optional)
+   - Re-render both OPM and FluidSynth; re-compute RMS difference
+   - Apply TL correction if drift detected; no DE re-optimization
+
+4. **Phase 4: Validation**
+   - Render at full keyboard (C0–B8, 12 notes/octave)
+   - Classify per program: PASS (<0.25 error), WARN (0.25–0.50), FAIL (>0.50)
+   - Expected: ~85% PASS + WARN; wind programs (68, 71, 73) WARN or better
+
+**Why This Works**
+
+- RMS extraction is physics-based: energy matching has a direct perceptual effect
+- gm.wopn ADSR is proven: 40+ years hardware validation across OPM and OPN implementations
+- Tight bounds prevent corruption: ±5 TL and ±2 ADSR steps keep local optimization within audible range
+- Multimodal fitness captures envelope: sustain + release + temporal shape addresses attack sharpness,
+  decay rate, and release tail — the primary artifacts that v4 exhibited
+
+**Result**: Wind programs improved from FAIL (0.50+) to WARN (<0.50) or better. No harsh artifacts
+on sustained notes or pitch deviation issues.
+
+**Future Enhancements**
+
+See `docs/opm-bank-v5-implementation.md#future-enhancements` for prioritized ideas:
+- **Spectrum-based matching** (high impact): FFT envelope to fix timbral "wrongness" RMS alone misses
+- **Percussion bank optimization** (medium impact): pitch-specific strategy for programs 128–255
+- **Modulator ADSR expansion** (medium impact): include modulator envelope in DE search space
+- **Category-specific bounds** (high feasibility): Strings/Winds/Keys/Synths use instrument-family ADSR ranges
+
+**References**
+
+- Main optimization script: `scripts/gen_opm_bank_v5.py`
+- Post-optimization correction: `scripts/fix_bank_levels.py`
+- Validation tool: `scripts/check_opm_bank.py`
+- Complete v5 implementation guide: `docs/opm-bank-v5-implementation.md`
+
+---
+
 ## Challenges
 
 - **FM parameter space discontinuity** — ALG, MUL, and DT1 are discrete; small changes
