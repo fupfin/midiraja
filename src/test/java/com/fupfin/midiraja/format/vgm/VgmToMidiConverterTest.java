@@ -105,4 +105,33 @@ class VgmToMidiConverterTest
             assertEquals(baseline.getTracks()[ti].size(), muted.getTracks()[ti].size(),
                     "Mute options must not change VGM->MIDI conversion output");
     }
+
+    @Test
+    void convert_ym2608AdpcmKeyMask_emitsDrumEvents()
+    {
+        var keyOn = new VgmEvent(0, VgmToMidiConverter.CHIP_YM2608_PORT0, new byte[] { 0x10, 0x01 });
+        var keyOff = new VgmEvent(100, VgmToMidiConverter.CHIP_YM2608_PORT0, new byte[] { 0x10, (byte) 0xBF });
+        var parsed = new VgmParseResult(0x151, 0L, 0L, 0L, 0L, 0L, 7_987_200L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
+                List.of(keyOn, keyOff), null);
+
+        var sequence = new VgmToMidiConverter().convert(parsed);
+
+        boolean noteOn = false;
+        boolean noteOff = false;
+        for (var track : sequence.getTracks())
+        {
+            for (int i = 0; i < track.size(); i++)
+            {
+                var msg = track.get(i).getMessage();
+                if (msg instanceof ShortMessage sm && sm.getChannel() == 9 && sm.getData1() == 36)
+                {
+                    noteOn |= sm.getCommand() == ShortMessage.NOTE_ON;
+                    noteOff |= sm.getCommand() == ShortMessage.NOTE_OFF;
+                }
+            }
+        }
+
+        assertTrue(noteOn, "YM2608 ADPCM-A key-on should map to a GM drum NOTE_ON");
+        assertTrue(noteOff, "YM2608 ADPCM-A key-off mask should map to a GM drum NOTE_OFF");
+    }
 }
