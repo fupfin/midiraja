@@ -87,35 +87,22 @@ class VgmToMidiConverterTest
     }
 
     @Test
-    void mutedChannel_producesNoEvents()
+    void mutedChannel_doesNotAffectConversion()
     {
-        // SN76489 tone ch0 → MIDI ch0. Muting ch0 discards all events for that channel.
-        // TrackRoleAssigner skips tracks with no notes, so no Program Change is assigned either.
+        // Conversion no longer applies mute filtering; events are preserved.
+        // Mute is handled later in playback/export pipelines.
         var volEvent = new VgmEvent(0, 0, new byte[] { (byte) 0x90 });
         var toneLow = new VgmEvent(100, 0, new byte[] { (byte) 0x8A });
         var toneHigh = new VgmEvent(100, 0, new byte[] { (byte) 0x01 });
         var parsed = new VgmParseResult(0x151, 0L, 3_579_545L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
                 List.of(volEvent, toneLow, toneHigh), null);
 
-        var sequence = new VgmToMidiConverter(Set.of(0)).convert(parsed);
+        var baseline = new VgmToMidiConverter(Set.of()).convert(parsed);
+        var muted = new VgmToMidiConverter(Set.of(0)).convert(parsed);
 
-        // Track index 1 corresponds to MIDI ch 0 (track 0 is tempo track)
-        var track = sequence.getTracks()[1];
-        boolean hasNoteOn = false;
-        boolean hasProgramChange = false;
-        for (int i = 0; i < track.size(); i++)
-        {
-            var msg = track.get(i).getMessage();
-            if (msg instanceof ShortMessage sm)
-            {
-                if (sm.getCommand() == ShortMessage.NOTE_ON)
-                    hasNoteOn = true;
-                if (sm.getCommand() == ShortMessage.PROGRAM_CHANGE)
-                    hasProgramChange = true;
-            }
-        }
-        assertFalse(hasNoteOn, "Muted channel should have no NoteOn events");
-        // PSG channels (0-2) always receive Square Lead (80) at tick 0, even when muted.
-        // The Program Change is set before muting takes effect (init-time assignment).
+        assertEquals(baseline.getTracks().length, muted.getTracks().length);
+        for (int ti = 0; ti < baseline.getTracks().length; ti++)
+            assertEquals(baseline.getTracks()[ti].size(), muted.getTracks()[ti].size(),
+                    "Mute options must not change VGM->MIDI conversion output");
     }
 }

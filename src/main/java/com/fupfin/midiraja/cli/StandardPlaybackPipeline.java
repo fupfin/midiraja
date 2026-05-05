@@ -9,6 +9,8 @@ package com.fupfin.midiraja.cli;
 
 import static java.lang.Math.*;
 
+import java.util.Set;
+
 import com.fupfin.midiraja.engine.PlaybackPipeline;
 import com.fupfin.midiraja.midi.MidiOutProvider;
 import com.fupfin.midiraja.midi.SysexFilter;
@@ -22,11 +24,13 @@ final class StandardPlaybackPipeline implements PlaybackPipeline
     private final TransposeFilter transposeFilter;
     private final VolumeFilter volumeFilter;
     private final SysexFilter sysexFilter;
+    private final Set<Integer> mutedChannels;
 
     StandardPlaybackPipeline(MidiOutProvider provider, int initialVolumePercent,
-            int initialTranspose)
+            int initialTranspose, Set<Integer> mutedChannels)
     {
         this.provider = provider;
+        this.mutedChannels = mutedChannels;
         double initVol = provider.outputGain().isPresent()
                 ? 1.0
                 : max(0, min(100, initialVolumePercent)) / 100.0;
@@ -38,7 +42,20 @@ final class StandardPlaybackPipeline implements PlaybackPipeline
     @Override
     public void sendMessage(byte[] data) throws Exception
     {
+        if (shouldDrop(data))
+            return;
         transposeFilter.sendMessage(data);
+    }
+
+    private boolean shouldDrop(byte[] data)
+    {
+        if (mutedChannels.isEmpty() || data.length == 0)
+            return false;
+        int status = data[0] & 0xFF;
+        if (status >= 0xF0)
+            return false;
+        int channel = status & 0x0F;
+        return mutedChannels.contains(channel);
     }
 
     @Override

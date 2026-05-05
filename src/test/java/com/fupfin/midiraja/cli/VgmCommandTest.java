@@ -9,11 +9,18 @@ package com.fupfin.midiraja.cli;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import javax.sound.midi.MidiEvent;
+import javax.sound.midi.Sequence;
+import javax.sound.midi.ShortMessage;
 
 import org.junit.jupiter.api.Test;
+import picocli.CommandLine;
 
 import com.fupfin.midiraja.export.vgm.ChipSpec;
 import com.fupfin.midiraja.export.vgm.ChipType;
@@ -195,6 +202,45 @@ class VgmCommandTest
         files.add(new File("song3.vgz"));
         cmd.setFiles(files);
         assertDoesNotThrow(() -> cmd.validateFiles(), "Multiple files should be valid");
+    }
+
+    @Test
+    void muteOption_isParsedAndAppliedToConversionState()
+    {
+        VgmCommand cmd = new VgmCommand();
+        new CommandLine(cmd).parseArgs("--mute", "4-6,10", "song.mid");
+        cmd.refreshMutedChannels(new PrintStream(new ByteArrayOutputStream()));
+        assertEquals(Set.of(3, 4, 5, 9), cmd.mutedChannelsForTest());
+    }
+
+    @Test
+    void applyMutedChannels_removesOnlyMutedMidiChannels() throws Exception
+    {
+        var seq = new Sequence(Sequence.PPQ, 480);
+        var track = seq.createTrack();
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60, 100), 0)); // ch1
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 1, 61, 100), 1)); // ch2
+        track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 2, 62, 100), 2)); // ch3
+
+        VgmCommand.applyMutedChannels(seq, Set.of(0, 1));
+
+        boolean hasCh0 = false;
+        boolean hasCh1 = false;
+        boolean hasCh2 = false;
+        for (int i = 0; i < track.size(); i++)
+        {
+            int status = track.get(i).getMessage().getStatus();
+            if ((status & 0xF0) != 0x90)
+                continue;
+            int channel = status & 0x0F;
+            hasCh0 |= channel == 0;
+            hasCh1 |= channel == 1;
+            hasCh2 |= channel == 2;
+        }
+
+        assertFalse(hasCh0, "Muted channel 1 should be removed");
+        assertFalse(hasCh1, "Muted channel 2 should be removed");
+        assertTrue(hasCh2, "Unmuted channel should remain");
     }
 
 }

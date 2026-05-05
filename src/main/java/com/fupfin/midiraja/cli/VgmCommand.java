@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
+import javax.sound.midi.MidiEvent;
 import javax.sound.midi.Sequence;
 
 import org.jspecify.annotations.Nullable;
@@ -78,6 +79,8 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
 
     /** Chip label resolved per-file; used to set portSuffix on each engine instance. */
     private volatile String chipLabel = "";
+    /** 0-based channels to mute during MIDI/MOD -> VGM conversion. */
+    private volatile Set<Integer> mutedChannels = Set.of();
 
     // ── Test-accessible setters ───────────────────────────────────────────────
 
@@ -122,6 +125,7 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
     @SuppressWarnings("PMD.SignatureDeclareThrowsException")
     private Integer runPlayback(MidirajaCommand p) throws Exception
     {
+        refreshMutedChannels(p.getErr());
         var np = NativeAudioPipeline.build(2, common, fxOptions);
         var spectrumFilter = np.spectrumFilter();
 
@@ -161,7 +165,8 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
             return new Sequence(Sequence.PPQ, 480); // unknown duration
         }
 
-        var sequence = MusicFormatLoader.load(file, Set.of());
+        var sequence = MusicFormatLoader.load(file, mutedChannels);
+        applyMutedChannels(sequence, mutedChannels);
         var spec = resolveChipSpec();
         chipLabel = spec.chips().stream()
                 .map(ChipType::name)
@@ -170,6 +175,40 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
         new CompositeVgmExporter(ChipHandlers.create(spec), spec.mode()).export(sequence, vgmBytes);
         provider.loadVgmData(vgmBytes.toByteArray());
         return sequence;
+    }
+
+    Set<Integer> mutedChannelsForTest()
+    {
+        return mutedChannels;
+    }
+
+    void refreshMutedChannels(java.io.PrintStream err)
+    {
+        mutedChannels = common.parsedMutedChannels(err);
+    }
+
+    static void applyMutedChannels(Sequence sequence, Set<Integer> mutedChannels)
+    {
+        if (mutedChannels.isEmpty())
+            return;
+        for (var track : sequence.getTracks())
+        {
+            var toRemove = new ArrayList<MidiEvent>();
+            for (int i = 0; i < track.size(); i++)
+            {
+                var event = track.get(i);
+                var raw = event.getMessage().getMessage();
+                if (raw.length == 0)
+                    continue;
+                int status = raw[0] & 0xFF;
+                if (status >= 0xF0)
+                    continue;
+                int channel = status & 0x0F;
+                if (mutedChannels.contains(channel))
+                    toRemove.add(event);
+            }
+            toRemove.forEach(track::remove);
+        }
     }
 
 }

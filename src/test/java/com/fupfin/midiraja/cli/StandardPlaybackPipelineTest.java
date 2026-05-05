@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -73,7 +74,7 @@ class StandardPlaybackPipelineTest
     {
         provider = new RecordingProvider();
         // 100% initial volume, 0 semitone transpose
-        pipeline = new StandardPlaybackPipeline(provider, 100, 0);
+        pipeline = new StandardPlaybackPipeline(provider, 100, 0, Set.of());
     }
 
     // --- Initial state ---
@@ -93,7 +94,7 @@ class StandardPlaybackPipelineTest
     @Test
     void initial_volume_percent_50_sets_volume_scale_to_half() throws Exception
     {
-        var p = new StandardPlaybackPipeline(provider, 50, 0);
+        var p = new StandardPlaybackPipeline(provider, 50, 0, Set.of());
         assertEquals(0.5, p.getVolumeScale(), 1e-9);
     }
 
@@ -125,7 +126,7 @@ class StandardPlaybackPipelineTest
     void adjust_volume_positive_delta_increases_volume_scale()
     {
         // Initial scale from 50% = 0.5; add 0.2 → 0.7
-        var p = new StandardPlaybackPipeline(provider, 50, 0);
+        var p = new StandardPlaybackPipeline(provider, 50, 0, Set.of());
         p.adjustVolume(0.2);
         assertEquals(0.7, p.getVolumeScale(), 1e-9);
     }
@@ -236,13 +237,25 @@ class StandardPlaybackPipelineTest
                 .count());
     }
 
+    @Test
+    void muted_channel_messages_are_dropped() throws Exception
+    {
+        var p = new StandardPlaybackPipeline(provider, 100, 0, Set.of(0, 1));
+        p.sendMessage(new byte[] { (byte) 0x90, 60, 80 }); // ch1 muted
+        p.sendMessage(new byte[] { (byte) 0xB1, 7, 100 }); // ch2 muted
+        p.sendMessage(new byte[] { (byte) 0x92, 64, 100 }); // ch3 allowed
+
+        assertEquals(1, provider.sent.size());
+        assertEquals(0x92, provider.sent.get(0)[0] & 0xFF);
+    }
+
     // --- Exception propagation ---
 
     @Test
     void send_message_propagates_exception_from_provider()
     {
         var throwing = new ThrowingProvider();
-        var p = new StandardPlaybackPipeline(throwing, 100, 0);
+        var p = new StandardPlaybackPipeline(throwing, 100, 0, Set.of());
         assertThrows(Exception.class, () -> p.sendMessage(new byte[] { (byte) 0x90, 60, 80 }));
     }
 }

@@ -126,7 +126,7 @@ class PlaylistPlayer
 
                 var engine = engineFactory.create(sequence, provider, context,
                         new StandardPlaybackPipeline(provider, common.volume,
-                                common.transpose.orElse(0)),
+                                common.transpose.orElse(0), mutedChannels),
                         () -> MidirajaCommand.SHUTTING_DOWN,
                         common.speed, currentStartTime);
 

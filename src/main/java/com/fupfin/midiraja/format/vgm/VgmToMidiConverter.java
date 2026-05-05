@@ -54,8 +54,6 @@ public class VgmToMidiConverter
     private static final long VGM_SAMPLE_RATE = 44100L;
     private static final long TICKS_PER_SECOND = 960L; // PPQ * (1_000_000 / TEMPO_µS) = 480 * 2
 
-    private final Set<Integer> mutedChannels;
-
     public VgmToMidiConverter()
     {
         this(Set.of());
@@ -63,12 +61,12 @@ public class VgmToMidiConverter
 
     /**
      * @param mutedChannels
-     *            MIDI channel indices (0-based) to silence. Events routed to these
-     *            channels are discarded rather than written to the output sequence.
+     *            retained for API compatibility; muting is now applied in playback/export
+     *            pipelines instead of during VGM→MIDI conversion.
      */
     public VgmToMidiConverter(Set<Integer> mutedChannels)
     {
-        this.mutedChannels = mutedChannels;
+        // no-op
     }
 
     static long toTick(long sampleOffset)
@@ -181,19 +179,7 @@ public class VgmToMidiConverter
                 opmConverter.setPatchCatalog(opmCatalog);
             }
 
-            // Muted channels are redirected to a sink track that is not part of the output sequence.
-            // This discards all events destined for those channels without modifying converter logic.
-            var routed = tracks.clone();
-            if (!mutedChannels.isEmpty())
-            {
-                var sinkSeq = new Sequence(Sequence.PPQ, PPQ);
-                var sink = sinkSeq.createTrack();
-                for (int ch : mutedChannels)
-                {
-                    if (ch >= 0 && ch < routed.length)
-                        routed[ch] = sink;
-                }
-            }
+            var routed = tracks;
 
             // AY8910 and SN76489 share MIDI channels 0-2 and 9; a given VGM file contains
             // at most one of the two chips (MSX uses AY8910, Sega uses SN76489).
