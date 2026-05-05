@@ -31,6 +31,7 @@ public class VgmParser
 
     /** PAL frame: 44100 Hz / 50 fps = 882 samples (command 0x63). */
     private static final int PAL_SAMPLES = 882;
+    private static final long CLOCK_VALUE_MASK = 0x3FFF_FFFFL;
 
     public VgmParseResult parse(File file) throws IOException
     {
@@ -41,24 +42,24 @@ public class VgmParser
 
         int version = buf.getInt(0x08);
         // v1.00+
-        long ym2413Clock = Integer.toUnsignedLong(buf.getInt(0x10));
-        long sn76489Clock = Integer.toUnsignedLong(buf.getInt(0x0C));
+        long ym2413Clock = readClockHz(buf, 0x10);
+        long sn76489Clock = readClockHz(buf, 0x0C);
         // v1.10+
-        long ym2612Clock = (version >= 0x110 && data.length > 0x30) ? Integer.toUnsignedLong(buf.getInt(0x2C)) : 0;
-        long ym2151Clock = (version >= 0x110 && data.length > 0x34) ? Integer.toUnsignedLong(buf.getInt(0x30)) : 0;
+        long ym2612Clock = (version >= 0x110 && data.length > 0x30) ? readClockHz(buf, 0x2C) : 0;
+        long ym2151Clock = (version >= 0x110 && data.length > 0x34) ? readClockHz(buf, 0x30) : 0;
         // v1.51+
-        long ym2203Clock = (version >= 0x151 && data.length > 0x48) ? Integer.toUnsignedLong(buf.getInt(0x44)) : 0;
-        long ym2608Clock = (version >= 0x151 && data.length > 0x4C) ? Integer.toUnsignedLong(buf.getInt(0x48)) : 0;
-        long ym2610Clock = (version >= 0x151 && data.length > 0x50) ? Integer.toUnsignedLong(buf.getInt(0x4C)) : 0;
-        long ym3812Clock = (version >= 0x151 && data.length > 0x54) ? Integer.toUnsignedLong(buf.getInt(0x50)) : 0;
-        long ymf262Clock = (version >= 0x151 && data.length > 0x60) ? Integer.toUnsignedLong(buf.getInt(0x5C)) : 0;
-        long ay8910Clock = (version >= 0x151 && data.length > 0x78) ? Integer.toUnsignedLong(buf.getInt(0x74)) : 0;
+        long ym2203Clock = (version >= 0x151 && data.length > 0x48) ? readClockHz(buf, 0x44) : 0;
+        long ym2608Clock = (version >= 0x151 && data.length > 0x4C) ? readClockHz(buf, 0x48) : 0;
+        long ym2610Clock = (version >= 0x151 && data.length > 0x50) ? readClockHz(buf, 0x4C) : 0;
+        long ym3812Clock = (version >= 0x151 && data.length > 0x54) ? readClockHz(buf, 0x50) : 0;
+        long ymf262Clock = (version >= 0x151 && data.length > 0x60) ? readClockHz(buf, 0x5C) : 0;
+        long ay8910Clock = (version >= 0x151 && data.length > 0x78) ? readClockHz(buf, 0x74) : 0;
         // v1.61+
-        long gameBoyDmgClock = (version >= 0x161 && data.length > 0x84) ? Integer.toUnsignedLong(buf.getInt(0x80)) : 0;
-        long huC6280Clock = (version >= 0x161 && data.length > 0xA8) ? Integer.toUnsignedLong(buf.getInt(0xA4)) : 0;
-        long k051649Clock = (version >= 0x161 && data.length > 0xB0) ? Integer.toUnsignedLong(buf.getInt(0xAC)) : 0;
+        long gameBoyDmgClock = (version >= 0x161 && data.length > 0x84) ? readClockHz(buf, 0x80) : 0;
+        long huC6280Clock = (version >= 0x161 && data.length > 0xA8) ? readClockHz(buf, 0xA4) : 0;
+        long k051649Clock = (version >= 0x161 && data.length > 0xB0) ? readClockHz(buf, 0xAC) : 0;
         // v1.61+
-        long nes2A03Clock = (version >= 0x161 && data.length > 0x88) ? Integer.toUnsignedLong(buf.getInt(0x84)) : 0;
+        long nes2A03Clock = (version >= 0x161 && data.length > 0x88) ? readClockHz(buf, 0x84) : 0;
         // K051649 in Konami MSX cartridges runs at the full cartridge bus clock (= CPU clock).
         // The AY8910 PSG has an internal /2 prescaler, so ay8910Clock = CPU/2.
         // When the VGM header stores k051649Clock=0, reconstruct the SCC clock as 2× ay8910Clock.
@@ -198,6 +199,18 @@ public class VgmParser
                 case 0x5E -> pos = addRegWrite(events, sampleOffset, 15, data, pos); // YMF262 (OPL3) port 0
                 case 0x5F -> pos = addRegWrite(events, sampleOffset, 16, data, pos); // YMF262 (OPL3) port 1
                 case 0xA0 -> pos = addRegWrite(events, sampleOffset, 3, data, pos); // AY8910
+                case 0xA1 -> pos = addRegWrite(events, sampleOffset, 18, data, pos); // YM2413 (2nd)
+                case 0xA2 -> pos = addRegWrite(events, sampleOffset, 19, data, pos); // YM2612 p0 (2nd)
+                case 0xA3 -> pos = addRegWrite(events, sampleOffset, 20, data, pos); // YM2612 p1 (2nd)
+                case 0xA4 -> pos = addRegWrite(events, sampleOffset, 21, data, pos); // YM2151 (2nd)
+                case 0xA5 -> pos = addRegWrite(events, sampleOffset, 22, data, pos); // YM2203 (2nd)
+                case 0xA6 -> pos = addRegWrite(events, sampleOffset, 23, data, pos); // YM2608 p0 (2nd)
+                case 0xA7 -> pos = addRegWrite(events, sampleOffset, 24, data, pos); // YM2608 p1 (2nd)
+                case 0xA8 -> pos = addRegWrite(events, sampleOffset, 25, data, pos); // YM2610 p0 (2nd)
+                case 0xA9 -> pos = addRegWrite(events, sampleOffset, 26, data, pos); // YM2610 p1 (2nd)
+                case 0xAA -> pos = addRegWrite(events, sampleOffset, 27, data, pos); // YM3812 (2nd)
+                case 0xAE -> pos = addRegWrite(events, sampleOffset, 28, data, pos); // YMF262 p0 (2nd)
+                case 0xAF -> pos = addRegWrite(events, sampleOffset, 29, data, pos); // YMF262 p1 (2nd)
                 case 0xB3 -> pos = addRegWrite(events, sampleOffset, 11, data, pos); // Game Boy DMG
                 case 0xB4 -> pos = addRegWrite(events, sampleOffset, 17, data, pos); // NES 2A03
                 case 0xB9 -> pos = addRegWrite(events, sampleOffset, 12, data, pos); // HuC6280 (PC Engine)
@@ -271,6 +284,11 @@ public class VgmParser
             }
         }
         return events;
+    }
+
+    private static long readClockHz(ByteBuffer buf, int offset)
+    {
+        return Integer.toUnsignedLong(buf.getInt(offset)) & CLOCK_VALUE_MASK;
     }
 
     /**

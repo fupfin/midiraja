@@ -69,6 +69,57 @@ class VgmParserTest
         assertEquals(18, result.events().getFirst().sampleOffset());
     }
 
+    @Test
+    void parse_ym2610bClockFlag_isMaskedFromClockHz() throws Exception
+    {
+        // YM2610B uses bit31 as variant flag. Parser must strip variant/dual bits from Hz.
+        var buf = ByteBuffer.allocate(0x55).order(ByteOrder.LITTLE_ENDIAN);
+        buf.putInt(0x00, 0x206D6756);
+        buf.putInt(0x04, 0x55 - 0x04);
+        buf.putInt(0x08, 0x00000151);
+        buf.putInt(0x4C, (int) (0x80000000L | 8_000_000L)); // YM2610B flag + 8MHz
+        buf.putInt(0x34, 0x0C);
+        buf.put(0x40, (byte) 0x66);
+
+        var file = tmp.resolve("ym2610b-flag.vgm").toFile();
+        try (var out = new FileOutputStream(file))
+        {
+            out.write(buf.array());
+        }
+
+        var result = new VgmParser().parse(file);
+        assertEquals(8_000_000L, result.ym2610Clock());
+    }
+
+    @Test
+    void parse_dualYmCommands_areRecognizedAsSecondChipEvents() throws Exception
+    {
+        // 0xA2/0xA3 are YM2612 second-chip port0/port1 commands.
+        var buf = ByteBuffer.allocate(0x47).order(ByteOrder.LITTLE_ENDIAN);
+        buf.putInt(0x00, 0x206D6756);
+        buf.putInt(0x04, 0x47 - 0x04);
+        buf.putInt(0x08, 0x00000151);
+        buf.putInt(0x2C, (int) (0x40000000L | 7_670_454L)); // dual-chip flag + clock
+        buf.putInt(0x34, 0x0C);
+        buf.put(0x40, (byte) 0xA2);
+        buf.put(0x41, (byte) 0x22);
+        buf.put(0x42, (byte) 0x33);
+        buf.put(0x43, (byte) 0xA3);
+        buf.put(0x44, (byte) 0x44);
+        buf.put(0x45, (byte) 0x55);
+        buf.put(0x46, (byte) 0x66);
+
+        var file = tmp.resolve("dual-ym.vgm").toFile();
+        try (var out = new FileOutputStream(file))
+        {
+            out.write(buf.array());
+        }
+
+        var result = new VgmParser().parse(file);
+        var chips = result.events().stream().mapToInt(e -> e.chip()).distinct().sorted().toArray();
+        assertArrayEquals(new int[] { 19, 20 }, chips);
+    }
+
     private static byte[] buildVgmWith0x8nCommands()
     {
         var buf = ByteBuffer.allocate(0x47).order(ByteOrder.LITTLE_ENDIAN);
