@@ -29,10 +29,12 @@ VGM/VGZ file ──► LibvgmSynthProvider ──► FFMLibvgmBridge
                                           Audio output (miniaudio)
 ```
 
-### When MIDI files are converted with `--system`
+### When MIDI files are converted with `--system` or `--chips`
 
 ```
-MIDI file ──► Ay8910VgmExporter / Ym2413VgmExporter (in memory)
+MIDI/MOD file ──► MusicFormatLoader.load()
+                        │
+                 CompositeVgmExporter
                         │
                     byte[] VGM data
                         │
@@ -48,14 +50,15 @@ MIDI file ──► Ay8910VgmExporter / Ym2413VgmExporter (in memory)
 ### Overview
 
 Converts VGM (Video Game Music) files to `javax.sound.midi.Sequence` for playback through
-the existing MIDI pipeline. The conversion is injected in `PlaylistPlayer.play()` before the
-`MidiUtils.loadSequence()` call: VGM files are detected, converted to a `Sequence`, and
-handed off to the synth provider as if they were ordinary MIDI files.
+the existing MIDI pipeline. The conversion is handled by `MusicFormatLoader`: VGM files are
+detected, converted to a `Sequence`, and handed off to the synth provider as if they were
+ordinary MIDI files.
 
 Supported chips: **SN76489** (Sega PSG), **YM2612** (Sega FM), **YM2151** (Arcade OPM),
 **YM2203** (PC-88 OPN), **YM2608** (PC-98 OPNA), **YM2610** (Neo Geo OPNB),
 **AY-3-8910** (MSX PSG), **K051649** (Konami SCC wavetable), **YM2413** (MSX/SMS OPLL),
-**YM3812** (DOS OPL2), **YMF262** (DOS OPL3), **HuC6280** (PC Engine), **Game Boy DMG**.
+**YM3812** (DOS OPL2), **YMF262** (DOS OPL3), **HuC6280** (PC Engine), **Game Boy DMG**,
+**NES RP2A03** (NES APU).
 
 ---
 
@@ -129,7 +132,7 @@ and carrier envelope. See [OPL Patch Catalog](#opl-patch-catalog) below.
 
 ## Classes
 
-### `VgmParser` — `com.fupfin.midiraja.vgm`
+### `VgmParser` — `com.fupfin.midiraja.format.vgm`
 
 Reads a VGM file and produces a chip-event stream.
 
@@ -191,7 +194,7 @@ record VgmParseResult(
 
 ---
 
-### `VgmToMidiConverter` — `com.fupfin.midiraja.vgm`
+### `VgmToMidiConverter` — `com.fupfin.midiraja.format.vgm`
 
 Top-level orchestrator that converts `VgmParseResult` to `javax.sound.midi.Sequence`.
 
@@ -210,7 +213,7 @@ class VgmToMidiConverter {
 
 ---
 
-### `Sn76489MidiConverter` — `com.fupfin.midiraja.vgm`
+### `Sn76489MidiConverter` — `com.fupfin.midiraja.format.vgm`
 
 Converts SN76489 PSG chip events to MIDI note events.
 
@@ -222,7 +225,7 @@ Converts SN76489 PSG chip events to MIDI note events.
 
 ---
 
-### `FmMidiUtil` — `com.fupfin.midiraja.vgm`
+### `FmMidiUtil` — `com.fupfin.midiraja.format.vgm`
 
 Shared utilities for all FM chip converters (YM2612, YM2151, OPN family).
 
@@ -237,7 +240,7 @@ Shared utilities for all FM chip converters (YM2612, YM2151, OPN family).
 
 ---
 
-### `Ym2612MidiConverter` — `com.fupfin.midiraja.vgm`
+### `Ym2612MidiConverter` — `com.fupfin.midiraja.format.vgm`
 
 Converts YM2612 FM chip events to MIDI note events. Also handles the OPN family
 (YM2203/YM2608/YM2610) via configurable FM divider and port 1 chip ID.
@@ -257,7 +260,7 @@ Converts YM2612 FM chip events to MIDI note events. Also handles the OPN family
 
 ---
 
-### `Ym2151MidiConverter` — `com.fupfin.midiraja.vgm`
+### `Ym2151MidiConverter` — `com.fupfin.midiraja.format.vgm`
 
 Converts YM2151 (OPM) FM chip events to MIDI note events.
 
@@ -275,7 +278,7 @@ Converts YM2151 (OPM) FM chip events to MIDI note events.
 
 ---
 
-### `Ym3812MidiConverter` — `com.fupfin.midiraja.vgm`
+### `Ym3812MidiConverter` — `com.fupfin.midiraja.format.vgm`
 
 Converts YM3812 (OPL2) and YMF262 (OPL3) FM chip events to MIDI note events.
 9-channel 2-operator FM. Handles OPL2 (0x5A) and OPL3 (0x5E/0x5F, via dual instances
@@ -288,7 +291,7 @@ with `midiChOffset`). Configurable clock and channel offset. +12 octave correcti
 
 ---
 
-### `Ym2413MidiConverter` — `com.fupfin.midiraja.vgm`
+### `Ym2413MidiConverter` — `com.fupfin.midiraja.format.vgm`
 
 Converts YM2413 (OPLL) chip events to MIDI note events. 9-channel OPLL with 15 ROM
 preset instruments mapped directly to GM programs (Violin -> 40, Piano -> 0, Flute -> 73,
@@ -300,7 +303,7 @@ etc.).
 
 ---
 
-### `HuC6280MidiConverter` — `com.fupfin.midiraja.vgm`
+### `HuC6280MidiConverter` — `com.fupfin.midiraja.format.vgm`
 
 Converts HuC6280 (PC Engine) 6-channel wavetable chip events to MIDI note events.
 Channel-select register architecture.
@@ -313,7 +316,7 @@ Channel-select register architecture.
 
 ---
 
-### `GameBoyDmgMidiConverter` — `com.fupfin.midiraja.vgm`
+### `GameBoyDmgMidiConverter` — `com.fupfin.midiraja.format.vgm`
 
 Converts Game Boy DMG chip events to MIDI note events.
 
@@ -325,7 +328,7 @@ Converts Game Boy DMG chip events to MIDI note events.
 
 ---
 
-### `TrackRoleAssigner` — `com.fupfin.midiraja.vgm`
+### `TrackRoleAssigner` — `com.fupfin.midiraja.format.vgm`
 
 Post-conversion GM program assignment. Operates in two modes:
 
@@ -338,7 +341,7 @@ Post-conversion GM program assignment. Operates in two modes:
 
 ---
 
-### `Ay8910MidiConverter` — `com.fupfin.midiraja.vgm`
+### `Ay8910MidiConverter` — `com.fupfin.midiraja.format.vgm`
 
 Converts AY-3-8910 / YM2149F PSG chip events (common on MSX, ZX Spectrum, Amstrad CPC)
 to MIDI note events.
@@ -381,7 +384,7 @@ in the original noise signal and would make percussion sound too heavy.
 
 ---
 
-### `SccMidiConverter` — `com.fupfin.midiraja.vgm`
+### `SccMidiConverter` — `com.fupfin.midiraja.format.vgm`
 
 Converts Konami SCC (K051649) wavetable chip events to MIDI note events.
 

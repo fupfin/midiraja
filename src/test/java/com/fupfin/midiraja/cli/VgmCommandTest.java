@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +23,9 @@ import javax.sound.midi.ShortMessage;
 
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
+import picocli.CommandLine.Option;
 
+import com.fupfin.midiraja.export.vgm.ChipHandlers;
 import com.fupfin.midiraja.export.vgm.ChipSpec;
 import com.fupfin.midiraja.export.vgm.ChipType;
 import com.fupfin.midiraja.export.vgm.RoutingMode;
@@ -99,14 +103,49 @@ class VgmCommandTest
         assertEquals(List.of(ChipType.YM2612, ChipType.SN76489), cmd.resolveChipSpec().chips());
     }
 
-
-@Test
+    @Test
     void system_presets_useSequentialRouting()
     {
         VgmCommand cmd = new VgmCommand();
         cmd.chipSpec.system = "msx";
         assertEquals(RoutingMode.SEQUENTIAL, cmd.resolveChipSpec().mode(),
                 "Presets should always use SEQUENTIAL routing mode");
+    }
+
+    @Test
+    void allPresetSystems_resolveSuccessfully()
+    {
+        for (String preset : ChipHandlers.PRESETS.keySet())
+        {
+            VgmCommand cmd = new VgmCommand();
+            cmd.chipSpec.system = preset;
+            assertDoesNotThrow(cmd::resolveChipSpec, "Preset should resolve: " + preset);
+        }
+    }
+
+    @Test
+    void systemOptionDescription_includesAllPresetNames() throws Exception
+    {
+        var field = VgmCommand.ChipSpecOptions.class.getDeclaredField("system");
+        var option = field.getAnnotation(Option.class);
+        assertNotNull(option, "ChipSpecOptions.system must be annotated with @Option");
+        String description = String.join(" ", option.description());
+        for (String preset : ChipHandlers.PRESETS.keySet())
+        {
+            assertTrue(description.contains(preset),
+                    "Missing preset in --system description: " + preset);
+        }
+    }
+
+    @Test
+    void vgmPlaybackDoc_includesAllPresetNames() throws Exception
+    {
+        String doc = Files.readString(Path.of("docs/vgm_playback.md"));
+        for (String preset : ChipHandlers.PRESETS.keySet())
+        {
+            assertTrue(doc.contains("`" + preset + "`"),
+                    "Missing preset in docs/vgm_playback.md: " + preset);
+        }
     }
 
     @Test

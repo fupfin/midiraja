@@ -86,12 +86,12 @@ The trade-off is size (~5 MB shared library) and slightly higher CPU cost (~5-10
 
 ### Key Components
 
-**LibvgmSynthProvider** (`com.fupfin.midiraja.synth.libvgm`)
+**LibvgmSynthProvider** (`com.fupfin.midiraja.midi.vgm`)
 - Implements `SoftSynthProvider`
 - Wraps FFM bridge and renders VGM data on the audio render thread
 - Manages sample rate negotiation, state cleanup
 
-**FFMLibvgmBridge** (`com.fupfin.midiraja.synth.libvgm`)
+**FFMLibvgmBridge** (`com.fupfin.midiraja.midi.vgm`)
 - Panama FFM binding to `vgm_bridge.c` shared library (`libmidiraja_vgm.dylib`/`.so`/`.dll`)
 - Exposes `vgm_create()`, `vgm_open_file()`, `vgm_open_data()`, `vgm_render()`, `vgm_is_done()`, `vgm_close()`
 - Manages arena allocation (thread-local per render context)
