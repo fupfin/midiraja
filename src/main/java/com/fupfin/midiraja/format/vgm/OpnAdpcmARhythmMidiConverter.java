@@ -17,15 +17,14 @@ import javax.sound.midi.Track;
  *
  * <p>
  * YM2608 uses register {@code 0x10} (port 0), YM2610/YM2610B use register {@code 0x00}
- * (port 1). Bit 7 set means key-off all ({@code 0xBF} in typical streams); bits 0-5 are
- * per-channel key-on masks.
+ * (port 1). Bits 0-5 select the voices. Bit 7 selects key-off when set and key-on otherwise.
  */
 final class OpnAdpcmARhythmMidiConverter
 {
     private static final int DRUM_CH = 9;
     private static final int[] ADPCM_CH_TO_GM_NOTE = { 36, 38, 49, 42, 45, 37 };
     private final int keyReg;
-    private int lastKeyMask;
+    private int activeMask;
 
     OpnAdpcmARhythmMidiConverter(int keyReg)
     {
@@ -42,21 +41,22 @@ final class OpnAdpcmARhythmMidiConverter
             return false;
 
         int data = event.rawData()[1] & 0xFF;
-        int newMask = ((data & 0x80) != 0) ? 0 : (data & 0x3F);
-
+        boolean keyOff = (data & 0x80) != 0;
+        int selected = data & 0x3F;
         for (int ch = 0; ch < ADPCM_CH_TO_GM_NOTE.length; ch++)
         {
             int bit = 1 << ch;
-            boolean wasOn = (lastKeyMask & bit) != 0;
-            boolean isOn = (newMask & bit) != 0;
+            if ((selected & bit) == 0)
+                continue;
+
             int note = ADPCM_CH_TO_GM_NOTE[ch];
-            if (!wasOn && isOn)
-                addEvent(tracks[DRUM_CH], ShortMessage.NOTE_ON, DRUM_CH, note, 100, tick);
-            else if (wasOn && !isOn)
+            // Close an existing MIDI note before retriggering the same percussion voice.
+            if ((activeMask & bit) != 0)
                 addEvent(tracks[DRUM_CH], ShortMessage.NOTE_OFF, DRUM_CH, note, 0, tick);
+            if (!keyOff)
+                addEvent(tracks[DRUM_CH], ShortMessage.NOTE_ON, DRUM_CH, note, 100, tick);
         }
-        lastKeyMask = newMask;
+        activeMask = keyOff ? activeMask & ~selected : activeMask | selected;
         return true;
     }
 }
-
