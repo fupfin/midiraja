@@ -7,8 +7,8 @@ Version 1 — 2026-04-21
 ## Overview
 
 The OPMGM bank format stores a set of General MIDI FM patches for the YM2151 (OPM) chip.
-It is the binary exchange format between `scripts/gen_opm_bank_v4.py` (writer) and
-`OpmBankReader.java` (reader).
+Midiraja uses this format for its bundled bank and for external banks supplied with
+`--bank opm:/path/to/bank.bin`.
 
 The format is deliberately minimal: a fixed-size 128-melodic + 128-percussion layout with no
 variable-length fields, making random access O(1) and parsing branch-free. All multi-byte
