@@ -43,16 +43,16 @@ import com.fupfin.midiraja.midi.vgm.LibvgmPlaybackEngine;
 import com.fupfin.midiraja.midi.vgm.LibvgmSynthProvider;
 
 @Command(name = "vgm", aliases = {
-        "chiptune" }, mixinStandardHelpOptions = true, description = "VGM/VGZ direct playback or MIDI → VGM → libvgm synthesis.")
+        "chiptune" }, mixinStandardHelpOptions = true, description = "VGM/VGZ direct playback or non-VGM input → VGM → libvgm synthesis. --system/--chips apply only to non-VGM conversion, not direct .vgm/.vgz playback.")
 public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
     static final class ChipSpecOptions
     {
-        @Option(names = "--system", description = "System preset: zxspectrum, msx, msx-scc, sb16, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, pc-engine, nes, fm-towns. Default: megadrive.")
+        @Option(names = "--system", description = "System preset for non-VGM -> VGM conversion (ignored for direct .vgm/.vgz playback): zxspectrum, msx, msx-scc, sb16, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, pc-engine, nes, fm-towns. Default: megadrive.")
         @Nullable
         String system;
 
-        @Option(names = "--chips", description = "Chip combination. Available chips: ay8910, ym2413, scc, scci, opl3, sn76489, ym2612, ym3812, ym2608, ym2151, ym2610, ym2610b, ym2203, dmg, huc6280, nes_apu, msm6258, rf5c68. Separators: '+' or ',' = CHANNEL mode (round-robin by MIDI channel); '>' = SEQUENTIAL mode (fill first chip before second). E.g. ay8910+ym2413 or scc>ay8910.")
+        @Option(names = "--chips", description = "Chip combination for non-VGM -> VGM conversion (ignored for direct .vgm/.vgz playback). Available chips: ay8910, ym2413, scc, scci, opl3, sn76489, ym2612, ym3812, ym2608, ym2151, ym2610, ym2610b, ym2203, dmg, huc6280, nes_apu, msm6258, rf5c68. Separators: '+' or ',' = CHANNEL mode (round-robin by MIDI channel); '>' = SEQUENTIAL mode (fill first chip before second). E.g. ay8910+ym2413 or scc>ay8910.")
         @Nullable
         String chips;
     }
@@ -79,7 +79,7 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
 
     /** Chip label resolved per-file; used to set portSuffix on each engine instance. */
     private volatile String chipLabel = "";
-    /** 0-based channels to mute during MIDI/MOD -> VGM conversion. */
+    /** 0-based channels to mute during non-VGM -> VGM conversion. */
     private volatile Set<Integer> mutedChannels = Set.of();
 
     // ── Test-accessible setters ───────────────────────────────────────────────
