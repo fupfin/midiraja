@@ -73,7 +73,7 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
     private Optional<String> bank = Optional.empty();
 
     @Mixin
-    private final CommonOptions common = new CommonOptions();
+    private final CommonOptions common;
 
     // ── State ─────────────────────────────────────────────────────────────────
 
@@ -81,6 +81,29 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
     private volatile String chipLabel = "";
     /** 0-based channels to mute during non-VGM -> VGM conversion. */
     private volatile Set<Integer> mutedChannels = Set.of();
+
+    public VgmCommand()
+    {
+        this(new CommonOptions());
+    }
+
+    private VgmCommand(CommonOptions common)
+    {
+        this.common = common;
+    }
+
+    public static int playFromSelector(MidirajaCommand parent, List<File> files,
+            CommonOptions common, FxOptions fxOptions, List<String> originalArgs) throws Exception
+    {
+        var command = new VgmCommand(common);
+        command.files = files;
+        command.fxOptions = fxOptions;
+
+        var playbackArgs = new ArrayList<>(originalArgs);
+        // Resume the VGM engine directly instead of opening the selector again.
+        playbackArgs.addFirst("vgm");
+        return command.runPlayback(parent, playbackArgs);
+    }
 
     // ── Test-accessible setters ───────────────────────────────────────────────
 
@@ -119,11 +142,11 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
     {
         AppLogger.configure(common.logLevel.orElse(null));
         var p = requireNonNull(parent);
-        return VgmCliSupport.withBankOverride(bank.orElse(""), () -> runPlayback(p));
+        return VgmCliSupport.withBankOverride(bank.orElse(""), () -> runPlayback(p, originalArgs()));
     }
 
     @SuppressWarnings("PMD.SignatureDeclareThrowsException")
-    private Integer runPlayback(MidirajaCommand p) throws Exception
+    private Integer runPlayback(MidirajaCommand p, List<String> playbackArgs) throws Exception
     {
         refreshMutedChannels(p.getErr());
         var np = NativeAudioPipeline.build(2, common, fxOptions);
@@ -141,7 +164,7 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
         runner.setSequenceLoader(file -> loadSequenceAndPrimeProvider(file, provider));
 
         return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common,
-                originalArgs());
+                playbackArgs);
     }
 
     private LibvgmPlaybackEngine buildEngine(Sequence seq, LibvgmSynthProvider provider,

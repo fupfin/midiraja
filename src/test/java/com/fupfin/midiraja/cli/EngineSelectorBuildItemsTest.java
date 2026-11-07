@@ -21,7 +21,7 @@ import com.fupfin.midiraja.midi.MidiPort;
 
 class EngineSelectorBuildItemsTest
 {
-    private static final int BUILTIN_COUNT = 6;
+    private static final int BUILTIN_COUNT = 7;
 
     @Test
     void noPorts_returnsOnlyBuiltins()
@@ -86,10 +86,10 @@ class EngineSelectorBuildItemsTest
     void builtinItems_orderedByAudioQuality()
     {
         var items = EngineSelector.buildItems(List.of());
-        // Best-first order as documented: soundfont, patch, opn, opl, psg, 1bit
+        // Keep the existing synth order, with VGM playback as an additional choice.
         var names = items.stream()
                 .map(i -> ((EngineSelector.Choice.Builtin) i.value()).engineName())
                 .toList();
-        assertEquals(List.of("soundfont", "patch", "opn", "opl", "psg", "1bit"), names);
+        assertEquals(List.of("soundfont", "patch", "opn", "opl", "psg", "1bit", "vgm"), names);
     }
 }

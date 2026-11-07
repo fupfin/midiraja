@@ -329,6 +329,9 @@ public class MidirajaCommand implements Callable<Integer>
     private int runBuiltinEngine(String engine, List<File> files, CommonOptions common)
             throws Exception
     {
+        if ("vgm".equals(engine))
+            return VgmCommand.playFromSelector(this, files, common, fxOptions, originalArgs());
+
         Optional<String> soundbankArg = Optional.empty();
         MidiOutProvider builtinProvider;
         NativeAudioPipeline np;

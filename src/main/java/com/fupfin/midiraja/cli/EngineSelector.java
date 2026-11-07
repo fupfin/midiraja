@@ -45,7 +45,8 @@ public class EngineSelector
             builtin("opn      ", "OPN FM synthesis     (Sega Genesis / PC-98)"),
             builtin("opl      ", "OPL FM synthesis     (DOS / AdLib / Sound Blaster)"),
             builtin("psg      ", "PSG chiptune         (MSX / ZX Spectrum / Atari ST)"),
-            builtin("1bit     ", "1-Bit Beeper         (Apple II / PC Speaker)"));
+            builtin("1bit     ", "1-Bit Beeper         (Apple II / PC Speaker)"),
+            builtin("vgm      ", "VGM/VGZ playback     (libvgm)"));
 
     private static TerminalSelector.Item<Choice> builtin(String name, String desc)
     {
