@@ -24,11 +24,13 @@ final class OpnAdpcmARhythmMidiConverter
     private static final int DRUM_CH = 9;
     private static final int[] ADPCM_CH_TO_GM_NOTE = { 36, 38, 49, 42, 45, 37 };
     private final int keyReg;
+    private final DrumOutput output;
     private int activeMask;
 
-    OpnAdpcmARhythmMidiConverter(int keyReg)
+    OpnAdpcmARhythmMidiConverter(int keyReg, DrumOutput output)
     {
         this.keyReg = keyReg;
+        this.output = output;
     }
 
     /**
@@ -49,14 +51,38 @@ final class OpnAdpcmARhythmMidiConverter
             if ((selected & bit) == 0)
                 continue;
 
-            int note = ADPCM_CH_TO_GM_NOTE[ch];
-            // Close an existing MIDI note before retriggering the same percussion voice.
             if ((activeMask & bit) != 0)
-                addEvent(tracks[DRUM_CH], ShortMessage.NOTE_OFF, DRUM_CH, note, 0, tick);
+                output.release(ch, tracks[DRUM_CH], tick);
             if (!keyOff)
-                addEvent(tracks[DRUM_CH], ShortMessage.NOTE_ON, DRUM_CH, note, 100, tick);
+                output.hit(ch, tracks[DRUM_CH], tick);
         }
         activeMask = keyOff ? activeMask & ~selected : activeMask | selected;
         return true;
+    }
+
+    /** Tracks ownership across OPN chips sharing the GM percussion channel. */
+    static final class DrumOutput
+    {
+        private final int[] owners = new int[ADPCM_CH_TO_GM_NOTE.length];
+        private final int[] pendingNoteOffs = new int[ADPCM_CH_TO_GM_NOTE.length];
+
+        void hit(int voice, Track track, long tick)
+        {
+            owners[voice]++;
+            pendingNoteOffs[voice]++;
+            addEvent(track, ShortMessage.NOTE_ON, DRUM_CH, ADPCM_CH_TO_GM_NOTE[voice], 100, tick);
+        }
+
+        void release(int voice, Track track, long tick)
+        {
+            // MIDI cannot address one of two instances of the same channel/note pair.
+            // Defer releases while another chip still owns that drum.
+            if (--owners[voice] != 0)
+                return;
+
+            for (int i = 0; i < pendingNoteOffs[voice]; i++)
+                addEvent(track, ShortMessage.NOTE_OFF, DRUM_CH, ADPCM_CH_TO_GM_NOTE[voice], 0, tick);
+            pendingNoteOffs[voice] = 0;
+        }
     }
 }

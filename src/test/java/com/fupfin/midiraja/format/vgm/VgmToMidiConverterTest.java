@@ -184,6 +184,47 @@ class VgmToMidiConverterTest
         assertEquals(expected, notes(convert(interleaved), 0));
     }
 
+    @Test
+    void dualSsgVolumeChangesStayOnSeparateMidiChannels()
+    {
+        int primary = VgmToMidiConverter.CHIP_YM2203;
+        int secondary = VgmToMidiConverter.CHIP_YM2203_2;
+        var events = List.of(write(0, primary, 0, 64), write(0, primary, 8, 15),
+                write(735, secondary, 0, 64), write(735, secondary, 8, 4),
+                write(1470, secondary, 8, 0), write(2205, primary, 8, 0));
+        var sequence = convert(events);
+        assertEquals(2, notes(sequence, 0).size());
+        assertEquals(2, notes(sequence, 10).size());
+        assertEquals(List.of(0L), controllerTicks(sequence, 0, 7));
+        assertEquals(List.of(16L), controllerTicks(sequence, 10, 7));
+    }
+
+    @Test
+    void secondYm2610KeyOffDoesNotStopFirstChipsMatchingDrum()
+    {
+        int primary = VgmToMidiConverter.CHIP_YM2610_PORT1;
+        int secondary = VgmToMidiConverter.CHIP_YM2610_PORT1_2;
+        var events = List.of(write(0, primary, 0, 1), write(735, secondary, 0, 1),
+                write(1470, secondary, 0, 0x81), write(2205, primary, 0, 0x81));
+        assertEquals(List.of("0:144:36", "16:144:36", "48:128:36", "48:128:36"),
+                notes(convert(events), 9));
+    }
+
+    private static List<Long> controllerTicks(Sequence sequence, int channel, int controller)
+    {
+        var ticks = new ArrayList<Long>();
+        for (var track : sequence.getTracks())
+            for (int i = 0; i < track.size(); i++)
+            {
+                var event = track.get(i);
+                if (event.getMessage() instanceof ShortMessage msg && msg.getChannel() == channel
+                        && msg.getCommand() == ShortMessage.CONTROL_CHANGE
+                        && msg.getData1() == controller)
+                    ticks.add(event.getTick());
+            }
+        return ticks;
+    }
+
     private static VgmEvent write(long sample, int chip, int reg, int value)
     {
         return new VgmEvent(sample, chip, new byte[] { (byte) reg, (byte) value });

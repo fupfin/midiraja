@@ -61,6 +61,7 @@ public class VgmToMidiConverter
     // One NTSC frame (735 samples) = 735 × 960 / 44100 = exactly 16 ticks.
     // Sub-frame intra-frame register writes (arpeggios, vibrato) collapse into the same tick,
     // eliminating the "notes pouring" effect caused by rapid NoteOn/Off pairs.
+    private static final int SECONDARY_SSG_CHANNEL_OFFSET = 10;
     private static final int PPQ = 480;
     private static final byte[] TEMPO_BYTES = { 0x07, (byte) 0xA1, 0x20 }; // 500000 µs = 120 BPM
     private static final long VGM_SAMPLE_RATE = 44100L;
@@ -144,11 +145,11 @@ public class VgmToMidiConverter
             var ymConverter2 = new Ym2612MidiConverter(144, CHIP_YM2612_PORT1_2);
             var opmConverter2 = new Ym2151MidiConverter(opmOffset);
             var ym2203Conv2 = new Ym2612MidiConverter(72, -1);
-            var ym2203Ssg2 = new Ay8910MidiConverter();
+            var ym2203Ssg2 = new Ay8910MidiConverter(SECONDARY_SSG_CHANNEL_OFFSET);
             var ym2608Conv2 = new Ym2612MidiConverter(144, CHIP_YM2608_PORT1_2);
-            var ym2608Ssg2 = new Ay8910MidiConverter();
+            var ym2608Ssg2 = new Ay8910MidiConverter(SECONDARY_SSG_CHANNEL_OFFSET);
             var ym2610Conv2 = new Ym2612MidiConverter(144, CHIP_YM2610_PORT1_2);
-            var ym2610Ssg2 = new Ay8910MidiConverter();
+            var ym2610Ssg2 = new Ay8910MidiConverter(SECONDARY_SSG_CHANNEL_OFFSET);
             long opl2Clock = (parsed.ym3812Clock() != 0) ? parsed.ym3812Clock() : 3_579_545L;
             var opl2Converter = new Ym3812MidiConverter();
             var opl2Converter2 = new Ym3812MidiConverter();
@@ -159,10 +160,11 @@ public class VgmToMidiConverter
             var opl3Port1Conv = new Ym3812MidiConverter(opl3Clock, 10);
             var opl3Port0Conv2 = new Ym3812MidiConverter(opl3Clock, 0);
             var opl3Port1Conv2 = new Ym3812MidiConverter(opl3Clock, 10);
-            var ym2608Rhythm = new OpnAdpcmARhythmMidiConverter(0x10);
-            var ym2610Rhythm = new OpnAdpcmARhythmMidiConverter(0x00);
-            var ym2608Rhythm2 = new OpnAdpcmARhythmMidiConverter(0x10);
-            var ym2610Rhythm2 = new OpnAdpcmARhythmMidiConverter(0x00);
+            var opnDrums = new OpnAdpcmARhythmMidiConverter.DrumOutput();
+            var ym2608Rhythm = new OpnAdpcmARhythmMidiConverter(0x10, opnDrums);
+            var ym2610Rhythm = new OpnAdpcmARhythmMidiConverter(0x00, opnDrums);
+            var ym2608Rhythm2 = new OpnAdpcmARhythmMidiConverter(0x10, opnDrums);
+            var ym2610Rhythm2 = new OpnAdpcmARhythmMidiConverter(0x00, opnDrums);
 
             // Build FmPatchCatalog for all FM chips present
             if (parsed.ym3812Clock() > 0 || parsed.ymf262Clock() > 0)
