@@ -9,9 +9,13 @@ package com.fupfin.midiraja.export.midi;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
+import java.util.HashSet;
 import java.util.Set;
 import javax.sound.midi.MidiEvent;
 import javax.sound.midi.MidiSystem;
@@ -91,5 +95,48 @@ class MidiExporterTest
         var out = new ByteArrayOutputStream();
         assertThrows(RuntimeException.class,
                 () -> new MidiExporter().export(missing, out, Set.of()));
+    }
+
+    @Test
+    void bothExportOverloadsMuteSelectedVgmChannel() throws Exception
+    {
+        var header = ByteBuffer.allocate(0x40).order(ByteOrder.LITTLE_ENDIAN);
+        header.putInt(0, 0x206D6756);
+        header.putInt(8, 0x150);
+        header.putInt(0x0C, 3_579_545);
+        byte[] commands = { 0x50, (byte) 0x8A, 0x50, 0x01, 0x50, (byte) 0x90,
+                0x50, (byte) 0xAA, 0x50, 0x01, 0x50, (byte) 0xB0, 0x62, 0x66 };
+        header.putInt(4, header.capacity() + commands.length - 4);
+        File input = new File(tempDir, "two-channels.vgm");
+        try (var stream = Files.newOutputStream(input.toPath()))
+        {
+            stream.write(header.array());
+            stream.write(commands);
+        }
+
+        var exporter = new MidiExporter();
+        var baseline = new ByteArrayOutputStream();
+        exporter.export(input, baseline, Set.of());
+        assertEquals(Set.of(0, 1), noteChannels(MidiSystem.getSequence(
+                new ByteArrayInputStream(baseline.toByteArray()))));
+
+        var muted = new ByteArrayOutputStream();
+        exporter.export(input, muted, Set.of(0));
+        File output = new File(tempDir, "muted.mid");
+        exporter.export(input, output, Set.of(0));
+        assertEquals(Set.of(1), noteChannels(MidiSystem.getSequence(
+                new ByteArrayInputStream(muted.toByteArray()))));
+        assertEquals(Set.of(1), noteChannels(MidiSystem.getSequence(output)));
+    }
+
+    private static Set<Integer> noteChannels(Sequence sequence)
+    {
+        var channels = new HashSet<Integer>();
+        for (var track : sequence.getTracks())
+            for (int i = 0; i < track.size(); i++)
+                if (track.get(i).getMessage() instanceof ShortMessage msg
+                        && msg.getCommand() == ShortMessage.NOTE_ON && msg.getData2() > 0)
+                    channels.add(msg.getChannel());
+        return channels;
     }
 }

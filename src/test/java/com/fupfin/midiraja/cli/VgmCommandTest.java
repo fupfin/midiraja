@@ -23,6 +23,7 @@ import javax.sound.midi.ShortMessage;
 
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
+import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 import com.fupfin.midiraja.export.vgm.ChipHandlers;
@@ -135,6 +136,23 @@ class VgmCommandTest
             assertTrue(description.contains(preset),
                     "Missing preset in --system description: " + preset);
         }
+    }
+
+    @Test
+    void cliDescriptions_clarifyDirectPlaybackVsConversionScope() throws Exception
+    {
+        var cmdAnnotation = VgmCommand.class.getAnnotation(Command.class);
+        assertNotNull(cmdAnnotation);
+        String commandDescription = String.join(" ", cmdAnnotation.description());
+        assertTrue(commandDescription.contains("--system/--chips apply only to non-VGM conversion"),
+                "Command description should clarify --system/--chips scope");
+
+        var chipsField = VgmCommand.ChipSpecOptions.class.getDeclaredField("chips");
+        var chipsOption = chipsField.getAnnotation(Option.class);
+        assertNotNull(chipsOption);
+        String chipsDescription = String.join(" ", chipsOption.description());
+        assertTrue(chipsDescription.contains("ignored for direct .vgm/.vgz playback"),
+                "--chips description should state direct VGM playback is unaffected");
     }
 
     @Test

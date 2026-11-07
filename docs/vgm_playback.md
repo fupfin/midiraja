@@ -165,6 +165,9 @@ Midiraja can convert MIDI and MOD files to VGM format in memory, then play via l
 
 ### Chip Selection
 
+`--system`/`--chips` are used only when input is MIDI/MOD and Midiraja is converting it to VGM in memory.
+For direct `.vgm`/`.vgz` playback, these options are ignored and libvgm plays the file as-authored.
+
 #### `--system` presets
 
 | Preset | Chip(s) | Notes |

@@ -17,19 +17,20 @@ import javax.sound.midi.Track;
  *
  * <p>
  * YM2608 uses register {@code 0x10} (port 0), YM2610/YM2610B use register {@code 0x00}
- * (port 1). Bit 7 set means key-off all ({@code 0xBF} in typical streams); bits 0-5 are
- * per-channel key-on masks.
+ * (port 1). Bits 0-5 select the voices. Bit 7 selects key-off when set and key-on otherwise.
  */
 final class OpnAdpcmARhythmMidiConverter
 {
     private static final int DRUM_CH = 9;
     private static final int[] ADPCM_CH_TO_GM_NOTE = { 36, 38, 49, 42, 45, 37 };
     private final int keyReg;
-    private int lastKeyMask;
+    private final DrumOutput output;
+    private int activeMask;
 
-    OpnAdpcmARhythmMidiConverter(int keyReg)
+    OpnAdpcmARhythmMidiConverter(int keyReg, DrumOutput output)
     {
         this.keyReg = keyReg;
+        this.output = output;
     }
 
     /**
@@ -42,21 +43,46 @@ final class OpnAdpcmARhythmMidiConverter
             return false;
 
         int data = event.rawData()[1] & 0xFF;
-        int newMask = ((data & 0x80) != 0) ? 0 : (data & 0x3F);
-
+        boolean keyOff = (data & 0x80) != 0;
+        int selected = data & 0x3F;
         for (int ch = 0; ch < ADPCM_CH_TO_GM_NOTE.length; ch++)
         {
             int bit = 1 << ch;
-            boolean wasOn = (lastKeyMask & bit) != 0;
-            boolean isOn = (newMask & bit) != 0;
-            int note = ADPCM_CH_TO_GM_NOTE[ch];
-            if (!wasOn && isOn)
-                addEvent(tracks[DRUM_CH], ShortMessage.NOTE_ON, DRUM_CH, note, 100, tick);
-            else if (wasOn && !isOn)
-                addEvent(tracks[DRUM_CH], ShortMessage.NOTE_OFF, DRUM_CH, note, 0, tick);
+            if ((selected & bit) == 0)
+                continue;
+
+            if ((activeMask & bit) != 0)
+                output.release(ch, tracks[DRUM_CH], tick);
+            if (!keyOff)
+                output.hit(ch, tracks[DRUM_CH], tick);
         }
-        lastKeyMask = newMask;
+        activeMask = keyOff ? activeMask & ~selected : activeMask | selected;
         return true;
     }
-}
 
+    /** Tracks ownership across OPN chips sharing the GM percussion channel. */
+    static final class DrumOutput
+    {
+        private final int[] owners = new int[ADPCM_CH_TO_GM_NOTE.length];
+        private final int[] pendingNoteOffs = new int[ADPCM_CH_TO_GM_NOTE.length];
+
+        void hit(int voice, Track track, long tick)
+        {
+            owners[voice]++;
+            pendingNoteOffs[voice]++;
+            addEvent(track, ShortMessage.NOTE_ON, DRUM_CH, ADPCM_CH_TO_GM_NOTE[voice], 100, tick);
+        }
+
+        void release(int voice, Track track, long tick)
+        {
+            // MIDI cannot address one of two instances of the same channel/note pair.
+            // Defer releases while another chip still owns that drum.
+            if (--owners[voice] != 0)
+                return;
+
+            for (int i = 0; i < pendingNoteOffs[voice]; i++)
+                addEvent(track, ShortMessage.NOTE_OFF, DRUM_CH, ADPCM_CH_TO_GM_NOTE[voice], 0, tick);
+            pendingNoteOffs[voice] = 0;
+        }
+    }
+}

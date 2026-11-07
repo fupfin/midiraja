@@ -43,16 +43,16 @@ import com.fupfin.midiraja.midi.vgm.LibvgmPlaybackEngine;
 import com.fupfin.midiraja.midi.vgm.LibvgmSynthProvider;
 
 @Command(name = "vgm", aliases = {
-        "chiptune" }, mixinStandardHelpOptions = true, description = "VGM/VGZ direct playback or MIDI → VGM → libvgm synthesis.")
+        "chiptune" }, mixinStandardHelpOptions = true, description = "VGM/VGZ direct playback or non-VGM input → VGM → libvgm synthesis. --system/--chips apply only to non-VGM conversion, not direct .vgm/.vgz playback.")
 public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
 {
     static final class ChipSpecOptions
     {
-        @Option(names = "--system", description = "System preset: zxspectrum, msx, msx-scc, sb16, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, pc-engine, nes, fm-towns. Default: megadrive.")
+        @Option(names = "--system", description = "System preset for non-VGM -> VGM conversion (ignored for direct .vgm/.vgz playback): zxspectrum, msx, msx-scc, sb16, megadrive, adlib, pc98, pc88, x68000, neogeo, neogeo-b, gameboy, pc-engine, nes, fm-towns. Default: megadrive.")
         @Nullable
         String system;
 
-        @Option(names = "--chips", description = "Chip combination. Available chips: ay8910, ym2413, scc, scci, opl3, sn76489, ym2612, ym3812, ym2608, ym2151, ym2610, ym2610b, ym2203, dmg, huc6280, nes_apu, msm6258, rf5c68. Separators: '+' or ',' = CHANNEL mode (round-robin by MIDI channel); '>' = SEQUENTIAL mode (fill first chip before second). E.g. ay8910+ym2413 or scc>ay8910.")
+        @Option(names = "--chips", description = "Chip combination for non-VGM -> VGM conversion (ignored for direct .vgm/.vgz playback). Available chips: ay8910, ym2413, scc, scci, opl3, sn76489, ym2612, ym3812, ym2608, ym2151, ym2610, ym2610b, ym2203, dmg, huc6280, nes_apu, msm6258, rf5c68. Separators: '+' or ',' = CHANNEL mode (round-robin by MIDI channel); '>' = SEQUENTIAL mode (fill first chip before second). E.g. ay8910+ym2413 or scc>ay8910.")
         @Nullable
         String chips;
     }
@@ -73,14 +73,37 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
     private Optional<String> bank = Optional.empty();
 
     @Mixin
-    private final CommonOptions common = new CommonOptions();
+    private final CommonOptions common;
 
     // ── State ─────────────────────────────────────────────────────────────────
 
     /** Chip label resolved per-file; used to set portSuffix on each engine instance. */
     private volatile String chipLabel = "";
-    /** 0-based channels to mute during MIDI/MOD -> VGM conversion. */
+    /** 0-based channels to mute during non-VGM -> VGM conversion. */
     private volatile Set<Integer> mutedChannels = Set.of();
+
+    public VgmCommand()
+    {
+        this(new CommonOptions());
+    }
+
+    private VgmCommand(CommonOptions common)
+    {
+        this.common = common;
+    }
+
+    public static int playFromSelector(MidirajaCommand parent, List<File> files,
+            CommonOptions common, FxOptions fxOptions, List<String> originalArgs) throws Exception
+    {
+        var command = new VgmCommand(common);
+        command.files = files;
+        command.fxOptions = fxOptions;
+
+        var playbackArgs = new ArrayList<>(originalArgs);
+        // Resume the VGM engine directly instead of opening the selector again.
+        playbackArgs.addFirst("vgm");
+        return command.runPlayback(parent, playbackArgs);
+    }
 
     // ── Test-accessible setters ───────────────────────────────────────────────
 
@@ -119,11 +142,11 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
     {
         AppLogger.configure(common.logLevel.orElse(null));
         var p = requireNonNull(parent);
-        return VgmCliSupport.withBankOverride(bank.orElse(""), () -> runPlayback(p));
+        return VgmCliSupport.withBankOverride(bank.orElse(""), () -> runPlayback(p, originalArgs()));
     }
 
     @SuppressWarnings("PMD.SignatureDeclareThrowsException")
-    private Integer runPlayback(MidirajaCommand p) throws Exception
+    private Integer runPlayback(MidirajaCommand p, List<String> playbackArgs) throws Exception
     {
         refreshMutedChannels(p.getErr());
         var np = NativeAudioPipeline.build(2, common, fxOptions);
@@ -141,7 +164,7 @@ public class VgmCommand extends PcmAudioSubcommand implements Callable<Integer>
         runner.setSequenceLoader(file -> loadSequenceAndPrimeProvider(file, provider));
 
         return runner.run(provider, true, Optional.empty(), Optional.empty(), files, common,
-                originalArgs());
+                playbackArgs);
     }
 
     private LibvgmPlaybackEngine buildEngine(Sequence seq, LibvgmSynthProvider provider,

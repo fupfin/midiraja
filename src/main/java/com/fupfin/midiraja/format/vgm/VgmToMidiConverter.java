@@ -61,6 +61,7 @@ public class VgmToMidiConverter
     // One NTSC frame (735 samples) = 735 × 960 / 44100 = exactly 16 ticks.
     // Sub-frame intra-frame register writes (arpeggios, vibrato) collapse into the same tick,
     // eliminating the "notes pouring" effect caused by rapid NoteOn/Off pairs.
+    private static final int SECONDARY_SSG_CHANNEL_OFFSET = 10;
     private static final int PPQ = 480;
     private static final byte[] TEMPO_BYTES = { 0x07, (byte) 0xA1, 0x20 }; // 500000 µs = 120 BPM
     private static final long VGM_SAMPLE_RATE = 44100L;
@@ -131,18 +132,24 @@ public class VgmToMidiConverter
             var opmConverter = new Ym2151MidiConverter(opmOffset);
             // OPN family: reuse Ym2612MidiConverter with chip-specific divider and port1 ID.
             var ym2203Conv = new Ym2612MidiConverter(72, -1); // single port, divider=72
+            var ym2203Ssg = new Ay8910MidiConverter();
             var ym2608Conv = new Ym2612MidiConverter(144, CHIP_YM2608_PORT1);
+            var ym2608Ssg = new Ay8910MidiConverter();
             var ym2610Conv = new Ym2612MidiConverter(144, CHIP_YM2610_PORT1);
+            var ym2610Ssg = new Ay8910MidiConverter();
             var pceConverter = new HuC6280MidiConverter();
             var opllConverter = new Ym2413MidiConverter();
             var opllConverter2 = new Ym2413MidiConverter();
             var nesConverter = new Nes2A03MidiConverter();
             var gbConverter = new GameBoyDmgMidiConverter();
-            var ymConverter2 = new Ym2612MidiConverter();
+            var ymConverter2 = new Ym2612MidiConverter(144, CHIP_YM2612_PORT1_2);
             var opmConverter2 = new Ym2151MidiConverter(opmOffset);
             var ym2203Conv2 = new Ym2612MidiConverter(72, -1);
+            var ym2203Ssg2 = new Ay8910MidiConverter(SECONDARY_SSG_CHANNEL_OFFSET);
             var ym2608Conv2 = new Ym2612MidiConverter(144, CHIP_YM2608_PORT1_2);
+            var ym2608Ssg2 = new Ay8910MidiConverter(SECONDARY_SSG_CHANNEL_OFFSET);
             var ym2610Conv2 = new Ym2612MidiConverter(144, CHIP_YM2610_PORT1_2);
+            var ym2610Ssg2 = new Ay8910MidiConverter(SECONDARY_SSG_CHANNEL_OFFSET);
             long opl2Clock = (parsed.ym3812Clock() != 0) ? parsed.ym3812Clock() : 3_579_545L;
             var opl2Converter = new Ym3812MidiConverter();
             var opl2Converter2 = new Ym3812MidiConverter();
@@ -153,10 +160,11 @@ public class VgmToMidiConverter
             var opl3Port1Conv = new Ym3812MidiConverter(opl3Clock, 10);
             var opl3Port0Conv2 = new Ym3812MidiConverter(opl3Clock, 0);
             var opl3Port1Conv2 = new Ym3812MidiConverter(opl3Clock, 10);
-            var ym2608Rhythm = new OpnAdpcmARhythmMidiConverter(0x10);
-            var ym2610Rhythm = new OpnAdpcmARhythmMidiConverter(0x00);
-            var ym2608Rhythm2 = new OpnAdpcmARhythmMidiConverter(0x10);
-            var ym2610Rhythm2 = new OpnAdpcmARhythmMidiConverter(0x00);
+            var opnDrums = new OpnAdpcmARhythmMidiConverter.DrumOutput();
+            var ym2608Rhythm = new OpnAdpcmARhythmMidiConverter(0x10, opnDrums);
+            var ym2610Rhythm = new OpnAdpcmARhythmMidiConverter(0x00, opnDrums);
+            var ym2608Rhythm2 = new OpnAdpcmARhythmMidiConverter(0x10, opnDrums);
+            var ym2610Rhythm2 = new OpnAdpcmARhythmMidiConverter(0x00, opnDrums);
 
             // Build FmPatchCatalog for all FM chips present
             if (parsed.ym3812Clock() > 0 || parsed.ymf262Clock() > 0)
@@ -227,16 +235,15 @@ public class VgmToMidiConverter
                     case CHIP_AY8910 -> ayConverter.convert(event, routed, parsed.ay8910Clock(), tick);
                     case CHIP_SCC -> sccConverter.convert(event, routed, parsed.sccClock(), tick);
                     case CHIP_YM2151 -> opmConverter.convert(event, routed, parsed.ym2151Clock(), tick);
-                    case CHIP_YM2203 -> routeOpn(event, routed, tick, ym2203Conv, ayConverter,
+                    case CHIP_YM2203 -> routeOpn(event, routed, tick, ym2203Conv, ym2203Ssg,
                             null, parsed.ym2203Clock(), parsed.ym2203Clock() / 2);
-                    case CHIP_YM2608_PORT0 -> routeOpn(event, routed, tick, ym2608Conv, ayConverter,
-                            ym2608Rhythm,
-                            parsed.ym2608Clock(), parsed.ym2608Clock() / 4);
+                    case CHIP_YM2608_PORT0 -> routeOpn(event, routed, tick, ym2608Conv, ym2608Ssg,
+                            ym2608Rhythm, parsed.ym2608Clock(), parsed.ym2608Clock() / 4);
                     case CHIP_YM2608_PORT1 -> ym2608Conv.convert(event, routed, parsed.ym2608Clock(), tick);
-                    case CHIP_YM2610_PORT0 -> routeOpn(event, routed, tick, ym2610Conv, ayConverter,
-                            ym2610Rhythm,
-                            parsed.ym2610Clock(), parsed.ym2610Clock() / 4);
-                    case CHIP_YM2610_PORT1 -> ym2610Conv.convert(event, routed, parsed.ym2610Clock(), tick);
+                    case CHIP_YM2610_PORT0 -> routeOpn(event, routed, tick, ym2610Conv, ym2610Ssg,
+                            null, parsed.ym2610Clock(), parsed.ym2610Clock() / 4);
+                    case CHIP_YM2610_PORT1 -> routeOpnRhythmOrFm(event, routed, tick,
+                            ym2610Conv, ym2610Rhythm, parsed.ym2610Clock());
                     case CHIP_HUC6280 -> pceConverter.convert(event, routed, parsed.huC6280Clock(), tick);
                     case CHIP_GAMEBOY_DMG -> gbConverter.convert(event, routed, parsed.gameBoyDmgClock(), tick);
                     case CHIP_NES_2A03 -> nesConverter.convert(event, routed, parsed.nes2A03Clock(), tick);
@@ -248,14 +255,15 @@ public class VgmToMidiConverter
                     case CHIP_YM2612_PORT0_2, CHIP_YM2612_PORT1_2 ->
                         ymConverter2.convert(event, routed, parsed.ym2612Clock(), tick);
                     case CHIP_YM2151_2 -> opmConverter2.convert(event, routed, parsed.ym2151Clock(), tick);
-                    case CHIP_YM2203_2 -> routeOpn(event, routed, tick, ym2203Conv2, ayConverter,
+                    case CHIP_YM2203_2 -> routeOpn(event, routed, tick, ym2203Conv2, ym2203Ssg2,
                             null, parsed.ym2203Clock(), parsed.ym2203Clock() / 2);
-                    case CHIP_YM2608_PORT0_2 -> routeOpn(event, routed, tick, ym2608Conv2, ayConverter,
+                    case CHIP_YM2608_PORT0_2 -> routeOpn(event, routed, tick, ym2608Conv2, ym2608Ssg2,
                             ym2608Rhythm2, parsed.ym2608Clock(), parsed.ym2608Clock() / 4);
                     case CHIP_YM2608_PORT1_2 -> ym2608Conv2.convert(event, routed, parsed.ym2608Clock(), tick);
-                    case CHIP_YM2610_PORT0_2 -> routeOpn(event, routed, tick, ym2610Conv2, ayConverter,
-                            ym2610Rhythm2, parsed.ym2610Clock(), parsed.ym2610Clock() / 4);
-                    case CHIP_YM2610_PORT1_2 -> ym2610Conv2.convert(event, routed, parsed.ym2610Clock(), tick);
+                    case CHIP_YM2610_PORT0_2 -> routeOpn(event, routed, tick, ym2610Conv2, ym2610Ssg2,
+                            null, parsed.ym2610Clock(), parsed.ym2610Clock() / 4);
+                    case CHIP_YM2610_PORT1_2 -> routeOpnRhythmOrFm(event, routed, tick,
+                            ym2610Conv2, ym2610Rhythm2, parsed.ym2610Clock());
                     case CHIP_YM3812_2 -> opl2Converter2.convert(event, routed, opl2Clock, tick);
                     case CHIP_YMF262_PORT0_2 -> opl3Port0Conv2.convert(event, routed, opl3Clock, tick);
                     case CHIP_YMF262_PORT1_2 -> opl3Port1Conv2.convert(event, routed, opl3Clock, tick);
@@ -282,7 +290,6 @@ public class VgmToMidiConverter
         }
     }
 
-    /** Routes OPN port-0 events: addr ≤ 0x0D → SSG (AY8910), otherwise → FM. */
     private static @org.jspecify.annotations.Nullable String buildTitle(VgmParseResult parsed)
     {
         var chips = new java.util.ArrayList<String>();
@@ -327,6 +334,7 @@ public class VgmToMidiConverter
         return gd3;
     }
 
+    /** Routes OPN port-0 events to the SSG, rhythm, or FM converter. */
     private static void routeOpn(VgmEvent event, Track[] routed, long tick,
             Ym2612MidiConverter fmConv, Ay8910MidiConverter ssgConv,
             @org.jspecify.annotations.Nullable OpnAdpcmARhythmMidiConverter adpcmRhythmConv,
@@ -337,13 +345,18 @@ public class VgmToMidiConverter
         {
             ssgConv.convert(event, routed, ssgClock, tick);
         }
-        else if (adpcmRhythmConv != null && adpcmRhythmConv.convert(event, routed, tick))
-        {
-            // handled as ADPCM-A rhythm
-        }
         else
         {
-            fmConv.convert(event, routed, fmClock, tick);
+            routeOpnRhythmOrFm(event, routed, tick, fmConv, adpcmRhythmConv, fmClock);
         }
+    }
+
+    private static void routeOpnRhythmOrFm(VgmEvent event, Track[] routed, long tick,
+            Ym2612MidiConverter fmConv,
+            @org.jspecify.annotations.Nullable OpnAdpcmARhythmMidiConverter rhythmConv,
+            long fmClock)
+    {
+        if (rhythmConv == null || !rhythmConv.convert(event, routed, tick))
+            fmConv.convert(event, routed, fmClock, tick);
     }
 }

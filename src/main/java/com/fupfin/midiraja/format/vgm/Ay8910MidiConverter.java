@@ -63,6 +63,8 @@ public class Ay8910MidiConverter
 
     private static final int NOISE_MIDI_CH = 9;
 
+    private final int toneChannelOffset;
+    private final boolean[] toneProgramSent = new boolean[3];
     private final int[] period = new int[3];
     private final int[] volume = new int[3]; // 0=silent, 15=loudest
     private final boolean[] toneEn = { true, true, true }; // R7 bit2-0 inverted
@@ -75,6 +77,16 @@ public class Ay8910MidiConverter
     private final boolean[] envelopeMode = new boolean[3]; // R8-R10 bit4
     private int noiseActiveNote = -1;
     private static final long MAX_DECAY_TICKS = 1920; // 2 seconds at 960 ticks/sec
+
+    public Ay8910MidiConverter()
+    {
+        this(0);
+    }
+
+    Ay8910MidiConverter(int toneChannelOffset)
+    {
+        this.toneChannelOffset = toneChannelOffset;
+    }
 
     public void convert(VgmEvent event, Track[] tracks, long clock, long tick)
     {
@@ -185,7 +197,9 @@ public class Ay8910MidiConverter
         {
             // Volume envelope change while note is playing: send CC7 without re-triggering.
             // Re-triggering on every envelope step causes audible attack clicks.
-            addEvent(tracks[ch], ShortMessage.CONTROL_CHANGE, ch, 7, toVelocity(newVol), tick);
+            int midiChannel = toneChannelOffset + ch;
+            addEvent(tracks[midiChannel], ShortMessage.CONTROL_CHANGE, midiChannel, 7,
+                    toVelocity(newVol), tick);
         }
         updateNoise(tick, tracks);
     }
@@ -209,10 +223,17 @@ public class Ay8910MidiConverter
         int note = ay8910Note(clock, period[ch]);
         if (note < 0)
             return;
+        int midiChannel = toneChannelOffset + ch;
+        if (toneChannelOffset != 0 && !toneProgramSent[ch])
+        {
+            addEvent(tracks[midiChannel], ShortMessage.PROGRAM_CHANGE, midiChannel, 80, 0, tick);
+            toneProgramSent[ch] = true;
+        }
         // CC7 before NoteOn: ensures channel volume is set correctly regardless of any
         // residual CC7 value left from a previous note or Program Change reset.
-        addEvent(tracks[ch], ShortMessage.CONTROL_CHANGE, ch, 7, toVelocity(volume[ch]), tick);
-        addEvent(tracks[ch], ShortMessage.NOTE_ON, ch, note, 127, tick);
+        addEvent(tracks[midiChannel], ShortMessage.CONTROL_CHANGE, midiChannel, 7,
+                toVelocity(volume[ch]), tick);
+        addEvent(tracks[midiChannel], ShortMessage.NOTE_ON, midiChannel, note, 127, tick);
         activeNote[ch] = note;
 
         // Envelope decay simulation: for single-decay shapes (0-3, 9), insert an
@@ -223,7 +244,8 @@ public class Ay8910MidiConverter
             long decayTicks = computeDecayTicks(clock);
             if (decayTicks > 0)
             {
-                addEvent(tracks[ch], ShortMessage.NOTE_OFF, ch, note, 0, tick + decayTicks);
+                addEvent(tracks[midiChannel], ShortMessage.NOTE_OFF, midiChannel, note, 0,
+                        tick + decayTicks);
             }
         }
     }
@@ -232,7 +254,8 @@ public class Ay8910MidiConverter
     {
         if (activeNote[ch] >= 0)
         {
-            addEvent(tracks[ch], ShortMessage.NOTE_OFF, ch, activeNote[ch], 0, tick);
+            int midiChannel = toneChannelOffset + ch;
+            addEvent(tracks[midiChannel], ShortMessage.NOTE_OFF, midiChannel, activeNote[ch], 0, tick);
             activeNote[ch] = -1;
         }
     }
